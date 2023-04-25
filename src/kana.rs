@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use core::fmt;
 use std::borrow::Cow;
 
@@ -16,10 +19,7 @@ impl<'a> Word<'a> {
     }
 
     pub fn furigana(&self) -> Furigana<'a> {
-        Furigana {
-            kanji: Cow::Borrowed(self.text),
-            reading: Cow::Borrowed(self.reading),
-        }
+        Furigana::borrowed(self.text, self.reading)
     }
 }
 
@@ -83,7 +83,14 @@ pub struct Furigana<'a> {
     reading: Cow<'a, str>,
 }
 
-impl Furigana<'_> {
+impl<'a> Furigana<'a> {
+    pub fn borrowed(kanji: &'a str, reading: &'a str) -> Self {
+        Self {
+            kanji: Cow::Borrowed(kanji),
+            reading: Cow::Borrowed(reading),
+        }
+    }
+
     /// Access underlying kanji.
     pub fn kanji(&self) -> &str {
         self.kanji.as_ref()
@@ -100,34 +107,39 @@ impl fmt::Display for Furigana<'_> {
         let mut kanji = &self.kanji[..];
         let mut reading = &self.reading[..];
 
+        let Some(mut index) = kanji.find(is_kanji) else {
+            return kanji.fmt(f);
+        };
+
         while !kanji.is_empty() {
-            let index = kanji.find(is_kanji).unwrap_or(kanji.len());
-            let (head, mut tail) = kanji.split_at(index);
+            let (kana, mut tail) = kanji.split_at(index);
 
-            if reading.starts_with(head) {
-                head.fmt(f)?;
-            } else {
+            if !reading.starts_with(kana) {
                 '['.fmt(f)?;
+                let mut chars = reading.chars();
 
-                while !reading.starts_with(head) {
-                    let Some(c) = reading.chars().next() else {
-                        break;
-                    };
-
+                while let Some(c) = chars.next() {
                     c.fmt(f)?;
-                    reading = &reading[c.len_utf8()..];
+
+                    if chars.as_str().starts_with(kana) {
+                        break;
+                    }
                 }
 
+                reading = chars.as_str();
                 ']'.fmt(f)?;
-                head.fmt(f)?;
             }
+
+            kana.fmt(f)?;
+            reading = reading.get(kana.len()..).unwrap_or_default();
 
             while let Some(c) = tail.chars().next().filter(|&c| is_kanji(c)) {
                 c.fmt(f)?;
-                tail = &tail[c.len_utf8()..];
+                tail = tail.get(c.len_utf8()..).unwrap_or_default();
             }
 
             kanji = tail;
+            index = kanji.find(is_kanji).unwrap_or(kanji.len());
         }
 
         Ok(())
