@@ -73,8 +73,8 @@ where
     }
 }
 
-fn is_kana(c: char) -> bool {
-    matches!(c, '\u{3041}'..='\u{3096}' | '\u{3099}'..='\u{309f}' | '\u{30a0}'..='\u{30ff}')
+fn is_kanji(c: char) -> bool {
+    matches!(c, '\u{4e00}'..='\u{9faf}')
 }
 
 /// Formatter from [`Pair::furigana`].
@@ -101,7 +101,7 @@ impl fmt::Display for Furigana<'_> {
         let mut reading = &self.reading[..];
 
         while !kanji.is_empty() {
-            let index = kanji.find(|c| !is_kana(c)).unwrap_or(kanji.len());
+            let index = kanji.find(is_kanji).unwrap_or(kanji.len());
             let (head, mut tail) = kanji.split_at(index);
 
             if reading.starts_with(head) {
@@ -122,11 +122,7 @@ impl fmt::Display for Furigana<'_> {
                 head.fmt(f)?;
             }
 
-            while let Some(c) = tail.chars().next() {
-                if is_kana(c) {
-                    break;
-                }
-
+            while let Some(c) = tail.chars().next().filter(|&c| is_kanji(c)) {
                 c.fmt(f)?;
                 tail = &tail[c.len_utf8()..];
             }
