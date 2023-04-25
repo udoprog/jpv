@@ -59,19 +59,19 @@ impl<'a> Builder<'a> {
 
     pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<SourceLanguage<'a>>> {
         match output {
-            Output::Text(text) => {
+            Output::Text(text) if self.text.is_none() => {
                 self.text = Some(text);
                 Ok(Poll::Pending)
             }
-            Output::Attribute("lang", value) => {
+            Output::Attribute("lang", value) if self.lang.is_none() => {
                 self.lang = Some(value);
                 Ok(Poll::Pending)
             }
-            Output::Attribute("ls_wasei", "y") => {
+            Output::Attribute("ls_wasei", "y") if !self.waseigo => {
                 self.waseigo = true;
                 Ok(Poll::Pending)
             }
-            Output::Attribute("ls_type", value) => {
+            Output::Attribute("ls_type", value) if self.ty.is_none() => {
                 self.ty = Some(value);
                 Ok(Poll::Pending)
             }

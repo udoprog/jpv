@@ -1,20 +1,21 @@
 use core::fmt;
 use core::mem;
 
+use anyhow::ensure;
 use anyhow::{anyhow, Context, Result};
 
 use crate::elements::empty;
 use crate::elements::text;
-use crate::parser::{Output, Poll};
+use crate::entities::ReadingInfo;
 use crate::priority::Priority;
 
 #[derive(Debug)]
 pub struct ReadingElement<'a> {
     pub text: &'a str,
     pub no_kanji: bool,
-    pub reading_string: Option<&'a str>,
+    pub reading_string: Vec<&'a str>,
     pub priority: Vec<Priority>,
-    pub info: Option<&'a str>,
+    pub info: Vec<ReadingInfo>,
 }
 
 impl<'a> ReadingElement<'a> {
@@ -37,16 +38,16 @@ impl fmt::Debug for DebugSparse<'_> {
             f.field("no_kanji", &self.0.no_kanji);
         }
 
-        if let Some(text) = self.0.reading_string {
-            f.field("reading_string", &text);
+        if !self.0.reading_string.is_empty() {
+            f.field("reading_string", &self.0.reading_string);
         }
 
         if !self.0.priority.is_empty() {
             f.field("priority", &self.0.priority);
         }
 
-        if let Some(text) = self.0.info {
-            f.field("info", &text);
+        if !self.0.info.is_empty() {
+            f.field("info", &self.0.info);
         }
 
         f.finish_non_exhaustive()
@@ -69,43 +70,47 @@ pub(super) struct Builder<'a> {
     state: State<'a>,
     text: Option<&'a str>,
     no_kanji: bool,
-    reading_string: Option<&'a str>,
+    reading_string: Vec<&'a str>,
     priority: Vec<Priority>,
-    info: Option<&'a str>,
+    info: Vec<ReadingInfo>,
 }
 
 impl<'a> Builder<'a> {
     builder! {
         self => ReadingElement<'a> {
             "reb", Text, value => {
+                ensure!(self.text.is_none(), "Only one reb element allowed");
                 self.text = Some(value);
-            },
+            }
             "re_nokanji", NoKanji, () => {
                 self.no_kanji = true;
-            },
+            }
             "re_restr", ReadingString, value => {
-                self.reading_string = Some(value);
-            },
+                self.reading_string.push(value);
+            }
             "re_pri", Priority, value => {
                 let priority = Priority::parse(value).with_context(|| anyhow!("Unsupported priority `{value}`"))?;
                 self.priority.push(priority);
-            },
+            }
             "re_inf", Information, value => {
-                self.info = Some(value);
-            },
+                let info = ReadingInfo::parse(value).with_context(|| anyhow!("Unsupported info `{value}`"))?;
+                self.info.push(info);
+            }
         }
     }
 
     fn build(&mut self) -> Result<ReadingElement<'a>> {
         let text = self.text.context("missing text")?;
+        let reading_string = mem::take(&mut self.reading_string);
         let priority = mem::take(&mut self.priority);
+        let info = mem::take(&mut self.info);
 
         Ok(ReadingElement {
             text,
             no_kanji: self.no_kanji,
-            reading_string: self.reading_string,
+            reading_string,
             priority,
-            info: self.info,
+            info,
         })
     }
 }

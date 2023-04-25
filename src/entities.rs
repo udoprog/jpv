@@ -4,7 +4,7 @@ macro_rules! entity {
     ($vis:vis enum $name:ident {
         $(<$variant:ident $entity:literal $doc:literal>)*
     }) => {
-        #[derive(Debug, Clone, Copy, Key)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Key)]
         $vis enum $name {
             $(
                 #[doc = $doc]
@@ -13,9 +13,43 @@ macro_rules! entity {
         }
 
         impl $name {
+            #[allow(unused)]
+            $vis const VALUES: &[$name] = &[
+                $($name::$variant,)*
+            ];
+
+            #[allow(unused)]
+            $vis fn variant(&self) -> &str {
+                match self {
+                    $($name::$variant => stringify!($variant),)*
+                }
+            }
+
+            #[allow(unused)]
+            $vis fn ident(&self) -> &str {
+                match self {
+                    $($name::$variant => $entity,)*
+                }
+            }
+
+            #[allow(unused)]
+            $vis fn help(&self) -> &str {
+                match self {
+                    $($name::$variant => $doc,)*
+                }
+            }
+
             $vis fn parse(string: &str) -> Option<$name> {
                 match string {
                     $(concat!("&", $entity, ";") => Some($name::$variant),)*
+                    _ => None,
+                }
+            }
+
+            #[allow(unused)]
+            $vis fn parse_keyword(string: &str) -> Option<$name> {
+                match string {
+                    $($entity => Some($name::$variant),)*
                     _ => None,
                 }
             }
@@ -189,6 +223,15 @@ entity! {
         <OutdatedKanji "oK" "word containing out-dated kanji or kanji usage">
         <RareKanji "rK" "rarely-used kanji form">
         <SearchOnlyKanji "sK" "search-only kanji form">
+    }
+}
+
+entity! {
+    pub enum ReadingInfo {
+        <Gikun "gikun" "gikun (meaning as reading) or jukujikun (special kanji reading)">
+        <IrregularKana "ik" "word containing irregular kana usage">
+        <ObsoleteKana "ok" "out-dated or obsolete kana usage">
+        <SearchOnlyKana "sk" "search-only kana form">
     }
 }
 

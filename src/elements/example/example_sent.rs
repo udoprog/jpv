@@ -3,7 +3,7 @@ use anyhow::{bail, Context, Result};
 use crate::parser::{Output, Poll};
 
 #[derive(Debug)]
-pub struct Gloss<'a> {
+pub struct ExampleSent<'a> {
     pub text: &'a str,
     pub lang: Option<&'a str>,
 }
@@ -11,7 +11,6 @@ pub struct Gloss<'a> {
 #[derive(Debug, Default)]
 pub(super) struct Builder<'a> {
     text: Option<&'a str>,
-    ty: Option<&'a str>,
     lang: Option<&'a str>,
 }
 
@@ -20,21 +19,17 @@ impl<'a> Builder<'a> {
         true
     }
 
-    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<Gloss<'a>>> {
+    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<ExampleSent<'a>>> {
         match output {
             Output::Text(text) if self.text.is_none() => {
                 self.text = Some(text);
-                Ok(Poll::Pending)
-            }
-            Output::Attribute("g_type", value) if self.ty.is_none() => {
-                self.ty = Some(value);
                 Ok(Poll::Pending)
             }
             Output::Attribute("lang", value) if self.lang.is_none() => {
                 self.lang = Some(value);
                 Ok(Poll::Pending)
             }
-            Output::Close => Ok(Poll::Ready(Gloss {
+            Output::Close => Ok(Poll::Ready(ExampleSent {
                 text: self.text.context("missing text")?,
                 lang: self.lang,
             })),

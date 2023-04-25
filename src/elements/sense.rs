@@ -4,19 +4,21 @@ use core::mem;
 use anyhow::{anyhow, ensure, Context, Result};
 use fixed_map::Set;
 
-use crate::elements::{gloss, source_language, text};
-use crate::elements::{Gloss, SourceLanguage};
+use crate::elements::{example, gloss, source_language, text};
+use crate::elements::{Example, Gloss, SourceLanguage};
 use crate::entities::Dialect;
 use crate::entities::Field;
 use crate::entities::{Miscellaneous, PartOfSpeech};
-use crate::parser::{Output, Poll};
 
 const DEFAULT_LANGUAGE: &str = "eng";
 
 #[derive(Debug)]
 pub struct Sense<'a> {
-    pub part_of_speech: Set<PartOfSpeech>,
-    pub xref: Option<&'a str>,
+    /// Part of speech.
+    pub pos: Set<PartOfSpeech>,
+    /// Cross reference to other entries.
+    pub xref: Vec<&'a str>,
+    /// Glossary items.
     pub gloss: Vec<Gloss<'a>>,
     pub info: Option<&'a str>,
     pub misc: Set<Miscellaneous>,
@@ -26,6 +28,7 @@ pub struct Sense<'a> {
     pub fields: Set<Field>,
     pub source_language: Vec<SourceLanguage<'a>>,
     pub antonym: Vec<&'a str>,
+    pub examples: Vec<Example<'a>>,
 }
 
 impl<'a> Sense<'a> {
@@ -66,12 +69,12 @@ impl fmt::Debug for DebugSparse<'_> {
 
         let mut f = f.debug_struct("Sense");
 
-        if !self.0.part_of_speech.is_empty() {
-            f.field("part_of_speech", &self.0.part_of_speech);
+        if !self.0.pos.is_empty() {
+            f.field("pos", &self.0.pos);
         }
 
-        if let Some(field) = self.0.xref {
-            f.field("xref", &field);
+        if !self.0.xref.is_empty() {
+            f.field("xref", &self.0.xref);
         }
 
         if let Some(field) = self.0.info {
@@ -125,13 +128,14 @@ enum State<'a> {
     Field(text::Builder<'a>),
     SourceLanguage(source_language::Builder<'a>),
     Antonym(text::Builder<'a>),
+    Example(example::Builder<'a>),
 }
 
 #[derive(Debug, Default)]
 pub(super) struct Builder<'a> {
     state: State<'a>,
-    part_of_speech: Set<PartOfSpeech>,
-    xref: Option<&'a str>,
+    pos: Set<PartOfSpeech>,
+    xref: Vec<&'a str>,
     gloss: Vec<Gloss<'a>>,
     info: Option<&'a str>,
     misc: Set<Miscellaneous>,
@@ -141,54 +145,59 @@ pub(super) struct Builder<'a> {
     fields: Set<Field>,
     source_language: Vec<SourceLanguage<'a>>,
     antonym: Vec<&'a str>,
+    examples: Vec<Example<'a>>,
 }
 
 impl<'a> Builder<'a> {
     builder! {
         self => Sense<'a> {
             "pos", Pos, value => {
-                self.part_of_speech.insert(PartOfSpeech::parse(value).with_context(|| anyhow!("Unsupported part of speech `{}`", value))?);
-            },
+                self.pos.insert(PartOfSpeech::parse(value).with_context(|| anyhow!("Unsupported part of speech `{}`", value))?);
+            }
             "xref", Xref, value => {
-                self.xref = Some(value);
-            },
+                self.xref.push(value);
+            }
             "gloss", Gloss, value => {
                 self.gloss.push(value);
-            },
+            }
             "s_inf", Information, value => {
-                ensure!(self.info.is_none(), "info already set");
+                ensure!(self.info.is_none(), "Only one info element allowed");
                 self.info = Some(value);
-            },
+            }
             "misc", Misc, value => {
                 let misc = Miscellaneous::parse(value).with_context(|| anyhow!("Unsupported misc `{value}`"))?;
                 self.misc.insert(misc);
-            },
+            }
             "dial", Dialect, value => {
                 let dialect = Dialect::parse(value).with_context(|| anyhow!("Unsupported dialect `{value}`"))?;
                 self.dialects.insert(dialect);
-            },
+            }
             "stagk", StagK, value => {
                 self.stagk.push(value);
-            },
+            }
             "stagr", StagR, value => {
                 self.stagr.push(value);
-            },
+            }
             "field", Field, value => {
                 let field = Field::parse(value).with_context(|| anyhow!("Unsupported field `{value}`"))?;
                 self.fields.insert(field);
-            },
+            }
             "lsource", SourceLanguage, value => {
                 self.source_language.push(value);
-            },
+            }
             "ant", Antonym, value => {
                 self.antonym.push(value);
-            },
+            }
+            "example", Example, value => {
+                self.examples.push(value);
+            }
         }
     }
 
     fn build(&mut self) -> Result<Sense<'a>> {
         let gloss = mem::take(&mut self.gloss);
-        let part_of_speech = mem::take(&mut self.part_of_speech);
+        let pos = mem::take(&mut self.pos);
+        let xref = mem::take(&mut self.xref);
         let misc = mem::take(&mut self.misc);
         let dialects = mem::take(&mut self.dialects);
         let stagk = mem::take(&mut self.stagk);
@@ -196,10 +205,11 @@ impl<'a> Builder<'a> {
         let fields = mem::take(&mut self.fields);
         let source_language = mem::take(&mut self.source_language);
         let antonym = mem::take(&mut self.antonym);
+        let examples = mem::take(&mut self.examples);
 
         Ok(Sense {
-            part_of_speech,
-            xref: self.xref,
+            pos,
+            xref,
             gloss,
             info: self.info,
             misc,
@@ -209,6 +219,7 @@ impl<'a> Builder<'a> {
             fields,
             source_language,
             antonym,
+            examples,
         })
     }
 }

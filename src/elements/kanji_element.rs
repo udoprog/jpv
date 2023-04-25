@@ -3,9 +3,9 @@ use core::mem;
 
 use crate::elements::text;
 use crate::entities::KanjiInfo;
-use crate::parser::{Output, Poll};
 use crate::priority::Priority;
 
+use anyhow::ensure;
 use anyhow::{anyhow, Context, Result};
 use fixed_map::Set;
 
@@ -65,16 +65,17 @@ impl<'a> Builder<'a> {
     builder! {
         self => KanjiElement<'a> {
             "keb", Text, value => {
+                ensure!(self.text.is_none(), "Only one keb element allowed");
                 self.text = Some(value);
-            },
+            }
             "ke_pri", Priority, value => {
                 let priority = Priority::parse(value).with_context(|| anyhow!("Unsupported priority `{value}`"))?;
                 self.priority.push(priority);
-            },
+            }
             "ke_inf", Information, value => {
                 let info = KanjiInfo::parse(value).with_context(|| anyhow!("Unsupported kanji info `{value}`"))?;
                 self.info.insert(info);
-            },
+            }
         }
     }
 

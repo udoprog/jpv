@@ -8,7 +8,6 @@ use crate::composite::{comp, Composite};
 use crate::elements::{kanji_element, reading_element, sense, text};
 use crate::elements::{KanjiElement, ReadingElement, Sense};
 use crate::entities::{KanjiInfo, PartOfSpeech};
-use crate::parser::{Output, Poll};
 
 pub struct Word<'a> {
     /// Verb stem.
@@ -57,7 +56,7 @@ impl fmt::Display for Pair<'_> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Polite {
     Plain,
     Polite,
@@ -72,7 +71,7 @@ impl fmt::Display for Polite {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Conjugation {
     Causative,
     Command,
@@ -129,7 +128,7 @@ pub enum VerbKind {
 
 #[derive(Debug)]
 pub struct Entry<'a> {
-    pub sequence: &'a str,
+    pub sequence: u64,
     pub reading_elements: Vec<ReadingElement<'a>>,
     pub kanji_elements: Vec<KanjiElement<'a>>,
     pub senses: Vec<Sense<'a>>,
@@ -139,7 +138,7 @@ impl<'a> Entry<'a> {
     /// If the entry is a verb, figure out the verb kind.
     pub(crate) fn as_verb_kind(&self) -> Option<VerbKind> {
         for sense in &self.senses {
-            for pos in sense.part_of_speech.iter() {
+            for pos in sense.pos.iter() {
                 let kind = match pos {
                     PartOfSpeech::AdjectiveF => continue,
                     PartOfSpeech::AdjectiveI => continue,
@@ -227,10 +226,10 @@ impl<'a> Entry<'a> {
                     PartOfSpeech::VerbKuru => VerbKind::Kuru,
                     PartOfSpeech::VerbNu => continue,
                     PartOfSpeech::VerbRu => continue,
-                    PartOfSpeech::VerbSuru => continue,
+                    PartOfSpeech::VerbSuru => VerbKind::Suru,
                     PartOfSpeech::VerbSuC => continue,
                     PartOfSpeech::VerbSuruIncluded => VerbKind::Suru,
-                    PartOfSpeech::VerbSuruSpecial => continue,
+                    PartOfSpeech::VerbSuruSpecial => VerbKind::Suru,
                     PartOfSpeech::VerbTransitive => continue,
                     PartOfSpeech::VerbZuru => continue,
                 };
@@ -478,7 +477,7 @@ enum State<'a> {
 #[derive(Default)]
 pub(crate) struct Builder<'a> {
     state: State<'a>,
-    sequence: Option<&'a str>,
+    sequence: Option<u64>,
     reading_elements: Vec<ReadingElement<'a>>,
     kanji_elements: Vec<KanjiElement<'a>>,
     senses: Vec<Sense<'a>>,
@@ -488,17 +487,17 @@ impl<'a> Builder<'a> {
     builder! {
         self => Entry<'a> {
             "ent_seq", EntrySequence, value => {
-                self.sequence = Some(value);
-            },
+                self.sequence = Some(value.parse().context("Invalid sequence")?);
+            }
             "r_ele", ReadingElement, value => {
                 self.reading_elements.push(value);
-            },
+            }
             "k_ele", KanjiElement, value => {
                 self.kanji_elements.push(value);
-            },
+            }
             "sense", Sense, value => {
                 self.senses.push(value);
-            },
+            }
         }
     }
 
