@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
+arrayvec = "0.7.2"
 fixed-map = "0.8.2"
 flate2 = "1.0.25"
 relative-path = "1.8.0"
