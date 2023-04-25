@@ -196,6 +196,8 @@ fn main() -> Result<()> {
     }
 
     let current_lang = args.lang.as_deref().unwrap_or("eng");
+    let a = &mut String::new();
+    let b = &mut String::new();
 
     for (i, index) in to_look_up.into_iter().enumerate() {
         let (index, extra) = match index {
@@ -252,96 +254,96 @@ fn main() -> Result<()> {
             println!("# Conjugations:");
 
             println!("  Dictionary 終止形 (しゅうしけい) / Present / Future / Attributive:");
-            println!("    {} ({})", c.dictionary.text, c.dictionary.reading);
+            println!("    {}", c.dictionary.furigana());
 
             if let Some(form) = c.plain.get(&Conjugation::Te) {
                 println!("  ~ Te:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Negative) {
                 println!("  Negative Short 未線形 (みぜんけい):");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             println!("  Polite 連用形 (れんようけい):");
 
             if let Some(form) = c.polite.get(&Conjugation::Indicative) {
                 println!("  ~ Present:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.polite.get(&Conjugation::Negative) {
                 println!("  ~ Present Negative:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.polite.get(&Conjugation::Past) {
                 println!("  ~ Past:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.polite.get(&Conjugation::PastNegative) {
                 println!("  ~ Past Negative:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Past) {
                 println!("  Past:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::PastNegative) {
                 println!("  Past Negative:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Hypothetical) {
                 println!("  Hypothetical / Conditional 仮定形 (かていけい):");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Conditional) {
                 println!("  Conditional:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Potential) {
                 println!("  Potential 可能形 (かのうけい):");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
 
                 if let Some(form) = c.plain.get(&Conjugation::PotentialAlt) {
-                    println!("    ~ {form} (conversational)");
+                    println!("    ~ {} (conversational)", form.furigana(a, b));
                 }
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Command) {
                 println!("  Command/Imperative 命令形 (めいれいけい):");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
 
                 if let Some(form) = c.plain.get(&Conjugation::CommandAlt) {
-                    println!("    ~ {form} (alternate)");
+                    println!("    ~ {} (alternate)", form.furigana(a, b));
                 }
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Volitional) {
                 println!("  Volitional 意向形 (いこうけい):");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Passive) {
                 println!("  Passive:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Causative) {
                 println!("  Causative:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Tai) {
                 println!("  Tai:");
-                println!("    {form}");
+                println!("    {}", form.furigana(a, b));
                 println!("    note: can be further conjugated as i-adjective");
             }
         }

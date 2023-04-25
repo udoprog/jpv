@@ -16,11 +16,51 @@ pub struct Word<'a> {
     pub reading: &'a str,
 }
 
+impl<'a> Word<'a> {
+    pub fn furigana(&self) -> Furigana<'a> {
+        Furigana {
+            a: self.text,
+            b: self.reading,
+        }
+    }
+}
+
+impl fmt::Display for Word<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.text != self.reading {
+            write!(f, "{} ({})", self.text, self.reading)
+        } else {
+            write!(f, "{}", self.text)
+        }
+    }
+}
+
 /// A reading pair.
 #[derive(Clone)]
 pub struct Pair<'a> {
     pub kanji: Composite<'a>,
     pub reading: Composite<'a>,
+}
+
+impl<'a> Pair<'a> {
+    pub fn furigana<'b>(&self, a: &'b mut String, b: &'b mut String) -> Furigana<'b> {
+        a.clear();
+
+        for string in self.kanji.strings() {
+            a.push_str(string);
+        }
+
+        b.clear();
+
+        for string in self.reading.strings() {
+            b.push_str(string);
+        }
+
+        Furigana {
+            a: a.as_str(),
+            b: b.as_str(),
+        }
+    }
 }
 
 /// Construct a kanji/reading pair.
@@ -32,6 +72,59 @@ where
     Pair {
         kanji: comp(kanji),
         reading: comp(reading),
+    }
+}
+
+fn is_kana(c: char) -> bool {
+    matches!(c, '\u{3041}'..='\u{3096}' | '\u{3099}'..='\u{309f}' | '\u{30a0}'..='\u{30ff}')
+}
+
+/// Formatter from [`Pair::furigana`].
+pub struct Furigana<'a> {
+    a: &'a str,
+    b: &'a str,
+}
+
+impl fmt::Display for Furigana<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut a = &self.a[..];
+        let mut b = &self.b[..];
+
+        while !a.is_empty() {
+            let index = a.find(|c| !is_kana(c)).unwrap_or(a.len());
+            let (head, mut tail) = a.split_at(index);
+
+            if b.starts_with(head) {
+                head.fmt(f)?;
+            } else {
+                '['.fmt(f)?;
+
+                while !b.starts_with(head) {
+                    let Some(c) = b.chars().next() else {
+                        break;
+                    };
+
+                    c.fmt(f)?;
+                    b = &b[c.len_utf8()..];
+                }
+
+                ']'.fmt(f)?;
+                head.fmt(f)?;
+            }
+
+            while let Some(c) = tail.chars().next() {
+                if is_kana(c) {
+                    break;
+                }
+
+                c.fmt(f)?;
+                tail = &tail[c.len_utf8()..];
+            }
+
+            a = tail;
+        }
+
+        Ok(())
     }
 }
 
@@ -49,10 +142,12 @@ impl fmt::Display for Pair<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.kanji != self.reading {
-            write!(f, "{} ({})", self.kanji, self.reading)
+            write!(f, "{} ({})", self.kanji, self.reading)?;
         } else {
-            self.kanji.fmt(f)
+            self.kanji.fmt(f)?;
         }
+
+        Ok(())
     }
 }
 

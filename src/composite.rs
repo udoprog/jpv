@@ -18,6 +18,11 @@ pub struct Composite<'a> {
 }
 
 impl<'a> Composite<'a> {
+    /// Iterate over strings.
+    pub fn strings(&self) -> impl Iterator<Item = &str> {
+        self.storage.iter().copied()
+    }
+
     /// Iterate over characters in the composite word.
     pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
         self.storage.iter().flat_map(|s| s.chars())
