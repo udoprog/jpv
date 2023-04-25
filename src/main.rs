@@ -3,6 +3,7 @@
 mod composite;
 mod elements;
 mod entities;
+mod furigana;
 mod kana;
 mod parser;
 mod priority;
@@ -17,7 +18,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use elements::entry::{Conjugation, Polite};
 use flate2::read::GzDecoder;
-use kana::Furigana;
+use furigana::Furigana;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
@@ -365,13 +366,16 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn furigana(furigana: Furigana<'_>, do_furigana: bool) -> impl fmt::Display + '_ {
-    struct Display<'a> {
-        furigana: Furigana<'a>,
+fn furigana<const N: usize>(
+    furigana: Furigana<'_, N>,
+    do_furigana: bool,
+) -> impl fmt::Display + '_ {
+    struct Display<'a, const N: usize> {
+        furigana: Furigana<'a, N>,
         do_furigana: bool,
     }
 
-    impl fmt::Display for Display<'_> {
+    impl<const N: usize> fmt::Display for Display<'_, N> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             if self.do_furigana {
                 self.furigana.fmt(f)

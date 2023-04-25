@@ -46,8 +46,8 @@ pub enum Conjugation {
 
 pub struct VerbConjugations<'a> {
     pub dictionary: Word<'a>,
-    pub plain: BTreeMap<Conjugation, Pair<'a>>,
-    pub polite: BTreeMap<Conjugation, Pair<'a>>,
+    pub plain: BTreeMap<Conjugation, Pair<'a, 2>>,
+    pub polite: BTreeMap<Conjugation, Pair<'a, 2>>,
 }
 
 impl<'a> VerbConjugations<'a> {
