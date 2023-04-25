@@ -19,8 +19,8 @@ impl<'a, const N: usize> Concat<'a, N> {
     }
 
     /// Iterate over strings.
-    pub fn strings(&self) -> impl Iterator<Item = &'a str> + '_ {
-        self.storage.iter().copied()
+    pub(crate) fn as_slice(&self) -> &[&'a str] {
+        self.storage.as_slice()
     }
 
     /// Iterate over characters in the composite word.

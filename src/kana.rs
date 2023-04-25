@@ -62,8 +62,9 @@ impl<'a, const N: usize> Pair<'a, N> {
     /// We use this instead of implementing [`IntoIterator`] because it allows
     /// the caller to control the size of the constructed composites.
     pub fn into_iter<const O: usize>(self) -> impl Iterator<Item = Concat<'a, O>> {
-        let kanji = Concat::<O>::new(self.kanji.strings().chain([self.suffix]));
-        let reading = Concat::<O>::new(self.reading.strings().chain([self.suffix]));
+        let kanji = Concat::<O>::new(self.kanji.as_slice().iter().copied().chain([self.suffix]));
+        let reading =
+            Concat::<O>::new(self.reading.as_slice().iter().copied().chain([self.suffix]));
         [kanji, reading].into_iter()
     }
 }
