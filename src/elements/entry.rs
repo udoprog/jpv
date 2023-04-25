@@ -4,152 +4,12 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context, Result};
 
-use crate::composite::{comp, Composite};
+use crate::composite::Composite;
 use crate::elements::{kanji_element, reading_element, sense, text};
 use crate::elements::{KanjiElement, ReadingElement, Sense};
 use crate::entities::{KanjiInfo, PartOfSpeech};
-
-pub struct Word<'a> {
-    /// Verb stem.
-    pub text: &'a str,
-    /// Furigana reading of verb stem.
-    pub reading: &'a str,
-}
-
-impl<'a> Word<'a> {
-    pub fn furigana(&self) -> Furigana<'a> {
-        Furigana {
-            a: self.text,
-            b: self.reading,
-        }
-    }
-}
-
-impl fmt::Display for Word<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.text != self.reading {
-            write!(f, "{} ({})", self.text, self.reading)
-        } else {
-            write!(f, "{}", self.text)
-        }
-    }
-}
-
-/// A reading pair.
-#[derive(Clone)]
-pub struct Pair<'a> {
-    pub kanji: Composite<'a>,
-    pub reading: Composite<'a>,
-}
-
-impl<'a> Pair<'a> {
-    pub fn furigana<'b>(&self, a: &'b mut String, b: &'b mut String) -> Furigana<'b> {
-        a.clear();
-
-        for string in self.kanji.strings() {
-            a.push_str(string);
-        }
-
-        b.clear();
-
-        for string in self.reading.strings() {
-            b.push_str(string);
-        }
-
-        Furigana {
-            a: a.as_str(),
-            b: b.as_str(),
-        }
-    }
-}
-
-/// Construct a kanji/reading pair.
-fn pair<'a, A, B>(kanji: A, reading: B) -> Pair<'a>
-where
-    A: IntoIterator<Item = &'a str>,
-    B: IntoIterator<Item = &'a str>,
-{
-    Pair {
-        kanji: comp(kanji),
-        reading: comp(reading),
-    }
-}
-
-fn is_kana(c: char) -> bool {
-    matches!(c, '\u{3041}'..='\u{3096}' | '\u{3099}'..='\u{309f}' | '\u{30a0}'..='\u{30ff}')
-}
-
-/// Formatter from [`Pair::furigana`].
-pub struct Furigana<'a> {
-    a: &'a str,
-    b: &'a str,
-}
-
-impl fmt::Display for Furigana<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut a = &self.a[..];
-        let mut b = &self.b[..];
-
-        while !a.is_empty() {
-            let index = a.find(|c| !is_kana(c)).unwrap_or(a.len());
-            let (head, mut tail) = a.split_at(index);
-
-            if b.starts_with(head) {
-                head.fmt(f)?;
-            } else {
-                '['.fmt(f)?;
-
-                while !b.starts_with(head) {
-                    let Some(c) = b.chars().next() else {
-                        break;
-                    };
-
-                    c.fmt(f)?;
-                    b = &b[c.len_utf8()..];
-                }
-
-                ']'.fmt(f)?;
-                head.fmt(f)?;
-            }
-
-            while let Some(c) = tail.chars().next() {
-                if is_kana(c) {
-                    break;
-                }
-
-                c.fmt(f)?;
-                tail = &tail[c.len_utf8()..];
-            }
-
-            a = tail;
-        }
-
-        Ok(())
-    }
-}
-
-impl<'a> IntoIterator for Pair<'a> {
-    type Item = Composite<'a>;
-    type IntoIter = std::array::IntoIter<Composite<'a>, 2>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        [self.kanji, self.reading].into_iter()
-    }
-}
-
-impl fmt::Display for Pair<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.kanji != self.reading {
-            write!(f, "{} ({})", self.kanji, self.reading)?;
-        } else {
-            self.kanji.fmt(f)?;
-        }
-
-        Ok(())
-    }
-}
+use crate::kana::Pair;
+use crate::kana::{pair, Word};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Polite {
@@ -547,10 +407,7 @@ impl<'a> Entry<'a> {
                 };
 
                 Some(VerbConjugations {
-                    dictionary: Word {
-                        text: kanji_text,
-                        reading: reading.text,
-                    },
+                    dictionary: Word::new(kanji_text, reading.text),
                     plain,
                     polite,
                 })

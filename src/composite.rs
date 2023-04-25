@@ -11,7 +11,8 @@ where
     }
 }
 
-/// A composite string composed of multiple borrowed strings concatenated togeter.
+/// A composite string composed of multiple borrowed strings concatenated
+/// together.
 #[derive(Clone)]
 pub struct Composite<'a> {
     storage: arrayvec::ArrayVec<&'a str, 4>,

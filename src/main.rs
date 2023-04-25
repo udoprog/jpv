@@ -3,10 +3,12 @@
 mod composite;
 mod elements;
 mod entities;
+mod kana;
 mod parser;
 mod priority;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fmt;
 use std::io::Read;
 use std::mem;
 use std::time::Instant;
@@ -15,6 +17,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use elements::entry::{Conjugation, Polite};
 use flate2::read::GzDecoder;
+use kana::Furigana;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
@@ -42,6 +45,9 @@ struct Args {
     /// Show glossary entries for any language. Overrides `--lang <lang>`.
     #[arg(long)]
     any_lang: bool,
+    /// Don't print output in furigana.
+    #[arg(long)]
+    no_furigana: bool,
     /// Search arguments to filter by. Must be either kana or kanji, which is
     /// matched against entries searched for.
     #[arg(name = "arguments")]
@@ -196,8 +202,6 @@ fn main() -> Result<()> {
     }
 
     let current_lang = args.lang.as_deref().unwrap_or("eng");
-    let a = &mut String::new();
-    let b = &mut String::new();
 
     for (i, index) in to_look_up.into_iter().enumerate() {
         let (index, extra) = match index {
@@ -254,100 +258,133 @@ fn main() -> Result<()> {
             println!("# Conjugations:");
 
             println!("  Dictionary 終止形 (しゅうしけい) / Present / Future / Attributive:");
-            println!("    {}", c.dictionary.furigana());
+            println!(
+                "    {}",
+                furigana(c.dictionary.furigana(), !args.no_furigana)
+            );
 
             if let Some(form) = c.plain.get(&Conjugation::Te) {
                 println!("  ~ Te:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Negative) {
                 println!("  Negative Short 未線形 (みぜんけい):");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             println!("  Polite 連用形 (れんようけい):");
 
             if let Some(form) = c.polite.get(&Conjugation::Indicative) {
                 println!("  ~ Present:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.polite.get(&Conjugation::Negative) {
                 println!("  ~ Present Negative:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.polite.get(&Conjugation::Past) {
                 println!("  ~ Past:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.polite.get(&Conjugation::PastNegative) {
                 println!("  ~ Past Negative:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Past) {
                 println!("  Past:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::PastNegative) {
                 println!("  Past Negative:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Hypothetical) {
                 println!("  Hypothetical / Conditional 仮定形 (かていけい):");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Conditional) {
                 println!("  Conditional:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Potential) {
                 println!("  Potential 可能形 (かのうけい):");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
 
                 if let Some(form) = c.plain.get(&Conjugation::PotentialAlt) {
-                    println!("    ~ {} (conversational)", form.furigana(a, b));
+                    println!(
+                        "    ~ {} (conversational)",
+                        furigana(form.furigana(), !args.no_furigana)
+                    );
                 }
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Command) {
                 println!("  Command/Imperative 命令形 (めいれいけい):");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
 
                 if let Some(form) = c.plain.get(&Conjugation::CommandAlt) {
-                    println!("    ~ {} (alternate)", form.furigana(a, b));
+                    println!(
+                        "    ~ {} (alternate)",
+                        furigana(form.furigana(), !args.no_furigana)
+                    );
                 }
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Volitional) {
                 println!("  Volitional 意向形 (いこうけい):");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Passive) {
                 println!("  Passive:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Causative) {
                 println!("  Causative:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
             }
 
             if let Some(form) = c.plain.get(&Conjugation::Tai) {
                 println!("  Tai:");
-                println!("    {}", form.furigana(a, b));
+                println!("    {}", furigana(form.furigana(), !args.no_furigana));
                 println!("    note: can be further conjugated as i-adjective");
             }
         }
     }
 
     Ok(())
+}
+
+fn furigana(furigana: Furigana<'_>, do_furigana: bool) -> impl fmt::Display + '_ {
+    struct Display<'a> {
+        furigana: Furigana<'a>,
+        do_furigana: bool,
+    }
+
+    impl fmt::Display for Display<'_> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            if self.do_furigana {
+                self.furigana.fmt(f)
+            } else if self.furigana.kanji() != self.furigana.reading() {
+                write!(f, "{} ({})", self.furigana.kanji(), self.furigana.reading())
+            } else {
+                write!(f, "{}", self.furigana.kanji())
+            }
+        }
+    }
+
+    Display {
+        furigana,
+        do_furigana,
+    }
 }
