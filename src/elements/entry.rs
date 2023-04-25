@@ -8,8 +8,7 @@ use crate::composite::Composite;
 use crate::elements::{kanji_element, reading_element, sense, text};
 use crate::elements::{KanjiElement, ReadingElement, Sense};
 use crate::entities::{KanjiInfo, PartOfSpeech};
-use crate::kana::Pair;
-use crate::kana::{pair, Word};
+use crate::kana::{self, Pair, Word};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Polite {
@@ -52,7 +51,9 @@ pub struct VerbConjugations<'a> {
 }
 
 impl<'a> VerbConjugations<'a> {
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (Polite, Conjugation, Composite<'a>)> + '_ {
+    pub(crate) fn iter(
+        &self,
+    ) -> impl Iterator<Item = (Polite, Conjugation, Composite<'a, 3>)> + '_ {
         let plain = self
             .plain
             .iter()
@@ -198,16 +199,16 @@ impl<'a> Entry<'a> {
 
     pub(crate) fn as_verb_conjugation(&self) -> Option<VerbConjugations<'a>> {
         macro_rules! pair {
-            ($k:expr, $r:expr, [$($same:expr),* $(,)?]) => {
-                pair([$k, $($same),*], [$r, $($same),*])
+            ($k:expr, $r:expr, prefix $a:expr, $b:expr, $suffix:expr) => {
+                kana::Pair::new([$k, $a], [$r, $b], $suffix)
             };
 
-            ($k:expr, $r:expr, [$($kanji:expr),* $(,)?], [$($reading:expr),* $(,)?]) => {
-                pair([$k, $($kanji),*], [$r, $($reading),*])
+            ($k:expr, $r:expr, $last:expr) => {
+                kana::Pair::new([$k], [$r], $last)
             };
 
-            ($k:expr, $r:expr, $($same:expr),* $(,)?) => {
-                pair([$k, $($same),*], [$r, $($same),*])
+            ($k:expr, $r:expr, $a:expr, $last:expr) => {
+                kana::Pair::new([$k, $a], [$r, $a], $last)
             };
         }
 
@@ -384,26 +385,26 @@ impl<'a> Entry<'a> {
 
                 let plain = conjugations! {
                     k, r,
-                    Causative(["来させる"], ["こさせる"]),
-                    Command(["来い"], ["こい"]),
-                    Conditional(["来たら"], ["きたら"]),
-                    Hypothetical(["来れば"], ["くれば"]),
-                    Negative(["来ない"], ["こない"]),
-                    Passive(["来られる"], ["こられる"]),
-                    Past(["来た"], ["きた"]),
-                    PastNegative(["来なかった"], ["こなかった"]),
-                    Potential(["来られる"], ["こられる"]),
-                    Tai(["来たい"], ["きたい"]),
-                    Te(["来て"], ["きて"]),
-                    Volitional(["来よう"], ["こよう"]),
+                    Causative(prefix "来", "こ", "させる"),
+                    Command(prefix "来", "こ", "い"),
+                    Conditional(prefix "来", "き", "たら"),
+                    Hypothetical(prefix "来", "く", "れば"),
+                    Negative(prefix "来", "こ", "ない"),
+                    Passive(prefix "来", "こ", "られる"),
+                    Past(prefix "来", "き", "た"),
+                    PastNegative(prefix "来", "こ", "なかった"),
+                    Potential(prefix "来", "こ", "られる"),
+                    Tai(prefix "来", "き", "たい"),
+                    Te(prefix "来", "き", "て"),
+                    Volitional(prefix "来", "こ", "よう"),
                 };
 
                 let polite = conjugations! {
                     k, r,
-                    Indicative(["来ます"], ["きます"]),
-                    Negative(["来ません"], ["きません"]),
-                    Past(["来ました"], ["きました"]),
-                    PastNegative(["来ませんでした"], ["きませんでした"]),
+                    Indicative(prefix "来", "き", "ます"),
+                    Negative(prefix "来", "き", "ません"),
+                    Past(prefix "来", "き", "ました"),
+                    PastNegative(prefix "来", "き", "ませんでした"),
                 };
 
                 Some(VerbConjugations {

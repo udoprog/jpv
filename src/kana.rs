@@ -4,7 +4,7 @@ mod tests;
 use core::fmt;
 use std::borrow::Cow;
 
-use crate::composite::{comp, Composite};
+use crate::composite::Composite;
 
 pub struct Word<'a> {
     /// Verb stem.
@@ -36,11 +36,26 @@ impl fmt::Display for Word<'_> {
 /// A reading pair.
 #[derive(Clone)]
 pub struct Pair<'a> {
-    pub kanji: Composite<'a>,
-    pub reading: Composite<'a>,
+    kanji: Composite<'a, 2>,
+    reading: Composite<'a, 2>,
+    // Suffix always guaranteed to be kana.
+    suffix: &'a str,
 }
 
 impl<'a> Pair<'a> {
+    /// Construct a kanji/reading pair with a common suffix.
+    pub fn new<A, B>(kanji: A, reading: B, suffix: &'a str) -> Self
+    where
+        A: IntoIterator<Item = &'a str>,
+        B: IntoIterator<Item = &'a str>,
+    {
+        Pair {
+            kanji: Composite::new(kanji),
+            reading: Composite::new(reading),
+            suffix,
+        }
+    }
+
     pub fn furigana(&self) -> Furigana<'a> {
         // TODO: get rid of buffering somehow.
         let mut a = String::new();
@@ -54,6 +69,9 @@ impl<'a> Pair<'a> {
             b.push_str(string);
         }
 
+        a.push_str(self.suffix);
+        b.push_str(self.suffix);
+
         Furigana {
             kanji: Cow::Owned(a),
             reading: Cow::Owned(b),
@@ -61,15 +79,29 @@ impl<'a> Pair<'a> {
     }
 }
 
-/// Construct a kanji/reading pair.
-pub fn pair<'a, A, B>(kanji: A, reading: B) -> Pair<'a>
-where
-    A: IntoIterator<Item = &'a str>,
-    B: IntoIterator<Item = &'a str>,
-{
-    Pair {
-        kanji: comp(kanji),
-        reading: comp(reading),
+impl<'a> IntoIterator for Pair<'a> {
+    type Item = Composite<'a, 3>;
+    type IntoIter = std::array::IntoIter<Composite<'a, 3>, 2>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        let kanji = Composite::<3>::new(self.kanji.strings().chain([self.suffix]));
+        let reading = Composite::<3>::new(self.reading.strings().chain([self.suffix]));
+        [kanji, reading].into_iter()
+    }
+}
+
+impl fmt::Display for Pair<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            kanji,
+            reading,
+            suffix,
+        } = self;
+
+        write!(f, "{kanji}{suffix} ({reading}{suffix})",)?;
+        Ok(())
     }
 }
 
@@ -140,29 +172,6 @@ impl fmt::Display for Furigana<'_> {
 
             kanji = tail;
             index = kanji.find(is_kanji).unwrap_or(kanji.len());
-        }
-
-        Ok(())
-    }
-}
-
-impl<'a> IntoIterator for Pair<'a> {
-    type Item = Composite<'a>;
-    type IntoIter = std::array::IntoIter<Composite<'a>, 2>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        [self.kanji, self.reading].into_iter()
-    }
-}
-
-impl fmt::Display for Pair<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.kanji != self.reading {
-            write!(f, "{} ({})", self.kanji, self.reading)?;
-        } else {
-            self.kanji.fmt(f)?;
         }
 
         Ok(())

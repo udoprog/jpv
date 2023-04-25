@@ -21,7 +21,7 @@ use kana::Furigana;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use crate::composite::comp;
+use crate::composite::Composite;
 use crate::entities::PartOfSpeech;
 
 #[derive(Parser)]
@@ -127,7 +127,7 @@ fn main() -> Result<()> {
                     let part = part.trim();
 
                     lookup
-                        .entry(comp([part]))
+                        .entry(Composite::new([part]))
                         .or_default()
                         .push(Index::Exact(index));
                 }
@@ -136,14 +136,14 @@ fn main() -> Result<()> {
 
         for el in &entry.reading_elements {
             lookup
-                .entry(comp([el.text]))
+                .entry(Composite::new([el.text]))
                 .or_default()
                 .push(Index::Exact(index));
         }
 
         for el in &entry.kanji_elements {
             lookup
-                .entry(comp([el.text]))
+                .entry(Composite::new([el.text]))
                 .or_default()
                 .push(Index::Exact(index));
         }
@@ -166,7 +166,7 @@ fn main() -> Result<()> {
     let mut to_look_up = BTreeSet::new();
 
     for input in &args.arguments {
-        let Some(indexes) = lookup.get(&comp([input.as_str()])) else {
+        let Some(indexes) = lookup.get(&Composite::new([input.as_str()])) else {
             println!("nothing for `{input}`");
             continue;
         };
