@@ -1,7 +1,6 @@
 //! Module which performs verb conjugation, based on a words class.
 
 use std::collections::BTreeMap;
-use std::fmt;
 
 use crate::elements::Entry;
 use crate::entities::KanjiInfo;
@@ -58,7 +57,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
             let k = k.as_str();
             let r = r.as_str();
 
-            let plain = conjugations! {
+            let conjugations = conjugations! {
                 k, r,
                 Causative("させる"),
                 Command("ろ"),
@@ -74,14 +73,10 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                 Tai("たい"),
                 Te("て"),
                 Volitional("よう"),
-            };
-
-            let polite = conjugations! {
-                k, r,
-                Indicative("ます"),
-                Negative("ません"),
-                Past("ました"),
-                PastNegative("ませんでした"),
+                PoliteIndicative("ます"),
+                PoliteNegative("ません"),
+                PolitePast("ました"),
+                PolitePastNegative("ませんでした"),
             };
 
             Some(VerbConjugations {
@@ -89,8 +84,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                     text: kanji_text,
                     reading: reading.text,
                 },
-                plain,
-                polite,
+                conjugations,
             })
         }
         VerbKind::Godan | VerbKind::GodanSpecial => {
@@ -121,7 +115,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
             let k = k.as_str();
             let r = r.as_str();
 
-            let plain = conjugations! {
+            let conjugations = conjugations! {
                 k, r,
                 Causative(a, "せる"),
                 Command(e),
@@ -135,14 +129,10 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                 Tai(i, "たい"),
                 Te(te),
                 Volitional(o, "う"),
-            };
-
-            let polite = conjugations! {
-                k, r,
-                Indicative(i, "ます"),
-                Negative(i, "ません"),
-                Past(i, "ました"),
-                PastNegative(i, "ませんでした"),
+                PoliteIndicative(i, "ます"),
+                PoliteNegative(i, "ません"),
+                PolitePast(i, "ました"),
+                PolitePastNegative(i, "ませんでした"),
             };
 
             Some(VerbConjugations {
@@ -150,8 +140,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                     text: kanji_text,
                     reading: reading.text,
                 },
-                plain,
-                polite,
+                conjugations,
             })
         }
         VerbKind::Suru => {
@@ -159,7 +148,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                 return None;
             };
 
-            let plain = conjugations! {
+            let conjugations = conjugations! {
                 k, r,
                 Causative("させる"),
                 Command("しろ"),
@@ -173,14 +162,10 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                 Tai("したい"),
                 Te("して"),
                 Volitional("しよう"),
-            };
-
-            let polite = conjugations! {
-                k, r,
-                Indicative("します"),
-                Negative("しません"),
-                Past("しました"),
-                PastNegative("しませんでした"),
+                PoliteIndicative("します"),
+                PoliteNegative("しません"),
+                PolitePast("しました"),
+                PolitePastNegative("しませんでした"),
             };
 
             Some(VerbConjugations {
@@ -188,8 +173,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                     text: kanji_text,
                     reading: reading.text,
                 },
-                plain,
-                polite,
+                conjugations,
             })
         }
         VerbKind::Kuru => {
@@ -197,7 +181,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                 return None;
             };
 
-            let plain = conjugations! {
+            let conjugations = conjugations! {
                 k, r,
                 Causative(prefix "来", "こ", "させる"),
                 Command(prefix "来", "こ", "い"),
@@ -211,36 +195,16 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
                 Tai(prefix "来", "き", "たい"),
                 Te(prefix "来", "き", "て"),
                 Volitional(prefix "来", "こ", "よう"),
-            };
-
-            let polite = conjugations! {
-                k, r,
-                Indicative(prefix "来", "き", "ます"),
-                Negative(prefix "来", "き", "ません"),
-                Past(prefix "来", "き", "ました"),
-                PastNegative(prefix "来", "き", "ませんでした"),
+                PoliteIndicative(prefix "来", "き", "ます"),
+                PoliteNegative(prefix "来", "き", "ません"),
+                PolitePast(prefix "来", "き", "ました"),
+                PolitePastNegative(prefix "来", "き", "ませんでした"),
             };
 
             Some(VerbConjugations {
                 dictionary: Word::new(kanji_text, reading.text),
-                plain,
-                polite,
+                conjugations,
             })
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Polite {
-    Plain,
-    Polite,
-}
-
-impl fmt::Display for Polite {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Polite::Plain => write!(f, "Plain"),
-            Polite::Polite => write!(f, "Polite"),
         }
     }
 }
@@ -262,30 +226,46 @@ pub enum Conjugation {
     Tai,
     Te,
     Volitional,
+    PoliteIndicative,
+    PoliteNegative,
+    PolitePast,
+    PolitePastNegative,
 }
 
-/// A collection of verb conjugations.
+/// A collection of conjugations.
 #[non_exhaustive]
 pub struct VerbConjugations<'a> {
     pub dictionary: Word<'a>,
-    pub plain: BTreeMap<Conjugation, Pair<'a, 2>>,
-    pub polite: BTreeMap<Conjugation, Pair<'a, 2>>,
+    conjugations: BTreeMap<Conjugation, Pair<'a, 2>>,
 }
 
 impl<'a> VerbConjugations<'a> {
+    /// Test if any polite conjugations exist.
+    pub fn has_polite(&self) -> bool {
+        for polite in [
+            Conjugation::PoliteIndicative,
+            Conjugation::PoliteNegative,
+            Conjugation::PolitePast,
+            Conjugation::PolitePastNegative,
+        ] {
+            if self.conjugations.contains_key(&polite) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Get a conjugation.
+    pub fn get(&self, conjugation: Conjugation) -> Option<&Pair<'a, 2>> {
+        self.conjugations.get(&conjugation)
+    }
+
     /// Iterate over all conjugations.
-    pub fn iter(&self) -> impl Iterator<Item = (Polite, Conjugation, Concat<'a, 3>)> + '_ {
-        let plain = self
-            .plain
+    pub fn iter(&self) -> impl Iterator<Item = (Conjugation, Concat<'a, 3>)> + '_ {
+        self.conjugations
             .iter()
-            .flat_map(|(k, p)| p.clone().into_iter().map(|p| (Polite::Plain, *k, p)));
-
-        let polite = self
-            .polite
-            .iter()
-            .flat_map(|(k, p)| p.clone().into_iter().map(|p| (Polite::Polite, *k, p)));
-
-        plain.chain(polite)
+            .flat_map(|(k, p)| p.clone().into_iter().map(|p| (*k, p)))
     }
 }
 

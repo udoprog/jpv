@@ -67,7 +67,7 @@ enum Index {
     /// An exact dictionary index.
     Exact(usize),
     /// A lookup based on a conjugation.
-    VerbConjugation(usize, verb::Polite, verb::Conjugation),
+    VerbConjugation(usize, verb::Conjugation),
 }
 
 fn main() -> Result<()> {
@@ -137,11 +137,11 @@ fn main() -> Result<()> {
         }
 
         if let Some(c) = verb::conjugate(&entry) {
-            for (polite, kind, phrase) in c.iter() {
+            for (conjugation, phrase) in c.iter() {
                 lookup
                     .entry(phrase)
                     .or_default()
-                    .push(Index::VerbConjugation(index, polite, kind));
+                    .push(Index::VerbConjugation(index, conjugation));
             }
         }
 
@@ -181,7 +181,7 @@ fn main() -> Result<()> {
             to_look_up.retain(|index| {
                 let index = match index {
                     Index::Exact(index) => index,
-                    Index::VerbConjugation(index, _, _) => index,
+                    Index::VerbConjugation(index, _) => index,
                 };
 
                 indexes.contains(index)
@@ -194,9 +194,9 @@ fn main() -> Result<()> {
     for (i, index) in to_look_up.into_iter().enumerate() {
         let (index, extra) = match index {
             Index::Exact(index) => (index, None),
-            Index::VerbConjugation(index, polite, kind) => (
+            Index::VerbConjugation(index, conjugation) => (
                 index,
-                Some(format!("Found through conjugation: {polite} / {kind:?}")),
+                Some(format!("Found through conjugation: {conjugation:?}")),
             ),
         };
 
@@ -251,92 +251,94 @@ fn main() -> Result<()> {
             println!("  Dictionary 終止形 (しゅうしけい) / Present / Future / Attributive:");
             println!("    {}", dis0(c.dictionary.furigana()));
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Te) {
+            if let Some(form) = c.get(verb::Conjugation::Te) {
                 println!("  ~ Te:");
                 println!("    {}", dis(form.furigana()));
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Negative) {
+            if let Some(form) = c.get(verb::Conjugation::Negative) {
                 println!("  Negative Short 未線形 (みぜんけい):");
                 println!("    {}", dis(form.furigana()));
             }
 
-            println!("  Polite 連用形 (れんようけい):");
+            if c.has_polite() {
+                println!("  Polite 連用形 (れんようけい):");
 
-            if let Some(form) = c.polite.get(&verb::Conjugation::Indicative) {
-                println!("  ~ Present:");
-                println!("    {}", dis(form.furigana()));
+                if let Some(form) = c.get(verb::Conjugation::PoliteIndicative) {
+                    println!("  ~ Present:");
+                    println!("    {}", dis(form.furigana()));
+                }
+
+                if let Some(form) = c.get(verb::Conjugation::PoliteNegative) {
+                    println!("  ~ Present Negative:");
+                    println!("    {}", dis(form.furigana()));
+                }
+
+                if let Some(form) = c.get(verb::Conjugation::PolitePast) {
+                    println!("  ~ Past:");
+                    println!("    {}", dis(form.furigana()));
+                }
+
+                if let Some(form) = c.get(verb::Conjugation::PolitePastNegative) {
+                    println!("  ~ Past Negative:");
+                    println!("    {}", dis(form.furigana()));
+                }
             }
 
-            if let Some(form) = c.polite.get(&verb::Conjugation::Negative) {
-                println!("  ~ Present Negative:");
-                println!("    {}", dis(form.furigana()));
-            }
-
-            if let Some(form) = c.polite.get(&verb::Conjugation::Past) {
-                println!("  ~ Past:");
-                println!("    {}", dis(form.furigana()));
-            }
-
-            if let Some(form) = c.polite.get(&verb::Conjugation::PastNegative) {
-                println!("  ~ Past Negative:");
-                println!("    {}", dis(form.furigana()));
-            }
-
-            if let Some(form) = c.plain.get(&verb::Conjugation::Past) {
+            if let Some(form) = c.get(verb::Conjugation::Past) {
                 println!("  Past:");
                 println!("    {}", dis(form.furigana()));
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::PastNegative) {
+            if let Some(form) = c.get(verb::Conjugation::PastNegative) {
                 println!("  Past Negative:");
                 println!("    {}", dis(form.furigana()));
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Hypothetical) {
+            if let Some(form) = c.get(verb::Conjugation::Hypothetical) {
                 println!("  Hypothetical / Conditional 仮定形 (かていけい):");
                 println!("    {}", dis(form.furigana()));
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Conditional) {
+            if let Some(form) = c.get(verb::Conjugation::Conditional) {
                 println!("  Conditional:");
                 println!("    {}", dis(form.furigana()));
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Potential) {
+            if let Some(form) = c.get(verb::Conjugation::Potential) {
                 println!("  Potential 可能形 (かのうけい):");
                 println!("    {}", dis(form.furigana()));
 
-                if let Some(form) = c.plain.get(&verb::Conjugation::PotentialAlt) {
+                if let Some(form) = c.get(verb::Conjugation::PotentialAlt) {
                     println!("    ~ {} (conversational)", dis(form.furigana()));
                 }
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Command) {
+            if let Some(form) = c.get(verb::Conjugation::Command) {
                 println!("  Command/Imperative 命令形 (めいれいけい):");
                 println!("    {}", dis(form.furigana()));
 
-                if let Some(form) = c.plain.get(&verb::Conjugation::CommandAlt) {
+                if let Some(form) = c.get(verb::Conjugation::CommandAlt) {
                     println!("    ~ {} (alternate)", dis(form.furigana()));
                 }
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Volitional) {
+            if let Some(form) = c.get(verb::Conjugation::Volitional) {
                 println!("  Volitional 意向形 (いこうけい):");
                 println!("    {}", dis(form.furigana()));
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Passive) {
+            if let Some(form) = c.get(verb::Conjugation::Passive) {
                 println!("  Passive:");
                 println!("    {}", dis(form.furigana()));
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Causative) {
+            if let Some(form) = c.get(verb::Conjugation::Causative) {
                 println!("  Causative:");
                 println!("    {}", dis(form.furigana()));
             }
 
-            if let Some(form) = c.plain.get(&verb::Conjugation::Tai) {
+            if let Some(form) = c.get(verb::Conjugation::Tai) {
                 println!("  Tai:");
                 println!("    {}", dis(form.furigana()));
                 println!("    note: can be further conjugated as i-adjective");
