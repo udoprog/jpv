@@ -3,12 +3,12 @@ mod tests;
 
 use core::fmt;
 
-use crate::composite::Composite;
+use crate::concat::Concat;
 
 /// An iterator over furigana groups.
 pub struct Furigana<'a, const N: usize> {
-    kanji: Composite<'a, N>,
-    reading: Composite<'a, N>,
+    kanji: Concat<'a, N>,
+    reading: Concat<'a, N>,
     suffix: &'a str,
 }
 
@@ -17,17 +17,13 @@ impl<'a, const N: usize> Furigana<'a, N> {
     /// reading.
     pub fn new(kanji: &'a str, reading: &'a str) -> Self {
         Self {
-            kanji: Composite::new([kanji]),
-            reading: Composite::new([reading]),
+            kanji: Concat::new([kanji]),
+            reading: Concat::new([reading]),
             suffix: "",
         }
     }
 
-    pub(crate) fn inner(
-        kanji: Composite<'a, N>,
-        reading: Composite<'a, N>,
-        suffix: &'a str,
-    ) -> Self {
+    pub(crate) fn inner(kanji: Concat<'a, N>, reading: Concat<'a, N>, suffix: &'a str) -> Self {
         Self {
             kanji,
             reading,
@@ -36,13 +32,13 @@ impl<'a, const N: usize> Furigana<'a, N> {
     }
 
     /// Access underlying kanji.
-    pub fn kanji(&self) -> Composite<'a, 3> {
-        Composite::new(self.kanji.strings().chain([self.suffix]))
+    pub fn kanji(&self) -> Concat<'a, 3> {
+        Concat::new(self.kanji.strings().chain([self.suffix]))
     }
 
     /// Access underlying reading.
-    pub fn reading(&self) -> Composite<'a, 3> {
-        Composite::new(self.reading.strings().chain([self.suffix]))
+    pub fn reading(&self) -> Concat<'a, 3> {
+        Concat::new(self.reading.strings().chain([self.suffix]))
     }
 }
 

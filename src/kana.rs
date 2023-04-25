@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::{composite::Composite, furigana::Furigana};
+use crate::{concat::Concat, furigana::Furigana};
 
 pub struct Word<'a> {
     /// Verb stem.
@@ -33,8 +33,8 @@ impl fmt::Display for Word<'_> {
 /// A reading pair.
 #[derive(Clone)]
 pub struct Pair<'a, const N: usize> {
-    kanji: Composite<'a, N>,
-    reading: Composite<'a, N>,
+    kanji: Concat<'a, N>,
+    reading: Concat<'a, N>,
     // Suffix always guaranteed to be kana.
     suffix: &'a str,
 }
@@ -47,8 +47,8 @@ impl<'a, const N: usize> Pair<'a, N> {
         B: IntoIterator<Item = &'a str>,
     {
         Pair {
-            kanji: Composite::new(kanji),
-            reading: Composite::new(reading),
+            kanji: Concat::new(kanji),
+            reading: Concat::new(reading),
             suffix,
         }
     }
@@ -61,9 +61,9 @@ impl<'a, const N: usize> Pair<'a, N> {
     ///
     /// We use this instead of implementing [`IntoIterator`] because it allows
     /// the caller to control the size of the constructed composites.
-    pub fn into_iter<const O: usize>(self) -> impl Iterator<Item = Composite<'a, O>> {
-        let kanji = Composite::<O>::new(self.kanji.strings().chain([self.suffix]));
-        let reading = Composite::<O>::new(self.reading.strings().chain([self.suffix]));
+    pub fn into_iter<const O: usize>(self) -> impl Iterator<Item = Concat<'a, O>> {
+        let kanji = Concat::<O>::new(self.kanji.strings().chain([self.suffix]));
+        let reading = Concat::<O>::new(self.reading.strings().chain([self.suffix]));
         [kanji, reading].into_iter()
     }
 }

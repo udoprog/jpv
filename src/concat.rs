@@ -1,20 +1,19 @@
 use core::fmt;
 use std::hash::{Hash, Hasher};
 
-/// A composite string composed of multiple borrowed strings concatenated
-/// together.
+/// A concatenation of multiple borrowed strings with fixed size storage.
 #[derive(Clone)]
-pub struct Composite<'a, const N: usize> {
+pub struct Concat<'a, const N: usize> {
     storage: arrayvec::ArrayVec<&'a str, N>,
 }
 
-impl<'a, const N: usize> Composite<'a, N> {
+impl<'a, const N: usize> Concat<'a, N> {
     /// Concatenate the given strings together into a single composite string.
-    pub fn new<I>(iter: I) -> Composite<'a, N>
+    pub fn new<I>(iter: I) -> Concat<'a, N>
     where
         I: IntoIterator<Item = &'a str>,
     {
-        Composite {
+        Concat {
             storage: iter.into_iter().collect(),
         }
     }
@@ -30,17 +29,17 @@ impl<'a, const N: usize> Composite<'a, N> {
     }
 }
 
-impl<'a, const A: usize, const B: usize> PartialEq<Composite<'a, A>> for Composite<'_, B> {
-    fn eq(&self, other: &Composite<'a, A>) -> bool {
+impl<'a, const A: usize, const B: usize> PartialEq<Concat<'a, A>> for Concat<'_, B> {
+    fn eq(&self, other: &Concat<'a, A>) -> bool {
         let a = self.chars();
         let b = other.chars();
         a.eq(b)
     }
 }
 
-impl<const N: usize> Eq for Composite<'_, N> {}
+impl<const N: usize> Eq for Concat<'_, N> {}
 
-impl<const N: usize> Hash for Composite<'_, N> {
+impl<const N: usize> Hash for Concat<'_, N> {
     fn hash<H>(&self, state: &mut H)
     where
         H: Hasher,
@@ -51,7 +50,7 @@ impl<const N: usize> Hash for Composite<'_, N> {
     }
 }
 
-impl<const N: usize> fmt::Display for Composite<'_, N> {
+impl<const N: usize> fmt::Display for Concat<'_, N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for string in &self.storage {
             string.fmt(f)?;

@@ -40,7 +40,7 @@ pub(crate) enum Output<'a> {
     Eof,
 }
 
-pub(crate) struct Parser<'a> {
+pub struct Parser<'a> {
     state: State<'a>,
     closed: bool,
     path: RelativePathBuf,
@@ -49,7 +49,7 @@ pub(crate) struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub(crate) fn new(input: &'a str) -> Self {
+    pub fn new(input: &'a str) -> Self {
         Self {
             state: State::Initial,
             closed: false,
@@ -60,7 +60,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse the next entry.
-    pub(crate) fn parse(&mut self) -> Result<Option<Entry<'a>>> {
+    pub fn parse(&mut self) -> Result<Option<Entry<'a>>> {
         loop {
             let output = self.parse_next()?;
 
