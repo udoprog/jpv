@@ -631,7 +631,6 @@ dependencies = [
  "arrayvec",
  "fixed-map",
  "musli",
- "musli-common 0.0.38 (registry+https://github.com/rust-lang/crates.io-index)",
  "musli-storage",
  "relative-path",
  "tracing",
@@ -686,7 +685,7 @@ dependencies = [
 [[package]]
 name = "musli"
 version = "0.0.38"
-source = "git+https://github.com/udoprog/musli?branch=generic-with#43825a44d4a63f37dfc4c0de015d954e3a4ce056"
+source = "git+https://github.com/udoprog/musli#0cf914a5fe6866f547464d725cfc4d2ebdde089c"
 dependencies = [
  "musli-macros",
 ]
@@ -694,16 +693,7 @@ dependencies = [
 [[package]]
 name = "musli-common"
 version = "0.0.38"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caccf1e242af696c15c87abc1066947526279ec7eff1307c42c9ccd1437b3cb3"
-dependencies = [
- "musli",
-]
-
-[[package]]
-name = "musli-common"
-version = "0.0.38"
-source = "git+https://github.com/udoprog/musli?branch=generic-with#43825a44d4a63f37dfc4c0de015d954e3a4ce056"
+source = "git+https://github.com/udoprog/musli#0cf914a5fe6866f547464d725cfc4d2ebdde089c"
 dependencies = [
  "musli",
 ]
@@ -711,7 +701,7 @@ dependencies = [
 [[package]]
 name = "musli-macros"
 version = "0.0.38"
-source = "git+https://github.com/udoprog/musli?branch=generic-with#43825a44d4a63f37dfc4c0de015d954e3a4ce056"
+source = "git+https://github.com/udoprog/musli#0cf914a5fe6866f547464d725cfc4d2ebdde089c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -721,10 +711,10 @@ dependencies = [
 [[package]]
 name = "musli-storage"
 version = "0.0.38"
-source = "git+https://github.com/udoprog/musli?branch=generic-with#43825a44d4a63f37dfc4c0de015d954e3a4ce056"
+source = "git+https://github.com/udoprog/musli#0cf914a5fe6866f547464d725cfc4d2ebdde089c"
 dependencies = [
  "musli",
- "musli-common 0.0.38 (git+https://github.com/udoprog/musli?branch=generic-with)",
+ "musli-common",
 ]
 
 [[package]]

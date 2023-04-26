@@ -8,6 +8,6 @@ publish = false
 anyhow = "1.0.70"
 flate2 = "1.0.25"
 clap = { version = "4.2.4", features = ["derive", "wrap_help"] }
-tracing = "0.1.37"
+tracing = "0.1.38"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 lib = { path = "../lib" }

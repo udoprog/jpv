@@ -3,13 +3,19 @@
 use std::collections::{hash_set, HashMap, HashSet};
 
 use anyhow::{anyhow, Context, Result};
+use musli::mode::DefaultMode;
 use musli::Decode;
 use musli::Encode;
+use musli_storage::int::Variable;
+use musli_storage::Encoding;
 
 use crate::elements::Entry;
 use crate::parser::Parser;
 use crate::verb;
 use crate::PartOfSpeech;
+
+/// Encoding used for storing database.
+const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 
 /// Extra information about an index.
 #[non_exhaustive]
@@ -52,7 +58,7 @@ pub struct Index {
 impl Index {
     /// Convert index into bytes.
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        Ok(musli_storage::to_vec(self)?)
+        Ok(ENCODING.to_vec(self)?)
     }
 }
 
@@ -65,7 +71,7 @@ pub struct IndexRef<'a> {
 impl<'a> IndexRef<'a> {
     /// Build index from bytes.
     pub fn from_bytes(bytes: &'a [u8]) -> Result<Self> {
-        Ok(musli_storage::from_slice(bytes)?)
+        Ok(ENCODING.from_slice(bytes)?)
     }
 }
 
@@ -122,7 +128,7 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
             }
         }
 
-        musli_storage::to_writer(&mut data, &entry)?;
+        ENCODING.to_writer(&mut data, &entry)?;
     }
 
     let index = Index { lookup, by_pos };
@@ -152,7 +158,7 @@ impl<'a> Database<'a> {
             .get(index..)
             .with_context(|| anyhow!("Missing index `{index}`"))?;
 
-        Ok(musli_storage::from_slice(slice)?)
+        Ok(ENCODING.from_slice(slice)?)
     }
 
     /// Get indexes by part of speech.
