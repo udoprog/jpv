@@ -46,6 +46,15 @@ pub struct Id {
 }
 
 impl Id {
+    /// Get the unique index this id corresponds to.
+    pub fn index(&self) -> usize {
+        match &self.kind {
+            &IdKind::Exact(index) => index,
+            &IdKind::VerbConjugation(index, _) => index,
+            &IdKind::AdjectiveConjugation(index, _) => index,
+        }
+    }
+
     /// Extra information on index.
     pub fn extra(&self) -> IndexExtra {
         match &self.kind {
@@ -179,12 +188,8 @@ impl<'a> Database<'a> {
     }
 
     /// Get an entry from the database.
-    pub fn get(&self, index: Id) -> Result<Entry<'a>> {
-        let index = match index.kind {
-            IdKind::Exact(index) => index,
-            IdKind::VerbConjugation(index, ..) => index,
-            IdKind::AdjectiveConjugation(index, ..) => index,
-        };
+    pub fn get(&self, id: Id) -> Result<Entry<'a>> {
+        let index = id.index();
 
         let slice = self
             .data

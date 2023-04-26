@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::fmt;
 use std::io::Write;
 use std::mem;
@@ -115,8 +115,16 @@ fn main() -> Result<()> {
     }
 
     for input in &args.arguments {
-        for index in db.lookup(input) {
-            to_look_up.insert(index);
+        let seed = args.sequences.is_empty();
+
+        if seed {
+            to_look_up.extend(db.lookup(input));
+        } else {
+            let filter = db
+                .lookup(input)
+                .map(|id| id.index())
+                .collect::<HashSet<_>>();
+            to_look_up.retain(|id| filter.contains(&id.index()));
         }
     }
 
