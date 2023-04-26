@@ -10,7 +10,8 @@ pub struct Word<'a> {
 }
 
 impl<'a> Word<'a> {
-    pub fn new(text: &'a str, reading: &'a str) -> Self {
+    #[inline]
+    pub(crate) const fn new(text: &'a str, reading: &'a str) -> Self {
         Self { text, reading }
     }
 

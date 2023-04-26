@@ -1,73 +1,7 @@
-use std::collections::BTreeMap;
-
-use musli::{Decode, Encode};
-
+use crate::conjugation::Conjugations;
 use crate::elements::Entry;
-use crate::kana::{Pair, Word};
-use crate::{Concat, PartOfSpeech};
-
-/// Helper macro to build a kana pair.
-macro_rules! pair {
-    ($k:expr, $r:expr, special $special:expr) => {
-        Pair::new([$special], [$special], "")
-    };
-
-    ($k:expr, $r:expr, prefix $a:expr, $b:expr, $suffix:expr) => {
-        Pair::new([$k, $a], [$r, $b], $suffix)
-    };
-
-    ($k:expr, $r:expr, $last:expr) => {
-        Pair::new([$k], [$r], $last)
-    };
-
-    ($k:expr, $r:expr, $a:expr, $last:expr) => {
-        Pair::new([$k, $a], [$r, $a], $last)
-    };
-}
-
-/// Setup a collection of conjugations.
-macro_rules! conjugations {
-    ($k:expr, $r:expr, $(
-        $kind:ident ( $($tt:tt)* )
-    ),* $(,)?) => {{
-        let mut tree = BTreeMap::new();
-        $(tree.insert(Conjugation::$kind, pair!($k, $r, $($tt)*));)*
-        tree
-    }};
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
-pub enum Conjugation {
-    Present,
-    PresentPolite,
-    Past,
-    PastPolite,
-    Negative,
-    NegativePolite,
-    PastNegative,
-    PastNegativePolite,
-}
-
-/// A collection of conjugations.
-#[non_exhaustive]
-pub struct Conjugations<'a> {
-    pub dictionary: Word<'a>,
-    conjugations: BTreeMap<Conjugation, Pair<'a, 2>>,
-}
-
-impl<'a> Conjugations<'a> {
-    /// Get a conjugation.
-    pub fn get(&self, conjugation: Conjugation) -> Option<&Pair<'a, 2>> {
-        self.conjugations.get(&conjugation)
-    }
-
-    /// Iterate over all conjugations.
-    pub fn iter(&self) -> impl Iterator<Item = (Conjugation, Concat<'a, 3>)> + '_ {
-        self.conjugations
-            .iter()
-            .flat_map(|(k, p)| p.clone().into_iter().map(|p| (*k, p)))
-    }
-}
+use crate::kana::Word;
+use crate::PartOfSpeech;
 
 /// Try to conjugate the given entry as an adjective.
 pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
@@ -84,13 +18,13 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
             let conjugations = conjugations! {
                 k, r,
                 Present("い"),
-                PresentPolite("いです"),
+                Present + ?Polite("いです"),
                 Past("かった"),
-                PastPolite("かったです"),
+                Past + ?Polite("かったです"),
                 Negative("くない"),
-                NegativePolite("くないです"),
-                PastNegative("なかった"),
-                PastNegativePolite("なかったです"),
+                Negative + ?Polite("くないです"),
+                Past + Negative("なかった"),
+                Past + Negative + ?Polite("なかったです"),
             };
 
             Some(Conjugations {
@@ -109,13 +43,13 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
             let conjugations = conjugations! {
                 k, r,
                 Present("いい"),
-                PresentPolite("いいです"),
+                Present + ?Polite("いいです"),
                 Past("よかった"),
-                PastPolite("よかったです"),
+                Past + ?Polite("よかったです"),
                 Negative("よくない"),
-                NegativePolite("よくないです"),
-                PastNegative("よなかった"),
-                PastNegativePolite("よなかったです"),
+                Negative + ?Polite("よくないです"),
+                Past + Negative("よなかった"),
+                Past + Negative + ?Polite("よなかったです"),
             };
 
             Some(Conjugations {
@@ -127,13 +61,13 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
             let conjugations = conjugations! {
                 kanji.text, reading.text,
                 Present("だ"),
-                PresentPolite("です"),
+                Present + ?Polite("です"),
                 Past("だった"),
-                PastPolite("でした"),
+                Past + ?Polite("でした"),
                 Negative("ではない"),
-                NegativePolite("ではありません"),
-                PastNegative("ではなかった"),
-                PastNegativePolite("ではありませんでした"),
+                Negative + ?Polite("ではありません"),
+                Past + Negative("ではなかった"),
+                Past + Negative + ?Polite("ではありませんでした"),
             };
 
             Some(Conjugations {

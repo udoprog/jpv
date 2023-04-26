@@ -95,9 +95,9 @@ fn main() -> Result<()> {
     }
 
     let data =
-        load_database(&database_path).with_context(|| anyhow!("{}", database_path.display()))?;
+        load_database(database_path).with_context(|| anyhow!("{}", database_path.display()))?;
 
-    let index = load_index(&index_path).with_context(|| anyhow!("{}", index_path.display()))?;
+    let index = load_index(index_path).with_context(|| anyhow!("{}", index_path.display()))?;
     let index = IndexRef::from_bytes(index.as_ref())?;
 
     let db = Database::new(data.as_ref(), index);
@@ -105,7 +105,7 @@ fn main() -> Result<()> {
     let mut to_look_up = BTreeSet::new();
 
     for input in &args.arguments {
-        for index in db.lookup(&input) {
+        for index in db.lookup(input) {
             to_look_up.insert(index);
         }
     }
@@ -194,92 +194,12 @@ fn main() -> Result<()> {
         if let Some(c) = verb::conjugate(&d) {
             writeln!(o, "{p}# Conjugations:")?;
 
-            writeln!(o, "{p}  Dictionary / Present / Future / Attributive:")?;
+            writeln!(o, "{p}  Dictionary:")?;
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
-            if let Some(form) = c.get(verb::Conjugation::IndicativePolite) {
-                writeln!(o, "{p}  ~ {} (polite)", dis(form.furigana()))?;
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Te) {
-                writeln!(o, "{p}  Te:")?;
+            for (c, form) in c.conjugations {
+                writeln!(o, "{p}  {c:?}:")?;
                 writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Past) {
-                writeln!(o, "{p}  Past:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(verb::Conjugation::PastPolite) {
-                    writeln!(o, "{p}  ~ {} (polite)", dis(form.furigana()))?;
-                }
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Negative) {
-                writeln!(o, "{p}  Negative:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(verb::Conjugation::NegativePolite) {
-                    writeln!(o, "{p}  ~ {} (polite)", dis(form.furigana()))?;
-                }
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::PastNegative) {
-                writeln!(o, "{p}  Past Negative:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(verb::Conjugation::PastNegativePolite) {
-                    writeln!(o, "{p}  ~ {} (polite)", dis(form.furigana()))?;
-                }
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Hypothetical) {
-                writeln!(o, "{p}  Hypothetical / Conditional:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Conditional) {
-                writeln!(o, "{p}  Conditional:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Potential) {
-                writeln!(o, "{p}  Potential:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(verb::Conjugation::PotentialAlt) {
-                    writeln!(o, "{p}  ~ {} (conversational)", dis(form.furigana()))?;
-                }
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Command) {
-                writeln!(o, "{p}  Command / Imperative:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(verb::Conjugation::CommandAlt) {
-                    writeln!(o, "{p}  ~ {} (alternate)", dis(form.furigana()))?;
-                }
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Volitional) {
-                writeln!(o, "{p}  Volitional:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Passive) {
-                writeln!(o, "{p}  Passive:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Causative) {
-                writeln!(o, "{p}  Causative:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-            }
-
-            if let Some(form) = c.get(verb::Conjugation::Tai) {
-                writeln!(o, "{p}  Tai:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-                writeln!(o, "{p}    note: can be further conjugated as i-adjective")?;
             }
         }
 
@@ -289,40 +209,9 @@ fn main() -> Result<()> {
             writeln!(o, "{p}  Dictionary:")?;
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
-            if let Some(form) = c.get(adjective::Conjugation::Present) {
-                writeln!(o, "{p}  Present:")?;
+            for (c, form) in c.conjugations {
+                writeln!(o, "{p}  {c:?}:")?;
                 writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(adjective::Conjugation::PresentPolite) {
-                    writeln!(o, "{p}  ~ {}", dis(form.furigana()))?;
-                }
-            }
-
-            if let Some(form) = c.get(adjective::Conjugation::Past) {
-                writeln!(o, "{p}  Past:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(adjective::Conjugation::PastPolite) {
-                    writeln!(o, "{p}  ~ {}", dis(form.furigana()))?;
-                }
-            }
-
-            if let Some(form) = c.get(adjective::Conjugation::Negative) {
-                writeln!(o, "{p}  Negative:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(adjective::Conjugation::NegativePolite) {
-                    writeln!(o, "{p}  ~ {}", dis(form.furigana()))?;
-                }
-            }
-
-            if let Some(form) = c.get(adjective::Conjugation::PastNegative) {
-                writeln!(o, "{p}  Past Negative:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-
-                if let Some(form) = c.get(adjective::Conjugation::PastNegativePolite) {
-                    writeln!(o, "{p}  ~ {}", dis(form.furigana()))?;
-                }
             }
         }
 

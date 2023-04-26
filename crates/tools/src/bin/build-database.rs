@@ -49,7 +49,7 @@ fn main() -> Result<()> {
 
     let start = Instant::now();
 
-    let dict = load_dict(&path).with_context(|| anyhow!("{}", path.display()))?;
+    let dict = load_dict(path).with_context(|| anyhow!("{}", path.display()))?;
     let (data, index) = database::load(&dict)?;
 
     let duration = Instant::now().duration_since(start);

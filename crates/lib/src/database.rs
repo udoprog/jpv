@@ -10,6 +10,7 @@ use musli_storage::int::Variable;
 use musli_storage::Encoding;
 
 use crate::adjective;
+use crate::conjugation::Conjugation;
 use crate::elements::Entry;
 use crate::parser::Parser;
 use crate::verb;
@@ -24,9 +25,9 @@ pub enum IndexExtra {
     /// No extra information on why the index was added.
     None,
     /// Index was added because of a verb conjugation.
-    VerbConjugation(verb::Conjugation),
+    VerbConjugation(Conjugation),
     /// Index was added because of an adjective conjugation.
-    AdjectiveConjugation(adjective::Conjugation),
+    AdjectiveConjugation(Conjugation),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
@@ -34,9 +35,9 @@ enum IdKind {
     /// An exact dictionary index.
     Exact(usize),
     /// A lookup based on a conjugation.
-    VerbConjugation(usize, verb::Conjugation),
+    VerbConjugation(usize, Conjugation),
     /// A lookup based on an adjective conjugation.
-    AdjectiveConjugation(usize, adjective::Conjugation),
+    AdjectiveConjugation(usize, Conjugation),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
@@ -89,7 +90,7 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
     let mut lookup = HashMap::<_, Vec<IdKind>>::new();
     let mut by_pos = HashMap::<_, HashSet<usize>>::new();
 
-    let mut parser = Parser::new(&dict);
+    let mut parser = Parser::new(dict);
 
     while let Some(entry) = parser.parse()? {
         tracing::trace!(?entry);

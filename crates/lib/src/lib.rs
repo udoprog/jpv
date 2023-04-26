@@ -1,5 +1,9 @@
 #![allow(clippy::large_enum_variant)]
 
+#[macro_use]
+mod conjugation;
+pub use self::conjugation::{Conjugation, Flag, Form};
+
 pub mod adjective;
 
 mod concat;
@@ -24,3 +28,8 @@ mod priority;
 pub mod database;
 
 mod musli;
+
+#[doc(hidden)]
+pub mod macro_support {
+    pub use fixed_map;
+}

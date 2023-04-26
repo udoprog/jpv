@@ -1,39 +1,10 @@
 //! Module which performs verb conjugation, based on a words class.
 
-use std::collections::BTreeMap;
-
-use musli::{Decode, Encode};
-
+use crate::conjugation::Conjugations;
 use crate::elements::Entry;
 use crate::entities::KanjiInfo;
-use crate::kana::{Pair, Word};
-use crate::{Concat, PartOfSpeech};
-
-/// Helper macro to build a kana pair.
-macro_rules! pair {
-    ($k:expr, $r:expr, prefix $a:expr, $b:expr, $suffix:expr) => {
-        Pair::new([$k, $a], [$r, $b], $suffix)
-    };
-
-    ($k:expr, $r:expr, $last:expr) => {
-        Pair::new([$k], [$r], $last)
-    };
-
-    ($k:expr, $r:expr, $a:expr, $last:expr) => {
-        Pair::new([$k, $a], [$r, $a], $last)
-    };
-}
-
-/// Setup a collection of conjugations.
-macro_rules! conjugations {
-    ($k:expr, $r:expr, $(
-        $kind:ident ( $($tt:tt)* )
-    ),* $(,)?) => {{
-        let mut tree = BTreeMap::new();
-        $(tree.insert(Conjugation::$kind, pair!($k, $r, $($tt)*));)*
-        tree
-    }};
-}
+use crate::kana::Word;
+use crate::PartOfSpeech;
 
 /// Try to conjugate the given entry as a verb.
 pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
@@ -55,31 +26,28 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
 
             let conjugations = conjugations! {
                 k, r,
-                Causative("させる"),
+                Present("させる"),
+                Present + ?Polite("ます"),
                 Command("ろ"),
-                CommandAlt("よ"),
+                Command + ?Alternate("よ"),
                 Conditional("たら"),
                 Hypothetical("ば"),
                 Negative("ない"),
                 Passive("られる"),
                 Past("た"),
-                PastNegative("なかった"),
+                Past + ?Polite("ました"),
+                Past + Negative("なかった"),
+                Past + Negative + ?Polite("ませんでした"),
                 Potential("られる"),
-                PotentialAlt("れる"),
+                Potential + ?Alternate("れる"),
                 Tai("たい"),
                 Te("て"),
                 Volitional("よう"),
-                IndicativePolite("ます"),
-                NegativePolite("ません"),
-                PastPolite("ました"),
-                PastNegativePolite("ませんでした"),
+                Negative + ?Polite("ません"),
             };
 
             Some(Conjugations {
-                dictionary: Word {
-                    text: kanji_text,
-                    reading: reading.text,
-                },
+                dictionary: Word::new(kanji_text, reading.text),
                 conjugations,
             })
         }
@@ -113,29 +81,26 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
 
             let conjugations = conjugations! {
                 k, r,
-                Causative(a, "せる"),
+                Present(a, "せる"),
+                Present + ?Polite(i, "ます"),
+                Negative(a, "ない"),
+                Negative + ?Polite(i, "ません"),
+                Past(past),
+                Past + ?Polite(i, "ました"),
+                Past + Negative(a, "なかった"),
+                Past + Negative + ?Polite(i, "ませんでした"),
                 Command(e),
                 Conditional(past, "ら"),
                 Hypothetical(e, "ば"),
-                Negative(a, "ない"),
                 Passive(a, "れる"),
-                Past(past),
-                PastNegative(a, "なかった"),
                 Potential(e, "る"),
                 Tai(i, "たい"),
                 Te(te),
                 Volitional(o, "う"),
-                IndicativePolite(i, "ます"),
-                NegativePolite(i, "ません"),
-                PastPolite(i, "ました"),
-                PastNegativePolite(i, "ませんでした"),
             };
 
             Some(Conjugations {
-                dictionary: Word {
-                    text: kanji_text,
-                    reading: reading.text,
-                },
+                dictionary: Word::new(kanji_text, reading.text),
                 conjugations,
             })
         }
@@ -146,29 +111,26 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
 
             let conjugations = conjugations! {
                 k, r,
-                Causative("させる"),
+                Present("させる"),
+                Present + ?Polite("します"),
+                Negative("しない"),
+                Negative + ?Polite("しません"),
+                Past("した"),
+                Past + ?Polite("しました"),
+                Past + Negative("しなかった"),
+                Past + Negative + ?Polite("しませんでした"),
                 Command("しろ"),
                 Conditional("したら"),
                 Hypothetical("すれば"),
-                Negative("しない"),
                 Passive("される"),
-                Past("した"),
-                PastNegative("しなかった"),
                 Potential("できる"),
                 Tai("したい"),
                 Te("して"),
                 Volitional("しよう"),
-                IndicativePolite("します"),
-                NegativePolite("しません"),
-                PastPolite("しました"),
-                PastNegativePolite("しませんでした"),
             };
 
             Some(Conjugations {
-                dictionary: Word {
-                    text: kanji_text,
-                    reading: reading.text,
-                },
+                dictionary: Word::new(kanji_text, reading.text),
                 conjugations,
             })
         }
@@ -179,22 +141,22 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
 
             let conjugations = conjugations! {
                 k, r,
-                Causative(prefix "来", "こ", "させる"),
-                Command(prefix "来", "こ", "い"),
-                Conditional(prefix "来", "き", "たら"),
-                Hypothetical(prefix "来", "く", "れば"),
-                Negative(prefix "来", "こ", "ない"),
-                Passive(prefix "来", "こ", "られる"),
-                Past(prefix "来", "き", "た"),
-                PastNegative(prefix "来", "こ", "なかった"),
-                Potential(prefix "来", "こ", "られる"),
-                Tai(prefix "来", "き", "たい"),
-                Te(prefix "来", "き", "て"),
-                Volitional(prefix "来", "こ", "よう"),
-                IndicativePolite(prefix "来", "き", "ます"),
-                NegativePolite(prefix "来", "き", "ません"),
-                PastPolite(prefix "来", "き", "ました"),
-                PastNegativePolite(prefix "来", "き", "ませんでした"),
+                Present("来", "こ", "させる"),
+                Present + ?Polite("来", "き", "ます"),
+                Negative("来", "こ", "ない"),
+                Negative + ?Polite("来", "き", "ません"),
+                Past("来", "き", "た"),
+                Past + ?Polite("来", "き", "ました"),
+                Past + Negative ("来", "こ", "なかった"),
+                Past + Negative + ?Polite("来", "き", "ませんでした"),
+                Command("来", "こ", "い"),
+                Conditional("来", "き", "たら"),
+                Hypothetical("来", "く", "れば"),
+                Passive("来", "こ", "られる"),
+                Potential("来", "こ", "られる"),
+                Tai("来", "き", "たい"),
+                Te("来", "き", "て"),
+                Volitional("来", "こ", "よう"),
             };
 
             Some(Conjugations {
@@ -202,66 +164,6 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 conjugations,
             })
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
-pub enum Conjugation {
-    Causative,
-    Command,
-    CommandAlt,
-    Conditional,
-    Hypothetical,
-    Indicative,
-    Negative,
-    Passive,
-    Past,
-    PastNegative,
-    Potential,
-    PotentialAlt,
-    Tai,
-    Te,
-    Volitional,
-    IndicativePolite,
-    NegativePolite,
-    PastPolite,
-    PastNegativePolite,
-}
-
-/// A collection of conjugations.
-#[non_exhaustive]
-pub struct Conjugations<'a> {
-    pub dictionary: Word<'a>,
-    conjugations: BTreeMap<Conjugation, Pair<'a, 2>>,
-}
-
-impl<'a> Conjugations<'a> {
-    /// Test if any polite conjugations exist.
-    pub fn has_polite(&self) -> bool {
-        for polite in [
-            Conjugation::IndicativePolite,
-            Conjugation::NegativePolite,
-            Conjugation::PastPolite,
-            Conjugation::PastNegativePolite,
-        ] {
-            if self.conjugations.contains_key(&polite) {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    /// Get a conjugation.
-    pub fn get(&self, conjugation: Conjugation) -> Option<&Pair<'a, 2>> {
-        self.conjugations.get(&conjugation)
-    }
-
-    /// Iterate over all conjugations.
-    pub fn iter(&self) -> impl Iterator<Item = (Conjugation, Concat<'a, 3>)> + '_ {
-        self.conjugations
-            .iter()
-            .flat_map(|(k, p)| p.clone().into_iter().map(|p| (*k, p)))
     }
 }
 
