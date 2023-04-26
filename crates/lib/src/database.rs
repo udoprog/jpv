@@ -72,7 +72,7 @@ impl Index {
 
 #[derive(Decode)]
 pub struct IndexRef<'a> {
-    lookup: HashMap<&'a str, Vec<IdKind>>,
+    lookup: HashMap<&'a [u8], Vec<IdKind>>,
     by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
 }
 
@@ -190,7 +190,7 @@ impl<'a> Database<'a> {
     pub fn lookup(&self, query: &str) -> impl Iterator<Item = Id> + '_ {
         self.index
             .lookup
-            .get(query)
+            .get(query.as_bytes())
             .into_iter()
             .flatten()
             .copied()
