@@ -6,8 +6,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use lib::database::Index;
-use lib::database::{Database, IndexExtra};
+use lib::database::{Database, IndexExtra, IndexRef};
 use lib::verb;
 use lib::{Furigana, PartOfSpeech};
 use tracing_subscriber::util::SubscriberInitExt;
@@ -58,16 +57,16 @@ fn load_database(_: &Path) -> Result<Cow<'static, [u8]>> {
 
 #[cfg(not(feature = "embed"))]
 #[inline]
-fn load_index(path: &Path) -> Result<Index> {
+fn load_index(path: &Path) -> Result<Cow<'static, [u8]>> {
     let index = std::fs::read(path)?;
-    Index::from_bytes(&index)
+    Ok(Cow::Owned(index))
 }
 
 #[cfg(feature = "embed")]
 #[inline]
-fn load_index(_: &Path) -> Result<Index> {
+fn load_index(_: &Path) -> Result<Cow<'static, [u8]>> {
     const BYTES: &[u8] = include_bytes!("../../../index.bin");
-    Index::from_bytes(BYTES)
+    Ok(Cow::Borrowed(BYTES))
 }
 
 fn main() -> Result<()> {
@@ -97,8 +96,9 @@ fn main() -> Result<()> {
         load_database(&database_path).with_context(|| anyhow!("{}", database_path.display()))?;
 
     let index = load_index(&index_path).with_context(|| anyhow!("{}", index_path.display()))?;
+    let index = IndexRef::from_bytes(index.as_ref())?;
 
-    let db = Database::new(data.as_ref(), &index);
+    let db = Database::new(data.as_ref(), index);
 
     let mut to_look_up = BTreeSet::new();
 

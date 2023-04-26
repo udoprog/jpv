@@ -43,21 +43,29 @@ impl Id {
     }
 }
 
-#[derive(Encode, Decode)]
+#[derive(Encode)]
 pub struct Index {
     lookup: HashMap<String, Vec<IdKind>>,
     by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
 }
 
 impl Index {
-    /// Build index from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        Ok(musli_storage::from_slice(bytes)?)
-    }
-
     /// Convert index into bytes.
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
         Ok(musli_storage::to_vec(self)?)
+    }
+}
+
+#[derive(Decode)]
+pub struct IndexRef<'a> {
+    lookup: HashMap<&'a str, Vec<IdKind>>,
+    by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
+}
+
+impl<'a> IndexRef<'a> {
+    /// Build index from bytes.
+    pub fn from_bytes(bytes: &'a [u8]) -> Result<Self> {
+        Ok(musli_storage::from_slice(bytes)?)
     }
 }
 
@@ -123,12 +131,12 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
 
 pub struct Database<'a> {
     data: &'a [u8],
-    index: &'a Index,
+    index: IndexRef<'a>,
 }
 
 impl<'a> Database<'a> {
     /// Construct a new database wrapper.
-    pub fn new(data: &'a [u8], index: &'a Index) -> Self {
+    pub fn new(data: &'a [u8], index: IndexRef<'a>) -> Self {
         Self { data, index }
     }
 
