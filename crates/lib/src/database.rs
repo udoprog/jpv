@@ -62,6 +62,7 @@ impl Id {
 pub struct Index {
     lookup: HashMap<String, Vec<IdKind>>,
     by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
+    by_sequence: HashMap<u64, usize>,
 }
 
 impl Index {
@@ -75,6 +76,7 @@ impl Index {
 pub struct IndexRef<'a> {
     lookup: HashMap<&'a [u8], Vec<IdKind>>,
     by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
+    by_sequence: HashMap<u64, usize>,
 }
 
 impl<'a> IndexRef<'a> {
@@ -89,6 +91,7 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
     let mut data = Vec::new();
     let mut lookup = HashMap::<_, Vec<IdKind>>::new();
     let mut by_pos = HashMap::<_, HashSet<usize>>::new();
+    let mut by_sequence = HashMap::new();
 
     let mut parser = Parser::new(dict);
 
@@ -97,20 +100,18 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
 
         let index = data.len();
 
+        by_sequence.insert(entry.sequence, index);
+
         for sense in &entry.senses {
             for pos in &sense.pos {
                 by_pos.entry(pos).or_default().insert(index);
             }
 
             for g in &sense.gloss {
-                for part in g.text.split_whitespace() {
-                    let part = part.trim();
-
-                    lookup
-                        .entry(part.to_string())
-                        .or_default()
-                        .push(IdKind::Exact(index));
-                }
+                lookup
+                    .entry(g.text.to_string())
+                    .or_default()
+                    .push(IdKind::Exact(index));
             }
         }
 
@@ -149,7 +150,11 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
         ENCODING.to_writer(&mut data, &entry)?;
     }
 
-    let index = Index { lookup, by_pos };
+    let index = Index {
+        lookup,
+        by_pos,
+        by_sequence,
+    };
     Ok((data, index))
 }
 
@@ -162,6 +167,15 @@ impl<'a> Database<'a> {
     /// Construct a new database wrapper.
     pub fn new(data: &'a [u8], index: IndexRef<'a>) -> Self {
         Self { data, index }
+    }
+
+    /// Get identifier by sequence.
+    pub fn lookup_sequence(&self, sequence: u64) -> Option<Id> {
+        let &index = self.index.by_sequence.get(&sequence)?;
+
+        Some(Id {
+            kind: IdKind::Exact(index),
+        })
     }
 
     /// Get an entry from the database.

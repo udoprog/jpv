@@ -45,6 +45,9 @@ struct Args {
     /// Include polite variants of conjugations.
     #[arg(long)]
     polite: bool,
+    /// Only fetch the specified sequence ids.
+    #[arg(long = "seq")]
+    sequences: Vec<u64>,
 }
 
 #[cfg(not(feature = "embed"))]
@@ -107,6 +110,10 @@ fn main() -> Result<()> {
 
     let mut to_look_up = BTreeSet::new();
 
+    for &seq in &args.sequences {
+        to_look_up.extend(db.lookup_sequence(seq));
+    }
+
     for input in &args.arguments {
         for index in db.lookup(input) {
             to_look_up.insert(index);
@@ -114,7 +121,7 @@ fn main() -> Result<()> {
     }
 
     if !args.parts_of_speech.is_empty() {
-        let mut seed = args.arguments.is_empty();
+        let mut seed = args.arguments.is_empty() && args.sequences.is_empty();
 
         for pos in &args.parts_of_speech {
             let pos = PartOfSpeech::parse_keyword(pos)
@@ -133,7 +140,7 @@ fn main() -> Result<()> {
 
     let current_lang = args.lang.as_deref().unwrap_or("eng");
 
-    for (i, index) in to_look_up.into_iter().enumerate() {
+    for (i, index) in to_look_up.iter().enumerate() {
         let extra = match index.extra() {
             IndexExtra::VerbConjugation(conjugation) => {
                 Some(format!("Found through verb conjugation: {conjugation:?}"))
@@ -144,7 +151,7 @@ fn main() -> Result<()> {
             _ => None,
         };
 
-        let d = db.get(index)?;
+        let d = db.get(*index)?;
 
         if let Some(extra) = extra {
             println!("{extra}");
@@ -169,20 +176,22 @@ fn main() -> Result<()> {
 
             for g in &sense.gloss {
                 if let Some(lang) = g.lang {
-                    println!("    - {} ({lang})", g.text);
+                    println!("  - {} ({lang})", g.text);
                 } else {
-                    println!("    - {}", g.text);
+                    println!("  - {}", g.text);
                 }
             }
 
-            if args.examples {
+            if args.examples && !sense.examples.is_empty() {
+                println!("  Examples:");
+
                 for e in &sense.examples {
-                    println!("    {e:?}");
+                    println!("  - {e:?}");
                 }
             }
         }
 
-        if args.no_conjugate {
+        if args.no_conjugate || (to_look_up.len() > 1 && args.sequences.is_empty()) {
             continue;
         }
 
