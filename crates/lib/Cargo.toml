@@ -1,0 +1,15 @@
+[package]
+name = "lib"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1.0.70"
+arrayvec = "0.7.2"
+fixed-map = "0.8.2"
+musli = "0.0.38"
+musli-storage = "0.0.38"
+relative-path = "1.8.0"
+tracing = "0.1.37"
+xmlparser = "0.13.5"

@@ -16,6 +16,8 @@ mod kana;
 pub mod verb;
 
 mod parser;
-pub use self::parser::Parser;
 
 mod priority;
+
+mod database;
+pub use self::database::{Database, Index, IndexExtra, Indexes};

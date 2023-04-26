@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::BTreeSet;
 use std::fmt;
 use std::io::Read;
 use std::mem;
@@ -7,8 +7,8 @@ use std::time::Instant;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use flate2::read::GzDecoder;
-use jpv::verb;
-use jpv::{Concat, Furigana, PartOfSpeech};
+use lib::verb;
+use lib::{Database, Furigana, IndexExtra, PartOfSpeech};
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
@@ -55,19 +55,11 @@ fn load_dict() -> Result<String> {
 
 #[cfg(not(debug_assertions))]
 fn load_dict() -> Result<String> {
-    static DICT: &[u8] = include_bytes!("../JMdict_e_examp.gz");
+    static DICT: &[u8] = include_bytes!("../../../JMdict_e_examp.gz");
     let mut input = GzDecoder::new(std::io::Cursor::new(DICT));
     let mut string = String::new();
     input.read_to_string(&mut string)?;
     Ok(string)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-enum Index {
-    /// An exact dictionary index.
-    Exact(usize),
-    /// A lookup based on a conjugation.
-    VerbConjugation(usize, verb::Conjugation),
 }
 
 fn main() -> Result<()> {
@@ -91,62 +83,9 @@ fn main() -> Result<()> {
     }
 
     let dict = load_dict()?;
+    let db = Database::load(&dict)?;
 
     let start = Instant::now();
-
-    let mut database = Vec::new();
-    let mut lookup = HashMap::<_, Vec<Index>>::new();
-    let mut by_pos = HashMap::<_, HashSet<usize>>::new();
-
-    let mut parser = jpv::Parser::new(&dict);
-
-    while let Some(entry) = parser.parse()? {
-        tracing::trace!(?entry);
-
-        let index = database.len();
-
-        for sense in &entry.senses {
-            for pos in &sense.pos {
-                by_pos.entry(pos).or_default().insert(index);
-            }
-
-            for g in &sense.gloss {
-                for part in g.text.split_whitespace() {
-                    let part = part.trim();
-
-                    lookup
-                        .entry(Concat::new([part]))
-                        .or_default()
-                        .push(Index::Exact(index));
-                }
-            }
-        }
-
-        for el in &entry.reading_elements {
-            lookup
-                .entry(Concat::new([el.text]))
-                .or_default()
-                .push(Index::Exact(index));
-        }
-
-        for el in &entry.kanji_elements {
-            lookup
-                .entry(Concat::new([el.text]))
-                .or_default()
-                .push(Index::Exact(index));
-        }
-
-        if let Some(c) = verb::conjugate(&entry) {
-            for (conjugation, phrase) in c.iter() {
-                lookup
-                    .entry(phrase)
-                    .or_default()
-                    .push(Index::VerbConjugation(index, conjugation));
-            }
-        }
-
-        database.push(entry);
-    }
 
     let duration = Instant::now().duration_since(start);
     tracing::info!(?duration);
@@ -154,12 +93,9 @@ fn main() -> Result<()> {
     let mut to_look_up = BTreeSet::new();
 
     for input in &args.arguments {
-        let Some(indexes) = lookup.get(&Concat::new([input.as_str()])) else {
-            println!("nothing for `{input}`");
-            continue;
-        };
-
-        to_look_up.extend(indexes.iter().copied());
+        for index in db.lookup(&input) {
+            to_look_up.insert(index);
+        }
     }
 
     if !args.parts_of_speech.is_empty() {
@@ -169,38 +105,28 @@ fn main() -> Result<()> {
             let pos = PartOfSpeech::parse_keyword(pos)
                 .with_context(|| anyhow!("Invalid part of speech `{pos}`"))?;
 
-            let Some(indexes) = by_pos.get(&pos) else {
-                continue;
-            };
+            let indexes = db.by_pos(pos);
 
             if mem::take(&mut seed) {
-                to_look_up.extend(indexes.iter().copied().map(Index::Exact));
+                to_look_up.extend(indexes);
                 continue;
             }
 
-            to_look_up.retain(|index| {
-                let index = match index {
-                    Index::Exact(index) => index,
-                    Index::VerbConjugation(index, _) => index,
-                };
-
-                indexes.contains(index)
-            });
+            to_look_up.retain(|index| indexes.contains(index));
         }
     }
 
     let current_lang = args.lang.as_deref().unwrap_or("eng");
 
     for (i, index) in to_look_up.into_iter().enumerate() {
-        let (index, extra) = match index {
-            Index::Exact(index) => (index, None),
-            Index::VerbConjugation(index, conjugation) => (
-                index,
-                Some(format!("Found through conjugation: {conjugation:?}")),
-            ),
+        let extra = match index.extra() {
+            IndexExtra::Conjugation(conjugation) => {
+                Some(format!("Found through conjugation: {conjugation:?}"))
+            }
+            _ => None,
         };
 
-        let d = &database[index];
+        let d = db.get(index)?;
 
         if let Some(extra) = extra {
             println!("{extra}");

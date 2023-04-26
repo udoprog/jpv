@@ -1,15 +1,2 @@
-[package]
-name = "jpv"
-version = "0.0.0"
-edition = "2021"
-
-[dependencies]
-anyhow = "1.0.70"
-arrayvec = "0.7.2"
-clap = { version = "4.2.4", features = ["derive", "wrap_help"] }
-fixed-map = "0.8.2"
-flate2 = "1.0.25"
-relative-path = "1.8.0"
-tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-xmlparser = "0.13.5"
+[workspace]
+members = ["crates/*"]
