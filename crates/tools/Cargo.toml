@@ -1,12 +1,8 @@
 [package]
-name = "jpv"
+name = "tools"
 version = "0.0.0"
 edition = "2021"
 publish = false
-default-run = "jpv"
-
-[features]
-embed = []
 
 [dependencies]
 anyhow = "1.0.70"

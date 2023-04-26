@@ -1108,6 +1108,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tools"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "flate2",
+ "lib",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing"
 version = "0.1.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
