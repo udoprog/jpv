@@ -9,9 +9,18 @@ use crate::{
     Concat,
 };
 
+/// Helper to construct a particular [`Conjugation`].
+///
+/// # Examples
+///
+/// ```rust
+/// lib::conjugation!(Present + Past);
+/// lib::conjugation!(Present + Past + *Polite);
+/// lib::conjugation!(Present + Past + *Alternate);
+/// ```
 #[macro_export]
-macro_rules! con {
-    ($kind:ident $(+ $kind2:ident)* $(+ ?$flag:ident)*) => {{
+macro_rules! conjugation {
+    ($kind:ident $(+ $kind2:ident)* $(+ *$flag:ident)*) => {{
         let mut form = $crate::macro_support::fixed_map::Set::new();
         form.insert($crate::Form::$kind);
         $(form.insert($crate::Form::$kind2);)*
@@ -40,26 +49,28 @@ macro_rules! pair {
 /// Setup a collection of conjugations.
 macro_rules! conjugations {
     ($k:expr, $r:expr, $(
-        $kind:ident $(+ $kind2:ident)* $(+ ?$flag:ident)* ( $($tt:tt)* )
+        $kind:ident $(+ $kind2:ident)* $(+ *$flag:ident)* ( $($tt:tt)* )
     ),* $(,)?) => {{
         let mut tree = ::std::collections::BTreeMap::new();
-        $(tree.insert($crate::con!($kind $(+ $kind2)* $(+ ?$flag)*), pair!($k, $r, $($tt)*));)*
+        $(tree.insert($crate::conjugation!($kind $(+ $kind2)* $(+ *$flag)*), pair!($k, $r, $($tt)*));)*
         tree
     }};
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Key)]
 pub enum Form {
-    Present,
-    Past,
-    Negative,
     Te,
+    Present,
+    Negative,
+    Past,
     Command,
-    Potential,
-    Passive,
-    Conditional,
     Hypothetical,
+    Conditional,
+    Passive,
+    Potential,
+    /// Volitional / Presumptive
     Volitional,
+    Causative,
     Tai,
 }
 
@@ -67,14 +78,15 @@ pub enum Form {
 pub enum Flag {
     Polite,
     Alternate,
+    Conversation,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 pub struct Conjugation {
     #[musli(with = crate::musli::set::<_>)]
-    form: Set<Form>,
+    pub form: Set<Form>,
     #[musli(with = crate::musli::set::<_>)]
-    flag: Set<Flag>,
+    pub flag: Set<Flag>,
 }
 
 impl Conjugation {
@@ -87,10 +99,11 @@ impl Conjugation {
 
 impl fmt::Debug for Conjugation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Conjugation")
-            .field(&self.form)
-            .field(&self.flag)
-            .finish()
+        if self.flag.is_empty() {
+            self.form.fmt(f)
+        } else {
+            write!(f, "{:?} / {:?}", self.form, self.flag)
+        }
     }
 }
 

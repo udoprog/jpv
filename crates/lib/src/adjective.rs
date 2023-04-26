@@ -17,14 +17,14 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
 
             let conjugations = conjugations! {
                 k, r,
-                Present("い"),
-                Present + ?Polite("いです"),
-                Past("かった"),
-                Past + ?Polite("かったです"),
-                Negative("くない"),
-                Negative + ?Polite("くないです"),
-                Past + Negative("なかった"),
-                Past + Negative + ?Polite("なかったです"),
+                Present ("い"),
+                Present + *Polite ("いです"),
+                Past ("かった"),
+                Past + *Polite ("かったです"),
+                Negative ("くない"),
+                Negative + *Polite ("くないです"),
+                Past + Negative ("なかった"),
+                Past + Negative + *Polite ("なかったです"),
             };
 
             Some(Conjugations {
@@ -42,14 +42,14 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
 
             let conjugations = conjugations! {
                 k, r,
-                Present("いい"),
-                Present + ?Polite("いいです"),
-                Past("よかった"),
-                Past + ?Polite("よかったです"),
-                Negative("よくない"),
-                Negative + ?Polite("よくないです"),
-                Past + Negative("よなかった"),
-                Past + Negative + ?Polite("よなかったです"),
+                Present ("いい"),
+                Present + *Polite ("いいです"),
+                Past ("よかった"),
+                Past + *Polite ("よかったです"),
+                Negative ("よくない"),
+                Negative + *Polite ("よくないです"),
+                Past + Negative ("よなかった"),
+                Past + Negative + *Polite ("よなかったです"),
             };
 
             Some(Conjugations {
@@ -60,14 +60,14 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
         AdjectiveKind::Na => {
             let conjugations = conjugations! {
                 kanji.text, reading.text,
-                Present("だ"),
-                Present + ?Polite("です"),
-                Past("だった"),
-                Past + ?Polite("でした"),
-                Negative("ではない"),
-                Negative + ?Polite("ではありません"),
-                Past + Negative("ではなかった"),
-                Past + Negative + ?Polite("ではありませんでした"),
+                Present ("だ"),
+                Present + *Polite ("です"),
+                Past ("だった"),
+                Past + *Polite ("でした"),
+                Negative ("ではない"),
+                Negative + *Polite ("ではありません"),
+                Past + Negative ("ではなかった"),
+                Past + Negative + *Polite ("ではありませんでした"),
             };
 
             Some(Conjugations {

@@ -7,9 +7,9 @@ use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use lib::adjective;
 use lib::database::{Database, IndexExtra, IndexRef};
 use lib::verb;
+use lib::{adjective, Flag};
 use lib::{Furigana, PartOfSpeech};
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
@@ -42,6 +42,9 @@ struct Args {
     /// matched against entries searched for.
     #[arg(name = "arguments")]
     arguments: Vec<String>,
+    /// Include polite variants of conjugations.
+    #[arg(long)]
+    polite: bool,
 }
 
 #[cfg(not(feature = "embed"))]
@@ -198,6 +201,10 @@ fn main() -> Result<()> {
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
             for (c, form) in c.conjugations {
+                if args.polite != c.flag.contains(Flag::Polite) {
+                    continue;
+                }
+
                 writeln!(o, "{p}  {c:?}:")?;
                 writeln!(o, "{p}  - {}", dis(form.furigana()))?;
             }
@@ -210,6 +217,10 @@ fn main() -> Result<()> {
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
             for (c, form) in c.conjugations {
+                if args.polite != c.flag.contains(Flag::Polite) {
+                    continue;
+                }
+
                 writeln!(o, "{p}  {c:?}:")?;
                 writeln!(o, "{p}  - {}", dis(form.furigana()))?;
             }
