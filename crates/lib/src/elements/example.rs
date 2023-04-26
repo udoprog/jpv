@@ -10,7 +10,7 @@ pub use self::example_sent::ExampleSent;
 pub use self::example_source::ExampleSource;
 use crate::elements::text;
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode)]
 pub struct Example<'a> {
     pub sent: Vec<ExampleSent<'a>>,
     pub sources: Vec<ExampleSource<'a>>,

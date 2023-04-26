@@ -6,7 +6,7 @@ use musli::{Decode, Encode};
 use crate::elements::{kanji_element, reading_element, sense, text};
 use crate::elements::{KanjiElement, ReadingElement, Sense};
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode)]
 pub struct Entry<'a> {
     pub sequence: u64,
     pub reading_elements: Vec<ReadingElement<'a>>,

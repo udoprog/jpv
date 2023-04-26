@@ -685,7 +685,7 @@ dependencies = [
 [[package]]
 name = "musli"
 version = "0.0.38"
-source = "git+https://github.com/udoprog/musli?branch=generic-with#6fb9a0b9fd09b47c4ce3761cf4c002639c3a2bcd"
+source = "git+https://github.com/udoprog/musli?branch=generic-with#43825a44d4a63f37dfc4c0de015d954e3a4ce056"
 dependencies = [
  "musli-macros",
 ]
@@ -693,7 +693,7 @@ dependencies = [
 [[package]]
 name = "musli-common"
 version = "0.0.38"
-source = "git+https://github.com/udoprog/musli?branch=generic-with#6fb9a0b9fd09b47c4ce3761cf4c002639c3a2bcd"
+source = "git+https://github.com/udoprog/musli?branch=generic-with#43825a44d4a63f37dfc4c0de015d954e3a4ce056"
 dependencies = [
  "musli",
 ]
@@ -701,7 +701,7 @@ dependencies = [
 [[package]]
 name = "musli-macros"
 version = "0.0.38"
-source = "git+https://github.com/udoprog/musli?branch=generic-with#6fb9a0b9fd09b47c4ce3761cf4c002639c3a2bcd"
+source = "git+https://github.com/udoprog/musli?branch=generic-with#43825a44d4a63f37dfc4c0de015d954e3a4ce056"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -711,7 +711,7 @@ dependencies = [
 [[package]]
 name = "musli-storage"
 version = "0.0.38"
-source = "git+https://github.com/udoprog/musli?branch=generic-with#6fb9a0b9fd09b47c4ce3761cf4c002639c3a2bcd"
+source = "git+https://github.com/udoprog/musli?branch=generic-with#43825a44d4a63f37dfc4c0de015d954e3a4ce056"
 dependencies = [
  "musli",
  "musli-common",
@@ -1099,11 +1099,10 @@ dependencies = [
 
 [[package]]
 name = "tracing"
-version = "0.1.37"
+version = "0.1.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
+checksum = "cf9cf6a813d3f40c88b0b6b6f29a5c95c6cdbf97c1f9cc53fb820200f5ad814d"
 dependencies = [
- "cfg-if",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
@@ -1111,13 +1110,13 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.23"
+version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4017f8f45139870ca7e672686113917c71c7a6e02d4924eda67186083c03081a"
+checksum = "0f57e3ca2a01450b1a921183a9c9cbfda207fd822cef4ccb00a65402cbba7a74"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.15",
 ]
 
 [[package]]

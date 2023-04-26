@@ -10,7 +10,7 @@ use crate::elements::text;
 use crate::entities::ReadingInfo;
 use crate::priority::Priority;
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode)]
 pub struct ReadingElement<'a> {
     pub text: &'a str,
     pub no_kanji: bool,

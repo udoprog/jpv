@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context, Result};
 use fixed_map::Set;
 use musli::{Decode, Encode};
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode)]
 pub struct KanjiElement<'a> {
     pub text: &'a str,
     pub priority: Vec<Priority>,

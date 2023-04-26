@@ -47,15 +47,18 @@ pub struct Database<'a> {
 
 impl<'a> Database<'a> {
     /// Get an entry from the database.
-    pub fn get(&self, index: Index) -> Result<&Entry<'a>> {
+    pub fn get(&self, index: Index) -> Result<Entry<'_>> {
         let index = match index.kind {
             IndexKind::Exact(index) => index,
             IndexKind::VerbConjugation(index, ..) => index,
         };
 
-        self.database
+        let entry = self
+            .database
             .get(index)
-            .with_context(|| anyhow!("Missing index `{index}`"))
+            .with_context(|| anyhow!("Missing index `{index}`"))?;
+
+        Ok(entry.clone())
     }
 
     /// Load the given dictionary.

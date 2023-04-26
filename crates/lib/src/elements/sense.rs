@@ -13,7 +13,7 @@ use crate::entities::{Miscellaneous, PartOfSpeech};
 
 const DEFAULT_LANGUAGE: &str = "eng";
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode)]
 pub struct Sense<'a> {
     /// Part of speech.
     #[musli(with = crate::musli::set::<_>)]
