@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+use musli::{Decode, Encode};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 pub enum Priority {
     /// Common words.
     Ichi(u8),

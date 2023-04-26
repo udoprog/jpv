@@ -8,11 +8,13 @@ use crate::priority::Priority;
 use anyhow::ensure;
 use anyhow::{anyhow, Context, Result};
 use fixed_map::Set;
+use musli::{Decode, Encode};
 
-#[derive(Debug)]
+#[derive(Debug, Encode, Decode)]
 pub struct KanjiElement<'a> {
     pub text: &'a str,
     pub priority: Vec<Priority>,
+    #[musli(with = crate::musli::set::<_>)]
     pub info: Set<KanjiInfo>,
 }
 

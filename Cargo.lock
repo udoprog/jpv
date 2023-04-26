@@ -685,8 +685,7 @@ dependencies = [
 [[package]]
 name = "musli"
 version = "0.0.38"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2146af2a8fffe4cc7e37274698bda3210366ae16b5e7c05a67543bd83e824289"
+source = "git+https://github.com/udoprog/musli?branch=generic-with#6fb9a0b9fd09b47c4ce3761cf4c002639c3a2bcd"
 dependencies = [
  "musli-macros",
 ]
@@ -694,8 +693,7 @@ dependencies = [
 [[package]]
 name = "musli-common"
 version = "0.0.38"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caccf1e242af696c15c87abc1066947526279ec7eff1307c42c9ccd1437b3cb3"
+source = "git+https://github.com/udoprog/musli?branch=generic-with#6fb9a0b9fd09b47c4ce3761cf4c002639c3a2bcd"
 dependencies = [
  "musli",
 ]
@@ -703,8 +701,7 @@ dependencies = [
 [[package]]
 name = "musli-macros"
 version = "0.0.38"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f43e7977705f3ba1f8ee493c78aaaf8b2947dc64858d9537882a7467a0a2c14"
+source = "git+https://github.com/udoprog/musli?branch=generic-with#6fb9a0b9fd09b47c4ce3761cf4c002639c3a2bcd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -714,8 +711,7 @@ dependencies = [
 [[package]]
 name = "musli-storage"
 version = "0.0.38"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73346d11e660bdbf924dc14472beb74bf5f75fc06ddf284daa95712a883cd403"
+source = "git+https://github.com/udoprog/musli?branch=generic-with#6fb9a0b9fd09b47c4ce3761cf4c002639c3a2bcd"
 dependencies = [
  "musli",
  "musli-common",

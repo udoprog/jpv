@@ -1,10 +1,14 @@
 use fixed_map::Key;
+use musli::{Decode, Encode};
 
 macro_rules! entity {
-    ($vis:vis enum $name:ident {
+    (
+        $(#[$($meta:meta)*])*
+        $vis:vis enum $name:ident {
         $(<$variant:ident $entity:literal $doc:literal>)*
     }) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Key)]
+        $(#[$($meta)*])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         $vis enum $name {
             $(
                 #[doc = $doc]
@@ -58,6 +62,7 @@ macro_rules! entity {
 }
 
 entity! {
+    #[derive(Key, Encode, Decode)]
     pub enum Miscellaneous {
         <Abbreviation "abbr" "abbreviation">
         <Archaic "arch" "archaic">
@@ -118,6 +123,7 @@ entity! {
 }
 
 entity! {
+    #[derive(Key, Encode, Decode)]
     pub enum PartOfSpeech {
         <AdjectiveF "adj-f" "noun or verb acting prenominally">
         <AdjectiveI "adj-i" "adjective (keiyoushi)">
@@ -215,6 +221,7 @@ entity! {
 }
 
 entity! {
+    #[derive(Key, Encode, Decode)]
     pub enum KanjiInfo {
         <Ateji "ateji" "ateji (phonetic) reading">
         <IrregularKana "ik" "word containing irregular kana usage">
@@ -227,6 +234,7 @@ entity! {
 }
 
 entity! {
+    #[derive(Key, Encode, Decode)]
     pub enum ReadingInfo {
         <Gikun "gikun" "gikun (meaning as reading) or jukujikun (special kanji reading)">
         <IrregularKana "ik" "word containing irregular kana usage">
@@ -236,6 +244,7 @@ entity! {
 }
 
 entity! {
+    #[derive(Key, Encode, Decode)]
     pub enum Dialect {
         <Brazilian "bra" "Brazilian">
         <HokkaidoBen "hob" "Hokkaido-ben">
@@ -253,6 +262,7 @@ entity! {
 }
 
 entity! {
+    #[derive(Key, Encode, Decode)]
     pub enum Field {
         <Agric "agric" "agriculture">
         <Anat "anat" "anatomy">

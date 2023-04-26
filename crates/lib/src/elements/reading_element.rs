@@ -3,13 +3,14 @@ use core::mem;
 
 use anyhow::ensure;
 use anyhow::{anyhow, Context, Result};
+use musli::{Decode, Encode};
 
 use crate::elements::empty;
 use crate::elements::text;
 use crate::entities::ReadingInfo;
 use crate::priority::Priority;
 
-#[derive(Debug)]
+#[derive(Debug, Encode, Decode)]
 pub struct ReadingElement<'a> {
     pub text: &'a str,
     pub no_kanji: bool,

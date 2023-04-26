@@ -4,12 +4,13 @@ mod example_source;
 use std::mem;
 
 use anyhow::Result;
+use musli::{Decode, Encode};
 
 pub use self::example_sent::ExampleSent;
 pub use self::example_source::ExampleSource;
 use crate::elements::text;
 
-#[derive(Debug)]
+#[derive(Debug, Encode, Decode)]
 pub struct Example<'a> {
     pub sent: Vec<ExampleSent<'a>>,
     pub sources: Vec<ExampleSource<'a>>,

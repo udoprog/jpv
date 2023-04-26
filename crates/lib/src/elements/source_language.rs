@@ -1,10 +1,11 @@
 use core::fmt;
 
 use anyhow::{bail, Result};
+use musli::{Decode, Encode};
 
 use crate::parser::{Output, Poll};
 
-#[derive(Debug)]
+#[derive(Debug, Encode, Decode)]
 pub struct SourceLanguage<'a> {
     pub text: Option<&'a str>,
     pub lang: Option<&'a str>,

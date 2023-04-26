@@ -21,3 +21,5 @@ mod priority;
 
 mod database;
 pub use self::database::{Database, Index, IndexExtra, Indexes};
+
+mod musli;

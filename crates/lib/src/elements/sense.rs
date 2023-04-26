@@ -3,6 +3,7 @@ use core::mem;
 
 use anyhow::{anyhow, ensure, Context, Result};
 use fixed_map::Set;
+use musli::{Decode, Encode};
 
 use crate::elements::{example, gloss, source_language, text};
 use crate::elements::{Example, Gloss, SourceLanguage};
@@ -12,19 +13,23 @@ use crate::entities::{Miscellaneous, PartOfSpeech};
 
 const DEFAULT_LANGUAGE: &str = "eng";
 
-#[derive(Debug)]
+#[derive(Debug, Encode, Decode)]
 pub struct Sense<'a> {
     /// Part of speech.
+    #[musli(with = crate::musli::set::<_>)]
     pub pos: Set<PartOfSpeech>,
     /// Cross reference to other entries.
     pub xref: Vec<&'a str>,
     /// Glossary items.
     pub gloss: Vec<Gloss<'a>>,
     pub info: Option<&'a str>,
+    #[musli(with = crate::musli::set::<_>)]
     pub misc: Set<Miscellaneous>,
+    #[musli(with = crate::musli::set::<_>)]
     pub dialects: Set<Dialect>,
     pub stagk: Vec<&'a str>,
     pub stagr: Vec<&'a str>,
+    #[musli(with = crate::musli::set::<_>)]
     pub fields: Set<Field>,
     pub source_language: Vec<SourceLanguage<'a>>,
     pub antonym: Vec<&'a str>,

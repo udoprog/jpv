@@ -1,8 +1,9 @@
 use anyhow::{bail, Context, Result};
+use musli::{Decode, Encode};
 
 use crate::parser::{Output, Poll};
 
-#[derive(Debug)]
+#[derive(Debug, Encode, Decode)]
 pub struct ExampleSource<'a> {
     pub text: &'a str,
     pub ty: Option<&'a str>,
