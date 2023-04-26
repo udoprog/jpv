@@ -1,8 +1,8 @@
 #![allow(clippy::large_enum_variant)]
 
 #[macro_use]
-mod conjugation;
-pub use self::conjugation::{Conjugation, Flag, Form};
+mod inflection;
+pub use self::inflection::{Flag, Form, Inflection};
 
 pub mod adjective;
 

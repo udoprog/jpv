@@ -23,9 +23,9 @@ struct Args {
     /// List available parts of speech options an exit.
     #[arg(long)]
     list_pos: bool,
-    /// Do not show conjugations.
+    /// Do not show inflections.
     #[arg(long)]
-    no_conjugate: bool,
+    no_inflection: bool,
     /// Show examples for results.
     #[arg(long)]
     examples: bool,
@@ -42,7 +42,7 @@ struct Args {
     /// matched against entries searched for.
     #[arg(name = "arguments")]
     arguments: Vec<String>,
-    /// Include polite variants of conjugations.
+    /// Include polite variants of inflections.
     #[arg(long)]
     polite: bool,
     /// Only fetch the specified sequence ids.
@@ -150,11 +150,11 @@ fn main() -> Result<()> {
 
     for (i, index) in to_look_up.iter().enumerate() {
         let extra = match index.extra() {
-            IndexExtra::VerbConjugation(conjugation) => {
-                Some(format!("Found through verb conjugation: {conjugation:?}"))
+            IndexExtra::VerbInflection(inflection) => {
+                Some(format!("Found through verb inflection: {inflection:?}"))
             }
-            IndexExtra::AdjectiveConjugation(conjugation) => Some(format!(
-                "Found through adjective conjugation: {conjugation:?}"
+            IndexExtra::AdjectiveInflection(inflection) => Some(format!(
+                "Found through adjective inflection: {inflection:?}"
             )),
             _ => None,
         };
@@ -199,7 +199,7 @@ fn main() -> Result<()> {
             }
         }
 
-        if args.no_conjugate || (to_look_up.len() > 1 && args.sequences.is_empty()) {
+        if args.no_inflection || (to_look_up.len() > 1 && args.sequences.is_empty()) {
             continue;
         }
 
@@ -212,12 +212,12 @@ fn main() -> Result<()> {
         let mut o = stdout.lock();
 
         if let Some(c) = verb::conjugate(&d) {
-            writeln!(o, "{p}# Conjugations:")?;
+            writeln!(o, "{p}# Inflections:")?;
 
             writeln!(o, "{p}  Dictionary:")?;
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
-            for (c, form) in c.conjugations {
+            for (c, form) in c.inflections {
                 if args.polite != c.flag.contains(Flag::Polite) {
                     continue;
                 }
@@ -228,12 +228,12 @@ fn main() -> Result<()> {
         }
 
         if let Some(c) = adjective::conjugate(&d) {
-            writeln!(o, "{p}# Conjugations:")?;
+            writeln!(o, "{p}# Inflections:")?;
 
             writeln!(o, "{p}  Dictionary:")?;
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
-            for (c, form) in c.conjugations {
+            for (c, form) in c.inflections {
                 if args.polite != c.flag.contains(Flag::Polite) {
                     continue;
                 }

@@ -1,13 +1,13 @@
-//! Module which performs verb conjugation, based on a words class.
+//! Module which performs verb inflection, based on a words class.
 
-use crate::conjugation::Conjugations;
 use crate::elements::Entry;
 use crate::entities::KanjiInfo;
+use crate::inflection::Inflections;
 use crate::kana::Word;
 use crate::PartOfSpeech;
 
 /// Try to conjugate the given entry as a verb.
-pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
+pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
     let (Some(kind), [kanji, ..], [reading, ..]) = (as_verb_kind(entry), &entry.kanji_elements[..], &entry.reading_elements[..]) else {
         return None;
     };
@@ -24,7 +24,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 return None;
             };
 
-            let conjugations = conjugations! {
+            let inflections = inflections! {
                 k, r,
                 Te ("て"),
                 Present ("る"),
@@ -69,9 +69,9 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 Tai + Past + Negative ("たくなかった"),
             };
 
-            Some(Conjugations {
+            Some(Inflections {
                 dictionary: Word::new(kanji_text, reading.text),
-                conjugations,
+                inflections,
             })
         }
         VerbKind::Godan | VerbKind::GodanSpecial => {
@@ -91,7 +91,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 _ => return None,
             };
 
-            // Special te-conjugation.
+            // Special te-inflection.
             let (te, past) = match kind {
                 VerbKind::GodanSpecial => ("って", "った"),
                 _ => (te, past),
@@ -102,7 +102,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
             let k = k.as_str();
             let r = r.as_str();
 
-            let conjugations = conjugations! {
+            let inflections = inflections! {
                 k, r,
                 Te (te),
                 Present (u),
@@ -145,9 +145,9 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 Tai + Past + Negative (i, "たくなかった"),
             };
 
-            Some(Conjugations {
+            Some(Inflections {
                 dictionary: Word::new(kanji_text, reading.text),
-                conjugations,
+                inflections,
             })
         }
         VerbKind::Suru => {
@@ -155,7 +155,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 return None;
             };
 
-            let conjugations = conjugations! {
+            let inflections = inflections! {
                 k, r,
                 Te ("して"),
                 Present ("する"),
@@ -199,9 +199,9 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 Tai + Past + Negative ("したくなかった"),
             };
 
-            Some(Conjugations {
+            Some(Inflections {
                 dictionary: Word::new(kanji_text, reading.text),
-                conjugations,
+                inflections,
             })
         }
         VerbKind::Kuru => {
@@ -209,7 +209,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 return None;
             };
 
-            let conjugations = conjugations! {
+            let inflections = inflections! {
                 k, r,
                 Te ("来", "き", "て"),
                 Present ("来", "く", "くる"),
@@ -251,9 +251,9 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 Tai + Past + Negative ("来", "き", "たくなかった"),
             };
 
-            Some(Conjugations {
+            Some(Inflections {
                 dictionary: Word::new(kanji_text, reading.text),
-                conjugations,
+                inflections,
             })
         }
     }

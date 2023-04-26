@@ -4,22 +4,20 @@ use std::fmt;
 use fixed_map::{Key, Set};
 use musli::{Decode, Encode};
 
-use crate::{
-    kana::{Pair, Word},
-    Concat,
-};
+use crate::kana::{Pair, Word};
+use crate::Concat;
 
-/// Helper to construct a particular [`Conjugation`].
+/// Helper to construct a particular [`Inflection`].
 ///
 /// # Examples
 ///
 /// ```rust
-/// lib::conjugation!(Present + Past);
-/// lib::conjugation!(Present + Past + *Polite);
-/// lib::conjugation!(Present + Past + *Alternate);
+/// lib::inflect!(Present + Past);
+/// lib::inflect!(Present + Past + *Polite);
+/// lib::inflect!(Present + Past + *Alternate);
 /// ```
 #[macro_export]
-macro_rules! conjugation {
+macro_rules! inflect {
     ($kind:ident $(+ $kind2:ident)* $(+ *$flag:ident)*) => {{
         let mut form = $crate::macro_support::fixed_map::Set::new();
         form.insert($crate::Form::$kind);
@@ -27,7 +25,7 @@ macro_rules! conjugation {
         #[allow(unused_mut)]
         let mut flag = $crate::macro_support::fixed_map::Set::new();
         $(flag.insert($crate::Flag::$flag);)*
-        $crate::Conjugation::new(form, flag)
+        $crate::Inflection::new(form, flag)
     }}
 }
 
@@ -46,18 +44,19 @@ macro_rules! pair {
     };
 }
 
-/// Setup a collection of conjugations.
-macro_rules! conjugations {
+/// Setup a collection of inflections.
+macro_rules! inflections {
     ($k:expr, $r:expr, $(
         $kind:ident $(+ $kind2:ident)* $(+ *$flag:ident)* ( $($tt:tt)* )
     ),* $(,)?) => {{
         let mut tree = ::std::collections::BTreeMap::new();
-        $(tree.insert($crate::conjugation!($kind $(+ $kind2)* $(+ *$flag)*), pair!($k, $r, $($tt)*));)*
+        $(tree.insert($crate::inflect!($kind $(+ $kind2)* $(+ *$flag)*), pair!($k, $r, $($tt)*));)*
         tree
     }};
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Key)]
+#[key(bitset)]
 pub enum Form {
     Te,
     Present,
@@ -75,6 +74,7 @@ pub enum Form {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Key)]
+#[key(bitset)]
 pub enum Flag {
     Polite,
     Alternate,
@@ -82,14 +82,14 @@ pub enum Flag {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
-pub struct Conjugation {
+pub struct Inflection {
     #[musli(with = crate::musli::set::<_>)]
     pub form: Set<Form>,
     #[musli(with = crate::musli::set::<_>)]
     pub flag: Set<Flag>,
 }
 
-impl Conjugation {
+impl Inflection {
     // Macro support.
     #[doc(hidden)]
     pub fn new(form: Set<Form>, flag: Set<Flag>) -> Self {
@@ -97,7 +97,7 @@ impl Conjugation {
     }
 }
 
-impl fmt::Debug for Conjugation {
+impl fmt::Debug for Inflection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.flag.is_empty() {
             self.form.fmt(f)
@@ -107,17 +107,17 @@ impl fmt::Debug for Conjugation {
     }
 }
 
-/// A collection of conjugations.
+/// A collection of inflections.
 #[non_exhaustive]
-pub struct Conjugations<'a> {
+pub struct Inflections<'a> {
     pub dictionary: Word<'a>,
-    pub conjugations: BTreeMap<Conjugation, Pair<'a, 2>>,
+    pub inflections: BTreeMap<Inflection, Pair<'a, 2>>,
 }
 
-impl<'a> Conjugations<'a> {
-    /// Test if any polite conjugations exist.
+impl<'a> Inflections<'a> {
+    /// Test if any polite inflections exist.
     pub fn has_polite(&self) -> bool {
-        for c in self.conjugations.keys() {
+        for c in self.inflections.keys() {
             if c.flag.contains(Flag::Polite) {
                 return true;
             }
@@ -126,14 +126,14 @@ impl<'a> Conjugations<'a> {
         false
     }
 
-    /// Get a conjugation.
-    pub fn get(&self, conjugation: Conjugation) -> Option<&Pair<'a, 2>> {
-        self.conjugations.get(&conjugation)
+    /// Get a inflection.
+    pub fn get(&self, inflection: Inflection) -> Option<&Pair<'a, 2>> {
+        self.inflections.get(&inflection)
     }
 
-    /// Iterate over all conjugations.
-    pub fn iter(&self) -> impl Iterator<Item = (Conjugation, Concat<'a, 3>)> + '_ {
-        self.conjugations
+    /// Iterate over all inflections.
+    pub fn iter(&self) -> impl Iterator<Item = (Inflection, Concat<'a, 3>)> + '_ {
+        self.inflections
             .iter()
             .flat_map(|(k, p)| p.clone().into_iter().map(|p| (*k, p)))
     }

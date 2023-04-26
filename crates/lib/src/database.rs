@@ -10,8 +10,8 @@ use musli_storage::int::Variable;
 use musli_storage::Encoding;
 
 use crate::adjective;
-use crate::conjugation::Conjugation;
 use crate::elements::Entry;
+use crate::inflection::Inflection;
 use crate::parser::Parser;
 use crate::verb;
 use crate::PartOfSpeech;
@@ -24,20 +24,20 @@ const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 pub enum IndexExtra {
     /// No extra information on why the index was added.
     None,
-    /// Index was added because of a verb conjugation.
-    VerbConjugation(Conjugation),
-    /// Index was added because of an adjective conjugation.
-    AdjectiveConjugation(Conjugation),
+    /// Index was added because of a verb inflection.
+    VerbInflection(Inflection),
+    /// Index was added because of an adjective inflection.
+    AdjectiveInflection(Inflection),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 enum IdKind {
     /// An exact dictionary index.
     Exact(usize),
-    /// A lookup based on a conjugation.
-    VerbConjugation(usize, Conjugation),
-    /// A lookup based on an adjective conjugation.
-    AdjectiveConjugation(usize, Conjugation),
+    /// A lookup based on a inflection.
+    VerbInflection(usize, Inflection),
+    /// A lookup based on an adjective inflection.
+    AdjectiveInflection(usize, Inflection),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
@@ -48,20 +48,20 @@ pub struct Id {
 impl Id {
     /// Get the unique index this id corresponds to.
     pub fn index(&self) -> usize {
-        match &self.kind {
-            &IdKind::Exact(index) => index,
-            &IdKind::VerbConjugation(index, _) => index,
-            &IdKind::AdjectiveConjugation(index, _) => index,
+        match self.kind {
+            IdKind::Exact(index) => index,
+            IdKind::VerbInflection(index, _) => index,
+            IdKind::AdjectiveInflection(index, _) => index,
         }
     }
 
     /// Extra information on index.
     pub fn extra(&self) -> IndexExtra {
-        match &self.kind {
+        match self.kind {
             IdKind::Exact(_) => IndexExtra::None,
-            &IdKind::VerbConjugation(_, conjugation) => IndexExtra::VerbConjugation(conjugation),
-            &IdKind::AdjectiveConjugation(_, conjugation) => {
-                IndexExtra::AdjectiveConjugation(conjugation)
+            IdKind::VerbInflection(_, inflection) => IndexExtra::VerbInflection(inflection),
+            IdKind::AdjectiveInflection(_, inflection) => {
+                IndexExtra::AdjectiveInflection(inflection)
             }
         }
     }
@@ -139,20 +139,20 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
         }
 
         if let Some(c) = verb::conjugate(&entry) {
-            for (conjugation, phrase) in c.iter() {
+            for (inflection, phrase) in c.iter() {
                 lookup
                     .entry(phrase.to_string())
                     .or_default()
-                    .push(IdKind::VerbConjugation(index, conjugation));
+                    .push(IdKind::VerbInflection(index, inflection));
             }
         }
 
         if let Some(c) = adjective::conjugate(&entry) {
-            for (conjugation, phrase) in c.iter() {
+            for (inflection, phrase) in c.iter() {
                 lookup
                     .entry(phrase.to_string())
                     .or_default()
-                    .push(IdKind::AdjectiveConjugation(index, conjugation));
+                    .push(IdKind::AdjectiveInflection(index, inflection));
             }
         }
 
@@ -233,8 +233,8 @@ impl Indexes<'_> {
 
         let index = match &index.kind {
             IdKind::Exact(index) => index,
-            IdKind::VerbConjugation(index, ..) => index,
-            IdKind::AdjectiveConjugation(index, ..) => index,
+            IdKind::VerbInflection(index, ..) => index,
+            IdKind::AdjectiveInflection(index, ..) => index,
         };
 
         by_pos.contains(index)

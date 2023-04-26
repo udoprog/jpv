@@ -1,10 +1,10 @@
-use crate::conjugation::Conjugations;
 use crate::elements::Entry;
+use crate::inflection::Inflections;
 use crate::kana::Word;
 use crate::PartOfSpeech;
 
 /// Try to conjugate the given entry as an adjective.
-pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
+pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
     let (Some(kind), [kanji, ..], [reading, ..]) = (as_adjective_kind(entry), &entry.kanji_elements[..], &entry.reading_elements[..]) else {
         return None;
     };
@@ -15,7 +15,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 return None;
             };
 
-            let conjugations = conjugations! {
+            let inflections = inflections! {
                 k, r,
                 Present ("い"),
                 Present + *Polite ("いです"),
@@ -27,12 +27,12 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 Past + Negative + *Polite ("なかったです"),
             };
 
-            Some(Conjugations {
+            Some(Inflections {
                 dictionary: Word {
                     text: kanji.text,
                     reading: reading.text,
                 },
-                conjugations,
+                inflections,
             })
         }
         AdjectiveKind::Yoi => {
@@ -40,7 +40,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 return None;
             };
 
-            let conjugations = conjugations! {
+            let inflections = inflections! {
                 k, r,
                 Present ("いい"),
                 Present + *Polite ("いいです"),
@@ -52,13 +52,13 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 Past + Negative + *Polite ("よなかったです"),
             };
 
-            Some(Conjugations {
+            Some(Inflections {
                 dictionary: Word::new(kanji.text, reading.text),
-                conjugations,
+                inflections,
             })
         }
         AdjectiveKind::Na => {
-            let conjugations = conjugations! {
+            let inflections = inflections! {
                 kanji.text, reading.text,
                 Present ("だ"),
                 Present + *Polite ("です"),
@@ -70,9 +70,9 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Conjugations<'a>> {
                 Past + Negative + *Polite ("ではありませんでした"),
             };
 
-            Some(Conjugations {
+            Some(Inflections {
                 dictionary: Word::new(kanji.text, reading.text),
-                conjugations,
+                inflections,
             })
         }
     }
