@@ -1,9 +1,9 @@
 [package]
-name = "jpt"
+name = "jpv"
 version = "0.0.0"
 edition = "2021"
 publish = false
-default-run = "jpt"
+default-run = "jpv"
 
 [dependencies]
 anyhow = "1.0.70"

@@ -19,7 +19,6 @@ mod parser;
 
 mod priority;
 
-mod database;
-pub use self::database::{Database, Index, IndexExtra, Indexes};
+pub mod database;
 
 mod musli;

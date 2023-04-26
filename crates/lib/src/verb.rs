@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+use musli::{Decode, Encode};
+
 use crate::elements::Entry;
 use crate::entities::KanjiInfo;
 use crate::kana::{Pair, Word};
@@ -209,7 +211,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<VerbConjugations<'a>> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 pub enum Conjugation {
     Causative,
     Command,

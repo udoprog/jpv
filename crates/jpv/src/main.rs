@@ -1,14 +1,20 @@
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::fmt;
+use std::fs;
+use std::fs::File;
 use std::io::Read;
 use std::mem;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use flate2::read::GzDecoder;
+use lib::database::Index;
+use lib::database::{self, Database, IndexExtra};
 use lib::verb;
-use lib::{Database, Furigana, IndexExtra, PartOfSpeech};
+use lib::{Furigana, PartOfSpeech};
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
@@ -36,30 +42,44 @@ struct Args {
     /// Don't print output in furigana.
     #[arg(long)]
     no_furigana: bool,
+    /// Load a dictionary from the given path.
+    #[arg(long)]
+    load_dict: Option<PathBuf>,
     /// Search arguments to filter by. Must be either kana or kanji, which is
     /// matched against entries searched for.
     #[arg(name = "arguments")]
     arguments: Vec<String>,
 }
 
-#[cfg(debug_assertions)]
-fn load_dict() -> Result<String> {
-    use std::fs::File;
-
-    let input = File::open("JMdict_e_examp.gz").context("JMdict_e_examp.gz")?;
+fn load_dict(path: &Path) -> Result<String> {
+    let input = File::open(path)?;
     let mut input = GzDecoder::new(input);
     let mut string = String::new();
     input.read_to_string(&mut string)?;
     Ok(string)
 }
 
+#[cfg(debug_assertions)]
+fn load_database(path: &Path) -> Result<Cow<'static, [u8]>> {
+    Ok(Cow::Owned(fs::read(path)?))
+}
+
 #[cfg(not(debug_assertions))]
-fn load_dict() -> Result<String> {
-    static DICT: &[u8] = include_bytes!("../../../JMdict_e_examp.gz");
-    let mut input = GzDecoder::new(std::io::Cursor::new(DICT));
-    let mut string = String::new();
-    input.read_to_string(&mut string)?;
-    Ok(string)
+fn load_database(_: &Path) -> Result<Cow<'static, [u8]>> {
+    const BYTES: &[u8] = include_bytes!("../../../database.bin");
+    Ok(Cow::Borrowed(BYTES))
+}
+
+#[cfg(debug_assertions)]
+fn load_index(path: &Path) -> Result<Index> {
+    let index = fs::read(path)?;
+    Index::from_bytes(&index)
+}
+
+#[cfg(not(debug_assertions))]
+fn load_index(_: &Path) -> Result<Index> {
+    const BYTES: &[u8] = include_bytes!("../../../index.bin");
+    Index::from_bytes(BYTES)
 }
 
 fn main() -> Result<()> {
@@ -69,6 +89,9 @@ fn main() -> Result<()> {
         .with_env_filter(filter)
         .finish()
         .try_init()?;
+
+    let database_path = Path::new("database.bin");
+    let index_path = Path::new("index.bin");
 
     let args = Args::try_parse()?;
 
@@ -82,8 +105,20 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let dict = load_dict()?;
-    let db = Database::load(&dict)?;
+    if let Some(path) = &args.load_dict {
+        let dict = load_dict(&path)?;
+        let (data, index) = database::load(&dict)?;
+        fs::write(database_path, data).with_context(|| anyhow!("{}", index_path.display()))?;
+        fs::write(index_path, index.to_bytes()?)
+            .with_context(|| anyhow!("{}", index_path.display()))?;
+    }
+
+    let data =
+        load_database(&database_path).with_context(|| anyhow!("{}", database_path.display()))?;
+
+    let index = load_index(&index_path).with_context(|| anyhow!("{}", index_path.display()))?;
+
+    let db = Database::new(data.as_ref(), &index);
 
     let start = Instant::now();
 
@@ -171,7 +206,7 @@ fn main() -> Result<()> {
         let dis0 = |furigana| maybe_furigana::<1>(furigana, !args.no_furigana);
         let dis = |furigana| maybe_furigana::<2>(furigana, !args.no_furigana);
 
-        if let Some(c) = verb::conjugate(d) {
+        if let Some(c) = verb::conjugate(&d) {
             println!("# Conjugations:");
 
             println!("  Dictionary 終止形 (しゅうしけい) / Present / Future / Attributive:");

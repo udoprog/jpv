@@ -1,6 +1,10 @@
+//! Database that can be used as a dictionary.
+
 use std::collections::{hash_set, HashMap, HashSet};
 
 use anyhow::{anyhow, Context, Result};
+use musli::Decode;
+use musli::Encode;
 
 use crate::elements::Entry;
 use crate::parser::Parser;
@@ -16,130 +20,149 @@ pub enum IndexExtra {
     Conjugation(verb::Conjugation),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-enum IndexKind {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
+enum IdKind {
     /// An exact dictionary index.
     Exact(usize),
     /// A lookup based on a conjugation.
     VerbConjugation(usize, verb::Conjugation),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Index {
-    kind: IndexKind,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
+pub struct Id {
+    kind: IdKind,
 }
 
-impl Index {
+impl Id {
     /// Extra information on index.
     pub fn extra(&self) -> IndexExtra {
         match &self.kind {
-            IndexKind::Exact(_) => IndexExtra::None,
-            &IndexKind::VerbConjugation(_, conjugation) => IndexExtra::Conjugation(conjugation),
+            IdKind::Exact(_) => IndexExtra::None,
+            &IdKind::VerbConjugation(_, conjugation) => IndexExtra::Conjugation(conjugation),
         }
     }
 }
 
-pub struct Database<'a> {
-    database: Vec<Entry<'a>>,
-    lookup: HashMap<String, Vec<IndexKind>>,
+#[derive(Encode, Decode)]
+pub struct Index {
+    lookup: HashMap<String, Vec<IdKind>>,
     by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
 }
 
-impl<'a> Database<'a> {
-    /// Get an entry from the database.
-    pub fn get(&self, index: Index) -> Result<Entry<'_>> {
-        let index = match index.kind {
-            IndexKind::Exact(index) => index,
-            IndexKind::VerbConjugation(index, ..) => index,
-        };
-
-        let entry = self
-            .database
-            .get(index)
-            .with_context(|| anyhow!("Missing index `{index}`"))?;
-
-        Ok(entry.clone())
+impl Index {
+    /// Build index from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        Ok(musli_storage::from_slice(bytes)?)
     }
 
-    /// Load the given dictionary.
-    pub fn load(dict: &'a str) -> Result<Self> {
-        let mut database = Vec::new();
-        let mut lookup = HashMap::<_, Vec<IndexKind>>::new();
-        let mut by_pos = HashMap::<_, HashSet<usize>>::new();
+    /// Convert index into bytes.
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
+        Ok(musli_storage::to_vec(self)?)
+    }
+}
 
-        let mut parser = Parser::new(&dict);
+/// Load the given dictionary and convert into the internal format.
+pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
+    let mut data = Vec::new();
+    let mut lookup = HashMap::<_, Vec<IdKind>>::new();
+    let mut by_pos = HashMap::<_, HashSet<usize>>::new();
 
-        while let Some(entry) = parser.parse()? {
-            tracing::trace!(?entry);
+    let mut parser = Parser::new(&dict);
 
-            let index = database.len();
+    while let Some(entry) = parser.parse()? {
+        tracing::trace!(?entry);
 
-            for sense in &entry.senses {
-                for pos in &sense.pos {
-                    by_pos.entry(pos).or_default().insert(index);
-                }
+        let index = data.len();
 
-                for g in &sense.gloss {
-                    for part in g.text.split_whitespace() {
-                        let part = part.trim();
-
-                        lookup
-                            .entry(part.to_string())
-                            .or_default()
-                            .push(IndexKind::Exact(index));
-                    }
-                }
+        for sense in &entry.senses {
+            for pos in &sense.pos {
+                by_pos.entry(pos).or_default().insert(index);
             }
 
-            for el in &entry.reading_elements {
-                lookup
-                    .entry(el.text.to_string())
-                    .or_default()
-                    .push(IndexKind::Exact(index));
-            }
+            for g in &sense.gloss {
+                for part in g.text.split_whitespace() {
+                    let part = part.trim();
 
-            for el in &entry.kanji_elements {
-                lookup
-                    .entry(el.text.to_string())
-                    .or_default()
-                    .push(IndexKind::Exact(index));
-            }
-
-            if let Some(c) = verb::conjugate(&entry) {
-                for (conjugation, phrase) in c.iter() {
                     lookup
-                        .entry(phrase.to_string())
+                        .entry(part.to_string())
                         .or_default()
-                        .push(IndexKind::VerbConjugation(index, conjugation));
+                        .push(IdKind::Exact(index));
                 }
             }
-
-            database.push(entry);
         }
 
-        Ok(Self {
-            database,
-            lookup,
-            by_pos,
-        })
+        for el in &entry.reading_elements {
+            lookup
+                .entry(el.text.to_string())
+                .or_default()
+                .push(IdKind::Exact(index));
+        }
+
+        for el in &entry.kanji_elements {
+            lookup
+                .entry(el.text.to_string())
+                .or_default()
+                .push(IdKind::Exact(index));
+        }
+
+        if let Some(c) = verb::conjugate(&entry) {
+            for (conjugation, phrase) in c.iter() {
+                lookup
+                    .entry(phrase.to_string())
+                    .or_default()
+                    .push(IdKind::VerbConjugation(index, conjugation));
+            }
+        }
+
+        musli_storage::to_writer(&mut data, &entry)?;
+    }
+
+    let index = Index { lookup, by_pos };
+    Ok((data, index))
+}
+
+pub struct Database<'a> {
+    data: &'a [u8],
+    index: &'a Index,
+}
+
+impl<'a> Database<'a> {
+    /// Construct a new database wrapper.
+    pub fn new(data: &'a [u8], index: &'a Index) -> Self {
+        Self { data, index }
+    }
+
+    /// Get an entry from the database.
+    pub fn get(&self, index: Id) -> Result<Entry<'a>> {
+        let index = match index.kind {
+            IdKind::Exact(index) => index,
+            IdKind::VerbConjugation(index, ..) => index,
+        };
+
+        let slice = self
+            .data
+            .get(index..)
+            .with_context(|| anyhow!("Missing index `{index}`"))?;
+
+        Ok(musli_storage::from_slice(slice)?)
     }
 
     /// Get indexes by part of speech.
     pub fn by_pos(&self, pos: PartOfSpeech) -> Indexes<'_> {
-        let by_pos = self.by_pos.get(&pos);
+        let by_pos = self.index.by_pos.get(&pos);
         let iter = by_pos.map(|set| set.iter());
-
         Indexes { by_pos, iter }
     }
 
     /// Perform a free text lookup.
-    pub fn lookup(&self, query: &str) -> impl Iterator<Item = Index> + '_ {
-        self.lookup
+    pub fn lookup(&self, query: &str) -> impl Iterator<Item = Id> + '_ {
+        self.index
+            .lookup
             .get(query)
             .into_iter()
             .flatten()
             .copied()
-            .map(|kind| Index { kind })
+            .map(|kind| Id { kind })
     }
 }
 
@@ -151,14 +174,14 @@ pub struct Indexes<'a> {
 
 impl Indexes<'_> {
     /// Test if the indexes collections contains the given index.
-    pub fn contains(&self, index: &Index) -> bool {
+    pub fn contains(&self, index: &Id) -> bool {
         let Some(by_pos) = &self.by_pos else {
             return false;
         };
 
         let index = match &index.kind {
-            IndexKind::Exact(index) => index,
-            IndexKind::VerbConjugation(index, ..) => index,
+            IdKind::Exact(index) => index,
+            IdKind::VerbConjugation(index, ..) => index,
         };
 
         by_pos.contains(index)
@@ -166,14 +189,14 @@ impl Indexes<'_> {
 }
 
 impl Iterator for Indexes<'_> {
-    type Item = Index;
+    type Item = Id;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let &index = self.iter.as_mut()?.next()?;
 
-        Some(Index {
-            kind: IndexKind::Exact(index),
+        Some(Id {
+            kind: IdKind::Exact(index),
         })
     }
 }

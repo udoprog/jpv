@@ -1,3 +1,5 @@
 /JMdict*.gz
 /JMdict*
 /target/
+/*.bin
+/crates/web/dist/
