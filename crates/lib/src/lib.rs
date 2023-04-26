@@ -1,5 +1,7 @@
 #![allow(clippy::large_enum_variant)]
 
+pub mod adjective;
+
 mod concat;
 pub use self::concat::Concat;
 

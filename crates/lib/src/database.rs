@@ -9,6 +9,7 @@ use musli::Encode;
 use musli_storage::int::Variable;
 use musli_storage::Encoding;
 
+use crate::adjective;
 use crate::elements::Entry;
 use crate::parser::Parser;
 use crate::verb;
@@ -22,8 +23,10 @@ const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 pub enum IndexExtra {
     /// No extra information on why the index was added.
     None,
-    /// Index was added because of a conjugation.
-    Conjugation(verb::Conjugation),
+    /// Index was added because of a verb conjugation.
+    VerbConjugation(verb::Conjugation),
+    /// Index was added because of an adjective conjugation.
+    AdjectiveConjugation(adjective::Conjugation),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
@@ -32,6 +35,8 @@ enum IdKind {
     Exact(usize),
     /// A lookup based on a conjugation.
     VerbConjugation(usize, verb::Conjugation),
+    /// A lookup based on an adjective conjugation.
+    AdjectiveConjugation(usize, adjective::Conjugation),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
@@ -44,7 +49,10 @@ impl Id {
     pub fn extra(&self) -> IndexExtra {
         match &self.kind {
             IdKind::Exact(_) => IndexExtra::None,
-            &IdKind::VerbConjugation(_, conjugation) => IndexExtra::Conjugation(conjugation),
+            &IdKind::VerbConjugation(_, conjugation) => IndexExtra::VerbConjugation(conjugation),
+            &IdKind::AdjectiveConjugation(_, conjugation) => {
+                IndexExtra::AdjectiveConjugation(conjugation)
+            }
         }
     }
 }
@@ -128,6 +136,15 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
             }
         }
 
+        if let Some(c) = adjective::conjugate(&entry) {
+            for (conjugation, phrase) in c.iter() {
+                lookup
+                    .entry(phrase.to_string())
+                    .or_default()
+                    .push(IdKind::AdjectiveConjugation(index, conjugation));
+            }
+        }
+
         ENCODING.to_writer(&mut data, &entry)?;
     }
 
@@ -151,6 +168,7 @@ impl<'a> Database<'a> {
         let index = match index.kind {
             IdKind::Exact(index) => index,
             IdKind::VerbConjugation(index, ..) => index,
+            IdKind::AdjectiveConjugation(index, ..) => index,
         };
 
         let slice = self
@@ -196,6 +214,7 @@ impl Indexes<'_> {
         let index = match &index.kind {
             IdKind::Exact(index) => index,
             IdKind::VerbConjugation(index, ..) => index,
+            IdKind::AdjectiveConjugation(index, ..) => index,
         };
 
         by_pos.contains(index)

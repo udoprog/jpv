@@ -1,6 +1,2 @@
 [workspace]
 members = ["crates/*"]
-
-[patch.crates-io]
-musli = { git = "https://github.com/udoprog/musli" }
-musli-storage = { git = "https://github.com/udoprog/musli" }

@@ -684,24 +684,27 @@ dependencies = [
 
 [[package]]
 name = "musli"
-version = "0.0.38"
-source = "git+https://github.com/udoprog/musli#0cf914a5fe6866f547464d725cfc4d2ebdde089c"
+version = "0.0.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5acfa2efe3908b06bcef46a7be512a49e66ec4868d01626870ed15c1ea4cbc77"
 dependencies = [
  "musli-macros",
 ]
 
 [[package]]
 name = "musli-common"
-version = "0.0.38"
-source = "git+https://github.com/udoprog/musli#0cf914a5fe6866f547464d725cfc4d2ebdde089c"
+version = "0.0.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "091bf47e180cdfc9e24aabd42af2ab83fbadf6ef38d19928b45cf2d5207f3108"
 dependencies = [
  "musli",
 ]
 
 [[package]]
 name = "musli-macros"
-version = "0.0.38"
-source = "git+https://github.com/udoprog/musli#0cf914a5fe6866f547464d725cfc4d2ebdde089c"
+version = "0.0.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "519560a0f70feb8d9266e31db62785138d918b8ca9cb2dddb038493f0db323c3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -710,8 +713,9 @@ dependencies = [
 
 [[package]]
 name = "musli-storage"
-version = "0.0.38"
-source = "git+https://github.com/udoprog/musli#0cf914a5fe6866f547464d725cfc4d2ebdde089c"
+version = "0.0.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49f2a9b9177d58d24ede81911b735cf4f747079e591957318e0ebdc33689ec57"
 dependencies = [
  "musli",
  "musli-common",
