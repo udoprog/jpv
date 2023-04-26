@@ -4,6 +4,7 @@ use musli::{Decode, Encode};
 use crate::parser::{Output, Poll};
 
 #[derive(Clone, Debug, Encode, Decode)]
+#[musli(packed)]
 pub struct ExampleSent<'a> {
     pub text: &'a str,
     pub lang: Option<&'a str>,

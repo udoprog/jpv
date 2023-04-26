@@ -7,6 +7,7 @@ use crate::elements::{kanji_element, reading_element, sense, text};
 use crate::elements::{KanjiElement, ReadingElement, Sense};
 
 #[derive(Clone, Debug, Encode, Decode)]
+#[musli(packed)]
 pub struct Entry<'a> {
     pub sequence: u64,
     pub reading_elements: Vec<ReadingElement<'a>>,

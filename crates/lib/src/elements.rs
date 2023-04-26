@@ -58,7 +58,7 @@ pub(crate) mod text;
 
 pub use self::entry::Entry;
 pub use self::example::Example;
-pub use self::gloss::Gloss;
+pub use self::gloss::Glossary;
 pub use self::kanji_element::KanjiElement;
 pub use self::reading_element::ReadingElement;
 pub use self::sense::Sense;

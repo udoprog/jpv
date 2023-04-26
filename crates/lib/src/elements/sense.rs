@@ -6,7 +6,7 @@ use fixed_map::Set;
 use musli::{Decode, Encode};
 
 use crate::elements::{example, gloss, source_language, text};
-use crate::elements::{Example, Gloss, SourceLanguage};
+use crate::elements::{Example, Glossary, SourceLanguage};
 use crate::entities::Dialect;
 use crate::entities::Field;
 use crate::entities::{Miscellaneous, PartOfSpeech};
@@ -14,26 +14,27 @@ use crate::entities::{Miscellaneous, PartOfSpeech};
 const DEFAULT_LANGUAGE: &str = "eng";
 
 #[derive(Clone, Debug, Encode, Decode)]
+#[musli(packed)]
 pub struct Sense<'a> {
-    /// Part of speech.
-    #[musli(with = crate::musli::set::<_>)]
-    pub pos: Set<PartOfSpeech>,
     /// Cross reference to other entries.
     pub xref: Vec<&'a str>,
     /// Glossary items.
-    pub gloss: Vec<Gloss<'a>>,
+    pub gloss: Vec<Glossary<'a>>,
     pub info: Option<&'a str>,
-    #[musli(with = crate::musli::set::<_>)]
-    pub misc: Set<Miscellaneous>,
-    #[musli(with = crate::musli::set::<_>)]
-    pub dialects: Set<Dialect>,
     pub stagk: Vec<&'a str>,
     pub stagr: Vec<&'a str>,
-    #[musli(with = crate::musli::set::<_>)]
-    pub fields: Set<Field>,
     pub source_language: Vec<SourceLanguage<'a>>,
     pub antonym: Vec<&'a str>,
     pub examples: Vec<Example<'a>>,
+    /// Part of speech.
+    #[musli(with = crate::musli::set::<_>)]
+    pub pos: Set<PartOfSpeech>,
+    #[musli(with = crate::musli::set::<_>)]
+    pub misc: Set<Miscellaneous>,
+    #[musli(with = crate::musli::set::<_>)]
+    pub dialect: Set<Dialect>,
+    #[musli(with = crate::musli::set::<_>)]
+    pub field: Set<Field>,
 }
 
 impl<'a> Sense<'a> {
@@ -90,8 +91,8 @@ impl fmt::Debug for DebugSparse<'_> {
             f.field("misc", &self.0.misc);
         }
 
-        if !self.0.dialects.is_empty() {
-            f.field("dialect", &self.0.dialects);
+        if !self.0.dialect.is_empty() {
+            f.field("dialect", &self.0.dialect);
         }
 
         if !self.0.stagk.is_empty() {
@@ -102,8 +103,8 @@ impl fmt::Debug for DebugSparse<'_> {
             f.field("stagr", &self.0.stagr);
         }
 
-        if !self.0.fields.is_empty() {
-            f.field("fields", &self.0.fields);
+        if !self.0.field.is_empty() {
+            f.field("fields", &self.0.field);
         }
 
         if !self.0.source_language.is_empty() {
@@ -141,13 +142,13 @@ pub(super) struct Builder<'a> {
     state: State<'a>,
     pos: Set<PartOfSpeech>,
     xref: Vec<&'a str>,
-    gloss: Vec<Gloss<'a>>,
+    gloss: Vec<Glossary<'a>>,
     info: Option<&'a str>,
     misc: Set<Miscellaneous>,
-    dialects: Set<Dialect>,
+    dialect: Set<Dialect>,
     stagk: Vec<&'a str>,
     stagr: Vec<&'a str>,
-    fields: Set<Field>,
+    field: Set<Field>,
     source_language: Vec<SourceLanguage<'a>>,
     antonym: Vec<&'a str>,
     examples: Vec<Example<'a>>,
@@ -175,7 +176,7 @@ impl<'a> Builder<'a> {
             }
             "dial", Dialect, value => {
                 let dialect = Dialect::parse(value).with_context(|| anyhow!("Unsupported dialect `{value}`"))?;
-                self.dialects.insert(dialect);
+                self.dialect.insert(dialect);
             }
             "stagk", StagK, value => {
                 self.stagk.push(value);
@@ -185,7 +186,7 @@ impl<'a> Builder<'a> {
             }
             "field", Field, value => {
                 let field = Field::parse(value).with_context(|| anyhow!("Unsupported field `{value}`"))?;
-                self.fields.insert(field);
+                self.field.insert(field);
             }
             "lsource", SourceLanguage, value => {
                 self.source_language.push(value);
@@ -204,10 +205,10 @@ impl<'a> Builder<'a> {
         let pos = mem::take(&mut self.pos);
         let xref = mem::take(&mut self.xref);
         let misc = mem::take(&mut self.misc);
-        let dialects = mem::take(&mut self.dialects);
+        let dialect = mem::take(&mut self.dialect);
         let stagk = mem::take(&mut self.stagk);
         let stagr = mem::take(&mut self.stagr);
-        let fields = mem::take(&mut self.fields);
+        let field = mem::take(&mut self.field);
         let source_language = mem::take(&mut self.source_language);
         let antonym = mem::take(&mut self.antonym);
         let examples = mem::take(&mut self.examples);
@@ -218,10 +219,10 @@ impl<'a> Builder<'a> {
             gloss,
             info: self.info,
             misc,
-            dialects,
+            dialect,
             stagk,
             stagr,
-            fields,
+            field,
             source_language,
             antonym,
             examples,

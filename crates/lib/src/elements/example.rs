@@ -11,6 +11,7 @@ pub use self::example_source::ExampleSource;
 use crate::elements::text;
 
 #[derive(Clone, Debug, Encode, Decode)]
+#[musli(packed)]
 pub struct Example<'a> {
     pub sent: Vec<ExampleSent<'a>>,
     pub sources: Vec<ExampleSource<'a>>,

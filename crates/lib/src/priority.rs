@@ -29,4 +29,26 @@ impl Priority {
             _ => None,
         }
     }
+
+    /// Priority level.
+    pub fn level(&self) -> usize {
+        match *self {
+            Priority::Ichi(n) => n as usize,
+            Priority::News(n) => n as usize,
+            Priority::Gai(n) => n as usize,
+            Priority::Spec(n) => n as usize,
+            Priority::WordFrequency(n) => n as usize,
+        }
+    }
+
+    /// Get priority category.
+    pub fn category(&self) -> &str {
+        match self {
+            Priority::Ichi(..) => "ichi",
+            Priority::News(..) => "news",
+            Priority::Gai(..) => "gai",
+            Priority::Spec(..) => "spec",
+            Priority::WordFrequency(..) => "nf",
+        }
+    }
 }

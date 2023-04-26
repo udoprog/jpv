@@ -18,27 +18,23 @@ macro_rules! entity {
         }
 
         impl $name {
-            #[allow(unused)]
             $vis const VALUES: &[$name] = &[
                 $($name::$variant,)*
             ];
 
-            #[allow(unused)]
             $vis fn variant(&self) -> &str {
                 match self {
                     $($name::$variant => stringify!($variant),)*
                 }
             }
 
-            #[allow(unused)]
             $vis fn ident(&self) -> &str {
                 match self {
                     $($name::$variant => $entity,)*
                 }
             }
 
-            #[allow(unused)]
-            $vis fn help(&self) -> &str {
+            $vis fn help(&self) -> &'static str {
                 match self {
                     $($name::$variant => $doc,)*
                 }
@@ -51,7 +47,6 @@ macro_rules! entity {
                 }
             }
 
-            #[allow(unused)]
             $vis fn parse_keyword(string: &str) -> Option<$name> {
                 match string {
                     $($entity => Some($name::$variant),)*

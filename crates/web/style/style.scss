@@ -1,4 +1,88 @@
 @import "_reset";
 
 body {
+    background-color: #393939;
+    height: 100%;
+}
+
+#prompt {
+    width: 100%;
+    font-size: 1.5em;
+    border: 1px solid #292929;
+    box-sizing: border-box;
+}
+
+#container {
+    margin: 0 auto;
+    padding: 1rem;
+    height: 100%;
+    max-width: 1200px;
+    background-color: rgb(186, 186, 186);
+}
+
+.block {
+    margin: 0.5rem 0;
+
+    &:first-child {
+        margin-top: 0 !important;
+    }
+
+    &:last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+.block-x {
+    margin: 1rem 0;
+
+    &:first-child {
+        margin-top: 0 !important;
+    }
+
+    &:last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+.sequence, .reading, .kanji, .senses {
+    padding: 0 0.5rem;
+}
+
+.entry {
+    padding: 1rem 0;
+    background-color: rgb(231, 231, 231);
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.extra {
+    font-weight: bold;
+    padding: 0.5rem;
+    background-color: rgb(255, 250, 151);
+}
+
+.senses {
+    list-style: decimal;
+    margin-left: 1.5em;
+}
+
+.examples, .glossary, .kanji, .reading {
+    font-size: 1.2em;
+
+    .sep {
+        margin-right: 0.5rem;
+    }
+}
+
+.bullet {
+    cursor: pointer;
+    font-size: 0.75em;
+    font-weight: bold;
+    margin: 0 0.1rem;
+    padding: 0.1rem 0.2rem;
+    border: 1px solid rgb(200, 187, 187);
+    border-radius: 0.25rem;
+    background-color: #fcacac;
 }

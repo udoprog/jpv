@@ -4,7 +4,8 @@ use musli::{Decode, Encode};
 use crate::parser::{Output, Poll};
 
 #[derive(Clone, Debug, Encode, Decode)]
-pub struct Gloss<'a> {
+#[musli(packed)]
+pub struct Glossary<'a> {
     pub text: &'a str,
     pub lang: Option<&'a str>,
 }
@@ -21,7 +22,7 @@ impl<'a> Builder<'a> {
         true
     }
 
-    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<Gloss<'a>>> {
+    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<Glossary<'a>>> {
         match output {
             Output::Text(text) if self.text.is_none() => {
                 self.text = Some(text);
@@ -35,7 +36,7 @@ impl<'a> Builder<'a> {
                 self.lang = Some(value);
                 Ok(Poll::Pending)
             }
-            Output::Close => Ok(Poll::Ready(Gloss {
+            Output::Close => Ok(Poll::Ready(Glossary {
                 text: self.text.context("missing text")?,
                 lang: self.lang,
             })),

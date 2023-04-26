@@ -11,6 +11,7 @@ use fixed_map::Set;
 use musli::{Decode, Encode};
 
 #[derive(Clone, Debug, Encode, Decode)]
+#[musli(packed)]
 pub struct KanjiElement<'a> {
     pub text: &'a str,
     pub priority: Vec<Priority>,

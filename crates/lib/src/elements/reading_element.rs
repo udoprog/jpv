@@ -11,6 +11,7 @@ use crate::entities::ReadingInfo;
 use crate::priority::Priority;
 
 #[derive(Clone, Debug, Encode, Decode)]
+#[musli(packed)]
 pub struct ReadingElement<'a> {
     pub text: &'a str,
     pub no_kanji: bool,

@@ -20,6 +20,7 @@ use crate::PartOfSpeech;
 const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 
 /// Extra information about an index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum IndexExtra {
     /// No extra information on why the index was added.

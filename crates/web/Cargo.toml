@@ -6,3 +6,8 @@ publish = false
 
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
+lib = { path = "../lib" }
+anyhow = "1.0.70"
+log = "0.4.17"
+wasm-logger = "0.2.0"
+web-sys = "0.3.61"
