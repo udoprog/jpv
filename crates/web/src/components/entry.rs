@@ -157,10 +157,12 @@ impl Component for Entry {
             }
         });
 
+        let entry_key_style = format!("display: none;");
+
         html! {
             <div class="block-l entry">
                 <div class="block-l section entry-sequence">{entry.sequence}</div>
-                <div class="block-l section entry-key">{format!("{:?}", key)}</div>
+                <div class="block-l section entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
                 {for extras}
                 {for reading}
                 {for combined}

@@ -1,12 +1,10 @@
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
 use lib::database::IndexExtra;
 use lib::elements::{Entry, EntryKey};
 use lib::romaji;
-use wasm_bindgen::prelude::*;
-use web_sys::{window, HtmlInputElement, Range};
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
@@ -14,7 +12,7 @@ use crate::components as c;
 
 pub(crate) enum Msg {
     Change(String),
-    Analyze(Range),
+    Analyze(usize),
     HistoryChanged(Location),
 }
 
@@ -36,8 +34,7 @@ impl Query {
                 "a" => {
                     this.a.insert(value);
                 }
-                _ => {
-                }
+                _ => {}
             }
         }
 
@@ -56,10 +53,16 @@ impl Query {
     }
 }
 
+struct EntryData {
+    extras: BTreeSet<IndexExtra>,
+    len: usize,
+    key: EntryKey,
+}
+
 #[derive(Default)]
 pub(crate) struct Prompt {
     query: Query,
-    entries: Vec<(BTreeSet<IndexExtra>, EntryKey, Entry<'static>)>,
+    entries: Vec<(EntryData, Entry<'static>)>,
     _handle: Option<LocationHandle>,
 }
 
@@ -76,69 +79,57 @@ impl Prompt {
 
                 let Some(&i) = dedup.get(&id.index()) else {
                     dedup.insert(id.index(), self.entries.len());
-                    self.entries.push(([id.extra()].into_iter().collect(), EntryKey::default(), entry));
+
+                    let data = EntryData {
+                        extras: [id.extra()].into_iter().collect(),
+                        len: input.chars().count(),
+                        key: EntryKey::default(),
+                    };
+
+                    self.entries.push((data, entry));
                     continue;
                 };
 
-                let Some((extras, _, _)) = self.entries.get_mut(i) else {
+                let Some((data, _)) = self.entries.get_mut(i) else {
                     continue;
                 };
 
-                extras.insert(id.extra());
+                data.len = data.len.max(input.chars().count());
+                data.extras.insert(id.extra());
             }
         }
 
-        for (id, key, e) in &mut self.entries {
-            let conjugation = id.iter().any(|index| match index {
+        for (data, e) in &mut self.entries {
+            let conjugation = data.extras.iter().any(|index| match index {
                 IndexExtra::VerbInflection(..) => true,
                 IndexExtra::AdjectiveInflection(..) => true,
                 _ => false,
             });
 
-            *key = e.sort_key(&inputs, conjugation);
+            data.key = e.sort_key(&inputs, conjugation, data.len);
         }
 
-        self.entries.sort_by(|a, b| a.1.cmp(&b.1));
+        self.entries.sort_by(|a, b| a.0.key.cmp(&b.0.key));
     }
 
-    fn analyze(&mut self, ctx: &Context<Self>, range: &Range) -> Result<BTreeSet<String>> {
-        fn error(error: JsValue) -> anyhow::Error {
-            if let Some(string) = error.as_string() {
-                anyhow!("{}", string)
-            } else {
-                anyhow!("an error occured")
-            }
-        }
-
-        let node = range.common_ancestor_container().map_err(error)?;
+    fn analyze(&mut self, ctx: &Context<Self>, start: usize) -> BTreeSet<String> {
         let mut inputs = BTreeSet::new();
-        let mut longest = None;
-        let original_end = range.end_offset().map_err(error)?;
 
-        loop {
-            let end = range.end_offset().map_err(error)?;
+        let Some(suffix) = self.query.q.get(start..) else {
+            return inputs;
+        };
 
-            let Ok(()) = range.set_end(&node, end + 1) else {
-                break;
-            };
+        let mut it = suffix.chars();
 
-            let Some(string) = range.to_string().as_string() else {
-                continue;
-            };
-
-            if ctx.props().db.contains(&string) {
-                inputs.insert(string);
-                longest = Some(end + 1);
+        while !it.as_str().is_empty() {
+            if ctx.props().db.contains(it.as_str()) {
+                inputs.insert(it.as_str().to_owned());
             }
+
+            it.next_back();
         }
 
-        if let Some(end) = longest {
-            let _ = range.set_end(&node, end);
-        } else {
-            let _ = range.set_end(&node, original_end);
-        }
-
-        Ok(inputs)
+        inputs
     }
 
     fn save_query(&mut self, ctx: &Context<Prompt>, push: bool) {
@@ -207,12 +198,9 @@ impl Component for Prompt {
 
                 true
             }
-            Msg::Analyze(range) => {
-                match self.analyze(ctx, &range) {
-                    Err(error) => {
-                        log::error!("Failed to analyze: {error}");
-                    }
-                    Ok(analyze) if !analyze.is_empty() => {
+            Msg::Analyze(i) => {
+                match self.analyze(ctx, i) {
+                    analyze if !analyze.is_empty() => {
                         self.refresh(ctx, &analyze);
 
                         if self.query.a != analyze {
@@ -220,7 +208,7 @@ impl Component for Prompt {
                             self.save_query(ctx, true);
                         }
                     }
-                    Ok(..) => {}
+                    _ => {}
                 }
 
                 true
@@ -242,19 +230,38 @@ impl Component for Prompt {
             Some(Msg::Change(value))
         });
 
-        let onclick = ctx.link().batch_callback(|_: MouseEvent| {
-            let window: web_sys::Window = window()?;
-            let selection: web_sys::Selection = window.get_selection().ok()??;
-            let range = selection.get_range_at(0).ok()?;
-            Some(Msg::Analyze(range))
-        });
-
         let entries = (!self.entries.is_empty()).then(|| {
-            let entries = self.entries.iter().map(|(extras, entry_key, entry)| {
-                html!(<c::Entry extras={extras.clone()} entry_key={entry_key.clone()} entry={entry.clone()} />)
+            let entries = self.entries.iter().map(|(data, entry)| {
+                html!(<c::Entry extras={data.extras.clone()} entry_key={data.key.clone()} entry={entry.clone()} />)
             });
 
             html!(<div class="block-l">{for entries}</div>)
+        });
+
+        let mut rem = 0;
+
+        let query = self.query.q.char_indices().map(|(i, c)| {
+            let onclick = ctx.link().callback(move |_: MouseEvent| Msg::Analyze(i));
+
+            let sub = self.query.q.get(i..).unwrap_or_default();
+
+            if let Some(m) = self
+                .query
+                .a
+                .iter()
+                .filter(|s| sub.starts_with(s.as_str()))
+                .max_by(|a, b| a.len().cmp(&b.len()))
+            {
+                rem = rem.max(m.chars().count());
+            }
+
+            let class = classes! {
+                (rem > 0).then_some("analyze-span-active"),
+                "analyze-span"
+            };
+
+            rem = rem.saturating_sub(1);
+            html!(<span {class} {onclick}>{c}</span>)
         });
 
         html! {
@@ -264,8 +271,8 @@ impl Component for Prompt {
                         <input value={self.query.q.clone()} type="text" oninput={oninput} />
                     </div>
 
-                    <div class="block-1" id="analyze" {onclick}>
-                        {self.query.q.clone()}
+                    <div class="block-1" id="analyze">
+                        {for query}
                     </div>
 
                     <>

@@ -19,6 +19,8 @@ struct Weight {
     sense_count: f32,
     #[allow(unused)]
     conjugation: f32,
+    #[allow(unused)]
+    length: f32,
 }
 
 impl PartialEq for Weight {
@@ -61,7 +63,7 @@ pub struct Entry<'a> {
 
 impl Entry<'_> {
     /// Entry weight.
-    pub fn sort_key(&self, inputs: &BTreeSet<String>, conjugation: bool) -> EntryKey {
+    pub fn sort_key(&self, inputs: &BTreeSet<String>, conjugation: bool, len: usize) -> EntryKey {
         // Boost based on exact query.
         let mut query = 1.0f32;
         // Store the priority which performs the maximum boost.
@@ -70,9 +72,13 @@ impl Entry<'_> {
         let sense_count = 1.0 + self.senses.len().min(10) as f32 / 10.0;
         // Conjugation boost.
         let conjugation = conjugation.then_some(2.0).unwrap_or(1.0);
+        // Calculate length boost.
+        let length = (len.min(10) as f32 / 10.0) * 1.2;
 
         for element in &self.reading_elements {
-            query = query.max((inputs.contains(element.text)).then_some(2.0).unwrap_or(1.0));
+            if inputs.contains(element.text) {
+                query = query.max(2.0);
+            }
 
             for p in &element.priority {
                 priority = priority.max(p.weight());
@@ -80,7 +86,9 @@ impl Entry<'_> {
         }
 
         for element in &self.kanji_elements {
-            query = query.max((inputs.contains(element.text)).then_some(2.5).unwrap_or(1.0));
+            if inputs.contains(element.text) {
+                query = query.max(2.5);
+            }
 
             for p in &element.priority {
                 priority = priority.max(p.weight());
@@ -95,11 +103,12 @@ impl Entry<'_> {
 
         EntryKey {
             weight: Weight {
-                weight: query * priority * sense_count * conjugation,
+                weight: query * priority * sense_count * conjugation * length,
                 query,
                 priority,
                 sense_count,
                 conjugation,
+                length,
             },
             sequence: self.sequence,
         }

@@ -3,6 +3,8 @@
 :root {
     --text-color: #bbb;
     --emphasis-color: #eee;
+    --analyzed-color: #d23c53;
+    --analyzed-hover-color: #da7f8c;
     --background-color: #2a2a2a;
     --bullet-color: #000;
     --bullet-background-1: #8abc83;
@@ -29,8 +31,21 @@ body {
     }
 }
 
-#analyze {
+.analyze-span {
     cursor: pointer;
+
+    &:hover {
+        color: var(--emphasis-color);
+    }
+
+    &-active {
+        font-weight: bold;
+        color: var(--analyzed-color);
+  
+        &:hover {
+            color: var(--analyzed-hover-color);
+        }
+    }
 }
 
 #container {
