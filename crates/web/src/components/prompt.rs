@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use lib::database::IndexExtra;
@@ -122,8 +122,8 @@ impl Prompt {
         self.entries.sort_by(|a, b| a.0.key.cmp(&b.0.key));
     }
 
-    fn analyze(&mut self, ctx: &Context<Self>, start: usize) -> BTreeSet<String> {
-        let mut inputs = BTreeSet::new();
+    fn analyze(&mut self, ctx: &Context<Self>, start: usize) -> BTreeMap<EntryKey, String> {
+        let mut inputs = BTreeMap::new();
 
         let Some(suffix) = self.query.q.get(start..) else {
             return inputs;
@@ -132,8 +132,24 @@ impl Prompt {
         let mut it = suffix.chars();
 
         while !it.as_str().is_empty() {
-            if ctx.props().db.contains(it.as_str()) {
-                inputs.insert(it.as_str().to_owned());
+            let mut sort_key = None;
+
+            for id in ctx.props().db.lookup(it.as_str()) {
+                let Ok(e) = ctx.props().db.get(id) else {
+                    continue;
+                };
+
+                let a = e.sort_key(it.as_str(), false, it.as_str().chars().count());
+
+                if let Some(b) = sort_key.take() {
+                    sort_key = Some(a.min(b));
+                } else {
+                    sort_key = Some(a);
+                }
+            }
+
+            if let Some(e) = sort_key.take() {
+                inputs.insert(e, it.as_str().to_owned());
             }
 
             it.next_back();
@@ -210,7 +226,7 @@ impl Component for Prompt {
             Msg::Analyze(i) => {
                 match self.analyze(ctx, i) {
                     analyze if !analyze.is_empty() => {
-                        let analyze = analyze.into_iter().rev().collect::<Vec<_>>();
+                        let analyze = analyze.into_values().collect::<Vec<_>>();
 
                         if let Some(input) = analyze.get(0) {
                             self.refresh(ctx, input);
