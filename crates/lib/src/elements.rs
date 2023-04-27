@@ -56,7 +56,7 @@ pub(crate) mod sense;
 pub(crate) mod source_language;
 pub(crate) mod text;
 
-pub use self::entry::Entry;
+pub use self::entry::{Entry, EntryKey};
 pub use self::example::Example;
 pub use self::gloss::Glossary;
 pub use self::kanji_element::KanjiElement;

@@ -11,13 +11,15 @@ pub use self::concat::Concat;
 
 pub mod elements;
 
-mod entities;
+pub mod entities;
 pub use self::entities::PartOfSpeech;
 
 mod furigana;
-pub use self::furigana::Furigana;
+pub use self::furigana::{Furigana, FuriganaGroup};
 
-mod kana;
+pub mod romaji;
+
+pub mod kana;
 
 pub mod verb;
 

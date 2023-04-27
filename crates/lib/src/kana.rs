@@ -1,6 +1,7 @@
 use core::fmt;
 
-use crate::{concat::Concat, furigana::Furigana};
+use crate::concat::Concat;
+use crate::furigana::Furigana;
 
 pub struct Word<'a> {
     /// Verb stem.
@@ -11,7 +12,7 @@ pub struct Word<'a> {
 
 impl<'a> Word<'a> {
     #[inline]
-    pub(crate) const fn new(text: &'a str, reading: &'a str) -> Self {
+    pub const fn new(text: &'a str, reading: &'a str) -> Self {
         Self { text, reading }
     }
 

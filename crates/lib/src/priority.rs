@@ -1,54 +1,77 @@
 use musli::{Decode, Encode};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
-pub enum Priority {
+#[derive(Debug, Clone, Copy, Encode, Decode)]
+pub enum PriorityKind {
     /// Common words.
-    Ichi(u8),
+    Ichi,
     /// News.
-    News(u8),
+    News,
     /// Common loan words.
-    Gai(u8),
+    Gai,
     /// Especially marked common words.
-    Spec(u8),
+    Spec,
     /// Word frequency category.
-    WordFrequency(u8),
+    WordFrequency,
+}
+
+#[derive(Debug, Clone, Copy, Encode, Decode)]
+#[musli(packed)]
+pub struct Priority {
+    level: u8,
+    kind: PriorityKind,
 }
 
 impl Priority {
     /// Parse a priority.
     pub fn parse(string: &str) -> Option<Priority> {
         let n = string.find(char::is_numeric)?;
-        let group = string[n..].parse().ok()?;
+        let level = string[n..].parse().ok()?;
 
-        match &string[..n] {
-            "ichi" => Some(Priority::Ichi(group)),
-            "news" => Some(Priority::News(group)),
-            "gai" => Some(Priority::Gai(group)),
-            "spec" => Some(Priority::Spec(group)),
-            "nf" => Some(Priority::WordFrequency(group)),
-            _ => None,
-        }
+        let kind = match &string[..n] {
+            "ichi" => PriorityKind::Ichi,
+            "news" => PriorityKind::News,
+            "gai" => PriorityKind::Gai,
+            "spec" => PriorityKind::Spec,
+            "nf" => PriorityKind::WordFrequency,
+            _ => return None,
+        };
+
+        Some(Priority { level, kind })
     }
 
     /// Priority level.
     pub fn level(&self) -> usize {
-        match *self {
-            Priority::Ichi(n) => n as usize,
-            Priority::News(n) => n as usize,
-            Priority::Gai(n) => n as usize,
-            Priority::Spec(n) => n as usize,
-            Priority::WordFrequency(n) => n as usize,
-        }
+        self.level as usize
     }
 
     /// Get priority category.
     pub fn category(&self) -> &str {
-        match self {
-            Priority::Ichi(..) => "ichi",
-            Priority::News(..) => "news",
-            Priority::Gai(..) => "gai",
-            Priority::Spec(..) => "spec",
-            Priority::WordFrequency(..) => "nf",
+        match self.kind {
+            PriorityKind::Ichi => "ichi",
+            PriorityKind::News => "news",
+            PriorityKind::Gai => "gai",
+            PriorityKind::Spec => "spec",
+            PriorityKind::WordFrequency => "nf",
+        }
+    }
+
+    /// Weight for these priorities.
+    pub(crate) fn weight(&self) -> f32 {
+        let level = self.level.saturating_sub(1) as f32;
+
+        // Calculate the range-based priority.
+        macro_rules! range {
+            ($max:expr) => {
+                1.0 + ($max - level.min($max)) / $max
+            };
+        }
+
+        match self.kind {
+            PriorityKind::Ichi => range!(2.0) * 2.0,
+            PriorityKind::News => range!(2.0),
+            PriorityKind::Gai => range!(2.0),
+            PriorityKind::Spec => range!(2.0) * 2.2,
+            PriorityKind::WordFrequency => range!(50.0) * 2.0,
         }
     }
 }

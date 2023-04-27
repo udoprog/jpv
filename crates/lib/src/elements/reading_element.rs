@@ -1,5 +1,6 @@
 use core::fmt;
 use core::mem;
+use std::collections::HashSet;
 
 use anyhow::ensure;
 use anyhow::{anyhow, Context, Result};
@@ -15,7 +16,7 @@ use crate::priority::Priority;
 pub struct ReadingElement<'a> {
     pub text: &'a str,
     pub no_kanji: bool,
-    pub reading_string: Vec<&'a str>,
+    pub reading_string: HashSet<&'a str>,
     pub priority: Vec<Priority>,
     pub info: Vec<ReadingInfo>,
 }
@@ -25,6 +26,19 @@ impl<'a> ReadingElement<'a> {
     /// not defined.
     pub fn debug_sparse(&self) -> impl fmt::Debug + '_ {
         DebugSparse(self)
+    }
+
+    /// Test if this reading applies to the given string.
+    pub fn applies_to(&self, text: &str) -> bool {
+        if self.no_kanji {
+            return false;
+        }
+
+        if self.reading_string.is_empty() {
+            return true;
+        }
+
+        self.reading_string.contains(text)
     }
 }
 
@@ -72,7 +86,7 @@ pub(super) struct Builder<'a> {
     state: State<'a>,
     text: Option<&'a str>,
     no_kanji: bool,
-    reading_string: Vec<&'a str>,
+    reading_string: HashSet<&'a str>,
     priority: Vec<Priority>,
     info: Vec<ReadingInfo>,
 }
@@ -88,7 +102,7 @@ impl<'a> Builder<'a> {
                 self.no_kanji = true;
             }
             "re_restr", ReadingString, value => {
-                self.reading_string.push(value);
+                self.reading_string.insert(value);
             }
             "re_pri", Priority, value => {
                 let priority = Priority::parse(value).with_context(|| anyhow!("Unsupported priority `{value}`"))?;
