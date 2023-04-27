@@ -21,10 +21,15 @@ body {
 }
 
 #prompt {
-    width: 100%;
-    font-size: 1.2em;
-    border: 1px solid #292929;
-    box-sizing: border-box;
+    input[type="text"] {
+        width: 100%;
+        font-size: 1.2em;
+        box-sizing: border-box;
+    }
+}
+
+#analyze {
+    cursor: pointer;
 }
 
 #container {

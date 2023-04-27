@@ -217,6 +217,11 @@ impl<'a> Database<'a> {
             .copied()
             .map(|kind| Id { kind })
     }
+
+    /// Test if db contains the given string.
+    pub fn contains(&self, query: &str) -> bool {
+        self.index.lookup.contains_key(query.as_bytes())
+    }
 }
 
 /// A collection of indexes.
