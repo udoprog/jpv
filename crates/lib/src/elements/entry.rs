@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::BTreeSet;
 use std::mem;
 
 use anyhow::{Context, Result};
@@ -60,7 +61,7 @@ pub struct Entry<'a> {
 
 impl Entry<'_> {
     /// Entry weight.
-    pub fn sort_key(&self, query_text: &str, conjugation: bool) -> EntryKey {
+    pub fn sort_key(&self, inputs: &BTreeSet<String>, conjugation: bool) -> EntryKey {
         // Boost based on exact query.
         let mut query = 1.0f32;
         // Store the priority which performs the maximum boost.
@@ -71,7 +72,7 @@ impl Entry<'_> {
         let conjugation = conjugation.then_some(2.0).unwrap_or(1.0);
 
         for element in &self.reading_elements {
-            query = query.max((element.text == query_text).then_some(2.0).unwrap_or(1.0));
+            query = query.max((inputs.contains(element.text)).then_some(2.0).unwrap_or(1.0));
 
             for p in &element.priority {
                 priority = priority.max(p.weight());
@@ -79,7 +80,7 @@ impl Entry<'_> {
         }
 
         for element in &self.kanji_elements {
-            query = query.max((element.text == query_text).then_some(2.5).unwrap_or(1.0));
+            query = query.max((inputs.contains(element.text)).then_some(2.5).unwrap_or(1.0));
 
             for p in &element.priority {
                 priority = priority.max(p.weight());
@@ -88,7 +89,7 @@ impl Entry<'_> {
 
         for sense in &self.senses {
             for gloss in &sense.gloss {
-                query = query.max((gloss.text == query_text).then_some(1.5).unwrap_or(1.0));
+                query = query.max((inputs.contains(gloss.text)).then_some(1.5).unwrap_or(1.0));
             }
         }
 

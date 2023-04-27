@@ -5,7 +5,6 @@ use anyhow::{anyhow, Result};
 use lib::database::IndexExtra;
 use lib::elements::{Entry, EntryKey};
 use lib::romaji;
-use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use web_sys::{window, HtmlInputElement, Range};
 use yew::prelude::*;
@@ -19,49 +18,74 @@ pub(crate) enum Msg {
     HistoryChanged(Location),
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug)]
 struct Query {
-    #[serde(default)]
     q: String,
-    #[serde(default)]
-    analyze: Option<String>,
+    a: BTreeSet<String>,
+}
+
+impl Query {
+    fn deserialize(raw: Vec<(String, String)>) -> Self {
+        let mut this = Self::default();
+
+        for (key, value) in raw {
+            match key.as_str() {
+                "q" => {
+                    this.q = value;
+                }
+                "a" => {
+                    this.a.insert(value);
+                }
+                _ => {
+                }
+            }
+        }
+
+        this
+    }
+
+    fn serialize(&self) -> Vec<(&'static str, &str)> {
+        let mut out = Vec::new();
+        out.push(("q", self.q.as_str()));
+
+        for a in &self.a {
+            out.push(("a", a.as_str()));
+        }
+
+        out
+    }
 }
 
 #[derive(Default)]
 pub(crate) struct Prompt {
     query: Query,
     entries: Vec<(BTreeSet<IndexExtra>, EntryKey, Entry<'static>)>,
-    handle: Option<LocationHandle>,
+    _handle: Option<LocationHandle>,
 }
 
 impl Prompt {
-    fn refresh(&mut self, ctx: &Context<Self>, input: &str) -> String {
+    fn refresh(&mut self, ctx: &Context<Self>, inputs: &BTreeSet<String>) {
         self.entries.clear();
-
-        let mut query = String::new();
-
-        for segment in romaji::analyze(&input) {
-            query.push_str(segment.hiragana());
-        }
-
         let mut dedup = HashMap::new();
 
-        for id in ctx.props().db.lookup(query.as_str()) {
-            let Ok(entry) = ctx.props().db.get(id) else {
-                continue;
-            };
+        for input in inputs {
+            for id in ctx.props().db.lookup(input) {
+                let Ok(entry) = ctx.props().db.get(id) else {
+                    continue;
+                };
 
-            let Some(&i) = dedup.get(&id.index()) else {
-                dedup.insert(id.index(), self.entries.len());
-                self.entries.push(([id.extra()].into_iter().collect(), EntryKey::default(), entry));
-                continue;
-            };
+                let Some(&i) = dedup.get(&id.index()) else {
+                    dedup.insert(id.index(), self.entries.len());
+                    self.entries.push(([id.extra()].into_iter().collect(), EntryKey::default(), entry));
+                    continue;
+                };
 
-            let Some((extras, _, _)) = self.entries.get_mut(i) else {
-                continue;
-            };
+                let Some((extras, _, _)) = self.entries.get_mut(i) else {
+                    continue;
+                };
 
-            extras.insert(id.extra());
+                extras.insert(id.extra());
+            }
         }
 
         for (id, key, e) in &mut self.entries {
@@ -71,14 +95,13 @@ impl Prompt {
                 _ => false,
             });
 
-            *key = e.sort_key(&query, conjugation);
+            *key = e.sort_key(&inputs, conjugation);
         }
 
         self.entries.sort_by(|a, b| a.1.cmp(&b.1));
-        query
     }
 
-    fn analyze(&mut self, ctx: &Context<Self>, range: &Range) -> Result<Option<String>> {
+    fn analyze(&mut self, ctx: &Context<Self>, range: &Range) -> Result<BTreeSet<String>> {
         fn error(error: JsValue) -> anyhow::Error {
             if let Some(string) = error.as_string() {
                 anyhow!("{}", string)
@@ -88,6 +111,7 @@ impl Prompt {
         }
 
         let node = range.common_ancestor_container().map_err(error)?;
+        let mut inputs = BTreeSet::new();
         let mut longest = None;
         let original_end = range.end_offset().map_err(error)?;
 
@@ -103,17 +127,18 @@ impl Prompt {
             };
 
             if ctx.props().db.contains(&string) {
-                longest = Some((string, end + 1));
+                inputs.insert(string);
+                longest = Some(end + 1);
             }
         }
 
-        if let Some((longest, end)) = longest {
+        if let Some(end) = longest {
             let _ = range.set_end(&node, end);
-            Ok(Some(longest))
         } else {
             let _ = range.set_end(&node, original_end);
-            Ok(None)
         }
+
+        Ok(inputs)
     }
 
     fn save_query(&mut self, ctx: &Context<Prompt>, push: bool) {
@@ -121,10 +146,12 @@ impl Prompt {
             let path = location.path();
             let path = AnyRoute::new(path);
 
+            let query = self.query.serialize();
+
             let result = if push {
-                navigator.push_with_query(&path, &self.query)
+                navigator.push_with_query(&path, &query)
             } else {
-                navigator.replace_with_query(&path, &self.query)
+                navigator.replace_with_query(&path, &query)
             };
 
             if let Err(error) = result {
@@ -153,25 +180,28 @@ impl Component for Prompt {
         let handle = ctx
             .link()
             .add_location_listener(ctx.link().callback(Msg::HistoryChanged));
-        let (query, input) = decode_query(ctx.link().location());
+        let (query, inputs) = decode_query(ctx.link().location());
 
         let mut this = Self {
             query,
             entries: Default::default(),
-            handle,
+            _handle: handle,
         };
 
-        this.refresh(ctx, &input);
+        this.refresh(ctx, &inputs);
         this
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Change(input) => {
-                let input = self.refresh(ctx, &input);
+                let input = process_query(&input);
+                let inputs = [input.clone()].into_iter().collect();
+                self.refresh(ctx, &inputs);
 
                 if self.query.q != input {
                     self.query.q = input;
+                    self.query.a.clear();
                     self.save_query(ctx, false);
                 }
 
@@ -182,24 +212,24 @@ impl Component for Prompt {
                     Err(error) => {
                         log::error!("Failed to analyze: {error}");
                     }
-                    Ok(Some(longest)) => {
-                        self.refresh(ctx, &longest);
+                    Ok(analyze) if !analyze.is_empty() => {
+                        self.refresh(ctx, &analyze);
 
-                        if self.query.analyze.as_ref() != Some(&longest) {
-                            self.query.analyze = Some(longest);
+                        if self.query.a != analyze {
+                            self.query.a = analyze;
                             self.save_query(ctx, true);
                         }
                     }
-                    Ok(None) => {}
+                    Ok(..) => {}
                 }
 
                 true
             }
             Msg::HistoryChanged(location) => {
                 log::info!("history change");
-                let (query, input) = decode_query(Some(location));
+                let (query, inputs) = decode_query(Some(location));
                 self.query = query;
-                self.refresh(ctx, &input);
+                self.refresh(ctx, &inputs);
                 true
             }
         }
@@ -247,13 +277,30 @@ impl Component for Prompt {
     }
 }
 
-fn decode_query(location: Option<Location>) -> (Query, String) {
+fn process_query(input: &str) -> String {
+    let mut out = String::new();
+
+    for segment in romaji::analyze(input) {
+        out.push_str(segment.hiragana());
+    }
+
+    out
+}
+
+fn decode_query(location: Option<Location>) -> (Query, BTreeSet<String>) {
     let query = match location {
         Some(location) => location.query().ok(),
         None => None,
     };
 
-    let query: Query = query.unwrap_or_default();
-    let input = query.analyze.as_ref().unwrap_or(&query.q).clone();
-    (query, input)
+    let query = query.unwrap_or_default();
+    let query = Query::deserialize(query);
+
+    let inputs = if query.a.is_empty() {
+        [query.q.clone()].into_iter().collect()
+    } else {
+        query.a.clone()
+    };
+
+    (query, inputs)
 }
