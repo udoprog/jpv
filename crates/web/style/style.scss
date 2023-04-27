@@ -31,19 +31,27 @@ body {
     }
 }
 
-.analyze-span {
-    cursor: pointer;
+#analyze {
+    user-select: none;
 
-    &:hover {
-        color: var(--emphasis-color);
-    }
+    .analyze-span {
+        &.clickable {
+            cursor: pointer;
 
-    &-active {
-        font-weight: bold;
-        color: var(--analyzed-color);
-  
-        &:hover {
-            color: var(--analyzed-hover-color);
+            &:hover {
+                color: var(--emphasis-color);
+            }
+
+            &.active {
+                &:hover {
+                    color: var(--analyzed-hover-color);
+                }
+            }
+        }
+
+        &.active {
+            font-weight: bold;
+            color: var(--analyzed-color);
         }
     }
 }

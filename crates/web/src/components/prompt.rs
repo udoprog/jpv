@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
@@ -13,13 +14,15 @@ use crate::components as c;
 pub(crate) enum Msg {
     Change(String),
     Analyze(usize),
+    AnalyzeCycle,
     HistoryChanged(Location),
 }
 
 #[derive(Default, Debug)]
 struct Query {
     q: String,
-    a: BTreeSet<String>,
+    a: Vec<String>,
+    i: usize,
 }
 
 impl Query {
@@ -32,7 +35,12 @@ impl Query {
                     this.q = value;
                 }
                 "a" => {
-                    this.a.insert(value);
+                    this.a.push(value);
+                }
+                "i" => {
+                    if let Ok(i) = value.parse() {
+                        this.i = i;
+                    }
                 }
                 _ => {}
             }
@@ -41,12 +49,16 @@ impl Query {
         this
     }
 
-    fn serialize(&self) -> Vec<(&'static str, &str)> {
+    fn serialize(&self) -> Vec<(&'static str, Cow<'_, str>)> {
         let mut out = Vec::new();
-        out.push(("q", self.q.as_str()));
+        out.push(("q", Cow::Borrowed(self.q.as_str())));
 
         for a in &self.a {
-            out.push(("a", a.as_str()));
+            out.push(("a", Cow::Borrowed(a.as_str())));
+        }
+
+        if self.i != 0 {
+            out.push(("i", Cow::Owned(self.i.to_string())));
         }
 
         out
@@ -67,36 +79,34 @@ pub(crate) struct Prompt {
 }
 
 impl Prompt {
-    fn refresh(&mut self, ctx: &Context<Self>, inputs: &BTreeSet<String>) {
+    fn refresh(&mut self, ctx: &Context<Self>, input: &str) {
         self.entries.clear();
         let mut dedup = HashMap::new();
 
-        for input in inputs {
-            for id in ctx.props().db.lookup(input) {
-                let Ok(entry) = ctx.props().db.get(id) else {
-                    continue;
+        for id in ctx.props().db.lookup(input) {
+            let Ok(entry) = ctx.props().db.get(id) else {
+                continue;
+            };
+
+            let Some(&i) = dedup.get(&id.index()) else {
+                dedup.insert(id.index(), self.entries.len());
+
+                let data = EntryData {
+                    extras: [id.extra()].into_iter().collect(),
+                    len: input.chars().count(),
+                    key: EntryKey::default(),
                 };
 
-                let Some(&i) = dedup.get(&id.index()) else {
-                    dedup.insert(id.index(), self.entries.len());
+                self.entries.push((data, entry));
+                continue;
+            };
 
-                    let data = EntryData {
-                        extras: [id.extra()].into_iter().collect(),
-                        len: input.chars().count(),
-                        key: EntryKey::default(),
-                    };
+            let Some((data, _)) = self.entries.get_mut(i) else {
+                continue;
+            };
 
-                    self.entries.push((data, entry));
-                    continue;
-                };
-
-                let Some((data, _)) = self.entries.get_mut(i) else {
-                    continue;
-                };
-
-                data.len = data.len.max(input.chars().count());
-                data.extras.insert(id.extra());
-            }
+            data.len = data.len.max(input.chars().count());
+            data.extras.insert(id.extra());
         }
 
         for (data, e) in &mut self.entries {
@@ -106,7 +116,7 @@ impl Prompt {
                 _ => false,
             });
 
-            data.key = e.sort_key(&inputs, conjugation, data.len);
+            data.key = e.sort_key(input, conjugation, data.len);
         }
 
         self.entries.sort_by(|a, b| a.0.key.cmp(&b.0.key));
@@ -187,10 +197,9 @@ impl Component for Prompt {
         match msg {
             Msg::Change(input) => {
                 let input = process_query(&input);
-                let inputs = [input.clone()].into_iter().collect();
-                self.refresh(ctx, &inputs);
+                self.refresh(ctx, &input);
 
-                if self.query.q != input {
+                if self.query.q != input || !self.query.a.is_empty() {
                     self.query.q = input;
                     self.query.a.clear();
                     self.save_query(ctx, false);
@@ -201,10 +210,15 @@ impl Component for Prompt {
             Msg::Analyze(i) => {
                 match self.analyze(ctx, i) {
                     analyze if !analyze.is_empty() => {
-                        self.refresh(ctx, &analyze);
+                        let analyze = analyze.into_iter().rev().collect::<Vec<_>>();
 
-                        if self.query.a != analyze {
+                        if let Some(input) = analyze.get(0) {
+                            self.refresh(ctx, input);
+                        }
+
+                        if self.query.a != analyze || self.query.i != 0 {
                             self.query.a = analyze;
+                            self.query.i = 0;
                             self.save_query(ctx, true);
                         }
                     }
@@ -212,6 +226,17 @@ impl Component for Prompt {
                 }
 
                 true
+            }
+            Msg::AnalyzeCycle => {
+                if let Some(input) = self.query.a.get(self.query.i).cloned() {
+                    self.query.i += 1;
+                    self.query.i %= self.query.a.len();
+                    self.save_query(ctx, true);
+                    self.refresh(ctx, &input);
+                    true
+                } else {
+                    false
+                }
             }
             Msg::HistoryChanged(location) => {
                 log::info!("history change");
@@ -241,27 +266,38 @@ impl Component for Prompt {
         let mut rem = 0;
 
         let query = self.query.q.char_indices().map(|(i, c)| {
-            let onclick = ctx.link().callback(move |_: MouseEvent| Msg::Analyze(i));
-
             let sub = self.query.q.get(i..).unwrap_or_default();
 
-            if let Some(m) = self
-                .query
-                .a
-                .iter()
-                .filter(|s| sub.starts_with(s.as_str()))
-                .max_by(|a, b| a.len().cmp(&b.len()))
-            {
-                rem = rem.max(m.chars().count());
-            }
+            let event = if let Some(string) = self.query.a.get(self.query.i) {
+                if rem == 0 && sub.starts_with(string) {
+                    rem = string.chars().count();
+                    None
+                } else {
+                    Some(i)
+                }
+            } else {
+                Some(i)
+            };
+
+            let onclick = ctx.link().callback(move |_: MouseEvent| match event {
+                Some(i) => Msg::Analyze(i),
+                None => Msg::AnalyzeCycle,
+            });
 
             let class = classes! {
-                (rem > 0).then_some("analyze-span-active"),
+                (rem > 0).then_some("active"),
+                (!(event.is_none() && self.query.a.len() <= 1)).then_some("clickable"),
                 "analyze-span"
             };
 
             rem = rem.saturating_sub(1);
             html!(<span {class} {onclick}>{c}</span>)
+        });
+
+        let analyze_hint = (self.query.a.len() > 1).then(|| {
+            html!(
+                <div class="block">{format!("{} / {}", self.query.i + 1, self.query.a.len())}</div>
+            )
         });
 
         html! {
@@ -271,9 +307,8 @@ impl Component for Prompt {
                         <input value={self.query.q.clone()} type="text" oninput={oninput} />
                     </div>
 
-                    <div class="block-1" id="analyze">
-                        {for query}
-                    </div>
+                    <div class="block" id="analyze">{for query}</div>
+                    {for analyze_hint}
 
                     <>
                         {for entries}
@@ -294,7 +329,7 @@ fn process_query(input: &str) -> String {
     out
 }
 
-fn decode_query(location: Option<Location>) -> (Query, BTreeSet<String>) {
+fn decode_query(location: Option<Location>) -> (Query, String) {
     let query = match location {
         Some(location) => location.query().ok(),
         None => None,
@@ -303,11 +338,13 @@ fn decode_query(location: Option<Location>) -> (Query, BTreeSet<String>) {
     let query = query.unwrap_or_default();
     let query = Query::deserialize(query);
 
-    let inputs = if query.a.is_empty() {
-        [query.q.clone()].into_iter().collect()
+    let input = if query.a.is_empty() {
+        query.q.clone()
+    } else if let Some(input) = query.a.get(query.i) {
+        input.clone()
     } else {
-        query.a.clone()
+        query.q.clone()
     };
 
-    (query, inputs)
+    (query, input)
 }

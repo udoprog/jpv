@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
 use std::mem;
 
 use anyhow::{Context, Result};
@@ -63,7 +62,7 @@ pub struct Entry<'a> {
 
 impl Entry<'_> {
     /// Entry weight.
-    pub fn sort_key(&self, inputs: &BTreeSet<String>, conjugation: bool, len: usize) -> EntryKey {
+    pub fn sort_key(&self, input: &str, conjugation: bool, len: usize) -> EntryKey {
         // Boost based on exact query.
         let mut query = 1.0f32;
         // Store the priority which performs the maximum boost.
@@ -76,7 +75,7 @@ impl Entry<'_> {
         let length = (len.min(10) as f32 / 10.0) * 1.2;
 
         for element in &self.reading_elements {
-            if inputs.contains(element.text) {
+            if element.text == input {
                 query = query.max(2.0);
             }
 
@@ -86,7 +85,7 @@ impl Entry<'_> {
         }
 
         for element in &self.kanji_elements {
-            if inputs.contains(element.text) {
+            if element.text == input {
                 query = query.max(2.5);
             }
 
@@ -97,7 +96,9 @@ impl Entry<'_> {
 
         for sense in &self.senses {
             for gloss in &sense.gloss {
-                query = query.max((inputs.contains(gloss.text)).then_some(1.5).unwrap_or(1.0));
+                if gloss.text == input {
+                    query = query.max(1.5);
+                }
             }
         }
 
