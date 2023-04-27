@@ -11,10 +11,6 @@ fn segmentations() {
 #[test]
 fn romanization() {
     macro_rules! out {
-        (nih = $expr:expr, $($tt:tt)*) => {
-            $expr
-        };
-
         (w = $expr:expr, $($tt:tt)*) => {
             $expr
         };
@@ -25,19 +21,18 @@ fn romanization() {
             $((
                 $n:expr,
                 $hira:tt, $kata:tt,
-                $(nih = $nih:expr,)?
                 $(w = $w:expr,)*
             ),)*
             $(kana $tt:tt,)*
         ) => {
             $(assert_eq!(
                 analyze($hira).map(|segment| segment.romanize()).collect::<Vec<_>>(),
-                [out!($(nih = $nih,)* $(w = $w,)*)]
+                [out!($(w = $w,)*)]
             );)*
 
             $(assert_eq!(
                 analyze($kata).map(|segment| segment.romanize()).collect::<Vec<_>>(),
-                [out!($(nih = $nih,)* $(w = $w,)*)]
+                [out!($(w = $w,)*)]
             );)*
         };
     }

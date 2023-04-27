@@ -7,7 +7,7 @@ use musli::{Decode, Encode};
 use crate::elements::{kanji_element, reading_element, sense, text};
 use crate::elements::{KanjiElement, ReadingElement, Sense};
 
-#[derive(Default, Debug)]
+#[derive(Default, Clone, Copy, Debug)]
 struct Weight {
     weight: f32,
     #[allow(unused)]
@@ -43,7 +43,7 @@ impl Ord for Weight {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EntryKey {
     weight: Weight,
     sequence: u64,

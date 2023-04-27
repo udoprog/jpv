@@ -19,7 +19,7 @@ impl<'a, const N: usize> Concat<'a, N> {
     }
 
     /// Iterate over strings.
-    pub(crate) fn as_slice(&self) -> &[&'a str] {
+    pub fn as_slice(&self) -> &[&'a str] {
         self.storage.as_slice()
     }
 

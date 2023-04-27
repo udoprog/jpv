@@ -7,9 +7,11 @@
     --bullet-color: #000;
     --bullet-background-1: #8abc83;
     --extra-background-color: #582f94;
+    --kanji-font-size: 1.5em;
 }
 
-$bullets-separation: 0.5rem;
+$section-padding: 0.5rem;
+$bullets-separation: $section-padding;
 
 body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -34,7 +36,7 @@ body {
 }
 
 .block {
-    margin: 0.5rem 0;
+    margin: $section-padding 0;
 
     &:first-child {
         margin-top: 0 !important;
@@ -57,11 +59,15 @@ body {
     }
 }
 
+.section {
+    padding: 0 $section-padding;
+}
+
 .entry {
     padding: 1rem 0;
 
     &-sequence, &-key, &-reading, &-kanji, &-senses {
-        padding: 0 0.5rem;
+        padding: 0 $section-padding;
     }
 
     &-key {
@@ -92,7 +98,7 @@ body {
     &-kanji {
         .text {
             color: var(--emphasis-color);
-            font-size: 1.5em;
+            font-size: var(--kanji-font-size);
         }
 
         &-bullets {
@@ -122,9 +128,23 @@ body {
 
 .extra {
     font-weight: bold;
-    padding: 0.5rem;
+    padding: $section-padding;
     background-color: var(--extra-background-color);
     color: var(--emphasis-color);
+}
+
+.inflections {
+    list-style: circle;
+    margin-left: 1.5em;
+
+    &-key {
+        color: var(--emphasis-color);
+    }
+
+    &-value {
+        margin-top: $section-padding;
+        font-size: var(--kanji-font-size);
+    }
 }
 
 .bullet {

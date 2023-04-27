@@ -2,7 +2,7 @@
 
 #[macro_use]
 mod inflection;
-pub use self::inflection::{Flag, Form, Inflection};
+pub use self::inflection::{Flag, Form, Inflection, Inflections};
 
 pub mod adjective;
 

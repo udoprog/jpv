@@ -88,7 +88,6 @@ impl<'a> Iterator for Analysis<'a> {
                 $((
                     $n:expr,
                     $hira:tt, $kata:tt,
-                    $(nih = $nih:tt,)?
                     $(w = $w:tt,)*
                 ),)*
                 $(
@@ -100,7 +99,6 @@ impl<'a> Iterator for Analysis<'a> {
                         chars!($hira, pattern) => $hira.len(),
                         chars!($kata, pattern) => $kata.len(),
                         $(chars!($w, pattern) => $w.len(),)*
-                        $(chars!($nih, pattern) => $nih.len(),)*
                     )*
                     $(chars!($kana, pattern) => $kana.len(),)*
                     [a, _, _, _] => a.len_utf8(),
@@ -129,7 +127,6 @@ impl<'a> Segment<'a> {
                 $((
                     $n:expr,
                     $hira:tt, $kata:tt,
-                    $(nih = $nih:expr,)?
                     $(w = $w:expr,)*
                 ),)*
                 $(kana $kana:tt,)*
@@ -137,7 +134,6 @@ impl<'a> Segment<'a> {
                 match &self.string[..] {
                     $(
                         $kata => $hira,
-                        $($nih => $hira,)*
                         $($w => $hira,)*
                     )*
                     string => string,
@@ -155,7 +151,6 @@ impl<'a> Segment<'a> {
                 $((
                     $n:expr,
                     $hira:tt, $kata:tt,
-                    $(nih = $nih:expr,)?
                     $(w = $w:expr,)*
                 ),)*
                 $(kana $kana:tt,)*
@@ -163,7 +158,6 @@ impl<'a> Segment<'a> {
                 match &self.string[..] {
                     $(
                         $hira => $kata,
-                        $($nih => $kata,)*
                         $($w => $kata,)*
                     )*
                     string => string,
@@ -176,23 +170,13 @@ impl<'a> Segment<'a> {
 
     /// Romanize the analyzed segment.
     pub fn romanize(&self) -> &'a str {
-        macro_rules! out {
-            (nih = $expr:expr, $($tt:tt)*) => {
-                $expr
-            };
-
-            (w = $expr:expr, $($tt:tt)*) => {
-                $expr
-            };
-        }
-
         macro_rules! implement_match {
             (
                 $((
                     $n:expr,
                     $hira:tt, $kata:tt,
-                    $(nih = $nih:expr,)?
-                    $(w = $w:expr,)*
+                    w = $w:expr,
+                    $(w = $w2:expr,)*
                 ),)*
                 $(
                     kana ($kana:expr, w = $kw:expr, $(w = $kw_:expr,)*),
@@ -200,8 +184,8 @@ impl<'a> Segment<'a> {
             ) => {
                 match &self.string[..] {
                     $(
-                        $hira => out!($(nih = $nih,)* $(w = $w,)*),
-                        $kata => out!($(nih = $nih,)* $(w = $w,)*),
+                        $hira => $w,
+                        $kata => $w,
                     )*
                     $($kana => $kw,)*
                     string => string,
