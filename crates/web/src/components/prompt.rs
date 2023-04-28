@@ -322,10 +322,9 @@ impl Component for Prompt {
                         <input value={self.query.q.clone()} type="text" oninput={oninput} />
                     </div>
 
-                    <div class="block" id="analyze">{for query}</div>
-                    {for analyze_hint}
-
                     <>
+                        <div class="block" id="analyze">{for query}</div>
+                        {for analyze_hint}
                         {for entries}
                     </>
                 </div>

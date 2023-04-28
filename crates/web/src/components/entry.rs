@@ -197,6 +197,23 @@ fn render_extra(extra: &IndexExtra) -> Option<Html> {
 }
 
 fn render_sense((_, s): (usize, &Sense<'_>)) -> Html {
+    let info = s
+        .info
+        .map(|info| html!(<div class="block sense-info">{info}</div>));
+
+    let stags = render_seq(
+        s.stagr.iter().chain(s.stagk.iter()),
+        |text, not_last| html!(<><span class="sense-stag">{text}</span>{for not_last.then(sep)}</>),
+    );
+
+    let stag = if !s.stagk.is_empty() || !s.stagr.is_empty() {
+        Some(html! {
+            <div class="block sense-stags">{"Applies to: "}{for stags}</div>
+        })
+    } else {
+        None
+    };
+
     let any =
         !s.pos.is_empty() || !s.misc.is_empty() || !s.dialect.is_empty() || !s.field.is_empty();
 
@@ -219,25 +236,14 @@ fn render_sense((_, s): (usize, &Sense<'_>)) -> Html {
     html! {
         <li class="block-l entry-sense">
             {for glossary}
+            {for info}
+            {for stag}
             {for examples}
         </li>
     }
 }
 
-fn render_text(text: &str, last: bool) -> Html {
-    let sep = (!last).then(|| html!(<span class="sep">{","}</span>));
-
-    html! {
-        <>
-            <span class="text">{text}</span>
-            {for sep}
-        </>
-    }
-}
-
-fn render_reading(reading: &ReadingElement<'_>, last: bool) -> Html {
-    let sep = (!last).then(|| html!(<span class="sep">{","}</span>));
-
+fn render_reading(reading: &ReadingElement<'_>, not_last: bool) -> Html {
     let priority = (!reading.priority.is_empty()).then(move || {
         let priority = reading.priority.iter().map(|p| {
             html!(<span class={format!("bullet prio-{}", p.category())}>{p.category()}{p.level()}</span>)
@@ -258,13 +264,16 @@ fn render_reading(reading: &ReadingElement<'_>, last: bool) -> Html {
         <>
             <span class="text">{reading.text}</span>
             {for bullets}
-            {for sep}
+            {for not_last.then(sep)}
         </>
     }
 }
 
-fn render_combined((reading, kanji): (&ReadingElement<'_>, &KanjiElement<'_>), last: bool) -> Html {
-    let sep = (!last).then(|| html!(<span class="sep">{","}</span>));
+fn render_combined(
+    (reading, kanji): (&ReadingElement<'_>, &KanjiElement<'_>),
+    not_last: bool,
+) -> Html {
+    let sep = not_last.then(sep);
 
     let priority = (!kanji.priority.is_empty()).then(|| {
         let priority = kanji.priority.iter().map(|p| {
@@ -337,8 +346,8 @@ where
     T: 'a,
 {
     let mut it = iter.into_iter();
-    let last = it.next_back().map(move |value| builder(value, true));
-    it.map(move |value| builder(value, false)).chain(last)
+    let last = it.next_back().map(move |value| builder(value, false));
+    it.map(move |value| builder(value, true)).chain(last)
 }
 
 #[inline]
@@ -347,5 +356,16 @@ where
     I: IntoIterator<Item = &'a str>,
     I::IntoIter: 'a + DoubleEndedIterator,
 {
-    render_seq(iter, render_text)
+    render_seq(iter, |text, not_last| {
+        html! {
+            <>
+                <span class="text">{text}</span>
+                {for not_last.then(sep)}
+            </>
+        }
+    })
+}
+
+fn sep() -> Html {
+    html!(<span class="sep">{","}</span>)
 }
