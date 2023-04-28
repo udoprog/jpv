@@ -51,7 +51,10 @@ impl Query {
 
     fn serialize(&self) -> Vec<(&'static str, Cow<'_, str>)> {
         let mut out = Vec::new();
-        out.push(("q", Cow::Borrowed(self.q.as_str())));
+
+        if !self.q.is_empty() {
+            out.push(("q", Cow::Borrowed(self.q.as_str())));
+        }
 
         for a in &self.a {
             out.push(("a", Cow::Borrowed(a.as_str())));

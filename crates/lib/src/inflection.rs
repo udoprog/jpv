@@ -33,15 +33,15 @@ macro_rules! inflect {
 /// Helper macro to build a kana pair.
 macro_rules! pair {
     ($k:expr, $r:expr, $last:expr) => {
-        $crate::kana::Pair::new([$k], [$r], $last)
+        $crate::kana::Pair::new([$k], [$r], [$last])
     };
 
     ($k:expr, $r:expr, $a:expr, $last:expr) => {
-        $crate::kana::Pair::new([$k, $a], [$r, $a], $last)
+        $crate::kana::Pair::new([$k, $a], [$r, $a], [$last])
     };
 
     ($k:expr, $r:expr, $a:expr, $b:expr, $last:expr) => {
-        $crate::kana::Pair::new([$k, $a], [$r, $b], $last)
+        $crate::kana::Pair::new([$k, $a], [$r, $b], [$last])
     };
 }
 
@@ -80,6 +80,8 @@ pub enum Form {
     Iku,
     /// te-shimau form
     Shimau,
+    /// te-kuru form
+    Kuru,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Key)]

@@ -43,15 +43,16 @@ pub struct Pair<'a, const N: usize, const S: usize> {
 
 impl<'a, const N: usize, const S: usize> Pair<'a, N, S> {
     /// Construct a kanji/reading pair with a common suffix.
-    pub fn new<A, B>(kanji: A, reading: B, suffix: &'a str) -> Self
+    pub fn new<A, B, C>(kanji: A, reading: B, suffix: C) -> Self
     where
         A: IntoIterator<Item = &'a str>,
         B: IntoIterator<Item = &'a str>,
+        C: IntoIterator<Item = &'a str>,
     {
         Pair {
             kanji: Concat::new(kanji),
             reading: Concat::new(reading),
-            suffix: Concat::new([suffix]),
+            suffix: Concat::new(suffix),
         }
     }
 
@@ -86,7 +87,7 @@ impl<'a, const N: usize, const S: usize> Pair<'a, N, S> {
     }
 
     /// Append suffixes to this pair.
-    pub(crate) fn with_suffix<const U: usize>(&self, strings: [&'a str; U]) -> Self {
+    pub(crate) fn suffix<const U: usize>(&self, strings: [&'a str; U]) -> Self {
         let mut suffix = self.suffix.clone();
 
         for string in strings {
