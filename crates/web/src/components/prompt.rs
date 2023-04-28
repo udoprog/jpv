@@ -86,13 +86,13 @@ impl Prompt {
         self.entries.clear();
         let mut dedup = HashMap::new();
 
-        log::info!("looking up: {input}");
-
         for id in ctx.props().db.lookup(input) {
-            log::info!("found: {id:?}");
-
-            let Ok(entry) = ctx.props().db.get(id) else {
-                continue;
+            let entry = match ctx.props().db.get(id) {
+                Ok(entry) => entry,
+                Err(error) => {
+                    log::error!("Error in entry: {id:?}: {error}");
+                    continue;
+                }
             };
 
             let Some(&i) = dedup.get(&id.index()) else {

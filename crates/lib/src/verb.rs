@@ -136,16 +136,16 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
     if let Some(p) = inflections.get(&inflect!(Te)).cloned() {
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Progressive $(, $inflect)*), p.concat([concat!("い", $suffix)]));
+                inflections.insert(inflect!(Progressive, Te $(, $inflect)*), p.concat([concat!("い", $suffix)]));
             }
         }
 
-        inflections.insert(inflect!(Progressive, Alternate), p.concat(["る"]));
+        inflections.insert(inflect!(Progressive, Te, Alternate), p.concat(["る"]));
         ichidan!(populate);
 
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Resulting $(, $inflect)*), p.concat($suffix));
+                inflections.insert(inflect!(Resulting, Te $(, $inflect)*), p.concat($suffix));
             }
         }
 
@@ -153,7 +153,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Iku $(, $inflect)*), p.concat($suffix));
+                inflections.insert(inflect!(Iku, Te $(, $inflect)*), p.concat($suffix));
             }
         }
 
@@ -161,7 +161,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Shimau $(, $inflect)*), p.concat($suffix));
+                inflections.insert(inflect!(Shimau, Te $(, $inflect)*), p.concat($suffix));
             }
         }
 
@@ -169,7 +169,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
         macro_rules! populate {
             ($r:expr, $suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Kuru $(, $inflect)*), p.concat([concat!($r, $suffix)]));
+                inflections.insert(inflect!(Kuru, Te $(, $inflect)*), p.concat([concat!($r, $suffix)]));
             }
         }
 

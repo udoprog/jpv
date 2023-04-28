@@ -43,8 +43,8 @@ impl Component for App {
 const DATABASE: &[u8] = include_bytes!("../../../database.bin");
 
 fn main() -> anyhow::Result<()> {
-    let db = Arc::new(lib::database::Database::new(DATABASE.as_ref()).context("loading database")?);
     wasm_logger::init(wasm_logger::Config::default());
+    let db = Arc::new(lib::database::Database::new(DATABASE.as_ref()).context("loading database")?);
     log::info!("Started up");
     yew::Renderer::<App>::with_props(Props { db }).render();
     Ok(())

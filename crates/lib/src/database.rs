@@ -229,7 +229,7 @@ impl<'a> Database<'a> {
 
             let mut string = prefix.to_vec();
             string.extend(suffix);
-            index.lookup.insert(string, value);
+            index.lookup.entry(string).or_default().extend(value);
         }
 
         index.by_pos = index_data.by_pos;
