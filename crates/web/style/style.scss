@@ -24,7 +24,6 @@
 
     --button-bg: #a4a4a4;
     --button-bg-hover: #c0c0c0;
-    --button-border: #cfcfcf;
     --button-color: #333333;
     --button-hover: #ffffff;
 }
@@ -52,14 +51,14 @@
     @include clickable(var(--button-color), var(--button-hover));
     background-color: var(--button-bg);
     color: var(--button-color);
-    font-size: 0.5em;
-    border: 1px solid var(--button-border);
+    font-size: $button-size;
 
     &.active:hover {
         color: var(--button-bg-hover);
     }
 }
 
+$button-size: 0.8em;
 $section-padding: 0.5rem;
 $bullets-separation: $section-padding;
 
@@ -136,7 +135,7 @@ body {
     }
 
     &-key {
-        font-size: 0.8em;
+        font-size: $button-size;
     }
 
     .sep {
@@ -183,7 +182,7 @@ body {
     }
 
     &-example {
-        font-size: 0.8em;
+        font-size: $button-size;
 
         .text {
             color: var(--text-highlight);
@@ -221,7 +220,7 @@ body {
 .inflection {
     &-form {
         @include bullet;
-        font-size: 0.5em;
+        font-size: $button-size;
         background-color: var(--form-bg-disabled);
         color: var(--form-passive);
 
@@ -242,7 +241,7 @@ body {
 
 .bullet {
     @include bullet;
-    font-size: 0.8em;
+    font-size: $button-size;
     font-weight: bold;
     cursor: pointer;
     color: var(--bullet1-color);

@@ -55,18 +55,8 @@ macro_rules! inflections {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Key)]
 #[key(bitset)]
 pub enum Form {
+    /// Te-form.
     Te,
-    Negative,
-    Past,
-    Command,
-    Hypothetical,
-    Conditional,
-    Passive,
-    Potential,
-    /// Volitional / Presumptive
-    Volitional,
-    Causative,
-    Tai,
     /// Te-iru or progressive form.
     Progressive,
     /// Te-aru or resulting form.
@@ -77,13 +67,26 @@ pub enum Form {
     Shimau,
     /// te-kuru form
     Kuru,
-    Polite,
+    /// te-oku form
+    Oku,
+    Command,
+    Hypothetical,
+    Conditional,
+    Passive,
+    Potential,
+    /// Volitional / Presumptive
+    Volitional,
+    Causative,
+    Tai,
+    Negative,
+    Past,
     Alternate,
     Conversation,
+    Polite,
 }
 
 impl Form {
-    pub const ALL: [Form; 19] = [
+    pub const ALL: [Form; 20] = [
         Form::Te,
         Form::Negative,
         Form::Past,
@@ -100,6 +103,7 @@ impl Form {
         Form::Iku,
         Form::Shimau,
         Form::Kuru,
+        Form::Oku,
         Form::Polite,
         Form::Alternate,
         Form::Conversation,
@@ -122,6 +126,7 @@ impl Form {
             Form::Progressive => "~te iru, shows that something is currently happening or ongoing",
             Form::Resulting => "~te aru, is/has been done (resulting state)",
             Form::Iku => "~te iku, to start, to continue, to go on",
+            Form::Oku => "~te oku, to do something in advance",
             Form::Shimau => "~te shimau, to do something by accident, to finish completely",
             Form::Kuru => "~te kuru, to do .. and come back, to become, to continue, to start ~",
             Form::Polite => "polite form",
@@ -143,10 +148,11 @@ impl Form {
             Form::Potential => "potential",
             Form::Volitional => "volitional",
             Form::Causative => "causative",
-            Form::Tai => "~tai form",
+            Form::Tai => "~tai",
             Form::Progressive => "~te iru",
             Form::Resulting => "~te aru,",
             Form::Iku => "~te iku",
+            Form::Oku => "~te oku",
             Form::Shimau => "~te shimau",
             Form::Kuru => "~te kuru",
             Form::Polite => "polite",
