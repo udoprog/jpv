@@ -205,8 +205,8 @@ fn main() -> Result<()> {
 
         let p = "  ";
 
-        let dis0 = |furigana| maybe_furigana::<1>(furigana, !args.no_furigana);
-        let dis = |furigana| maybe_furigana::<2>(furigana, !args.no_furigana);
+        let dis0 = |furigana| maybe_furigana(furigana, !args.no_furigana);
+        let dis = |furigana| maybe_furigana(furigana, !args.no_furigana);
 
         let stdout = std::io::stdout();
         let mut o = stdout.lock();
@@ -249,16 +249,16 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn maybe_furigana<const N: usize>(
-    furigana: Furigana<'_, N>,
+fn maybe_furigana<const N: usize, const S: usize>(
+    furigana: Furigana<'_, N, S>,
     do_furigana: bool,
 ) -> impl fmt::Display + '_ {
-    struct Display<'a, const N: usize> {
-        furigana: Furigana<'a, N>,
+    struct Display<'a, const N: usize, const S: usize> {
+        furigana: Furigana<'a, N, S>,
         do_furigana: bool,
     }
 
-    impl<const N: usize> fmt::Display for Display<'_, N> {
+    impl<const N: usize, const S: usize> fmt::Display for Display<'_, N, S> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             if self.do_furigana {
                 self.furigana.fmt(f)

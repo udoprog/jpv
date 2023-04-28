@@ -110,12 +110,7 @@ impl Prompt {
         }
 
         for (data, e) in &mut self.entries {
-            let conjugation = data.extras.iter().any(|index| match index {
-                IndexExtra::VerbInflection(..) => true,
-                IndexExtra::AdjectiveInflection(..) => true,
-                _ => false,
-            });
-
+            let conjugation = data.extras.iter().any(|index| index.is_inflection());
             data.key = e.sort_key(input, conjugation, data.len);
         }
 
@@ -139,7 +134,11 @@ impl Prompt {
                     continue;
                 };
 
-                let a = e.sort_key(it.as_str(), false, it.as_str().chars().count());
+                let a = e.sort_key(
+                    it.as_str(),
+                    id.extra().is_inflection(),
+                    it.as_str().chars().count(),
+                );
 
                 if let Some(b) = sort_key.take() {
                     sort_key = Some(a.min(b));

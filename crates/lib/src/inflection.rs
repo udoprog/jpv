@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fmt;
+use std::ops::BitOr;
 
 use fixed_map::{Key, Set};
 use musli::{Decode, Encode};
@@ -71,6 +72,14 @@ pub enum Form {
     Volitional,
     Causative,
     Tai,
+    /// Te-iru or progressive form.
+    Progressive,
+    /// Te-aru or resulting form.
+    Resulting,
+    /// Te-iku form.
+    Iku,
+    /// te-shimau form
+    Shimau,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Key)]
@@ -81,7 +90,7 @@ pub enum Flag {
     Conversation,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 pub struct Inflection {
     #[musli(with = crate::musli::set::<_>)]
     pub form: Set<Form>,
@@ -107,11 +116,28 @@ impl fmt::Debug for Inflection {
     }
 }
 
+impl BitOr for Inflection {
+    type Output = Self;
+
+    #[inline]
+    fn bitor(mut self, rhs: Self) -> Self::Output {
+        for f in rhs.form {
+            self.form.insert(f);
+        }
+
+        for f in rhs.flag {
+            self.flag.insert(f);
+        }
+
+        self
+    }
+}
+
 /// A collection of inflections.
 #[non_exhaustive]
 pub struct Inflections<'a> {
     pub dictionary: Word<'a>,
-    pub inflections: BTreeMap<Inflection, Pair<'a, 2>>,
+    pub inflections: BTreeMap<Inflection, Pair<'a, 3, 4>>,
 }
 
 impl<'a> Inflections<'a> {
@@ -127,12 +153,12 @@ impl<'a> Inflections<'a> {
     }
 
     /// Get a inflection.
-    pub fn get(&self, inflection: Inflection) -> Option<&Pair<'a, 2>> {
+    pub fn get(&self, inflection: Inflection) -> Option<&Pair<'a, 3, 4>> {
         self.inflections.get(&inflection)
     }
 
     /// Iterate over all inflections.
-    pub fn iter(&self) -> impl Iterator<Item = (Inflection, Concat<'a, 3>)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (Inflection, Concat<'a, 6>)> + '_ {
         self.inflections
             .iter()
             .flat_map(|(k, p)| p.clone().into_iter().map(|p| (*k, p)))

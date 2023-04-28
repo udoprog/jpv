@@ -30,6 +30,16 @@ pub enum IndexExtra {
     /// Index was added because of an adjective inflection.
     AdjectiveInflection(Inflection),
 }
+impl IndexExtra {
+    /// Test if extra indicates an inflection.
+    pub fn is_inflection(&self) -> bool {
+        match self {
+            IndexExtra::None => false,
+            IndexExtra::VerbInflection(_) => true,
+            IndexExtra::AdjectiveInflection(_) => true,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 enum IdKind {

@@ -295,7 +295,7 @@ fn render_combined((reading, kanji): (&ReadingElement<'_>, &KanjiElement<'_>), l
     }
 }
 
-fn ruby<const N: usize>(furigana: lib::Furigana<N>) -> Html {
+fn ruby<const N: usize, const S: usize>(furigana: lib::Furigana<N, S>) -> Html {
     let elements = furigana.iter().map(|group| match group {
         lib::FuriganaGroup::Kanji(kanji, kana) => {
             html!(<ruby>{kanji}<rt>{kana}</rt></ruby>)

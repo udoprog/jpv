@@ -4,29 +4,33 @@ mod tests;
 use core::fmt;
 use std::slice;
 
-use crate::concat::Concat;
+use crate::concat::{self, Concat};
 
 /// An iterator over furigana groups.
-pub struct Furigana<'a, const N: usize> {
+pub struct Furigana<'a, const N: usize, const S: usize> {
     kanji: Concat<'a, N>,
     reading: Concat<'a, N>,
-    suffix: &'a str,
+    suffix: Concat<'a, S>,
 }
 
-impl<'a> Furigana<'a, 1> {
+impl<'a> Furigana<'a, 1, 0> {
     /// Construct a new furigana wrapper based on an exact combo of kanji and
     /// reading.
     pub fn new(kanji: &'a str, reading: &'a str) -> Self {
         Self {
             kanji: Concat::new([kanji]),
             reading: Concat::new([reading]),
-            suffix: "",
+            suffix: Concat::new([]),
         }
     }
 }
 
-impl<'a, const N: usize> Furigana<'a, N> {
-    pub(crate) fn inner(kanji: Concat<'a, N>, reading: Concat<'a, N>, suffix: &'a str) -> Self {
+impl<'a, const N: usize, const S: usize> Furigana<'a, N, S> {
+    pub(crate) fn inner(
+        kanji: Concat<'a, N>,
+        reading: Concat<'a, N>,
+        suffix: Concat<'a, S>,
+    ) -> Self {
         Self {
             kanji,
             reading,
@@ -35,22 +39,38 @@ impl<'a, const N: usize> Furigana<'a, N> {
     }
 
     /// Construct an iterator over furigana groups.
-    pub fn iter(&self) -> Iter<'_, 'a, N> {
-        Iter::new(self.kanji.as_slice(), self.reading.as_slice(), self.suffix)
+    pub fn iter(&self) -> Iter<'_, 'a, N, S> {
+        Iter::new(
+            self.kanji.as_slice(),
+            self.reading.as_slice(),
+            self.suffix.clone(),
+        )
     }
 
     /// Access underlying kanji.
-    pub fn kanji(&self) -> Concat<'a, 3> {
-        Concat::new(self.kanji.as_slice().iter().copied().chain([self.suffix]))
+    pub fn kanji(&self) -> Concat<'a, 6> {
+        Concat::new(
+            self.kanji
+                .as_slice()
+                .iter()
+                .copied()
+                .chain(self.suffix.as_slice().iter().copied()),
+        )
     }
 
     /// Access underlying reading.
-    pub fn reading(&self) -> Concat<'a, 3> {
-        Concat::new(self.reading.as_slice().iter().copied().chain([self.suffix]))
+    pub fn reading(&self) -> Concat<'a, 6> {
+        Concat::new(
+            self.reading
+                .as_slice()
+                .iter()
+                .copied()
+                .chain(self.suffix.as_slice().iter().copied()),
+        )
     }
 }
 
-impl<const N: usize> fmt::Display for Furigana<'_, N> {
+impl<const N: usize, const S: usize> fmt::Display for Furigana<'_, N, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for group in self.iter() {
             match group {
@@ -80,15 +100,15 @@ pub enum FuriganaGroup<'a> {
     Kana(&'a str),
 }
 
-pub struct Iter<'this, 'a, const N: usize> {
+pub struct Iter<'this, 'a, const N: usize, const S: usize> {
     kanji: slice::Iter<'this, &'a str>,
     reading: slice::Iter<'this, &'a str>,
     current: Option<(&'a str, &'a str)>,
     kana: Option<&'a str>,
-    suffix: Option<&'a str>,
+    suffix: concat::IntoIter<'a, S>,
 }
 
-impl<'this, 'a, const N: usize> Iterator for Iter<'this, 'a, N> {
+impl<'this, 'a, const N: usize, const S: usize> Iterator for Iter<'this, 'a, N, S> {
     type Item = FuriganaGroup<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -100,19 +120,19 @@ impl<'this, 'a, const N: usize> Iterator for Iter<'this, 'a, N> {
             return Some(group);
         }
 
-        let kana = self.suffix.take()?;
+        let kana = self.suffix.next()?;
         Some(FuriganaGroup::Kana(kana))
     }
 }
 
-impl<'this, 'a, const N: usize> Iter<'this, 'a, N> {
-    fn new(kanji: &'this [&'a str], reading: &'this [&'a str], suffix: &'a str) -> Self {
+impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
+    fn new(kanji: &'this [&'a str], reading: &'this [&'a str], suffix: Concat<'a, S>) -> Self {
         let mut this = Self {
             kanji: kanji.iter(),
             reading: reading.iter(),
             current: None,
             kana: None,
-            suffix: (!suffix.is_empty()).then_some(suffix),
+            suffix: suffix.into_iter(),
         };
 
         this.current = this.advance();

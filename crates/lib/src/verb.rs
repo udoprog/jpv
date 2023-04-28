@@ -1,10 +1,103 @@
 //! Module which performs verb inflection, based on a words class.
 
+mod godan;
+
 use crate::elements::Entry;
 use crate::entities::KanjiInfo;
 use crate::inflection::Inflections;
 use crate::kana::Word;
-use crate::PartOfSpeech;
+use crate::{Inflection, PartOfSpeech};
+
+// Construct ichidan conjugations.
+#[rustfmt::skip]
+macro_rules! ichidan {
+    ($target:expr, $i:expr, $pair:expr, $base:literal) => {{
+        $target.insert($i | inflect!(Present + *Polite), $pair.with_suffix([concat!($base, "ます")]));
+        $target.insert($i | inflect!(Negative), $pair.with_suffix([concat!($base, "ない")]));
+        $target.insert($i | inflect!(Negative + *Polite), $pair.with_suffix([concat!($base, "ません")]));
+        $target.insert($i | inflect!(Past), $pair.with_suffix([concat!($base, "た")]));
+        $target.insert($i | inflect!(Past + *Polite), $pair.with_suffix([concat!($base, "ました")]));
+        $target.insert($i | inflect!(Past + Negative), $pair.with_suffix([concat!($base, "なかった")]));
+        $target.insert($i | inflect!(Past + Negative + *Polite), $pair.with_suffix([concat!($base, "ませんでした")]));
+        $target.insert($i | inflect!(Command), $pair.with_suffix([concat!($base, "ろ")]));
+        $target.insert($i | inflect!(Command + *Polite), $pair.with_suffix([concat!($base, "なさい")]));
+        $target.insert($i | inflect!(Command + *Alternate), $pair.with_suffix([concat!($base, "よ")]));
+        $target.insert($i | inflect!(Command + *Alternate + *Polite), $pair.with_suffix([concat!($base, "てください")]));
+        $target.insert($i | inflect!(Command + Negative), $pair.with_suffix([concat!($base, "るな")]));
+        $target.insert($i | inflect!(Command + Negative + *Polite), $pair.with_suffix([concat!($base, "ないでください")]));
+        $target.insert($i | inflect!(Hypothetical), $pair.with_suffix([concat!($base, "ば")]));
+        $target.insert($i | inflect!(Hypothetical + Negative), $pair.with_suffix([concat!($base, "なければ")]));
+        $target.insert($i | inflect!(Conditional), $pair.with_suffix([concat!($base, "たら")]));
+        $target.insert($i | inflect!(Conditional + *Polite), $pair.with_suffix([concat!($base, "ましたら")]));
+        $target.insert($i | inflect!(Conditional + Negative), $pair.with_suffix([concat!($base, "なかったら")]));
+        $target.insert($i | inflect!(Conditional + Negative + *Polite), $pair.with_suffix([concat!($base, "ませんでしたら")]));
+        $target.insert($i | inflect!(Passive), $pair.with_suffix([concat!($base, "られる")]));
+        $target.insert($i | inflect!(Passive + *Conversation), $pair.with_suffix([concat!($base, "れる")]));
+        $target.insert($i | inflect!(Passive + *Polite), $pair.with_suffix([concat!($base, "られます")]));
+        $target.insert($i | inflect!(Passive + Negative), $pair.with_suffix([concat!($base, "られない")]));
+        $target.insert($i | inflect!(Passive + Negative + *Polite), $pair.with_suffix([concat!($base, "られません")]));
+        $target.insert($i | inflect!(Potential), $pair.with_suffix([concat!($base, "られる")]));
+        $target.insert($i | inflect!(Potential + *Polite), $pair.with_suffix([concat!($base, "られます")]));
+        $target.insert($i | inflect!(Potential + Negative), $pair.with_suffix([concat!($base, "られない")]));
+        $target.insert($i | inflect!(Potential + Negative + *Polite), $pair.with_suffix([concat!($base, "られません")]));
+        $target.insert($i | inflect!(Volitional), $pair.with_suffix([concat!($base, "よう")]));
+        $target.insert($i | inflect!(Volitional + *Polite), $pair.with_suffix([concat!($base, "ましょう")]));
+        $target.insert($i | inflect!(Volitional + *Alternate), $pair.with_suffix([concat!($base, "るだろう")]));
+        $target.insert($i | inflect!(Volitional + *Alternate + *Polite), $pair.with_suffix([concat!($base, "るでしょう")]));
+        $target.insert($i | inflect!(Volitional + Negative), $pair.with_suffix([concat!($base, "ないだろう")]));
+        $target.insert($i | inflect!(Volitional + Negative + *Polite), $pair.with_suffix([concat!($base, "ないでしょう")]));
+        $target.insert($i | inflect!(Causative), $pair.with_suffix([concat!($base, "させる")]));
+        $target.insert($i | inflect!(Tai), $pair.with_suffix([concat!($base, "たい")]));
+        $target.insert($i | inflect!(Tai + Negative), $pair.with_suffix([concat!($base, "たくない")]));
+        $target.insert($i | inflect!(Tai + Past), $pair.with_suffix([concat!($base, "たかった")]));
+        $target.insert($i | inflect!(Tai + Past + Negative), $pair.with_suffix([concat!($base, "たくなかった")]));
+    }};
+}
+
+// Construct godan conjugations.
+#[rustfmt::skip]
+macro_rules! godan {
+    ($target:expr, $i:expr, $g:expr, $pair:expr, $base:literal) => {{
+        $target.insert($i | inflect!(Present + *Polite), $pair.with_suffix([$base, $g.i, "ます"]));
+        $target.insert($i | inflect!(Present), $pair.with_suffix([$base, $g.u]));
+        $target.insert($i | inflect!(Negative), $pair.with_suffix([$base, $g.a, "ない"]));
+        $target.insert($i | inflect!(Negative + *Polite), $pair.with_suffix([$base, $g.i, "ません"]));
+        $target.insert($i | inflect!(Past), $pair.with_suffix([$base, $g.past]));
+        $target.insert($i | inflect!(Past + *Polite), $pair.with_suffix([$base, $g.i, "ました"]));
+        $target.insert($i | inflect!(Past + Negative), $pair.with_suffix([$base, $g.a, "なかった"]));
+        $target.insert($i | inflect!(Past + Negative + *Polite), $pair.with_suffix([$base, $g.i, "ませんでした"]));
+        $target.insert($i | inflect!(Command), $pair.with_suffix([$base, $g.e]));
+        $target.insert($i | inflect!(Command + *Polite), $pair.with_suffix([$base, $g.i, "なさい"]));
+        $target.insert($i | inflect!(Command + *Alternate + *Polite), $pair.with_suffix([$base, $g.te, "ください"]));
+        $target.insert($i | inflect!(Command + Negative), $pair.with_suffix([$base, $g.u, "な"]));
+        $target.insert($i | inflect!(Command + Negative + *Polite), $pair.with_suffix([$base, $g.a, "ないでください"]));
+        $target.insert($i | inflect!(Hypothetical), $pair.with_suffix([$base, $g.e, "ば"]));
+        $target.insert($i | inflect!(Hypothetical + Negative), $pair.with_suffix([$base, $g.a, "なければ"]));
+        $target.insert($i | inflect!(Conditional), $pair.with_suffix([$base, $g.past, "ら"]));
+        $target.insert($i | inflect!(Conditional + *Polite), $pair.with_suffix([$base, $g.i, "ましたら"]));
+        $target.insert($i | inflect!(Conditional + Negative), $pair.with_suffix([$base, $g.a, "なかったら"]));
+        $target.insert($i | inflect!(Conditional + Negative + *Polite), $pair.with_suffix([$base, $g.i, "ませんでしたら"]));
+        $target.insert($i | inflect!(Passive), $pair.with_suffix([$base, $g.a, "れる"]));
+        $target.insert($i | inflect!(Passive + *Polite), $pair.with_suffix([$base, $g.a, "れます"]));
+        $target.insert($i | inflect!(Passive + Negative), $pair.with_suffix([$base, $g.a, "れない"]));
+        $target.insert($i | inflect!(Passive + Negative + *Polite), $pair.with_suffix([$base, $g.a, "れません"]));
+        $target.insert($i | inflect!(Potential), $pair.with_suffix([$base, $g.e, "る"]));
+        $target.insert($i | inflect!(Potential + *Polite), $pair.with_suffix([$base, $g.e, "ます"]));
+        $target.insert($i | inflect!(Potential + Negative), $pair.with_suffix([$base, $g.e, "ない"]));
+        $target.insert($i | inflect!(Potential + Negative + *Polite), $pair.with_suffix([$base, $g.e, "ません"]));
+        $target.insert($i | inflect!(Volitional), $pair.with_suffix([$base, $g.o, "う"]));
+        $target.insert($i | inflect!(Volitional + *Polite), $pair.with_suffix([$base, $g.i, "ましょう"]));
+        $target.insert($i | inflect!(Volitional + *Alternate), $pair.with_suffix([$base, $g.u, "だろう"]));
+        $target.insert($i | inflect!(Volitional + *Alternate + *Polite), $pair.with_suffix([$base, $g.u, "でしょう"]));
+        $target.insert($i | inflect!(Volitional + Negative), $pair.with_suffix([$base, $g.a, "ないだろう"]));
+        $target.insert($i | inflect!(Volitional + Negative + *Polite), $pair.with_suffix([$base, $g.a, "ないでしょう"]));
+        $target.insert($i | inflect!(Causative), $pair.with_suffix([$base, $g.a, "せる"]));
+        $target.insert($i | inflect!(Tai), $pair.with_suffix([$base, $g.i, "たい"]));
+        $target.insert($i | inflect!(Tai + Negative), $pair.with_suffix([$base, $g.i, "たくない"]));
+        $target.insert($i | inflect!(Tai + Past), $pair.with_suffix([$base, $g.i, "たかった"]));
+        $target.insert($i | inflect!(Tai + Past + Negative), $pair.with_suffix([$base, $g.i, "たくなかった"]));
+    }};
+}
 
 /// Try to conjugate the given entry as a verb.
 pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
@@ -18,83 +111,53 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
         kanji.text
     };
 
-    match kind {
+    let mut inflections = match kind {
         VerbKind::Ichidan => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix('る'), reading.text.strip_suffix('る')) else {
                 return None;
             };
 
-            let inflections = inflections! {
+            let mut inflections = inflections! {
                 k, r,
                 Te ("て"),
                 Present ("る"),
-                Present + *Polite ("ます"),
-                Negative ("ない"),
-                Negative + *Polite ("ません"),
-                Past ("た"),
-                Past + *Polite ("ました"),
-                Past + Negative ("なかった"),
-                Past + Negative + *Polite ("ませんでした"),
-                Command ("ろ"),
-                Command + *Polite ("なさい"),
-                Command + *Alternate ("よ"),
-                Command + *Alternate + *Polite ("てください"),
-                Command + Negative ("るな"),
-                Command + Negative + *Polite ("ないでください"),
-                Hypothetical ("ば"),
-                Hypothetical + Negative ("なければ"),
-                Conditional ("たら"),
-                Conditional + *Polite ("ましたら"),
-                Conditional + Negative ("なかったら"),
-                Conditional + Negative + *Polite ("ませんでしたら"),
-                Passive ("られる"),
-                Passive + *Conversation ("れる"),
-                Passive + *Polite ("られます"),
-                Passive + Negative ("られない"),
-                Passive + Negative + *Polite ("られません"),
-                Potential ("られる"),
-                Potential + *Polite ("られます"),
-                Potential + Negative ("られない"),
-                Potential + Negative + *Polite ("られません"),
-                Volitional ("よう"),
-                Volitional + *Polite ("ましょう"),
-                Volitional + *Alternate ("るだろう"),
-                Volitional + *Alternate + *Polite ("るでしょう"),
-                Volitional + Negative ("ないだろう"),
-                Volitional + Negative + *Polite ("ないでしょう"),
-                Causative ("させる"),
-                Tai ("たい"),
-                Tai + Negative ("たくない"),
-                Tai + Past ("たかった"),
-                Tai + Past + Negative ("たくなかった"),
             };
 
-            Some(Inflections {
-                dictionary: Word::new(kanji_text, reading.text),
-                inflections,
-            })
+            let pair = pair!(k, r, "");
+            ichidan!(inflections, Inflection::default(), pair, "");
+            inflections
         }
-        VerbKind::Godan | VerbKind::GodanSpecial => {
+        VerbKind::GodanIku => {
+            let (Some(k), Some(r)) = (kanji_text.strip_suffix('く'), reading.text.strip_suffix('く')) else {
+                return None;
+            };
+
+            let g = godan::IKU;
+
+            let mut inflections = inflections! {
+                k, r,
+                Te (g.te),
+            };
+
+            let pair = pair!(k, r, "");
+            godan!(inflections, Inflection::default(), g, pair, "");
+            inflections
+        }
+        VerbKind::Godan => {
             let mut k = kanji_text.chars();
             let mut r = reading.text.chars();
 
-            let ([a, i, u, e, o], te, past) = match k.next_back() {
-                Some('う') => (["わ", "い", "う", "え", "お"], "って", "った"),
-                Some('つ') => (["た", "ち", "つ", "て", "と"], "って", "った"),
-                Some('る') => (["ら", "り", "る", "れ", "ろ"], "って", "った"),
-                Some('く') => (["か", "き", "く", "け", "こ"], "いて", "いた"),
-                Some('ぐ') => (["が", "ぎ", "ぐ", "げ", "ご"], "いで", "いだ"),
-                Some('む') => (["ま", "み", "む", "め", "も"], "んで", "んだ"),
-                Some('ぶ') => (["ば", "び", "ぶ", "べ", "ぼ"], "んで", "んだ"),
-                Some('ぬ') => (["な", "に", "ぬ", "ね", "の"], "んで", "んだ"),
-                Some('す') => (["さ", "し", "す", "せ", "そ"], "して", "した"),
+            let g = match k.next_back() {
+                Some('う') => godan::U,
+                Some('つ') => godan::TSU,
+                Some('る') => godan::RU,
+                Some('く') => godan::KU,
+                Some('ぐ') => godan::GU,
+                Some('む') => godan::MU,
+                Some('ぶ') => godan::BU,
+                Some('ぬ') => godan::NU,
+                Some('す') => godan::SU,
                 _ => return None,
-            };
-
-            // Special te-inflection.
-            let (te, past) = match kind {
-                VerbKind::GodanSpecial => ("って", "った"),
-                _ => (te, past),
             };
 
             r.next_back();
@@ -102,60 +165,21 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             let k = k.as_str();
             let r = r.as_str();
 
-            let inflections = inflections! {
+            let mut inflections = inflections! {
                 k, r,
-                Te (te),
-                Present (u),
-                Present + *Polite (i, "ます"),
-                Negative (a, "ない"),
-                Negative + *Polite (i, "ません"),
-                Past (past),
-                Past + *Polite (i, "ました"),
-                Past + Negative (a, "なかった"),
-                Past + Negative + *Polite (i, "ませんでした"),
-                Command (e),
-                Command + *Polite (i, "なさい"),
-                Command + *Alternate + *Polite (te, "ください"),
-                Command + Negative (u, "な"),
-                Command + Negative + *Polite (a, "ないでください"),
-                Hypothetical (e, "ば"),
-                Hypothetical + Negative (a, "なければ"),
-                Conditional (past, "ら"),
-                Conditional + *Polite (i, "ましたら"),
-                Conditional + Negative (a, "なかったら"),
-                Conditional + Negative + *Polite (i, "ませんでしたら"),
-                Passive (a, "れる"),
-                Passive + *Polite (a, "れます"),
-                Passive + Negative (a, "れない"),
-                Passive + Negative + *Polite (a, "れません"),
-                Potential (e, "る"),
-                Potential + *Polite (e, "ます"),
-                Potential + Negative (e, "ない"),
-                Potential + Negative + *Polite (e, "ません"),
-                Volitional (o, "う"),
-                Volitional + *Polite (i, "ましょう"),
-                Volitional + *Alternate (u, "だろう"),
-                Volitional + *Alternate + *Polite (u, "でしょう"),
-                Volitional + Negative (a, "ないだろう"),
-                Volitional + Negative + *Polite (a, "ないでしょう"),
-                Causative (a, "せる"),
-                Tai (i, "たい"),
-                Tai + Negative (i, "たくない"),
-                Tai + Past (i, "たかった"),
-                Tai + Past + Negative (i, "たくなかった"),
+                Te (g.te),
             };
 
-            Some(Inflections {
-                dictionary: Word::new(kanji_text, reading.text),
-                inflections,
-            })
+            let pair = pair!(k, r, "");
+            godan!(inflections, Inflection::default(), g, pair, "");
+            inflections
         }
         VerbKind::Suru => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix("する"), reading.text.strip_suffix("する")) else {
                 return None;
             };
 
-            let inflections = inflections! {
+            inflections! {
                 k, r,
                 Te ("して"),
                 Present ("する"),
@@ -197,19 +221,14 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
                 Tai + Negative ("したくない"),
                 Tai + Past ("したかった"),
                 Tai + Past + Negative ("したくなかった"),
-            };
-
-            Some(Inflections {
-                dictionary: Word::new(kanji_text, reading.text),
-                inflections,
-            })
+            }
         }
         VerbKind::Kuru => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix("来る"), reading.text.strip_suffix("くる")) else {
                 return None;
             };
 
-            let inflections = inflections! {
+            inflections! {
                 k, r,
                 Te ("来", "き", "て"),
                 Present ("来", "く", "くる"),
@@ -249,14 +268,23 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
                 Tai + Negative ("来", "き", "たくない"),
                 Tai + Past ("来", "き", "たかった"),
                 Tai + Past + Negative ("来", "き", "たくなかった"),
-            };
-
-            Some(Inflections {
-                dictionary: Word::new(kanji_text, reading.text),
-                inflections,
-            })
+            }
         }
+    };
+
+    if let Some(pair) = inflections.get(&inflect!(Te)).cloned() {
+        inflections.insert(inflect!(Progressive), pair.with_suffix(["いる"]));
+        inflections.insert(inflect!(Progressive + *Alternate), pair.with_suffix(["る"]));
+        ichidan!(inflections, inflect!(Progressive), pair, "い");
+        godan!(inflections, inflect!(Resulting), godan::RU, pair, "あ");
+        godan!(inflections, inflect!(Iku), godan::IKU, pair, "い");
+        godan!(inflections, inflect!(Shimau), godan::U, pair, "しま");
     }
+
+    Some(Inflections {
+        dictionary: Word::new(kanji_text, reading.text),
+        inflections,
+    })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -266,7 +294,7 @@ enum VerbKind {
     /// Godan verb.
     Godan,
     /// Special godan verb.
-    GodanSpecial,
+    GodanIku,
     /// Suru irregular suru verb.
     Suru,
     /// Special irregular kuru verb.
@@ -284,7 +312,7 @@ fn as_verb_kind(entry: &Entry<'_>) -> Option<VerbKind> {
                 PartOfSpeech::VerbGodanB => VerbKind::Godan,
                 PartOfSpeech::VerbGodanG => VerbKind::Godan,
                 PartOfSpeech::VerbGodanK => VerbKind::Godan,
-                PartOfSpeech::VerbGodanKS => VerbKind::GodanSpecial,
+                PartOfSpeech::VerbGodanKS => VerbKind::GodanIku,
                 PartOfSpeech::VerbGodanM => VerbKind::Godan,
                 PartOfSpeech::VerbGodanN => VerbKind::Godan,
                 PartOfSpeech::VerbGodanR => VerbKind::Godan,

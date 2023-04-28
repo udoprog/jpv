@@ -1,6 +1,9 @@
 use core::fmt;
 use std::hash::{Hash, Hasher};
 
+/// Into iterator alias.
+pub type IntoIter<'a, const N: usize> = arrayvec::IntoIter<&'a str, N>;
+
 /// A concatenation of multiple borrowed strings with fixed size storage.
 #[derive(Clone)]
 pub struct Concat<'a, const N: usize> {
@@ -14,7 +17,14 @@ impl<'a, const N: usize> Concat<'a, N> {
         I: IntoIterator<Item = &'a str>,
     {
         Concat {
-            storage: iter.into_iter().collect(),
+            storage: iter.into_iter().filter(|s| !s.is_empty()).collect(),
+        }
+    }
+
+    /// Push the given string onto storage.
+    pub fn push_str(&mut self, string: &'a str) {
+        if !string.is_empty() {
+            self.storage.push(string);
         }
     }
 
@@ -26,6 +36,11 @@ impl<'a, const N: usize> Concat<'a, N> {
     /// Iterate over characters in the composite word.
     pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
         self.storage.iter().flat_map(|s| s.chars())
+    }
+
+    /// Test if concat is empty.
+    pub fn is_empty(&self) -> bool {
+        self.storage.iter().all(|s| s.is_empty())
     }
 }
 
@@ -57,5 +72,15 @@ impl<const N: usize> fmt::Display for Concat<'_, N> {
         }
 
         Ok(())
+    }
+}
+
+impl<'a, const N: usize> IntoIterator for Concat<'a, N> {
+    type Item = &'a str;
+    type IntoIter = IntoIter<'a, N>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.storage.into_iter()
     }
 }
