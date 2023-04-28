@@ -24,7 +24,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
         kanji.text
     };
 
-    let mut inflections = match kind {
+    let (mut inflections, stem, de) = match kind {
         VerbKind::Ichidan => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix('る'), reading.text.strip_suffix('る')) else {
                 return None;
@@ -42,7 +42,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
 
             ichidan!(populate);
-            inflections
+            (inflections, Pair::new([k], [r], []), false)
         }
         VerbKind::GodanIku => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix('く'), reading.text.strip_suffix('く')) else {
@@ -61,7 +61,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
 
             godan!(populate, g);
-            inflections
+            (inflections, Pair::new([k], [r], []), g.de)
         }
         VerbKind::Godan => {
             let mut k = kanji_text.chars();
@@ -95,7 +95,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
 
             godan!(populate, g);
-            inflections
+            (inflections, Pair::new([k], [r], []), g.de)
         }
         VerbKind::Suru => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix("する"), reading.text.strip_suffix("する")) else {
@@ -112,7 +112,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
 
             suru!(populate);
-            inflections
+            (inflections, Pair::new([k], [r], []), false)
         }
         VerbKind::Kuru => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix("来る"), reading.text.strip_suffix("くる")) else {
@@ -129,23 +129,23 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
 
             kuru!(populate);
-            inflections
+            (inflections, Pair::new([k], [r], []), false)
         }
     };
 
     if let Some(p) = inflections.get(&inflect!(Te)).cloned() {
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Progressive, Te $(, $inflect)*), p.concat([concat!("い", $suffix)]));
+                inflections.insert(inflect!(TeIru, Te $(, $inflect)*), p.concat([concat!("い", $suffix)]));
             }
         }
 
-        inflections.insert(inflect!(Progressive, Te, Alternate), p.concat(["る"]));
+        inflections.insert(inflect!(TeIru, Te, Alternate), p.concat(["る"]));
         ichidan!(populate);
 
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Resulting, Te $(, $inflect)*), p.concat($suffix));
+                inflections.insert(inflect!(TeAru, Te $(, $inflect)*), p.concat($suffix));
             }
         }
 
@@ -153,7 +153,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Iku, Te $(, $inflect)*), p.concat($suffix));
+                inflections.insert(inflect!(TeIku, Te $(, $inflect)*), p.concat($suffix));
             }
         }
 
@@ -161,7 +161,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Shimau, Te $(, $inflect)*), p.concat($suffix));
+                inflections.insert(inflect!(TeShimau, Te $(, $inflect)*), p.concat($suffix));
             }
         }
 
@@ -169,19 +169,32 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
         macro_rules! populate {
             ($suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Oku, Te $(, $inflect)*), p.concat($suffix));
+                inflections.insert(inflect!(TeOku, Te $(, $inflect)*), p.concat($suffix));
             }
         }
 
         godan!(populate, godan::KU, "お");
+        inflections.insert(inflect!(Te, TeOku, Alternate), p.concat(["く"]));
 
         macro_rules! populate {
             ($r:expr, $suffix:expr $(, $inflect:ident)*) => {
-                inflections.insert(inflect!(Kuru, Te $(, $inflect)*), p.concat([concat!($r, $suffix)]));
+                inflections.insert(inflect!(TeKuru, Te $(, $inflect)*), p.concat([concat!($r, $suffix)]));
             }
         }
 
         kuru!(populate);
+    }
+
+    macro_rules! populate {
+        ($suffix:expr $(, $inflect:ident)*) => {
+            inflections.insert(inflect!(Chau $(, $inflect)*), stem.concat($suffix));
+        }
+    }
+
+    if de {
+        godan!(populate, godan::U, "じゃ");
+    } else {
+        godan!(populate, godan::U, "ちゃ");
     }
 
     Some(Inflections {

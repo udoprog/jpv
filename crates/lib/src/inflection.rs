@@ -58,17 +58,19 @@ pub enum Form {
     /// Te-form.
     Te,
     /// Te-iru or progressive form.
-    Progressive,
+    TeIru,
     /// Te-aru or resulting form.
-    Resulting,
+    TeAru,
     /// Te-iku form.
-    Iku,
+    TeIku,
     /// te-shimau form
-    Shimau,
+    TeShimau,
+    /// chau form
+    Chau,
     /// te-kuru form
-    Kuru,
+    TeKuru,
     /// te-oku form
-    Oku,
+    TeOku,
     Command,
     Hypothetical,
     Conditional,
@@ -80,84 +82,89 @@ pub enum Form {
     Tai,
     Negative,
     Past,
-    Alternate,
-    Conversation,
     Polite,
+    Conversation,
+    Alternate,
 }
 
 impl Form {
-    pub const ALL: [Form; 20] = [
-        Form::Te,
-        Form::Negative,
-        Form::Past,
-        Form::Command,
-        Form::Hypothetical,
-        Form::Conditional,
-        Form::Passive,
-        Form::Potential,
-        Form::Volitional,
-        Form::Causative,
-        Form::Tai,
-        Form::Progressive,
-        Form::Resulting,
-        Form::Iku,
-        Form::Shimau,
-        Form::Kuru,
-        Form::Oku,
-        Form::Polite,
+    pub const ALL: [Form; 21] = [
         Form::Alternate,
+        Form::Causative,
+        Form::Chau,
+        Form::Command,
+        Form::Conditional,
         Form::Conversation,
+        Form::Hypothetical,
+        Form::Negative,
+        Form::Passive,
+        Form::Past,
+        Form::Polite,
+        Form::Potential,
+        Form::Tai,
+        Form::Te,
+        Form::TeAru,
+        Form::TeIku,
+        Form::TeIru,
+        Form::TeKuru,
+        Form::TeOku,
+        Form::TeShimau,
+        Form::Volitional,
     ];
 
     /// Longer title for the form.
     pub fn title(&self) -> &'static str {
         match self {
-            Form::Te => "~te form, by itself acts as a command",
-            Form::Negative => "not doing ~, the absense of ~",
-            Form::Past => "past tense",
-            Form::Command => "command form",
-            Form::Hypothetical => "if ~",
-            Form::Conditional => "if ~, when ~",
-            Form::Passive => "~ was done to someone or something",
-            Form::Potential => "can do ~",
-            Form::Volitional => "let's do ~",
-            Form::Causative => "make (someone do something), let / allow (someone to do something)",
-            Form::Tai => "used to express desire",
-            Form::Progressive => "~te iru, shows that something is currently happening or ongoing",
-            Form::Resulting => "~te aru, is/has been done (resulting state)",
-            Form::Iku => "~te iku, to start, to continue, to go on",
-            Form::Oku => "~te oku, to do something in advance",
-            Form::Shimau => "~te shimau, to do something by accident, to finish completely",
-            Form::Kuru => "~te kuru, to do .. and come back, to become, to continue, to start ~",
-            Form::Polite => "polite form",
             Form::Alternate => "alternate form",
+            Form::Causative => "causative, make ~ do something, let / allow ~",
+            Form::Chau => "chau, to do something by accident, to finish completely",
+            Form::Command => "command",
+            Form::Conditional => "conditional, if ~, when ~",
             Form::Conversation => "conversational use only",
+            Form::Hypothetical => "hypothetical, if ~",
+            Form::Negative => "not doing ~, the absense of ~",
+            Form::Passive => "passive, ~ was done to someone or something",
+            Form::Past => "past tense",
+            Form::Polite => "polite form",
+            Form::Potential => "potential, can do ~",
+            Form::Tai => "tai-form, used to express desire",
+            Form::Te => "~te form, by itself acts as a command",
+            Form::TeAru => "~te aru, resulting, is/has been done",
+            Form::TeIku => "~te iku, starting, to start, to continue, to go on",
+            Form::TeIru => {
+                "~te iru, progressive, shows that something is currently happening or ongoing"
+            }
+            Form::TeKuru => "~te kuru, to do .. and come back, to become, to continue, to start ~",
+            Form::TeOku => "~te oku, to do something in advance",
+            Form::TeShimau => "~te shimau, to do something by accident, to finish completely",
+            Form::Volitional => "volitional / presumptive, let's do ~",
         }
     }
 
     /// Describe the form.
     pub fn describe(&self) -> &'static str {
         match self {
-            Form::Te => "~te",
-            Form::Negative => "negative",
-            Form::Past => "past",
-            Form::Command => "command",
-            Form::Hypothetical => "hypothetical",
-            Form::Conditional => "conditional",
-            Form::Passive => "passive",
-            Form::Potential => "potential",
-            Form::Volitional => "volitional",
+            Form::Alternate => "alternate",
             Form::Causative => "causative",
-            Form::Tai => "~tai",
-            Form::Progressive => "~te iru",
-            Form::Resulting => "~te aru,",
-            Form::Iku => "~te iku",
-            Form::Oku => "~te oku",
-            Form::Shimau => "~te shimau",
-            Form::Kuru => "~te kuru",
+            Form::Chau => "chau",
+            Form::Command => "command",
+            Form::Conditional => "conditional",
+            Form::Conversation => "conversation",
+            Form::Hypothetical => "hypothetical",
+            Form::Negative => "negative",
+            Form::Passive => "passive",
+            Form::Past => "past",
             Form::Polite => "polite",
-            Form::Alternate => "alt",
-            Form::Conversation => "conversational",
+            Form::Potential => "potential",
+            Form::Tai => "~tai",
+            Form::Te => "~te",
+            Form::TeAru => "~te aru,",
+            Form::TeIku => "~te iku",
+            Form::TeIru => "~te iru",
+            Form::TeKuru => "~te kuru",
+            Form::TeOku => "~te oku",
+            Form::TeShimau => "~te shimau",
+            Form::Volitional => "volitional",
         }
     }
 }
@@ -165,7 +172,7 @@ impl Form {
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 pub struct Inflection {
     #[musli(with = crate::musli::set::<_>)]
-    pub form: Set<Form>,
+    form: Set<Form>,
 }
 
 impl Inflection {
@@ -193,6 +200,23 @@ impl Inflection {
         } else {
             self.form.insert(form);
         }
+    }
+
+    /// Test if inflection is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.form.is_empty()
+    }
+
+    /// Test if inflection contains the given form.
+    #[inline]
+    pub fn contains(&self, f: Form) -> bool {
+        self.form.contains(f)
+    }
+
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = Form> {
+        self.form.iter()
     }
 }
 

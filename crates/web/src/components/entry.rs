@@ -9,15 +9,13 @@ use yew::prelude::*;
 pub(crate) enum Msg {
     ToggleInflection,
     ToggleForm(usize, Form),
-    ToggleAll(usize, Inflection),
+    ResetForm(usize),
 }
 
 #[derive(Default)]
 struct ExtraState {
     // Filter inflections to use among the select inflections.
-    toggle_forms: Inflection,
-    // Show all inflections.
-    all_forms: bool,
+    filter: Inflection,
 }
 
 pub(crate) struct Entry {
@@ -68,16 +66,12 @@ impl Component for Entry {
             }
             Msg::ToggleForm(index, form) => {
                 if let Some(state) = self.extras_state.get_mut(index) {
-                    state.toggle_forms.toggle(form);
+                    state.filter.toggle(form);
                 }
             }
-            Msg::ToggleAll(index, inflection) => {
+            Msg::ResetForm(index) => {
                 if let Some(state) = self.extras_state.get_mut(index) {
-                    state.all_forms = !state.all_forms;
-
-                    if !state.all_forms {
-                        state.toggle_forms &= inflection;
-                    }
+                    state.filter = Inflection::default();
                 }
             }
         }
@@ -108,16 +102,7 @@ impl Component for Entry {
             .or(self.adjective_inflections.as_ref());
 
         let extras = extras.iter().zip(&self.extras_state).enumerate().flat_map(
-            |(index, (extra, state))| {
-                render_extra(
-                    ctx,
-                    index,
-                    extra,
-                    inflections,
-                    state.toggle_forms,
-                    state.all_forms,
-                )
-            },
+            |(index, (extra, state))| render_extra(ctx, index, extra, inflections, state.filter),
         );
 
         let (reading, combined) = if entry.kanji_elements.is_empty() {
@@ -235,8 +220,7 @@ fn render_extra(
     index: usize,
     extra: &IndexExtra,
     inflections: Option<&Inflections<'_>>,
-    toggle_forms: Inflection,
-    all_forms: bool,
+    filter: Inflection,
 ) -> Option<Html> {
     let (extra, inflection) = match extra {
         IndexExtra::VerbInflection(inflection) => (format!("Verb conjugation:"), Some(*inflection)),
@@ -246,14 +230,13 @@ fn render_extra(
         _ => return None,
     };
 
-    let word = inflection.and_then(|inf| inflections.and_then(|i| i.get(inf ^ toggle_forms)));
+    let word = inflection.and_then(|inf| inflections.and_then(|i| i.get(inf ^ filter)));
 
     let word = word
         .map(|w| ruby(w.furigana()))
         .map(|word| html!(<div class="block extra-word">{word}</div>));
 
-    let inflection =
-        inflection.map(|i| render_inflection(ctx, index, i, toggle_forms, all_forms, inflections));
+    let inflection = inflection.map(|i| render_inflection(ctx, index, i, filter, inflections));
 
     Some(html! {
         <div class="block extra">
@@ -441,14 +424,12 @@ fn render_inflection(
     ctx: &Context<Entry>,
     index: usize,
     inflection: Inflection,
-    toggle: Inflection,
-    all: bool,
+    filter: Inflection,
     inflections: Option<&Inflections<'_>>,
 ) -> Html {
-    let iter = if all { Inflection::all() } else { inflection };
-    let this = toggle ^ inflection;
+    let this = filter ^ inflection;
 
-    let form = iter.form.iter().flat_map(|f| {
+    let form = Inflection::all().iter().flat_map(|f| {
         let mut candidate = this;
         candidate.toggle(f);
 
@@ -456,12 +437,12 @@ fn render_inflection(
             .map(|i| i.contains(candidate))
             .unwrap_or_default();
 
-        if !exists && !this.form.contains(f) {
+        if !exists && !this.contains(f) {
             return None;
         }
 
         let class = classes! {
-            this.form.contains(f).then_some("active"),
+            this.contains(f).then_some("active"),
             exists.then_some("clickable"),
             "inflection-form"
         };
@@ -474,13 +455,10 @@ fn render_inflection(
 
     let onclick = ctx
         .link()
-        .callback(move |_: MouseEvent| Msg::ToggleAll(index, inflection));
+        .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
-    let all = if all {
-        html!(<span class="inflection-all active" {onclick}>{"Reset"}</span>)
-    } else {
-        html!(<span class="inflection-all active" {onclick}>{"Show all"}</span>)
-    };
+    let reset = (!filter.is_empty())
+        .then(|| html!(<span class="inflection-reset active" {onclick}>{"Reset"}</span>));
 
-    html!(<>{for form}{all}</>)
+    html!(<>{for form}{for reset}</>)
 }

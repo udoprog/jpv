@@ -200,7 +200,7 @@ fn main() -> Result<()> {
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
             for (c, form) in c.inflections {
-                if args.polite != c.form.contains(Form::Polite) {
+                if args.polite != c.contains(Form::Polite) {
                     continue;
                 }
 
@@ -216,7 +216,7 @@ fn main() -> Result<()> {
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
             for (c, form) in c.inflections {
-                if args.polite != c.form.contains(Form::Polite) {
+                if args.polite != c.contains(Form::Polite) {
                     continue;
                 }
 
