@@ -44,35 +44,35 @@ impl IndexExtra {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 pub struct Id {
-    index: usize,
+    index: u32,
     extra: IndexExtra,
 }
 
 impl Id {
     fn new(index: usize) -> Self {
         Self {
-            index,
+            index: index as u32,
             extra: IndexExtra::None,
         }
     }
 
     fn verb_inflection(index: usize, inflection: Inflection) -> Self {
         Self {
-            index,
+            index: index as u32,
             extra: IndexExtra::VerbInflection(inflection),
         }
     }
 
     fn adjective_inflection(index: usize, inflection: Inflection) -> Self {
         Self {
-            index,
+            index: index as u32,
             extra: IndexExtra::AdjectiveInflection(inflection),
         }
     }
 
     /// Get the unique index this id corresponds to.
     pub fn index(&self) -> usize {
-        self.index
+        self.index as usize
     }
 
     /// Extra information on index.
@@ -98,8 +98,8 @@ impl Index {
 #[derive(Decode)]
 pub struct IndexRef<'a> {
     lookup: HashMap<&'a [u8], Vec<Id>>,
-    by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
-    by_sequence: HashMap<u64, usize>,
+    by_pos: HashMap<PartOfSpeech, HashSet<u32>>,
+    by_sequence: HashMap<u64, u32>,
 }
 
 impl<'a> IndexRef<'a> {
@@ -162,9 +162,11 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
         }
 
         if let Some(c) = adjective::conjugate(&entry) {
-            for (inflection, phrase) in c.iter() {
+            for (inflection, word) in c.iter() {
+                let word = word.to_string();
+
                 lookup
-                    .entry(phrase.to_string())
+                    .entry(word)
                     .or_default()
                     .push(Id::adjective_inflection(index, inflection));
             }
@@ -196,7 +198,11 @@ impl<'a> Database<'a> {
     /// Get identifier by sequence.
     pub fn lookup_sequence(&self, sequence: u64) -> Option<Id> {
         let &index = self.index.by_sequence.get(&sequence)?;
-        Some(Id::new(index))
+
+        Some(Id {
+            index,
+            extra: IndexExtra::None,
+        })
     }
 
     /// Get an entry from the database.
@@ -236,8 +242,8 @@ impl<'a> Database<'a> {
 
 /// A collection of indexes.
 pub struct Indexes<'a> {
-    by_pos: Option<&'a HashSet<usize>>,
-    iter: Option<hash_set::Iter<'a, usize>>,
+    by_pos: Option<&'a HashSet<u32>>,
+    iter: Option<hash_set::Iter<'a, u32>>,
 }
 
 impl Indexes<'_> {
