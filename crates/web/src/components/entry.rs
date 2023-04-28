@@ -3,14 +3,25 @@ use std::collections::BTreeSet;
 use lib::database::IndexExtra;
 use lib::elements::{Example, KanjiElement, ReadingElement, Sense};
 use lib::entities::KanjiInfo;
-use lib::{adjective, elements, kana, romaji, verb, Inflections};
+use lib::{adjective, elements, kana, romaji, verb, Form, Inflection, Inflections};
 use yew::prelude::*;
 
 pub(crate) enum Msg {
     ToggleInflection,
+    ToggleForm(usize, Form),
+    ToggleAll(usize, Inflection),
+}
+
+#[derive(Default)]
+struct ExtraState {
+    // Filter inflections to use among the select inflections.
+    toggle_forms: Inflection,
+    // Show all inflections.
+    all_forms: bool,
 }
 
 pub(crate) struct Entry {
+    extras_state: Vec<ExtraState>,
     show_inflection: bool,
     verb_inflections: Option<Inflections<'static>>,
     adjective_inflections: Option<Inflections<'static>>,
@@ -38,6 +49,12 @@ impl Component for Entry {
 
     fn create(ctx: &Context<Self>) -> Self {
         Self {
+            extras_state: ctx
+                .props()
+                .extras
+                .iter()
+                .map(|_| ExtraState::default())
+                .collect(),
             show_inflection: false,
             verb_inflections: verb::conjugate(&ctx.props().entry),
             adjective_inflections: adjective::conjugate(&ctx.props().entry),
@@ -49,6 +66,20 @@ impl Component for Entry {
             Msg::ToggleInflection => {
                 self.show_inflection = !self.show_inflection;
             }
+            Msg::ToggleForm(index, form) => {
+                if let Some(state) = self.extras_state.get_mut(index) {
+                    state.toggle_forms.toggle(form);
+                }
+            }
+            Msg::ToggleAll(index, inflection) => {
+                if let Some(state) = self.extras_state.get_mut(index) {
+                    state.all_forms = !state.all_forms;
+
+                    if !state.all_forms {
+                        state.toggle_forms &= inflection;
+                    }
+                }
+            }
         }
 
         true
@@ -57,6 +88,12 @@ impl Component for Entry {
     fn changed(&mut self, ctx: &Context<Self>, _: &Self::Properties) -> bool {
         self.verb_inflections = verb::conjugate(&ctx.props().entry);
         self.adjective_inflections = adjective::conjugate(&ctx.props().entry);
+        self.extras_state = ctx
+            .props()
+            .extras
+            .iter()
+            .map(|_| ExtraState::default())
+            .collect();
         true
     }
 
@@ -65,7 +102,23 @@ impl Component for Entry {
         let key = &ctx.props().entry_key;
         let entry = &ctx.props().entry;
 
-        let extras = extras.iter().flat_map(render_extra);
+        let inflections = self
+            .verb_inflections
+            .as_ref()
+            .or(self.adjective_inflections.as_ref());
+
+        let extras = extras.iter().zip(&self.extras_state).enumerate().flat_map(
+            |(index, (extra, state))| {
+                render_extra(
+                    ctx,
+                    index,
+                    extra,
+                    inflections,
+                    state.toggle_forms,
+                    state.all_forms,
+                )
+            },
+        );
 
         let (reading, combined) = if entry.kanji_elements.is_empty() {
             let reading = render_seq(entry.reading_elements.iter(), render_reading);
@@ -112,11 +165,6 @@ impl Component for Entry {
         };
 
         let senses = entry.senses.iter().enumerate().map(render_sense);
-
-        let inflections = self
-            .verb_inflections
-            .as_ref()
-            .or(self.adjective_inflections.as_ref());
 
         let inflection = inflections.and_then(|inflections| {
             if self.show_inflection {
@@ -182,18 +230,37 @@ macro_rules! bullets {
     }
 }
 
-fn render_extra(extra: &IndexExtra) -> Option<Html> {
-    let extra = match extra {
-        IndexExtra::VerbInflection(inflection) => {
-            format!("Verb conjugation: {inflection:?}")
-        }
+fn render_extra(
+    ctx: &Context<Entry>,
+    index: usize,
+    extra: &IndexExtra,
+    inflections: Option<&Inflections<'_>>,
+    toggle_forms: Inflection,
+    all_forms: bool,
+) -> Option<Html> {
+    let (extra, inflection) = match extra {
+        IndexExtra::VerbInflection(inflection) => (format!("Verb conjugation:"), Some(*inflection)),
         IndexExtra::AdjectiveInflection(inflection) => {
-            format!("Adjective inflection: {inflection:?}")
+            (format!("Adjective inflection:"), Some(*inflection))
         }
         _ => return None,
     };
 
-    Some(html!(<div class="block extra">{extra}</div>))
+    let word = inflection.and_then(|inf| inflections.and_then(|i| i.get(inf ^ toggle_forms)));
+
+    let word = word
+        .map(|w| ruby(w.furigana()))
+        .map(|word| html!(<div class="block extra-word">{word}</div>));
+
+    let inflection =
+        inflection.map(|i| render_inflection(ctx, index, i, toggle_forms, all_forms, inflections));
+
+    Some(html! {
+        <div class="block extra">
+            <div class="block">{extra}{for inflection}</div>
+            {for word}
+        </div>
+    })
 }
 
 fn render_sense((_, s): (usize, &Sense<'_>)) -> Html {
@@ -338,7 +405,7 @@ fn render_example(example: &Example<'_>, _: bool) -> Html {
     }
 }
 
-fn render_seq<'a, I, T, B>(iter: I, builder: B) -> impl Iterator<Item = Html> + 'a
+fn render_seq<'a, I, T, B>(iter: I, builder: B) -> impl DoubleEndedIterator<Item = Html> + 'a
 where
     I: IntoIterator<Item = T>,
     I::IntoIter: 'a + DoubleEndedIterator,
@@ -368,4 +435,52 @@ where
 
 fn sep() -> Html {
     html!(<span class="sep">{","}</span>)
+}
+
+fn render_inflection(
+    ctx: &Context<Entry>,
+    index: usize,
+    inflection: Inflection,
+    toggle: Inflection,
+    all: bool,
+    inflections: Option<&Inflections<'_>>,
+) -> Html {
+    let iter = if all { Inflection::all() } else { inflection };
+    let this = toggle ^ inflection;
+
+    let form = iter.form.iter().flat_map(|f| {
+        let mut candidate = this;
+        candidate.toggle(f);
+
+        let exists = inflections
+            .map(|i| i.contains(candidate))
+            .unwrap_or_default();
+
+        if !exists && !this.form.contains(f) {
+            return None;
+        }
+
+        let class = classes! {
+            this.form.contains(f).then_some("active"),
+            exists.then_some("clickable"),
+            "inflection-form"
+        };
+
+        let onclick = ctx
+            .link()
+            .batch_callback(move |_: MouseEvent| exists.then_some(Msg::ToggleForm(index, f)));
+        Some(html!(<span {class} {onclick} title={f.title()}>{f.describe()}</span>))
+    });
+
+    let onclick = ctx
+        .link()
+        .callback(move |_: MouseEvent| Msg::ToggleAll(index, inflection));
+
+    let all = if all {
+        html!(<span class="inflection-all active" {onclick}>{"Reset"}</span>)
+    } else {
+        html!(<span class="inflection-all active" {onclick}>{"Show all"}</span>)
+    };
+
+    html!(<>{for form}{all}</>)
 }

@@ -2,6 +2,7 @@ mod components;
 
 use std::sync::Arc;
 
+use anyhow::Context as _;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -39,16 +40,12 @@ impl Component for App {
     }
 }
 
-const INDEX: &[u8] = include_bytes!("../../../index.bin");
 const DATABASE: &[u8] = include_bytes!("../../../database.bin");
 
-fn main() {
+fn main() -> anyhow::Result<()> {
+    let db = Arc::new(lib::database::Database::new(DATABASE.as_ref()).context("loading database")?);
     wasm_logger::init(wasm_logger::Config::default());
-
-    let index = lib::database::IndexRef::from_bytes(INDEX.as_ref()).expect("broken index");
-    let db = Arc::new(lib::database::Database::new(DATABASE.as_ref(), index));
-
     log::info!("Started up");
-
     yew::Renderer::<App>::with_props(Props { db }).render();
+    Ok(())
 }

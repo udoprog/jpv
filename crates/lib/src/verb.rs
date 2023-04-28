@@ -36,8 +36,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             };
 
             macro_rules! populate {
-                ($suffix:expr, $($inflect:tt)*) => {
-                    inflections.insert(inflect!($($inflect)*), Pair::new([k], [r], [$suffix]));
+                ($suffix:expr $(, $inflect:ident)*) => {
+                    inflections.insert(inflect!($($inflect),*), Pair::new([k], [r], [$suffix]));
                 }
             }
 
@@ -55,8 +55,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             inflections.insert(inflect!(Te), Pair::new([k], [r], [g.te]));
 
             macro_rules! populate {
-                ($suffix:expr, $($inflect:tt)*) => {
-                    inflections.insert(inflect!($($inflect)*),  Pair::new([k], [r], $suffix));
+                ($suffix:expr $(, $inflect:ident)*) => {
+                    inflections.insert(inflect!($($inflect),*),  Pair::new([k], [r], $suffix));
                 }
             }
 
@@ -89,8 +89,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             inflections.insert(inflect!(Te), Pair::new([k], [r], [g.te]));
 
             macro_rules! populate {
-                ($suffix:expr, $($inflect:tt)*) => {
-                    inflections.insert(inflect!($($inflect)*), Pair::new([k], [r], $suffix));
+                ($suffix:expr $(, $inflect:ident)*) => {
+                    inflections.insert(inflect!($($inflect),*), Pair::new([k], [r], $suffix));
                 }
             }
 
@@ -106,8 +106,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             inflections.insert(inflect!(Te), Pair::new([k], [r], ["して"]));
 
             macro_rules! populate {
-                ($suffix:expr, $($inflect:tt)*) => {
-                    inflections.insert(inflect!($($inflect)*), Pair::new([k], [r], [$suffix]));
+                ($suffix:expr $(, $inflect:ident)*) => {
+                    inflections.insert(inflect!($($inflect),*), Pair::new([k], [r], [$suffix]));
                 }
             }
 
@@ -123,8 +123,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             inflections.insert(inflect!(Te), Pair::new([k, "来"], [r, "き"], ["て"]));
 
             macro_rules! populate {
-                ($r:expr, $suffix:expr, $($inflect:tt)*) => {
-                    inflections.insert(inflect!($($inflect)*), Pair::new([k, "来"], [r, $r], [$suffix]));
+                ($r:expr, $suffix:expr $(, $inflect:ident)*) => {
+                    inflections.insert(inflect!($($inflect),*), Pair::new([k, "来"], [r, $r], [$suffix]));
                 }
             }
 
@@ -135,44 +135,41 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
     if let Some(p) = inflections.get(&inflect!(Te)).cloned() {
         macro_rules! populate {
-            ($suffix:expr, $($inflect:tt)*) => {
-                inflections.insert(inflect!(Progressive + $($inflect)*), p.concat([concat!("い", $suffix)]));
+            ($suffix:expr $(, $inflect:ident)*) => {
+                inflections.insert(inflect!(Progressive $(, $inflect)*), p.concat([concat!("い", $suffix)]));
             }
         }
 
-        inflections.insert(
-            inflect!(Progressive + Present + *Alternate),
-            p.concat(["る"]),
-        );
+        inflections.insert(inflect!(Progressive, Alternate), p.concat(["る"]));
         ichidan!(populate);
 
         macro_rules! populate {
-            ($suffix:expr, $($inflect:tt)*) => {
-                inflections.insert(inflect!(Resulting + $($inflect)*), p.concat($suffix));
+            ($suffix:expr $(, $inflect:ident)*) => {
+                inflections.insert(inflect!(Resulting $(, $inflect)*), p.concat($suffix));
             }
         }
 
         godan!(populate, godan::RU, "あ");
 
         macro_rules! populate {
-            ($suffix:expr, $($inflect:tt)*) => {
-                inflections.insert(inflect!(Iku + $($inflect)*), p.concat($suffix));
+            ($suffix:expr $(, $inflect:ident)*) => {
+                inflections.insert(inflect!(Iku $(, $inflect)*), p.concat($suffix));
             }
         }
 
         godan!(populate, godan::IKU, "い");
 
         macro_rules! populate {
-            ($suffix:expr, $($inflect:tt)*) => {
-                inflections.insert(inflect!(Shimau + $($inflect)*), p.concat($suffix));
+            ($suffix:expr $(, $inflect:ident)*) => {
+                inflections.insert(inflect!(Shimau $(, $inflect)*), p.concat($suffix));
             }
         }
 
         godan!(populate, godan::U, "しま");
 
         macro_rules! populate {
-            ($r:expr, $suffix:expr, $($inflect:tt)*) => {
-                inflections.insert(inflect!(Kuru + $($inflect)*), p.concat([concat!($r, $suffix)]));
+            ($r:expr, $suffix:expr $(, $inflect:ident)*) => {
+                inflections.insert(inflect!(Kuru $(, $inflect)*), p.concat([concat!($r, $suffix)]));
             }
         }
 

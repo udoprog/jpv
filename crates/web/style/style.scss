@@ -1,15 +1,63 @@
 @import "_reset";
 
 :root {
-    --text-color: #bbb;
-    --emphasis-color: #eee;
+    --text-primary: #bbb;
+    --text-highlight: #eee;
+    --kanji-size: 1.5em;
+
     --analyzed-color: #d23c53;
     --analyzed-hover-color: #da7f8c;
-    --background-color: #2a2a2a;
-    --bullet-color: #000;
-    --bullet-background-1: #8abc83;
-    --extra-background-color: #582f94;
-    --kanji-font-size: 1.5em;
+
+    --bg: #2a2a2a;
+    --bg-alt: #343434;
+
+    --bullet-bg-disabled: #8393bc;
+
+    --bullet1-bg: #8abc83;
+    --bullet1-color: #000;
+
+    --form-color: #000;
+    --form-bg-disabled: #49626a;
+    --form-bg: #83afbc;
+    --form-hover: #282828;
+    --form-passive: #bbbbbb;
+
+    --button-bg: #a4a4a4;
+    --button-bg-hover: #c0c0c0;
+    --button-border: #cfcfcf;
+    --button-color: #333333;
+    --button-hover: #ffffff;
+}
+
+@mixin clickable($color, $hover-color) {
+    cursor: pointer;
+
+    &:hover {
+        color: $color;
+    }
+
+    &.active:hover {
+        color: $hover-color;
+    }
+}
+
+@mixin bullet {
+    margin: 0 0.25rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+}
+
+@mixin button {
+    @include bullet;
+    @include clickable(var(--button-color), var(--button-hover));
+    background-color: var(--button-bg);
+    color: var(--button-color);
+    font-size: 0.5em;
+    border: 1px solid var(--button-border);
+
+    &.active:hover {
+        color: var(--button-bg-hover);
+    }
 }
 
 $section-padding: 0.5rem;
@@ -18,8 +66,8 @@ $bullets-separation: $section-padding;
 body {
     overflow-y: scroll;
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    color: var(--text-color);
-    background-color: var(--background-color);
+    color: var(--text-primary);
+    background-color: var(--bg);
     height: 100%;
 }
 
@@ -32,21 +80,9 @@ body {
 }
 
 #analyze {
-    user-select: none;
-
     .analyze-span {
         &.clickable {
-            cursor: pointer;
-
-            &:hover {
-                color: var(--emphasis-color);
-            }
-
-            &.active {
-                &:hover {
-                    color: var(--analyzed-hover-color);
-                }
-            }
+            @include clickable(var(--text-highlight), var(--analyzed-hover-color));
         }
 
         &.active {
@@ -109,13 +145,13 @@ body {
 
     &-glossary {
         .text {
-            color: var(--emphasis-color);
+            color: var(--text-highlight);
         }
     }
 
     &-reading {
         .text {
-            color: var(--emphasis-color);
+            color: var(--text-highlight);
             font-size: 1.2em;
         }
 
@@ -126,8 +162,8 @@ body {
 
     &-kanji {
         .text {
-            color: var(--emphasis-color);
-            font-size: var(--kanji-font-size);
+            color: var(--text-highlight);
+            font-size: var(--kanji-size);
         }
 
         &-bullets {
@@ -150,20 +186,22 @@ body {
         font-size: 0.8em;
 
         .text {
-            color: var(--emphasis-color);
+            color: var(--text-highlight);
         }
     }
 }
 
 .sense-stag {
-    color: var(--emphasis-color);
+    color: var(--text-highlight);
 }
 
 .extra {
-    font-weight: bold;
     padding: $section-padding;
-    background-color: var(--extra-background-color);
-    color: var(--emphasis-color);
+    background-color: var(--bg-alt);
+
+    &-text {
+        font-weight: bold;
+    }
 }
 
 .inflections {
@@ -171,22 +209,42 @@ body {
     margin-left: 1.5em;
 
     &-key {
-        color: var(--emphasis-color);
+        color: var(--text-highlight);
     }
 
     &-value {
         margin-top: $section-padding;
-        font-size: var(--kanji-font-size);
+        font-size: var(--kanji-size);
+    }
+}
+
+.inflection {
+    &-form {
+        @include bullet;
+        font-size: 0.5em;
+        background-color: var(--form-bg-disabled);
+        color: var(--form-passive);
+
+        &.clickable {
+            @include clickable(var(--form-color), var(--form-hover));
+        }
+
+        &.active {
+            color: var(--form-color);
+            background-color: var(--form-bg);
+        }
+    }
+
+    &-all {
+        @include button;
     }
 }
 
 .bullet {
-    cursor: pointer;
-    color: var(--bullet-color);
-    background-color: var(--bullet-background-1);
+    @include bullet;
     font-size: 0.8em;
     font-weight: bold;
-    margin: 0 0.25rem;
-    padding: 0.2rem 0.4rem;
-    border-radius: 3px;
+    cursor: pointer;
+    color: var(--bullet1-color);
+    background-color: var(--bullet1-bg);
 }

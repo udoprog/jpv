@@ -17,14 +17,14 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
             let inflections = inflections! {
                 k, r,
-                Present ("い"),
-                Present + *Polite ("いです"),
+                ("い"),
+                Polite ("いです"),
                 Past ("かった"),
-                Past + *Polite ("かったです"),
+                Past, Polite ("かったです"),
                 Negative ("くない"),
-                Negative + *Polite ("くないです"),
-                Past + Negative ("なかった"),
-                Past + Negative + *Polite ("なかったです"),
+                Negative, Polite ("くないです"),
+                Past, Negative ("なかった"),
+                Past, Negative, Polite ("なかったです"),
             };
 
             Some(Inflections {
@@ -42,14 +42,14 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
             let inflections = inflections! {
                 k, r,
-                Present ("いい"),
-                Present + *Polite ("いいです"),
+                ("いい"),
+                Polite ("いいです"),
                 Past ("よかった"),
-                Past + *Polite ("よかったです"),
+                Past, Polite ("よかったです"),
                 Negative ("よくない"),
-                Negative + *Polite ("よくないです"),
-                Past + Negative ("よなかった"),
-                Past + Negative + *Polite ("よなかったです"),
+                Negative, Polite ("よくないです"),
+                Past, Negative ("よなかった"),
+                Past, Negative, Polite ("よなかったです"),
             };
 
             Some(Inflections {
@@ -60,14 +60,14 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
         AdjectiveKind::Na => {
             let inflections = inflections! {
                 kanji.text, reading.text,
-                Present ("だ"),
-                Present + *Polite ("です"),
+                ("だ"),
+                Polite ("です"),
                 Past ("だった"),
-                Past + *Polite ("でした"),
+                Past, Polite ("でした"),
                 Negative ("ではない"),
-                Negative + *Polite ("ではありません"),
-                Past + Negative ("ではなかった"),
-                Past + Negative + *Polite ("ではありませんでした"),
+                Negative, Polite ("ではありません"),
+                Past, Negative ("ではなかった"),
+                Past, Negative, Polite ("ではありませんでした"),
             };
 
             Some(Inflections {

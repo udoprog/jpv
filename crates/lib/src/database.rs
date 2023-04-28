@@ -1,12 +1,15 @@
 //! Database that can be used as a dictionary.
 
-use std::collections::{hash_set, HashMap, HashSet};
+mod file;
+mod index;
+mod strings;
+
+use std::collections::{hash_set, HashSet};
 
 use anyhow::{anyhow, Context, Result};
 use musli::mode::DefaultMode;
-use musli::Decode;
-use musli::Encode;
-use musli_storage::int::Variable;
+use musli::{Decode, Encode};
+use musli_storage::int::{Fixed, FixedUsize, Variable};
 use musli_storage::Encoding;
 
 use crate::adjective;
@@ -18,6 +21,10 @@ use crate::PartOfSpeech;
 
 /// Encoding used for storing database.
 const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
+
+/// Encoding used for storing the header.
+const HEADER_ENCODING: Encoding<DefaultMode, Fixed, FixedUsize<u32>> =
+    Encoding::new().with_fixed_integers().with_fixed_lengths();
 
 /// Extra information about an index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
@@ -81,134 +88,164 @@ impl Id {
     }
 }
 
-#[derive(Encode)]
-pub struct Index {
-    lookup: HashMap<String, Vec<Id>>,
-    by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
-    by_sequence: HashMap<u64, usize>,
-}
-
-impl Index {
-    /// Convert index into bytes.
-    pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        Ok(ENCODING.to_vec(self)?)
-    }
-}
-
-#[derive(Decode)]
-pub struct IndexRef<'a> {
-    lookup: HashMap<&'a [u8], Vec<Id>>,
-    by_pos: HashMap<PartOfSpeech, HashSet<u32>>,
-    by_sequence: HashMap<u64, u32>,
-}
-
-impl<'a> IndexRef<'a> {
-    /// Build index from bytes.
-    pub fn from_bytes(bytes: &'a [u8]) -> Result<Self> {
-        Ok(ENCODING.from_slice(bytes)?)
-    }
-}
-
 /// Load the given dictionary and convert into the internal format.
-pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
-    let mut data = Vec::new();
-    let mut lookup = HashMap::<_, Vec<Id>>::new();
-    let mut by_pos = HashMap::<_, HashSet<usize>>::new();
-    let mut by_sequence = HashMap::new();
+pub fn load(dict: &str) -> Result<Vec<u8>> {
+    let mut output = Vec::new();
+    let mut strings = strings::Strings::default();
+
+    let mut index = index::Data::default();
+    let mut header = file::Header::default();
+
+    HEADER_ENCODING.to_writer(&mut output, &header)?;
+    header.entries = output.len();
+    let empty = strings.insert("")?;
 
     let mut parser = Parser::new(dict);
 
     while let Some(entry) = parser.parse()? {
         tracing::trace!(?entry);
 
-        let index = data.len();
-
-        by_sequence.insert(entry.sequence, index);
+        let entry_offset = output.len();
+        index.by_sequence.insert(entry.sequence, entry_offset);
 
         for sense in &entry.senses {
             for pos in &sense.pos {
-                by_pos.entry(pos).or_default().insert(index);
+                index.by_pos.entry(pos).or_default().insert(entry_offset);
             }
 
             for g in &sense.gloss {
-                lookup
-                    .entry(g.text.to_string())
+                let prefix = strings.insert(g.text)?;
+
+                index
+                    .lookup
+                    .entry((prefix, empty))
                     .or_default()
-                    .push(Id::new(index));
+                    .push(Id::new(entry_offset));
             }
         }
 
         for el in &entry.reading_elements {
-            lookup
-                .entry(el.text.to_string())
+            let prefix = strings.insert(el.text)?;
+
+            index
+                .lookup
+                .entry((prefix, empty))
                 .or_default()
-                .push(Id::new(index));
+                .push(Id::new(entry_offset));
         }
 
         for el in &entry.kanji_elements {
-            lookup
-                .entry(el.text.to_string())
+            let prefix = strings.insert(el.text)?;
+
+            index
+                .lookup
+                .entry((prefix, empty))
                 .or_default()
-                .push(Id::new(index));
+                .push(Id::new(entry_offset));
         }
 
         if let Some(c) = verb::conjugate(&entry) {
             for (inflection, pair) in c.iter() {
-                for word in [pair.kanji(), pair.reading()] {
-                    let word = format!("{word}{}", pair.suffix());
+                let suffix_index = strings.insert(pair.suffix().to_string())?;
 
-                    lookup
-                        .entry(word)
+                for word in [pair.kanji(), pair.reading()] {
+                    let word_index = strings.insert(word.to_string())?;
+
+                    index
+                        .lookup
+                        .entry((word_index, suffix_index))
                         .or_default()
-                        .push(Id::verb_inflection(index, *inflection));
+                        .push(Id::verb_inflection(entry_offset, *inflection));
                 }
             }
         }
 
         if let Some(c) = adjective::conjugate(&entry) {
             for (inflection, pair) in c.iter() {
-                for word in [pair.kanji(), pair.reading()] {
-                    let word = format!("{word}{}", pair.suffix());
+                let suffix_index = strings.insert(pair.suffix().to_string())?;
 
-                    lookup
-                        .entry(word)
+                for word in [pair.kanji(), pair.reading()] {
+                    let word_index = strings.insert(word.to_string())?;
+
+                    index
+                        .lookup
+                        .entry((word_index, suffix_index))
                         .or_default()
-                        .push(Id::adjective_inflection(index, *inflection));
+                        .push(Id::adjective_inflection(entry_offset, *inflection));
                 }
             }
         }
 
-        ENCODING.to_writer(&mut data, &entry)?;
+        ENCODING.to_writer(&mut output, &entry)?;
     }
 
-    let index = Index {
-        lookup,
-        by_pos,
-        by_sequence,
-    };
-
-    Ok((data, index))
+    header.index = output.len();
+    ENCODING.to_writer(&mut output, &index)?;
+    header.strings = output.len();
+    output.extend(strings.as_slice());
+    // Write the real header.
+    HEADER_ENCODING.to_writer(&mut output[..file::HEADER_SIZE], &header)?;
+    tracing::trace!(?header, strings = ?strings.as_slice().len());
+    Ok(output)
 }
 
 pub struct Database<'a> {
+    #[allow(unused)]
+    header: file::Header,
+    index: index::Index,
     data: &'a [u8],
-    index: IndexRef<'a>,
 }
 
 impl<'a> Database<'a> {
     /// Construct a new database wrapper.
-    pub fn new(data: &'a [u8], index: IndexRef<'a>) -> Self {
-        Self { data, index }
+    pub fn new(data: &'a [u8]) -> Result<Self> {
+        let header: file::Header = HEADER_ENCODING
+            .decode(data)
+            .context("failed to decode header")?;
+
+        tracing::trace!(?header);
+
+        let index = data
+            .get(header.index..header.strings)
+            .context("Missing index")?;
+
+        let strings =
+            strings::StringsRef::new(data.get(header.strings..).context("Missing strings")?);
+
+        let index_data: index::Data = ENCODING
+            .decode(index)
+            .context("failed to decode index data")?;
+
+        let mut index = index::Index::default();
+
+        for (i, ((prefix, suffix), value)) in index_data.lookup.into_iter().enumerate() {
+            let prefix = strings
+                .get(prefix)
+                .with_context(|| anyhow!("Bad prefix string at lookup {i}"))?;
+
+            let suffix = strings
+                .get(suffix)
+                .with_context(|| anyhow!("Bad suffix string at lookup {i}"))?;
+
+            let mut string = prefix.to_vec();
+            string.extend(suffix);
+            index.lookup.insert(string, value);
+        }
+
+        index.by_pos = index_data.by_pos;
+        index.by_sequence = index_data.by_sequence;
+
+        Ok(Self {
+            header,
+            index,
+            data,
+        })
     }
 
     /// Get identifier by sequence.
     pub fn lookup_sequence(&self, sequence: u64) -> Option<Id> {
         let &index = self.index.by_sequence.get(&sequence)?;
-
-        Some(Id {
-            index,
-            extra: IndexExtra::None,
-        })
+        Some(Id::new(index))
     }
 
     /// Get an entry from the database.
@@ -248,8 +285,8 @@ impl<'a> Database<'a> {
 
 /// A collection of indexes.
 pub struct Indexes<'a> {
-    by_pos: Option<&'a HashSet<u32>>,
-    iter: Option<hash_set::Iter<'a, u32>>,
+    by_pos: Option<&'a HashSet<usize>>,
+    iter: Option<hash_set::Iter<'a, usize>>,
 }
 
 impl Indexes<'_> {
@@ -259,7 +296,7 @@ impl Indexes<'_> {
             return false;
         };
 
-        by_pos.contains(&id.index)
+        by_pos.contains(&id.index())
     }
 }
 
@@ -269,10 +306,6 @@ impl Iterator for Indexes<'_> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let &index = self.iter.as_mut()?.next()?;
-
-        Some(Id {
-            index,
-            extra: IndexExtra::None,
-        })
+        Some(Id::new(index))
     }
 }

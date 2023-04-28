@@ -36,12 +36,6 @@ fn main() -> Result<()> {
         .unwrap_or(Path::new("."))
         .join("database.bin");
 
-    let index_path = args
-        .out
-        .as_deref()
-        .unwrap_or(Path::new("."))
-        .join("index.bin");
-
     let path = args
         .path
         .as_deref()
@@ -50,15 +44,12 @@ fn main() -> Result<()> {
     let start = Instant::now();
 
     let dict = load_dict(path).with_context(|| anyhow!("{}", path.display()))?;
-    let (data, index) = database::load(&dict)?;
+    let data = database::load(&dict)?;
 
     let duration = Instant::now().duration_since(start);
     tracing::info!(?duration);
 
     fs::write(&database_path, data).with_context(|| anyhow!("{}", database_path.display()))?;
-    fs::write(&index_path, index.to_bytes()?)
-        .with_context(|| anyhow!("{}", index_path.display()))?;
-
     Ok(())
 }
 

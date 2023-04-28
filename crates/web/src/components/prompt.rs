@@ -86,7 +86,11 @@ impl Prompt {
         self.entries.clear();
         let mut dedup = HashMap::new();
 
+        log::info!("looking up: {input}");
+
         for id in ctx.props().db.lookup(input) {
+            log::info!("found: {id:?}");
+
             let Ok(entry) = ctx.props().db.get(id) else {
                 continue;
             };
@@ -297,9 +301,13 @@ impl Component for Prompt {
                 Some(i)
             };
 
-            let onclick = ctx.link().callback(move |_: MouseEvent| match event {
-                Some(i) => Msg::Analyze(i),
-                None => Msg::AnalyzeCycle,
+            let onclick = ctx.link().callback(move |e: MouseEvent| {
+                e.prevent_default();
+
+                match event {
+                    Some(i) => Msg::Analyze(i),
+                    None => Msg::AnalyzeCycle,
+                }
             });
 
             let class = classes! {

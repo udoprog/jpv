@@ -7,10 +7,10 @@ use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use lib::database::{Database, IndexExtra, IndexRef};
+use lib::adjective;
+use lib::database::{Database, IndexExtra};
 use lib::verb;
-use lib::{adjective, Flag};
-use lib::{Furigana, PartOfSpeech};
+use lib::{Form, Furigana, PartOfSpeech};
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
@@ -23,9 +23,9 @@ struct Args {
     /// List available parts of speech options an exit.
     #[arg(long)]
     list_pos: bool,
-    /// Do not show inflections.
+    /// Perform inflection.
     #[arg(long)]
-    no_inflection: bool,
+    inflection: bool,
     /// Show examples for results.
     #[arg(long)]
     examples: bool,
@@ -63,20 +63,6 @@ fn load_database(_: &Path) -> Result<Cow<'static, [u8]>> {
     Ok(Cow::Borrowed(BYTES))
 }
 
-#[cfg(not(feature = "embed"))]
-#[inline]
-fn load_index(path: &Path) -> Result<Cow<'static, [u8]>> {
-    let index = std::fs::read(path)?;
-    Ok(Cow::Owned(index))
-}
-
-#[cfg(feature = "embed")]
-#[inline]
-fn load_index(_: &Path) -> Result<Cow<'static, [u8]>> {
-    const BYTES: &[u8] = include_bytes!("../../../index.bin");
-    Ok(Cow::Borrowed(BYTES))
-}
-
 fn main() -> Result<()> {
     let filter = EnvFilter::builder().from_env_lossy();
 
@@ -86,7 +72,6 @@ fn main() -> Result<()> {
         .try_init()?;
 
     let database_path = Path::new("database.bin");
-    let index_path = Path::new("index.bin");
 
     let args = Args::try_parse()?;
 
@@ -103,10 +88,7 @@ fn main() -> Result<()> {
     let data =
         load_database(database_path).with_context(|| anyhow!("{}", database_path.display()))?;
 
-    let index = load_index(index_path).with_context(|| anyhow!("{}", index_path.display()))?;
-    let index = IndexRef::from_bytes(index.as_ref())?;
-
-    let db = Database::new(data.as_ref(), index);
+    let db = Database::new(data.as_ref())?;
 
     let mut to_look_up = BTreeSet::new();
 
@@ -199,7 +181,7 @@ fn main() -> Result<()> {
             }
         }
 
-        if args.no_inflection || (to_look_up.len() > 1 && args.sequences.is_empty()) {
+        if !args.inflection || (to_look_up.len() > 1 && args.sequences.is_empty()) {
             continue;
         }
 
@@ -218,7 +200,7 @@ fn main() -> Result<()> {
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
             for (c, form) in c.inflections {
-                if args.polite != c.flag.contains(Flag::Polite) {
+                if args.polite != c.form.contains(Form::Polite) {
                     continue;
                 }
 
@@ -234,7 +216,7 @@ fn main() -> Result<()> {
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
             for (c, form) in c.inflections {
-                if args.polite != c.flag.contains(Flag::Polite) {
+                if args.polite != c.form.contains(Form::Polite) {
                     continue;
                 }
 
