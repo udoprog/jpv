@@ -20,7 +20,7 @@ use crate::PartOfSpeech;
 const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 
 /// Extra information about an index.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 #[non_exhaustive]
 pub enum IndexExtra {
     /// No extra information on why the index was added.
@@ -30,6 +30,7 @@ pub enum IndexExtra {
     /// Index was added because of an adjective inflection.
     AdjectiveInflection(Inflection),
 }
+
 impl IndexExtra {
     /// Test if extra indicates an inflection.
     pub fn is_inflection(&self) -> bool {
@@ -42,45 +43,47 @@ impl IndexExtra {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
-enum IdKind {
-    /// An exact dictionary index.
-    Exact(usize),
-    /// A lookup based on a inflection.
-    VerbInflection(usize, Inflection),
-    /// A lookup based on an adjective inflection.
-    AdjectiveInflection(usize, Inflection),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
 pub struct Id {
-    kind: IdKind,
+    index: usize,
+    extra: IndexExtra,
 }
 
 impl Id {
+    fn new(index: usize) -> Self {
+        Self {
+            index,
+            extra: IndexExtra::None,
+        }
+    }
+
+    fn verb_inflection(index: usize, inflection: Inflection) -> Self {
+        Self {
+            index,
+            extra: IndexExtra::VerbInflection(inflection),
+        }
+    }
+
+    fn adjective_inflection(index: usize, inflection: Inflection) -> Self {
+        Self {
+            index,
+            extra: IndexExtra::AdjectiveInflection(inflection),
+        }
+    }
+
     /// Get the unique index this id corresponds to.
     pub fn index(&self) -> usize {
-        match self.kind {
-            IdKind::Exact(index) => index,
-            IdKind::VerbInflection(index, _) => index,
-            IdKind::AdjectiveInflection(index, _) => index,
-        }
+        self.index
     }
 
     /// Extra information on index.
     pub fn extra(&self) -> IndexExtra {
-        match self.kind {
-            IdKind::Exact(_) => IndexExtra::None,
-            IdKind::VerbInflection(_, inflection) => IndexExtra::VerbInflection(inflection),
-            IdKind::AdjectiveInflection(_, inflection) => {
-                IndexExtra::AdjectiveInflection(inflection)
-            }
-        }
+        self.extra
     }
 }
 
 #[derive(Encode)]
 pub struct Index {
-    lookup: HashMap<String, Vec<IdKind>>,
+    lookup: HashMap<String, Vec<Id>>,
     by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
     by_sequence: HashMap<u64, usize>,
 }
@@ -94,7 +97,7 @@ impl Index {
 
 #[derive(Decode)]
 pub struct IndexRef<'a> {
-    lookup: HashMap<&'a [u8], Vec<IdKind>>,
+    lookup: HashMap<&'a [u8], Vec<Id>>,
     by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
     by_sequence: HashMap<u64, usize>,
 }
@@ -109,7 +112,7 @@ impl<'a> IndexRef<'a> {
 /// Load the given dictionary and convert into the internal format.
 pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
     let mut data = Vec::new();
-    let mut lookup = HashMap::<_, Vec<IdKind>>::new();
+    let mut lookup = HashMap::<_, Vec<Id>>::new();
     let mut by_pos = HashMap::<_, HashSet<usize>>::new();
     let mut by_sequence = HashMap::new();
 
@@ -131,7 +134,7 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
                 lookup
                     .entry(g.text.to_string())
                     .or_default()
-                    .push(IdKind::Exact(index));
+                    .push(Id::new(index));
             }
         }
 
@@ -139,14 +142,14 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
             lookup
                 .entry(el.text.to_string())
                 .or_default()
-                .push(IdKind::Exact(index));
+                .push(Id::new(index));
         }
 
         for el in &entry.kanji_elements {
             lookup
                 .entry(el.text.to_string())
                 .or_default()
-                .push(IdKind::Exact(index));
+                .push(Id::new(index));
         }
 
         if let Some(c) = verb::conjugate(&entry) {
@@ -154,7 +157,7 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
                 lookup
                     .entry(phrase.to_string())
                     .or_default()
-                    .push(IdKind::VerbInflection(index, inflection));
+                    .push(Id::verb_inflection(index, inflection));
             }
         }
 
@@ -163,7 +166,7 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
                 lookup
                     .entry(phrase.to_string())
                     .or_default()
-                    .push(IdKind::AdjectiveInflection(index, inflection));
+                    .push(Id::adjective_inflection(index, inflection));
             }
         }
 
@@ -175,6 +178,7 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
         by_pos,
         by_sequence,
     };
+
     Ok((data, index))
 }
 
@@ -192,10 +196,7 @@ impl<'a> Database<'a> {
     /// Get identifier by sequence.
     pub fn lookup_sequence(&self, sequence: u64) -> Option<Id> {
         let &index = self.index.by_sequence.get(&sequence)?;
-
-        Some(Id {
-            kind: IdKind::Exact(index),
-        })
+        Some(Id::new(index))
     }
 
     /// Get an entry from the database.
@@ -225,7 +226,6 @@ impl<'a> Database<'a> {
             .into_iter()
             .flatten()
             .copied()
-            .map(|kind| Id { kind })
     }
 
     /// Test if db contains the given string.
@@ -242,18 +242,12 @@ pub struct Indexes<'a> {
 
 impl Indexes<'_> {
     /// Test if the indexes collections contains the given index.
-    pub fn contains(&self, index: &Id) -> bool {
+    pub fn contains(&self, id: &Id) -> bool {
         let Some(by_pos) = &self.by_pos else {
             return false;
         };
 
-        let index = match &index.kind {
-            IdKind::Exact(index) => index,
-            IdKind::VerbInflection(index, ..) => index,
-            IdKind::AdjectiveInflection(index, ..) => index,
-        };
-
-        by_pos.contains(index)
+        by_pos.contains(&id.index)
     }
 }
 
@@ -265,7 +259,8 @@ impl Iterator for Indexes<'_> {
         let &index = self.iter.as_mut()?.next()?;
 
         Some(Id {
-            kind: IdKind::Exact(index),
+            index,
+            extra: IndexExtra::None,
         })
     }
 }
