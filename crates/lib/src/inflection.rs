@@ -6,7 +6,6 @@ use fixed_map::{Key, Set};
 use musli::{Decode, Encode};
 
 use crate::kana::{Pair, Word};
-use crate::Concat;
 
 /// Helper to construct a particular [`Inflection`].
 ///
@@ -160,9 +159,7 @@ impl<'a> Inflections<'a> {
     }
 
     /// Iterate over all inflections.
-    pub fn iter(&self) -> impl Iterator<Item = (Inflection, Concat<'a, 6>)> + '_ {
-        self.inflections
-            .iter()
-            .flat_map(|(k, p)| p.clone().into_iter().map(|p| (*k, p)))
+    pub fn iter(&self) -> impl Iterator<Item = (&Inflection, &Pair<'a, 3, 4>)> + '_ {
+        self.inflections.iter()
     }
 }

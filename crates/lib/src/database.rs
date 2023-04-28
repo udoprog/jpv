@@ -153,22 +153,28 @@ pub fn load(dict: &str) -> Result<(Vec<u8>, Index)> {
         }
 
         if let Some(c) = verb::conjugate(&entry) {
-            for (inflection, phrase) in c.iter() {
-                lookup
-                    .entry(phrase.to_string())
-                    .or_default()
-                    .push(Id::verb_inflection(index, inflection));
+            for (inflection, pair) in c.iter() {
+                for word in [pair.kanji(), pair.reading()] {
+                    let word = format!("{word}{}", pair.suffix());
+
+                    lookup
+                        .entry(word)
+                        .or_default()
+                        .push(Id::verb_inflection(index, *inflection));
+                }
             }
         }
 
         if let Some(c) = adjective::conjugate(&entry) {
-            for (inflection, word) in c.iter() {
-                let word = word.to_string();
+            for (inflection, pair) in c.iter() {
+                for word in [pair.kanji(), pair.reading()] {
+                    let word = format!("{word}{}", pair.suffix());
 
-                lookup
-                    .entry(word)
-                    .or_default()
-                    .push(Id::adjective_inflection(index, inflection));
+                    lookup
+                        .entry(word)
+                        .or_default()
+                        .push(Id::adjective_inflection(index, *inflection));
+                }
             }
         }
 

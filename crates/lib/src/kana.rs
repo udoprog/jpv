@@ -56,6 +56,21 @@ impl<'a, const N: usize, const S: usize> Pair<'a, N, S> {
         }
     }
 
+    /// Access kanji prefix.
+    pub(crate) fn kanji(&self) -> &Concat<'a, N> {
+        &self.kanji
+    }
+
+    /// Access reading prefix.
+    pub(crate) fn reading(&self) -> &Concat<'a, N> {
+        &self.reading
+    }
+
+    /// Access shared suffix.
+    pub(crate) fn suffix(&self) -> &Concat<'a, S> {
+        &self.suffix
+    }
+
     pub fn furigana(&self) -> Furigana<'a, N, S> {
         Furigana::inner(
             self.kanji.clone(),
@@ -64,34 +79,16 @@ impl<'a, const N: usize, const S: usize> Pair<'a, N, S> {
         )
     }
 
-    /// Coerce into an iterator.
-    ///
-    /// We use this instead of implementing [`IntoIterator`] because it allows
-    /// the caller to control the size of the constructed composites.
-    pub fn into_iter<const O: usize>(self) -> impl Iterator<Item = Concat<'a, O>> {
-        let kanji = Concat::<O>::new(
-            self.kanji
-                .as_slice()
-                .iter()
-                .chain(self.suffix.as_slice())
-                .copied(),
-        );
-        let reading = Concat::<O>::new(
-            self.reading
-                .as_slice()
-                .iter()
-                .chain(self.suffix.as_slice())
-                .copied(),
-        );
-        [kanji, reading].into_iter()
-    }
-
     /// Append suffixes to this pair.
-    pub(crate) fn suffix<const U: usize>(&self, strings: [&'a str; U]) -> Self {
+    pub(crate) fn concat<I, T>(&self, strings: I) -> Self
+    where
+        I: IntoIterator<Item = &'a T>,
+        T: 'a + ?Sized + AsRef<str>,
+    {
         let mut suffix = self.suffix.clone();
 
         for string in strings {
-            suffix.push_str(string);
+            suffix.push_str(string.as_ref());
         }
 
         Self {
