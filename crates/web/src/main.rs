@@ -1,4 +1,5 @@
 mod components;
+mod fetch;
 
 use std::sync::Arc;
 
@@ -12,7 +13,7 @@ enum Msg {}
 
 #[derive(Properties)]
 struct Props {
-    db: Arc<lib::database::Database<'static>>,
+    db: Arc<Option<lib::database::Database<'static>>>,
 }
 
 impl PartialEq for Props {
@@ -44,7 +45,9 @@ const DATABASE: &[u8] = include_bytes!("../../../database.bin");
 
 fn main() -> anyhow::Result<()> {
     wasm_logger::init(wasm_logger::Config::default());
-    let db = Arc::new(lib::database::Database::new(DATABASE.as_ref()).context("loading database")?);
+    let db = Arc::new(Some(
+        lib::database::Database::new(DATABASE.as_ref()).context("loading database")?,
+    ));
     log::info!("Started up");
     yew::Renderer::<App>::with_props(Props { db }).render();
     Ok(())

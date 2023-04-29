@@ -5,12 +5,14 @@ mod index;
 mod strings;
 
 use std::collections::{hash_set, HashSet};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::{Fixed, FixedUsize, Variable};
 use musli_storage::Encoding;
+use serde::{Deserialize, Serialize};
 
 use crate::adjective;
 use crate::elements::Entry;
@@ -27,14 +29,20 @@ const HEADER_ENCODING: Encoding<DefaultMode, Fixed, FixedUsize<u32>> =
     Encoding::new().with_fixed_integers().with_fixed_lengths();
 
 /// Extra information about an index.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Encode, Decode,
+)]
 #[non_exhaustive]
+#[serde(tag = "type")]
 pub enum IndexExtra {
     /// No extra information on why the index was added.
+    #[serde(rename = "none")]
     None,
     /// Index was added because of a verb inflection.
+    #[serde(rename = "verb")]
     VerbInflection(Inflection),
     /// Index was added because of an adjective inflection.
+    #[serde(rename = "adj")]
     AdjectiveInflection(Inflection),
 }
 
@@ -49,7 +57,9 @@ impl IndexExtra {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Encode, Decode,
+)]
 pub struct Id {
     index: u32,
     extra: IndexExtra,
@@ -189,10 +199,11 @@ pub fn load(dict: &str) -> Result<Vec<u8>> {
     Ok(output)
 }
 
+#[derive(Clone)]
 pub struct Database<'a> {
     #[allow(unused)]
-    header: file::Header,
-    index: index::Index,
+    header: Arc<file::Header>,
+    index: Arc<index::Index>,
     data: &'a [u8],
 }
 
@@ -236,8 +247,8 @@ impl<'a> Database<'a> {
         index.by_sequence = index_data.by_sequence;
 
         Ok(Self {
-            header,
-            index,
+            header: Arc::new(header),
+            index: Arc::new(index),
             data,
         })
     }

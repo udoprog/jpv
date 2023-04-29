@@ -1,6 +1,7 @@
 use musli::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Encode, Decode)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
 pub enum PriorityKind {
     /// Common words.
     Ichi,
@@ -14,7 +15,7 @@ pub enum PriorityKind {
     WordFrequency,
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Priority {
     level: u8,

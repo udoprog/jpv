@@ -9,13 +9,15 @@ use anyhow::ensure;
 use anyhow::{anyhow, Context, Result};
 use fixed_map::Set;
 use musli::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct KanjiElement<'a> {
     pub text: &'a str,
     pub priority: Vec<Priority>,
     #[musli(with = crate::musli::set::<_>)]
+    #[serde(with = "crate::serde::set")]
     pub info: Set<KanjiInfo>,
 }
 

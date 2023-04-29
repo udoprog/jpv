@@ -3,6 +3,7 @@ use std::mem;
 
 use anyhow::{Context, Result};
 use musli::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use crate::elements::{kanji_element, reading_element, sense, text};
 use crate::elements::{KanjiElement, ReadingElement, Sense};
@@ -51,12 +52,15 @@ pub struct EntryKey {
     sequence: u64,
 }
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Entry<'a> {
     pub sequence: u64,
+    #[serde(borrow)]
     pub reading_elements: Vec<ReadingElement<'a>>,
+    #[serde(borrow)]
     pub kanji_elements: Vec<KanjiElement<'a>>,
+    #[serde(borrow)]
     pub senses: Vec<Sense<'a>>,
 }
 

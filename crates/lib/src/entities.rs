@@ -1,5 +1,6 @@
 use fixed_map::Key;
 use musli::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 macro_rules! entity {
     (
@@ -58,7 +59,7 @@ macro_rules! entity {
 }
 
 entity! {
-    #[derive(Encode, Decode)]
+    #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum Miscellaneous {
         <Abbreviation "abbr" "abbreviation">
         <Archaic "arch" "archaic">
@@ -119,7 +120,7 @@ entity! {
 }
 
 entity! {
-    #[derive(Encode, Decode)]
+    #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum PartOfSpeech {
         <AdjectiveF "adj-f" "noun or verb acting prenominally">
         <AdjectiveI "adj-i" "adjective (keiyoushi)">
@@ -217,7 +218,7 @@ entity! {
 }
 
 entity! {
-    #[derive(Encode, Decode)]
+    #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum KanjiInfo {
         <Ateji "ateji" "ateji (phonetic) reading">
         <IrregularKana "ik" "word containing irregular kana usage">
@@ -230,7 +231,7 @@ entity! {
 }
 
 entity! {
-    #[derive(Encode, Decode)]
+    #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum ReadingInfo {
         <Gikun "gikun" "gikun (meaning as reading) or jukujikun (special kanji reading)">
         <IrregularKana "ik" "word containing irregular kana usage">
@@ -240,7 +241,7 @@ entity! {
 }
 
 entity! {
-    #[derive(Encode, Decode)]
+    #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum Dialect {
         <Brazilian "bra" "Brazilian">
         <HokkaidoBen "hob" "Hokkaido-ben">
@@ -258,7 +259,7 @@ entity! {
 }
 
 entity! {
-    #[derive(Encode, Decode)]
+    #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum Field {
         <Agric "agric" "agriculture">
         <Anat "anat" "anatomy">

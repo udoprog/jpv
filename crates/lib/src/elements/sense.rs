@@ -4,16 +4,15 @@ use core::mem;
 use anyhow::{anyhow, ensure, Context, Result};
 use fixed_map::Set;
 use musli::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use crate::elements::{example, gloss, source_language, text};
 use crate::elements::{Example, Glossary, SourceLanguage};
-use crate::entities::Dialect;
-use crate::entities::Field;
-use crate::entities::{Miscellaneous, PartOfSpeech};
+use crate::entities::{Dialect, Field, Miscellaneous, PartOfSpeech};
 
 const DEFAULT_LANGUAGE: &str = "eng";
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Sense<'a> {
     /// Cross reference to other entries.
@@ -28,12 +27,16 @@ pub struct Sense<'a> {
     pub examples: Vec<Example<'a>>,
     /// Part of speech.
     #[musli(with = crate::musli::set::<_>)]
+    #[serde(with = "crate::serde::set")]
     pub pos: Set<PartOfSpeech>,
     #[musli(with = crate::musli::set::<_>)]
+    #[serde(with = "crate::serde::set")]
     pub misc: Set<Miscellaneous>,
     #[musli(with = crate::musli::set::<_>)]
+    #[serde(with = "crate::serde::set")]
     pub dialect: Set<Dialect>,
     #[musli(with = crate::musli::set::<_>)]
+    #[serde(with = "crate::serde::set")]
     pub field: Set<Field>,
 }
 

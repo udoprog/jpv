@@ -31,6 +31,8 @@ pub mod database;
 
 mod musli;
 
+mod serde;
+
 #[doc(hidden)]
 pub mod macro_support {
     pub use fixed_map;

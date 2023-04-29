@@ -12,5 +12,6 @@ log = "0.4.17"
 musli = "0.0.39"
 musli-storage = "0.0.39"
 relative-path = "1.8.0"
+serde = { version = "1.0.160", features = ["derive"] }
 tracing = "0.1.38"
 xmlparser = "0.13.5"

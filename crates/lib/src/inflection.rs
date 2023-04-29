@@ -4,6 +4,7 @@ use std::{collections::BTreeMap, ops::BitXor};
 
 use fixed_map::{Key, Set};
 use musli::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use crate::kana::{Pair, Word};
 
@@ -169,9 +170,23 @@ impl Form {
     }
 }
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode)]
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+)]
 pub struct Inflection {
     #[musli(with = crate::musli::set::<_>)]
+    #[serde(with = "crate::serde::set")]
     form: Set<Form>,
 }
 

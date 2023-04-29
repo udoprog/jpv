@@ -2,10 +2,11 @@ use core::fmt;
 
 use anyhow::{bail, Result};
 use musli::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use crate::parser::{Output, Poll};
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct SourceLanguage<'a> {
     pub text: Option<&'a str>,

@@ -5,16 +5,20 @@ use std::mem;
 
 use anyhow::Result;
 use musli::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 pub use self::example_sent::ExampleSent;
 pub use self::example_source::ExampleSource;
 use crate::elements::text;
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Example<'a> {
+    #[serde(borrow)]
     pub sent: Vec<ExampleSent<'a>>,
+    #[serde(borrow)]
     pub sources: Vec<ExampleSource<'a>>,
+    #[serde(borrow)]
     pub texts: Vec<&'a str>,
 }
 

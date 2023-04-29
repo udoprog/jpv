@@ -2,20 +2,23 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
-use lib::database::IndexExtra;
+use lib::database::{Id, IndexExtra};
 use lib::elements::{Entry, EntryKey};
 use lib::romaji;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
-use crate::components as c;
+use crate::fetch::FetchError;
+use crate::{components as c, fetch};
 
 pub(crate) enum Msg {
     Change(String),
     Analyze(usize),
     AnalyzeCycle,
     HistoryChanged(Location),
+    SearchResponse(String, String),
+    Error(FetchError),
 }
 
 #[derive(Default, Debug)]
@@ -82,19 +85,14 @@ pub(crate) struct Prompt {
 }
 
 impl Prompt {
-    fn refresh(&mut self, ctx: &Context<Self>, input: &str) {
+    fn handle_entries<'a, I>(&mut self, input: &str, entries: I)
+    where
+        I: IntoIterator<Item = (Id, Entry<'static>)>,
+    {
         self.entries.clear();
         let mut dedup = HashMap::new();
 
-        for id in ctx.props().db.lookup(input) {
-            let entry = match ctx.props().db.get(id) {
-                Ok(entry) => entry,
-                Err(error) => {
-                    log::error!("Error in entry: {id:?}: {error}");
-                    continue;
-                }
-            };
-
+        for (id, entry) in entries {
             let Some(&i) = dedup.get(&id.index()) else {
                 dedup.insert(id.index(), self.entries.len());
 
@@ -124,7 +122,36 @@ impl Prompt {
         self.entries.sort_by(|a, b| a.0.key.cmp(&b.0.key));
     }
 
+    fn refresh(&mut self, ctx: &Context<Self>, input: &str) {
+        if let Some(db) = &*ctx.props().db {
+            let iter = db.lookup(input);
+
+            let iter = iter.flat_map(|id| match db.get(id) {
+                Ok(entry) => Some((id, entry)),
+                Err(error) => {
+                    log::error!("Error in entry: {id:?}: {error}");
+                    None
+                }
+            });
+
+            self.handle_entries(input, iter);
+        } else {
+            let input = input.to_owned();
+
+            ctx.link().send_future(async move {
+                match fetch::search(&input).await {
+                    Ok(entries) => Msg::SearchResponse(input, entries),
+                    Err(error) => Msg::Error(error),
+                }
+            });
+        }
+    }
+
     fn analyze(&mut self, ctx: &Context<Self>, start: usize) -> BTreeMap<EntryKey, String> {
+        let Some(db) = &*ctx.props().db else {
+            return BTreeMap::new();
+        };
+
         let mut inputs = BTreeMap::new();
 
         let Some(suffix) = self.query.q.get(start..) else {
@@ -136,8 +163,8 @@ impl Prompt {
         while !it.as_str().is_empty() {
             let mut sort_key = None;
 
-            for id in ctx.props().db.lookup(it.as_str()) {
-                let Ok(e) = ctx.props().db.get(id) else {
+            for id in db.lookup(it.as_str()) {
+                let Ok(e) = db.get(id) else {
                     continue;
                 };
 
@@ -186,7 +213,7 @@ impl Prompt {
 
 #[derive(Properties)]
 pub(crate) struct Props {
-    pub(crate) db: Arc<lib::database::Database<'static>>,
+    pub(crate) db: Arc<Option<lib::database::Database<'static>>>,
 }
 
 impl PartialEq for Props {
@@ -217,6 +244,11 @@ impl Component for Prompt {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::Error(error) => {
+                log::error!("Failed to fetch: {error}");
+                false
+            }
+            Msg::SearchResponse(..) => true,
             Msg::Change(input) => {
                 let input = process_query(&input);
                 self.refresh(ctx, &input);

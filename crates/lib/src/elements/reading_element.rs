@@ -5,13 +5,15 @@ use std::collections::HashSet;
 use anyhow::ensure;
 use anyhow::{anyhow, Context, Result};
 use musli::{Decode, Encode};
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::elements::empty;
 use crate::elements::text;
 use crate::entities::ReadingInfo;
 use crate::priority::Priority;
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct ReadingElement<'a> {
     pub text: &'a str,
