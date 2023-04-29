@@ -48,7 +48,7 @@ where
 
     #[inline]
     fn to_owned(&self) -> Self::Owned {
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(self.len());
 
         for value in self.iter() {
             out.push(value.to_owned());
@@ -67,7 +67,7 @@ where
 
     #[inline]
     fn to_owned(&self) -> Self::Owned {
-        let mut out = HashSet::new();
+        let mut out = HashSet::with_capacity(self.len());
 
         for value in self.iter() {
             out.insert(value.to_owned());

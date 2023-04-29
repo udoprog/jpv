@@ -42,7 +42,7 @@ where
 
     #[inline]
     fn borrow(&self) -> Self::Target<'_> {
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(self.len());
 
         for value in self {
             out.push(value.borrow());
@@ -61,7 +61,7 @@ where
 
     #[inline]
     fn borrow(&self) -> Self::Target<'_> {
-        let mut out = HashSet::new();
+        let mut out = HashSet::with_capacity(self.len());
 
         for value in self {
             out.insert(value.borrow());
