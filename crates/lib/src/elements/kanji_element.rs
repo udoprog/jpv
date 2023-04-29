@@ -3,6 +3,7 @@ use core::mem;
 
 use crate::elements::text;
 use crate::entities::KanjiInfo;
+
 use crate::priority::Priority;
 
 use anyhow::ensure;
@@ -13,11 +14,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
+#[owned::to_owned]
 pub struct KanjiElement<'a> {
+    #[to_owned(ty = String)]
     pub text: &'a str,
     pub priority: Vec<Priority>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(with = "crate::serde::set")]
+    #[to_owned(copy)]
     pub info: Set<KanjiInfo>,
 }
 

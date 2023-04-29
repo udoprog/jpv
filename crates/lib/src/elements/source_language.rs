@@ -8,10 +8,15 @@ use crate::parser::{Output, Poll};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
+#[owned::to_owned]
 pub struct SourceLanguage<'a> {
+    #[to_owned(ty = Option<String>)]
     pub text: Option<&'a str>,
+    #[to_owned(ty = Option<String>)]
     pub lang: Option<&'a str>,
+    #[to_owned(copy)]
     pub waseigo: bool,
+    #[to_owned(ty = Option<String>)]
     pub ty: Option<&'a str>,
 }
 

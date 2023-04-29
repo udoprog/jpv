@@ -6,8 +6,11 @@ use crate::parser::{Output, Poll};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
+#[owned::to_owned]
 pub struct ExampleSent<'a> {
+    #[to_owned(ty = String)]
     pub text: &'a str,
+    #[to_owned(ty = Option<String>)]
     pub lang: Option<&'a str>,
 }
 

@@ -7,36 +7,48 @@ use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::elements::{example, gloss, source_language, text};
-use crate::elements::{Example, Glossary, SourceLanguage};
+use crate::elements::{
+    Example, Glossary, OwnedExample, OwnedGlossary, OwnedSourceLanguage, SourceLanguage,
+};
 use crate::entities::{Dialect, Field, Miscellaneous, PartOfSpeech};
 
 const DEFAULT_LANGUAGE: &str = "eng";
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
+#[owned::to_owned]
 pub struct Sense<'a> {
-    /// Cross reference to other entries.
+    #[to_owned(ty = Vec<String>)]
     pub xref: Vec<&'a str>,
-    /// Glossary items.
+    #[to_owned(ty = Vec<OwnedGlossary>)]
     pub gloss: Vec<Glossary<'a>>,
+    #[to_owned(ty = Option<String>)]
     pub info: Option<&'a str>,
+    #[to_owned(ty = Vec<String>)]
     pub stagk: Vec<&'a str>,
+    #[to_owned(ty = Vec<String>)]
     pub stagr: Vec<&'a str>,
+    #[to_owned(ty = Vec<OwnedSourceLanguage>)]
     pub source_language: Vec<SourceLanguage<'a>>,
+    #[to_owned(ty = Vec<String>)]
     pub antonym: Vec<&'a str>,
+    #[to_owned(ty = Vec<OwnedExample>)]
     pub examples: Vec<Example<'a>>,
-    /// Part of speech.
     #[musli(with = crate::musli::set::<_>)]
     #[serde(with = "crate::serde::set")]
+    #[to_owned(copy)]
     pub pos: Set<PartOfSpeech>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(with = "crate::serde::set")]
+    #[to_owned(copy)]
     pub misc: Set<Miscellaneous>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(with = "crate::serde::set")]
+    #[to_owned(copy)]
     pub dialect: Set<Dialect>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(with = "crate::serde::set")]
+    #[to_owned(copy)]
     pub field: Set<Field>,
 }
 

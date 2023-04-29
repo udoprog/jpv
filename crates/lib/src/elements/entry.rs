@@ -6,7 +6,9 @@ use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::elements::{kanji_element, reading_element, sense, text};
-use crate::elements::{KanjiElement, ReadingElement, Sense};
+use crate::elements::{
+    KanjiElement, OwnedKanjiElement, OwnedReadingElement, OwnedSense, ReadingElement, Sense,
+};
 
 #[derive(Default, Clone, Copy, Debug)]
 struct Weight {
@@ -54,13 +56,17 @@ pub struct EntryKey {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
+#[owned::to_owned]
 pub struct Entry<'a> {
     pub sequence: u64,
     #[serde(borrow)]
+    #[to_owned(ty = Vec<OwnedReadingElement>)]
     pub reading_elements: Vec<ReadingElement<'a>>,
     #[serde(borrow)]
+    #[to_owned(ty = Vec<OwnedKanjiElement>)]
     pub kanji_elements: Vec<KanjiElement<'a>>,
     #[serde(borrow)]
+    #[to_owned(ty = Vec<OwnedSense>)]
     pub senses: Vec<Sense<'a>>,
 }
 

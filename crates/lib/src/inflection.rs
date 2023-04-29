@@ -13,9 +13,9 @@ use crate::kana::{Pair, Word};
 /// # Examples
 ///
 /// ```rust
-/// lib::inflect!(Present + Past);
-/// lib::inflect!(Present + Past + Polite);
-/// lib::inflect!(Present + Past + Alternate);
+/// lib::inflect!(Past);
+/// lib::inflect!(Past, Polite);
+/// lib::inflect!(Past, Alternate);
 /// ```
 #[macro_export]
 macro_rules! inflect {

@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use anyhow::ensure;
 use anyhow::{anyhow, Context, Result};
+use fixed_map::Set;
 use musli::{Decode, Encode};
 use serde::Deserialize;
 use serde::Serialize;
@@ -11,16 +12,23 @@ use serde::Serialize;
 use crate::elements::empty;
 use crate::elements::text;
 use crate::entities::ReadingInfo;
+
 use crate::priority::Priority;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
+#[owned::to_owned]
 pub struct ReadingElement<'a> {
+    #[to_owned(ty = String)]
     pub text: &'a str,
     pub no_kanji: bool,
+    #[to_owned(ty = HashSet<String>)]
     pub reading_string: HashSet<&'a str>,
     pub priority: Vec<Priority>,
-    pub info: Vec<ReadingInfo>,
+    #[musli(with = crate::musli::set::<_>)]
+    #[serde(with = "crate::serde::set")]
+    #[to_owned(copy)]
+    pub info: Set<ReadingInfo>,
 }
 
 impl<'a> ReadingElement<'a> {
@@ -90,7 +98,7 @@ pub(super) struct Builder<'a> {
     no_kanji: bool,
     reading_string: HashSet<&'a str>,
     priority: Vec<Priority>,
-    info: Vec<ReadingInfo>,
+    info: Set<ReadingInfo>,
 }
 
 impl<'a> Builder<'a> {
@@ -112,7 +120,7 @@ impl<'a> Builder<'a> {
             }
             "re_inf", Information, value => {
                 let info = ReadingInfo::parse(value).with_context(|| anyhow!("Unsupported info `{value}`"))?;
-                self.info.push(info);
+                self.info.insert(info);
             }
         }
     }

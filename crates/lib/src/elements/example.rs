@@ -7,18 +7,22 @@ use anyhow::Result;
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-pub use self::example_sent::ExampleSent;
-pub use self::example_source::ExampleSource;
+pub use self::example_sent::{ExampleSent, OwnedExampleSent};
+pub use self::example_source::{ExampleSource, OwnedExampleSource};
 use crate::elements::text;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
+#[owned::to_owned]
 pub struct Example<'a> {
     #[serde(borrow)]
+    #[to_owned(ty = Vec<OwnedExampleSent>)]
     pub sent: Vec<ExampleSent<'a>>,
     #[serde(borrow)]
+    #[to_owned(ty = Vec<OwnedExampleSource>)]
     pub sources: Vec<ExampleSource<'a>>,
     #[serde(borrow)]
+    #[to_owned(ty = Vec<String>)]
     pub texts: Vec<&'a str>,
 }
 

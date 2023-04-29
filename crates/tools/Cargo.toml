@@ -6,8 +6,8 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.70"
-flate2 = "1.0.25"
+flate2 = "1.0.26"
 clap = { version = "4.2.5", features = ["derive", "wrap_help"] }
-tracing = "0.1.38"
+tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 lib = { path = "../lib" }

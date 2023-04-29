@@ -57,9 +57,11 @@ pub(crate) mod source_language;
 pub(crate) mod text;
 
 pub use self::entry::{Entry, EntryKey};
-pub use self::example::Example;
-pub use self::gloss::Glossary;
-pub use self::kanji_element::KanjiElement;
-pub use self::reading_element::ReadingElement;
-pub use self::sense::Sense;
-pub use self::source_language::SourceLanguage;
+pub use self::example::{
+    Example, ExampleSent, ExampleSource, OwnedExample, OwnedExampleSent, OwnedExampleSource,
+};
+pub use self::gloss::{Glossary, OwnedGlossary};
+pub use self::kanji_element::{KanjiElement, OwnedKanjiElement};
+pub use self::reading_element::{OwnedReadingElement, ReadingElement};
+pub use self::sense::{OwnedSense, Sense};
+pub use self::source_language::{OwnedSourceLanguage, SourceLanguage};
