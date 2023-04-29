@@ -314,7 +314,7 @@ impl Component for Prompt {
                 html!(<c::Entry extras={data.extras.clone()} entry_key={data.key.clone()} entry={entry.clone()} />)
             });
 
-            html!(<div class="block-l">{for entries}</div>)
+            html!(<div class="block block-lg">{for entries}</div>)
         });
 
         let mut rem = 0;
@@ -354,19 +354,19 @@ impl Component for Prompt {
 
         let analyze_hint = (self.query.a.len() > 1).then(|| {
             html!(
-                <div class="block">{format!("{} / {}", self.query.i + 1, self.query.a.len())}</div>
+                <div class="block row">{format!("{} / {}", self.query.i + 1, self.query.a.len())}</div>
             )
         });
 
         html! {
             <BrowserRouter>
                 <div id="container">
-                    <div class="block-l" id="prompt">
+                    <div class="block block-lg row" id="prompt">
                         <input value={self.query.q.clone()} type="text" oninput={oninput} />
                     </div>
 
                     <>
-                        <div class="block" id="analyze">{for query}</div>
+                        <div class="block row" id="analyze">{for query}</div>
                         {for analyze_hint}
                         {for entries}
                     </>

@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::{array, iter};
 
 use lib::database::IndexExtra;
 use lib::elements::{Example, KanjiElement, ReadingElement, Sense};
@@ -106,11 +107,10 @@ impl Component for Entry {
         );
 
         let (reading, combined) = if entry.kanji_elements.is_empty() {
-            let reading = render_seq(entry.reading_elements.iter(), render_reading);
-
-            let reading = (!entry.reading_elements.is_empty())
-                .then(|| html!(<div class="block-l entry-reading">{for reading}</div>));
-
+            let reading = render_iter(
+                render_seq(entry.reading_elements.iter(), render_reading),
+                |iter| html!(<div class="block block-lg row entry-reading">{for iter}</div>),
+            );
             (reading, None)
         } else {
             let iter = entry.kanji_elements.iter().flat_map(|kanji| {
@@ -122,7 +122,7 @@ impl Component for Entry {
             let combined = render_seq(iter, render_combined);
 
             let combined = html! {
-                html!(<div class="block-l entry-kanji">{for combined}</div>)
+                html!(<div class="block block-lg row">{for combined}</div>)
             };
 
             let all_kanjis_rare = entry
@@ -142,31 +142,29 @@ impl Component for Entry {
             };
 
             let reading = render_seq(reading, render_reading);
-
-            let reading = (!entry.reading_elements.is_empty())
-                .then(|| html!(<div class="block-l entry-reading">{for reading}</div>));
-
+            let reading = render_iter(
+                reading,
+                |iter| html!(<div class="block block-lg row">{for iter}</div>),
+            );
             (reading, Some(combined))
         };
-
-        let senses = entry.senses.iter().enumerate().map(render_sense);
 
         let inflection = inflections.and_then(|inflections| {
             if self.show_inflection {
                 let iter = inflections.inflections.iter().map(|(inflection, word)| {
                     html! {
-                        <li class="inflections-entry block">
-                            <div class="inflections-key">{format!("{inflection:?}")}</div>
-                            <div class="inflections-value">{ruby(word.furigana())}</div>
+                        <li class="section">
+                            <div class="block">{format!("{inflection:?}")}</div>
+                            <div class="block text kanji highlight">{ruby(word.furigana())}</div>
                         </li>
                     }
                 });
 
                 Some(html! {
-                    <ul class="block section inflections">
-                        <li class="inflections-entry block">
-                            <div class="inflections-key">{"Dictionary"}</div>
-                            <div class="inflections-value">{ruby(inflections.dictionary.furigana())}</div>
+                    <ul class="block list-bulleted">
+                        <li class="section">
+                            <div class="block">{"Dictionary"}</div>
+                            <div class="block text kanji highlight">{ruby(inflections.dictionary.furigana())}</div>
                         </li>
                         {for iter}
                     </ul>
@@ -176,30 +174,37 @@ impl Component for Entry {
             }
         });
 
+        let senses = render_iter(
+            entry.senses.iter().enumerate().map(render_sense),
+            |iter| html!(<ul class="block list-numerical">{for iter}</ul>),
+        );
+
         let button = inflections.map(|_| {
             let onclick = ctx.link().callback(|_: MouseEvent| Msg::ToggleInflection);
 
             let button = if self.show_inflection {
-                html!(<button {onclick}>{"Hide inflections"}</button>)
+                "Hide inflections"
             } else {
-                html!(<button {onclick}>{"Show inflections"}</button>)
+                "Show inflections"
             };
 
             html! {
-                <div class="block section">{button}</div>
+                <div class="block row">
+                    <button class="btn btn-lg" {onclick}>{button}</button>
+                </div>
             }
         });
 
         let entry_key_style = format!("display: none;");
 
         html! {
-            <div class="block-l entry">
-                <div class="block-l section entry-sequence">{entry.sequence}</div>
-                <div class="block-l section entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
+            <div class="block block-lg entry">
+                <div class="block block-lg row entry-sequence">{entry.sequence}</div>
+                <div class="block block-lg row entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
                 {for extras}
                 {for reading}
                 {for combined}
-                <ul class="block-l section entry-senses">{for senses}</ul>
+                {for senses}
                 {for button}
                 {for inflection}
             </div>
@@ -208,9 +213,16 @@ impl Component for Entry {
 }
 
 macro_rules! bullets {
-    ($base:ident . $name:ident) => {
+    ($base:ident . $name:ident $(, $($tt:tt)*)?) => {
         $base.$name.iter().map(|d| {
-            html!(<span class={format!(concat!("bullet {name} {name}-{}"), d.ident(), name = stringify!($name))} title={d.help()}>{d.ident()}</span>)
+            let class = classes! {
+                "bullet",
+                stringify!($name),
+                format!("{}-{}", stringify!($name), d.ident()),
+                $($($tt)*)*
+            };
+
+            html!(<span class={class} title={d.help()}>{d.ident()}</span>)
         })
     }
 }
@@ -222,25 +234,31 @@ fn render_extra(
     inflections: Option<&Inflections<'_>>,
     filter: Inflection,
 ) -> Option<Html> {
-    let (extra, inflection) = match extra {
-        IndexExtra::VerbInflection(inflection) => (format!("Verb conjugation:"), Some(*inflection)),
-        IndexExtra::AdjectiveInflection(inflection) => {
-            (format!("Adjective inflection:"), Some(*inflection))
-        }
+    let (extra, inflection, title) = match extra {
+        IndexExtra::VerbInflection(inflection) => (
+            "Conjugation:",
+            Some(*inflection),
+            "Result based on verb conjugation",
+        ),
+        IndexExtra::AdjectiveInflection(inflection) => (
+            "Inflection:",
+            Some(*inflection),
+            "Result based on adverb inflection",
+        ),
         _ => return None,
     };
 
     let word = inflection.and_then(|inf| inflections.and_then(|i| i.get(inf ^ filter)));
 
-    let word = word
-        .map(|w| ruby(w.furigana()))
-        .map(|word| html!(<div class="block extra-word">{word}</div>));
+    let word = word.map(|w| ruby(w.furigana())).map(
+        |word| html!(<div class="block row"><span class="text kanji highlight">{word}</span></div>),
+    );
 
     let inflection = inflection.map(|i| render_inflection(ctx, index, i, filter, inflections));
 
     Some(html! {
-        <div class="block extra">
-            <div class="block">{extra}{for inflection}</div>
+        <div class="block notice">
+            <div class="block row"><span title={title}>{extra}</span>{for inflection}</div>
             {for word}
         </div>
     })
@@ -249,42 +267,44 @@ fn render_extra(
 fn render_sense((_, s): (usize, &Sense<'_>)) -> Html {
     let info = s
         .info
-        .map(|info| html!(<div class="block sense-info">{info}</div>));
+        .map(|info| html!(<div class="block row sense-info">{info}</div>));
 
     let stags = render_seq(
         s.stagr.iter().chain(s.stagk.iter()),
-        |text, not_last| html!(<><span class="sense-stag">{text}</span>{for not_last.then(sep)}</>),
+        |text, not_last| html!(<><span class="sense-stag">{text}</span>{for not_last.then(comma)}</>),
     );
 
     let stag = if !s.stagk.is_empty() || !s.stagr.is_empty() {
         Some(html! {
-            <div class="block sense-stags">{"Applies to: "}{for stags}</div>
+            <div class="block row sense-stags">{"Applies to: "}{for stags}</div>
         })
     } else {
         None
     };
 
-    let any =
-        !s.pos.is_empty() || !s.misc.is_empty() || !s.dialect.is_empty() || !s.field.is_empty();
+    let glossary = render_texts(s.gloss.iter().map(|gloss| gloss.text), None);
+    let bullets = bullets!(s.pos, "sm")
+        .chain(bullets!(s.misc, "sm"))
+        .chain(bullets!(s.dialect, "sm"))
+        .chain(bullets!(s.field, "sm"));
 
-    let bullets = any.then(|| {
-        let pos = bullets!(s.pos);
-        let misc = bullets!(s.misc);
-        let dialect = bullets!(s.dialect);
-        let field = bullets!(s.field);
-        html!(<span class="entry-sense-bullets">{for pos}{for misc}{for dialect}{for field}</span>)
-    });
+    let bullets = render_iter(
+        bullets,
+        |iter| html!(<span class="bullets">{for iter}</span>),
+    );
 
-    let glossary = render_texts(s.gloss.iter().map(|gloss| gloss.text));
-    let glossary = (!s.gloss.is_empty())
-        .then(move || html!(<div class="block entry-glossary">{for glossary}{for bullets}</div>));
+    let glossary = render_iter(
+        glossary.chain(bullets),
+        |iter| html!(<div class="block row entry-glossary">{for iter}</div>),
+    );
 
-    let examples = render_seq(s.examples.iter(), render_example);
-    let examples = (!s.examples.is_empty())
-        .then(move || html!(<div class="block entry-examples">{for examples}</div>));
+    let examples = render_iter(
+        render_seq(s.examples.iter(), render_example),
+        |iter| html!(<div class="block entry-examples">{for iter}</div>),
+    );
 
     html! {
-        <li class="block-l entry-sense">
+        <li class="section entry-sense">
             {for glossary}
             {for info}
             {for stag}
@@ -294,27 +314,20 @@ fn render_sense((_, s): (usize, &Sense<'_>)) -> Html {
 }
 
 fn render_reading(reading: &ReadingElement<'_>, not_last: bool) -> Html {
-    let priority = (!reading.priority.is_empty()).then(move || {
-        let priority = reading.priority.iter().map(|p| {
-            html!(<span class={format!("bullet prio-{}", p.category())}>{p.category()}{p.level()}</span>)
-        });
-
-        html!(<span class="priority">{for priority}</span>)
+    let priority = reading.priority.iter().map(|p| {
+        html!(<span class={format!("bullet prio-{}", p.category())}>{p.category()}{p.level()}</span>)
     });
 
-    let info = (!reading.info.is_empty()).then(|| {
-        let info = bullets!(reading.info);
-        html!(<span class="info">{for info}</span>)
-    });
-
-    let bullets = (!reading.priority.is_empty() || !reading.info.is_empty())
-        .then(|| html!(<span class="entry-reading-bullets">{for priority}{for info}</span>));
+    let bullets = render_iter(
+        priority.chain(bullets!(reading.info)),
+        |iter| html!(<span class="bullets">{for iter}</span>),
+    );
 
     html! {
         <>
-            <span class="text">{reading.text}</span>
+            <span class="text kanji highlight">{reading.text}</span>
             {for bullets}
-            {for not_last.then(sep)}
+            {for not_last.then(comma)}
         </>
     }
 }
@@ -323,33 +336,23 @@ fn render_combined(
     (reading, kanji): (&ReadingElement<'_>, &KanjiElement<'_>),
     not_last: bool,
 ) -> Html {
-    let sep = not_last.then(sep);
-
-    let priority = (!kanji.priority.is_empty()).then(|| {
-        let priority = kanji.priority.iter().map(|p| {
-            html!(<span class={format!("bullet prio-{}", p.category())}>{p.category()}{p.level()}</span>)
-        });
-
-        html!(<span class="priority">{for priority}</span>)
+    let priority = kanji.priority.iter().map(|p| {
+        html!(<span class={format!("bullet prio-{}", p.category())}>{p.category()}{p.level()}</span>)
     });
 
-    let info = (!kanji.info.is_empty()).then(|| {
-        let info = bullets!(kanji.info);
-        html!(<span class="info">{for info}</span>)
-    });
-
-    let bullets = (!kanji.priority.is_empty() || !kanji.info.is_empty())
-        .then(move || html!(<span class="entry-kanji-bullets">{for priority}{for info}</span>));
+    let bullets = render_iter(
+        priority.chain(bullets!(kanji.info)),
+        |iter| html!(<span class="bullets">{for iter}</span>),
+    );
 
     let furigana = kana::Word::new(kanji.text, reading.text).furigana();
-
     let text = ruby(furigana);
 
     html! {
         <>
-            <span class="text">{text}</span>
+            <span class="text kanji highlight">{text}</span>
             {for bullets}
-            {for sep}
+            {for not_last.then(comma)}
         </>
     }
 }
@@ -376,15 +379,15 @@ fn ruby<const N: usize, const S: usize>(furigana: lib::Furigana<N, S>) -> Html {
 }
 
 fn render_example(example: &Example<'_>, _: bool) -> Html {
-    let texts = render_texts(example.texts.iter().copied());
+    let texts = render_texts(example.texts.iter().copied(), Some("highlight"));
 
     let sent = example
         .sent
         .iter()
-        .map(|sent| html!(<span class="block entry-example-sentence">{sent.text}</span>));
+        .map(|sent| html!(<span>{sent.text}</span>));
 
     html! {
-        <div class="entry-example">{for texts}<span class="sep">{":"}</span>{for sent}</div>
+        <div class="block row entry-example">{for texts}<span class="sep">{":"}</span>{for sent}</div>
     }
 }
 
@@ -401,22 +404,27 @@ where
 }
 
 #[inline]
-fn render_texts<'a, I>(iter: I) -> impl Iterator<Item = Html> + 'a
+fn render_texts<'a, I>(iter: I, extra: Option<&'static str>) -> impl Iterator<Item = Html> + 'a
 where
     I: IntoIterator<Item = &'a str>,
     I::IntoIter: 'a + DoubleEndedIterator,
 {
-    render_seq(iter, |text, not_last| {
+    render_seq(iter, move |text, not_last| {
+        let class = classes! {
+            "text",
+            extra
+        };
+
         html! {
             <>
-                <span class="text">{text}</span>
-                {for not_last.then(sep)}
+                <span class={class}>{text}</span>
+                {for not_last.then(comma)}
             </>
         }
     })
 }
 
-fn sep() -> Html {
+fn comma() -> Html {
     html!(<span class="sep">{","}</span>)
 }
 
@@ -442,9 +450,10 @@ fn render_inflection(
         }
 
         let class = classes! {
+            "bullet",
+            "bullet-inflection",
             this.contains(f).then_some("active"),
             exists.then_some("clickable"),
-            "inflection-form"
         };
 
         let onclick = ctx
@@ -458,7 +467,17 @@ fn render_inflection(
         .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
     let reset = (!filter.is_empty())
-        .then(|| html!(<span class="inflection-reset active" {onclick}>{"Reset"}</span>));
+        .then(|| html!(<span class="bullet bullet-destructive active clickable" {onclick}>{"Reset"}</span>));
 
-    html!(<>{for form}{for reset}</>)
+    html!(<><span class="bullets">{for form}{for reset}</span></>)
+}
+
+fn render_iter<I, F, O>(iter: I, render: F) -> Option<O>
+where
+    I: IntoIterator,
+    F: FnOnce(iter::Chain<array::IntoIter<I::Item, 1>, I::IntoIter>) -> O,
+{
+    let mut iter = iter.into_iter();
+    let first = iter.next();
+    first.map(move |first| render([first].into_iter().chain(iter)))
 }
