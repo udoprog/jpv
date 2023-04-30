@@ -3,9 +3,9 @@ name = "owned"
 version = "0.0.0"
 authors = ["John-John Tedro <udoprog@tedro.se>"]
 edition = "2018"
-rust-version = "1.58"
+rust-version = "1.65"
 description = """
-Generate owned data structures side-by-side.
+The missing compositional borrowing for Rust.
 """
 documentation = "https://docs.rs/owned"
 readme = "README.md"
@@ -16,7 +16,8 @@ keywords = ["code-generation", "template"]
 categories = ["template-engine"]
 
 [dependencies]
-owned-macros = { path = "../owned-macros" }
+owned-macros = { path = "../owned-macros", version = "=0.0.0" }
 
 [dev-dependencies]
 serde = { version = "1.0.160", features = ["derive"] }
+trybuild = "1.0.80"

@@ -4,7 +4,7 @@ use super::Furigana;
 
 #[test]
 fn test_mixed_furigana() {
-    let furigana = Furigana::new("私はお金がない星", "わたしはおかねがないほし");
+    let furigana = Furigana::new("私はお金がない星", "わたしはおかねがないほし", "");
     assert_eq!(furigana.to_string(), "私[わたし]はお金[かね]がない星[ほし]");
 
     assert_eq!(
@@ -21,7 +21,7 @@ fn test_mixed_furigana() {
 
 #[test]
 fn test_heading_furigana() {
-    let furigana = Furigana::new("お金がない星", "おかねがないほし");
+    let furigana = Furigana::new("お金がない星", "おかねがないほし", "");
 
     assert_eq!(
         furigana.iter().collect::<Vec<_>>(),
@@ -38,7 +38,7 @@ fn test_heading_furigana() {
 
 #[test]
 fn test_trailing_kana() {
-    let furigana = Furigana::new("私はお金がない", "わたしはおかねがない");
+    let furigana = Furigana::new("私はお金がない", "わたしはおかねがない", "");
     assert_eq!(furigana.to_string(), "私[わたし]はお金[かね]がない");
 
     assert_eq!(

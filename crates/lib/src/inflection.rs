@@ -305,7 +305,6 @@ impl BitAndAssign for Inflection {
 }
 
 /// A collection of inflections.
-#[non_exhaustive]
 #[owned::owned]
 pub struct Inflections<'a> {
     #[owned(ty = OwnedFull)]

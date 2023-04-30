@@ -10,12 +10,15 @@ pub trait ToOwned {
     fn to_owned(&self) -> Self::Owned;
 }
 
-impl ToOwned for &str {
-    type Owned = String;
+impl<T> ToOwned for &T
+where
+    T: ?Sized + ToOwned,
+{
+    type Owned = T::Owned;
 
     #[inline]
     fn to_owned(&self) -> Self::Owned {
-        std::borrow::ToOwned::to_owned(*self)
+        T::to_owned(*self)
     }
 }
 
