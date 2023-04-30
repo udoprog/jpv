@@ -14,6 +14,7 @@ macro_rules! entity {
         $vis enum $name {
             $(
                 #[doc = $doc]
+                #[serde(rename = $entity)]
                 $variant,
             )*
         }

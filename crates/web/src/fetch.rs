@@ -1,8 +1,6 @@
 use anyhow::Context;
-use lib::{
-    database::Id,
-    elements::{EntryKey, OwnedEntry},
-};
+use lib::database::EntryResultKey;
+use lib::elements::{EntryKey, OwnedEntry};
 use serde::{de::DeserializeOwned, Deserialize};
 use thiserror::Error;
 use url::Url;
@@ -30,7 +28,7 @@ impl From<JsValue> for FetchError {
 
 #[derive(Deserialize)]
 pub struct SearchEntry {
-    pub id: Id,
+    pub key: EntryResultKey,
     pub entry: OwnedEntry,
 }
 

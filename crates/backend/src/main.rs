@@ -8,7 +8,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Extension, Json, Router};
 use clap::Parser;
-use lib::database::{Database, Id};
+use lib::database::{Database, EntryResultKey};
 use lib::elements::{Entry, EntryKey};
 use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
@@ -101,7 +101,7 @@ struct SearchRequest {
 
 #[derive(Serialize)]
 struct SearchEntry {
-    id: Id,
+    key: EntryResultKey,
     entry: Entry<'static>,
 }
 
@@ -120,11 +120,11 @@ async fn search(
 
     let mut entries = Vec::new();
 
-    for id in db.lookup(q) {
-        let data = db.get(id)?;
-        entries.push(SearchEntry { id, entry: data });
+    for (key, entry) in db.search(q)? {
+        entries.push(SearchEntry { key, entry });
     }
 
+    entries.sort_by(|a, b| a.key.key.cmp(&b.key.key));
     Ok(Json(SearchResponse { entries }))
 }
 

@@ -10,12 +10,15 @@ use crate::parser::{Output, Poll};
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct SourceLanguage<'a> {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[owned(ty = Option<String>)]
     pub text: Option<&'a str>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[owned(ty = Option<String>)]
     pub lang: Option<&'a str>,
     #[owned(copy)]
     pub waseigo: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[owned(ty = Option<String>)]
     pub ty: Option<&'a str>,
 }

@@ -53,8 +53,23 @@ macro_rules! inflections {
     }};
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Key)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Encode,
+    Decode,
+    Serialize,
+    Deserialize,
+    Key,
+)]
 #[key(bitset)]
+#[serde(rename_all = "kebab-case")]
 pub enum Form {
     /// Te-form.
     Te,
@@ -186,7 +201,6 @@ impl Form {
 )]
 pub struct Inflection {
     #[musli(with = crate::musli::set::<_>)]
-    #[serde(with = "crate::serde::set")]
     form: Set<Form>,
 }
 

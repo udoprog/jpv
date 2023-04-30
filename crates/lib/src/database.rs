@@ -4,7 +4,7 @@ mod file;
 mod index;
 mod strings;
 
-use std::collections::{hash_set, BTreeMap, HashSet};
+use std::collections::{hash_set, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
@@ -27,6 +27,13 @@ const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 /// Encoding used for storing the header.
 const HEADER_ENCODING: Encoding<DefaultMode, Fixed, FixedUsize<u32>> =
     Encoding::new().with_fixed_integers().with_fixed_lengths();
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntryResultKey {
+    pub index: usize,
+    pub extras: BTreeSet<IndexExtra>,
+    pub key: EntryKey,
+}
 
 /// Extra information about an index.
 #[derive(
@@ -293,6 +300,42 @@ impl<'a> Database<'a> {
         self.index.lookup.contains_key(query.as_bytes())
     }
 
+    /// Perform the given search.
+    pub fn search(&self, input: &str) -> Result<Vec<(EntryResultKey, Entry<'a>)>> {
+        let mut entries = Vec::new();
+        let mut dedup = HashMap::new();
+
+        for id in self.lookup(input) {
+            let entry = self.get(id)?;
+
+            let Some(&i) = dedup.get(&id.index()) else {
+                dedup.insert(id.index(), entries.len());
+
+                let data = EntryResultKey {
+                    index: id.index(),
+                    extras: [id.extra()].into_iter().collect(),
+                    key: EntryKey::default(),
+                };
+
+                entries.push((data, entry));
+                continue;
+            };
+
+            let Some((data, _)) = entries.get_mut(i) else {
+                continue;
+            };
+
+            data.extras.insert(id.extra());
+        }
+
+        for (data, e) in &mut entries {
+            let inflection = data.extras.iter().any(|index| index.is_inflection());
+            data.key = e.sort_key(input, inflection);
+        }
+
+        Ok(entries)
+    }
+
     /// Analyze the given string, looking it up in the database and returning
     /// all prefix matching entries and their texts.
     pub fn analyze(&self, q: &str, start: usize) -> BTreeMap<EntryKey, String> {
@@ -312,11 +355,7 @@ impl<'a> Database<'a> {
                     continue;
                 };
 
-                let a = e.sort_key(
-                    it.as_str(),
-                    id.extra().is_inflection(),
-                    it.as_str().chars().count(),
-                );
+                let a = e.sort_key(it.as_str(), id.extra().is_inflection());
 
                 if let Some(b) = sort_key.take() {
                     sort_key = Some(a.min(b));

@@ -1,8 +1,8 @@
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use lib::database::{Id, IndexExtra};
+use lib::database::EntryResultKey;
 use lib::elements::{EntryKey, OwnedEntry};
 use lib::romaji;
 use web_sys::HtmlInputElement;
@@ -17,8 +17,8 @@ pub(crate) enum Msg {
     Analyze(usize),
     AnalyzeCycle,
     HistoryChanged(Location),
-    SearchResponse(String, fetch::SearchResponse),
-    AnalyzeResponse(String, fetch::AnalyzeResponse),
+    SearchResponse(fetch::SearchResponse),
+    AnalyzeResponse(fetch::AnalyzeResponse),
     Error(FetchError),
 }
 
@@ -72,76 +72,36 @@ impl Query {
     }
 }
 
-struct EntryData {
-    extras: BTreeSet<IndexExtra>,
-    len: usize,
-    key: EntryKey,
-}
-
 #[derive(Default)]
 pub(crate) struct Prompt {
     query: Query,
-    entries: Vec<(EntryData, OwnedEntry)>,
+    entries: Vec<(EntryResultKey, OwnedEntry)>,
     _handle: Option<LocationHandle>,
 }
 
 impl Prompt {
-    fn handle_entries<'a, I>(&mut self, input: &str, entries: I)
-    where
-        I: IntoIterator<Item = (Id, OwnedEntry)>,
-    {
-        self.entries.clear();
-        let mut dedup = HashMap::new();
-
-        for (id, entry) in entries {
-            let Some(&i) = dedup.get(&id.index()) else {
-                dedup.insert(id.index(), self.entries.len());
-
-                let data = EntryData {
-                    extras: [id.extra()].into_iter().collect(),
-                    len: input.chars().count(),
-                    key: EntryKey::default(),
-                };
-
-                self.entries.push((data, entry));
-                continue;
-            };
-
-            let Some((data, _)) = self.entries.get_mut(i) else {
-                continue;
-            };
-
-            data.len = data.len.max(input.chars().count());
-            data.extras.insert(id.extra());
-        }
-
-        for (data, e) in &mut self.entries {
-            let conjugation = data.extras.iter().any(|index| index.is_inflection());
-            data.key = e.sort_key(input, conjugation, data.len);
-        }
-
-        self.entries.sort_by(|a, b| a.0.key.cmp(&b.0.key));
-    }
-
     fn refresh(&mut self, ctx: &Context<Self>, input: &str) {
         if let Some(db) = &*ctx.props().db {
-            let iter = db.lookup(input);
-
-            let iter = iter.flat_map(|id| match db.get(id) {
-                Ok(entry) => Some((id, owned::to_owned(entry))),
+            let entries = match db.search(input) {
+                Ok(entries) => entries,
                 Err(error) => {
-                    log::error!("Error in entry: {id:?}: {error}");
-                    None
+                    log::error!("Search failed: {error}");
+                    return;
                 }
-            });
+            };
 
-            self.handle_entries(input, iter);
+            self.entries = entries
+                .into_iter()
+                .map(|(key, e)| (key, owned::to_owned(e)))
+                .collect();
+
+            self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
         } else {
             let input = input.to_owned();
 
             ctx.link().send_future(async move {
                 match fetch::search(&input).await {
-                    Ok(entries) => Msg::SearchResponse(input, entries),
+                    Ok(entries) => Msg::SearchResponse(entries),
                     Err(error) => Msg::Error(error),
                 }
             });
@@ -154,7 +114,7 @@ impl Prompt {
 
             ctx.link().send_future(async move {
                 match fetch::analyze(&input, start).await {
-                    Ok(entries) => Msg::AnalyzeResponse(input, entries),
+                    Ok(entries) => Msg::AnalyzeResponse(entries),
                     Err(error) => Msg::Error(error),
                 }
             });
@@ -234,15 +194,16 @@ impl Component for Prompt {
                 log::error!("Failed to fetch: {error}");
                 false
             }
-            Msg::SearchResponse(input, response) => {
-                self.handle_entries(
-                    &input,
-                    response.entries.into_iter().map(|r| (r.id, r.entry)),
-                );
-
+            Msg::SearchResponse(response) => {
+                self.entries = response
+                    .entries
+                    .into_iter()
+                    .map(|e| (e.key, e.entry))
+                    .collect();
+                self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
                 true
             }
-            Msg::AnalyzeResponse(_, response) => {
+            Msg::AnalyzeResponse(response) => {
                 let analysis = response.data.into_iter().map(|d| d.string).collect();
                 self.handle_analysis(ctx, analysis);
                 true

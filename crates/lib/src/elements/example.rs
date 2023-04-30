@@ -15,10 +15,13 @@ use crate::elements::text;
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Example<'a> {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[owned(ty = Vec<OwnedExampleSent>, borrowed(serde(borrow)))]
     pub sent: Vec<ExampleSent<'a>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[owned(ty = Vec<OwnedExampleSource>, borrowed(serde(borrow)))]
     pub sources: Vec<ExampleSource<'a>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[owned(ty = Vec<String>, borrowed(serde(borrow)))]
     pub texts: Vec<&'a str>,
 }

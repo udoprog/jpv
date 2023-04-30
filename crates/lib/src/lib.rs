@@ -30,7 +30,6 @@ mod priority;
 pub mod database;
 
 mod musli;
-mod serde;
 
 #[doc(hidden)]
 pub mod macro_support {

@@ -10,6 +10,7 @@ use crate::parser::{Output, Poll};
 pub struct ExampleSource<'a> {
     #[owned(ty = String)]
     pub text: &'a str,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[owned(ty = Option<String>)]
     pub ty: Option<&'a str>,
 }

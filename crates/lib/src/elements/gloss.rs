@@ -10,6 +10,7 @@ use crate::parser::{Output, Poll};
 pub struct Glossary<'a> {
     #[owned(ty = String)]
     pub text: &'a str,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[owned(ty = Option<String>)]
     pub lang: Option<&'a str>,
 }
