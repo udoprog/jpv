@@ -48,13 +48,25 @@ impl Priority {
     }
 
     /// Get priority category.
-    pub fn category(&self) -> &str {
+    pub fn category(&self) -> &'static str {
         match self.kind {
             PriorityKind::Ichi => "ichi",
             PriorityKind::News => "news",
             PriorityKind::Gai => "gai",
             PriorityKind::Spec => "spec",
             PriorityKind::WordFrequency => "nf",
+        }
+    }
+
+    pub fn title(&self) -> &'static str {
+        match self.kind {
+            PriorityKind::Ichi => {
+                "appears in \"Ichimango goi bunruishuu\", ichi2 are less frequently used online"
+            }
+            PriorityKind::News => "frequently used in news",
+            PriorityKind::Gai => "common loanwords",
+            PriorityKind::Spec => "special words",
+            PriorityKind::WordFrequency => "word frequency, lower means more frequent",
         }
     }
 

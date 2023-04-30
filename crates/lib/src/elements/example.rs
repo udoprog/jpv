@@ -1,23 +1,19 @@
-mod example_sent;
-mod example_source;
-
 use std::mem;
 
 use anyhow::Result;
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-pub use self::example_sent::{ExampleSent, OwnedExampleSent};
-pub use self::example_source::{ExampleSource, OwnedExampleSource};
-use crate::elements::text;
+use crate::elements::{example_sentence, example_source, text};
+use crate::elements::{ExampleSentence, ExampleSource, OwnedExampleSentence, OwnedExampleSource};
 
 #[owned::owned]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Example<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<OwnedExampleSent>, borrowed(serde(borrow)))]
-    pub sent: Vec<ExampleSent<'a>>,
+    #[owned(ty = Vec<OwnedExampleSentence>, borrowed(serde(borrow)))]
+    pub sentences: Vec<ExampleSentence<'a>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[owned(ty = Vec<OwnedExampleSource>, borrowed(serde(borrow)))]
     pub sources: Vec<ExampleSource<'a>>,
@@ -30,7 +26,7 @@ pub struct Example<'a> {
 enum State<'a> {
     #[default]
     Root,
-    Sent(example_sent::Builder<'a>),
+    Sent(example_sentence::Builder<'a>),
     Source(example_source::Builder<'a>),
     Text(text::Builder<'a>),
 }
@@ -38,7 +34,7 @@ enum State<'a> {
 #[derive(Debug, Default)]
 pub(super) struct Builder<'a> {
     state: State<'a>,
-    sent: Vec<ExampleSent<'a>>,
+    sentences: Vec<ExampleSentence<'a>>,
     sources: Vec<ExampleSource<'a>>,
     texts: Vec<&'a str>,
 }
@@ -47,7 +43,7 @@ impl<'a> Builder<'a> {
     builder! {
         self => Example<'a> {
             "ex_sent", Sent, value => {
-                self.sent.push(value);
+                self.sentences.push(value);
             }
             "ex_srce", Source, value => {
                 self.sources.push(value);
@@ -60,7 +56,7 @@ impl<'a> Builder<'a> {
 
     fn build(&mut self) -> Result<Example<'a>> {
         Ok(Example {
-            sent: mem::take(&mut self.sent),
+            sentences: mem::take(&mut self.sentences),
             sources: mem::take(&mut self.sources),
             texts: mem::take(&mut self.texts),
         })

@@ -49,6 +49,8 @@ macro_rules! builder {
 pub(crate) mod empty;
 pub(crate) mod entry;
 pub(crate) mod example;
+pub(crate) mod example_sentence;
+pub(crate) mod example_source;
 pub(crate) mod gloss;
 pub(crate) mod kanji_element;
 pub(crate) mod reading_element;
@@ -57,9 +59,9 @@ pub(crate) mod source_language;
 pub(crate) mod text;
 
 pub use self::entry::{Entry, EntryKey, OwnedEntry};
-pub use self::example::{
-    Example, ExampleSent, ExampleSource, OwnedExample, OwnedExampleSent, OwnedExampleSource,
-};
+pub use self::example::{Example, OwnedExample};
+pub use self::example_sentence::{ExampleSentence, OwnedExampleSentence};
+pub use self::example_source::{ExampleSource, OwnedExampleSource};
 pub use self::gloss::{Glossary, OwnedGlossary};
 pub use self::kanji_element::{KanjiElement, OwnedKanjiElement};
 pub use self::reading_element::{OwnedReadingElement, ReadingElement};

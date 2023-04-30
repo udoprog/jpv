@@ -82,10 +82,10 @@ pub(crate) fn implement(
 
                 match &field.ident {
                     Some(ident) => {
-                        let f = to_owned.ident(ident.span(), ident);
-                        to_owned_entries.push(quote_spanned!(ident.span() => #ident: #f));
-                        let f = borrow.ident(ident.span(), ident);
-                        borrow_entries.push(quote_spanned!(ident.span() => #ident: #f));
+                        let f = to_owned.ident(field.span(), ident);
+                        to_owned_entries.push(quote_spanned!(field.span() => #ident: #f));
+                        let f = borrow.ident(field.span(), ident);
+                        borrow_entries.push(quote_spanned!(field.span() => #ident: #f));
                     }
                     None => {
                         let f = to_owned.index(field.span(), index);

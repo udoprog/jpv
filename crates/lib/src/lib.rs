@@ -26,6 +26,7 @@ pub mod verb;
 mod parser;
 
 mod priority;
+pub use self::priority::Priority;
 
 pub mod database;
 

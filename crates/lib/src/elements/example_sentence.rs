@@ -7,7 +7,7 @@ use crate::parser::{Output, Poll};
 #[owned::owned]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
-pub struct ExampleSent<'a> {
+pub struct ExampleSentence<'a> {
     #[owned(ty = String)]
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -26,7 +26,7 @@ impl<'a> Builder<'a> {
         true
     }
 
-    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<ExampleSent<'a>>> {
+    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<ExampleSentence<'a>>> {
         match output {
             Output::Text(text) if self.text.is_none() => {
                 self.text = Some(text);
@@ -36,7 +36,7 @@ impl<'a> Builder<'a> {
                 self.lang = Some(value);
                 Ok(Poll::Pending)
             }
-            Output::Close => Ok(Poll::Ready(ExampleSent {
+            Output::Close => Ok(Poll::Ready(ExampleSentence {
                 text: self.text.context("missing text")?,
                 lang: self.lang,
             })),
