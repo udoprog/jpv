@@ -261,7 +261,7 @@ impl Component for Prompt {
         let entries = (!self.entries.is_empty()).then(|| {
             let entries = self.entries.iter().map(|(data, entry)| {
                 let entry: OwnedEntry = entry.clone();
-                html!(<c::Entry extras={data.extras.clone()} entry_key={data.key.clone()} entry={entry} />)
+                html!(<c::Entry extras={data.sources.clone()} entry_key={data.key.clone()} entry={entry} />)
             });
 
             html!(<div class="block block-lg">{for entries}</div>)

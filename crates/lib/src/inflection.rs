@@ -15,7 +15,7 @@ use crate::kana::{Fragments, Full, OwnedFull};
 /// ```rust
 /// lib::inflect!(Past);
 /// lib::inflect!(Past, Polite);
-/// lib::inflect!(Past, Alternate);
+/// lib::inflect!(Past, Short);
 /// ```
 #[macro_export]
 macro_rules! inflect {
@@ -103,12 +103,18 @@ pub enum Form {
     /// Conversational form.
     Conversation,
     /// Alternate forms, when available.
-    Alternate,
+    Short,
+    /// Alternate form using kudasai.
+    Kudasai,
+    /// Alternate form using darou.
+    Darou,
+    /// Alternate command form using yo.
+    Yo,
 }
 
 impl Form {
-    pub const ALL: [Form; 21] = [
-        Form::Alternate,
+    pub const ALL: [Form; 24] = [
+        Form::Short,
         Form::Causative,
         Form::Chau,
         Form::Command,
@@ -129,14 +135,17 @@ impl Form {
         Form::TeOku,
         Form::TeShimau,
         Form::Volitional,
+        Form::Kudasai,
+        Form::Darou,
+        Form::Yo,
     ];
 
     /// Longer title for the form.
     pub fn title(&self) -> &'static str {
         match self {
-            Form::Alternate => "alternate form",
+            Form::Short => "alternate shortened form",
             Form::Causative => "causative, make ~ do something, let / allow ~",
-            Form::Chau => "chau, to do something by accident, to finish completely",
+            Form::Chau => "to do something by accident, to finish completely",
             Form::Command => "command",
             Form::Conditional => "conditional, if ~, when ~",
             Form::Conversation => "conversational use only",
@@ -157,15 +166,18 @@ impl Form {
             Form::TeOku => "~te oku, to do something in advance",
             Form::TeShimau => "~te shimau, to do something by accident, to finish completely",
             Form::Volitional => "volitional / presumptive, let's do ~",
+            Form::Kudasai => "alternate form using ~kudasai",
+            Form::Darou => "alternate form using ~darou / ~deshou",
+            Form::Yo => "alternate command form using ~yo",
         }
     }
 
     /// Describe the form.
     pub fn describe(&self) -> &'static str {
         match self {
-            Form::Alternate => "alternate",
+            Form::Short => "short",
             Form::Causative => "causative",
-            Form::Chau => "chau",
+            Form::Chau => "~chau / ~jau",
             Form::Command => "command",
             Form::Conditional => "conditional",
             Form::Conversation => "conversation",
@@ -184,6 +196,9 @@ impl Form {
             Form::TeOku => "~te oku",
             Form::TeShimau => "~te shimau",
             Form::Volitional => "volitional",
+            Form::Kudasai => "kudasai",
+            Form::Darou => "~darou / ~deshou",
+            Form::Yo => "~yo",
         }
     }
 }
@@ -202,6 +217,8 @@ impl Form {
     Encode,
     Decode,
 )]
+#[serde(transparent)]
+#[musli(transparent)]
 pub struct Inflection {
     #[musli(with = crate::musli::set::<_>)]
     form: Set<Form>,

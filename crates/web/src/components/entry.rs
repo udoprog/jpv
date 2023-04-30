@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::{array, iter};
 
-use lib::database::IndexExtra;
+use lib::database::IndexSource;
 use lib::elements::{OwnedExample, OwnedKanjiElement, OwnedReadingElement, OwnedSense};
 use lib::entities::KanjiInfo;
 use lib::{adjective, elements, kana, romaji, verb, Form, Inflection, OwnedInflections};
@@ -20,7 +20,7 @@ struct ExtraState {
 }
 
 pub(crate) struct Entry {
-    extras_state: Vec<ExtraState>,
+    extras: Vec<ExtraState>,
     show_inflection: bool,
     verb_inflections: Option<OwnedInflections>,
     adjective_inflections: Option<OwnedInflections>,
@@ -28,7 +28,7 @@ pub(crate) struct Entry {
 
 #[derive(Properties)]
 pub struct Props {
-    pub extras: BTreeSet<IndexExtra>,
+    pub extras: BTreeSet<IndexSource>,
     pub entry_key: elements::EntryKey,
     pub entry: elements::OwnedEntry,
 }
@@ -50,7 +50,7 @@ impl Component for Entry {
         let entry = owned::borrow(&ctx.props().entry);
 
         Self {
-            extras_state: ctx
+            extras: ctx
                 .props()
                 .extras
                 .iter()
@@ -68,12 +68,12 @@ impl Component for Entry {
                 self.show_inflection = !self.show_inflection;
             }
             Msg::ToggleForm(index, form) => {
-                if let Some(state) = self.extras_state.get_mut(index) {
+                if let Some(state) = self.extras.get_mut(index) {
                     state.filter.toggle(form);
                 }
             }
             Msg::ResetForm(index) => {
-                if let Some(state) = self.extras_state.get_mut(index) {
+                if let Some(state) = self.extras.get_mut(index) {
                     state.filter = Inflection::default();
                 }
             }
@@ -86,7 +86,7 @@ impl Component for Entry {
         let entry = owned::borrow(&ctx.props().entry);
         self.verb_inflections = verb::conjugate(&entry).map(owned::to_owned);
         self.adjective_inflections = adjective::conjugate(&entry).map(owned::to_owned);
-        self.extras_state = ctx
+        self.extras = ctx
             .props()
             .extras
             .iter()
@@ -105,9 +105,14 @@ impl Component for Entry {
             .as_ref()
             .or(self.adjective_inflections.as_ref());
 
-        let extras = extras.iter().zip(&self.extras_state).enumerate().flat_map(
-            |(index, (extra, state))| render_extra(ctx, index, extra, inflections, state.filter),
-        );
+        let extras =
+            extras
+                .iter()
+                .zip(&self.extras)
+                .enumerate()
+                .flat_map(|(index, (extra, state))| {
+                    render_extra(ctx, index, extra, inflections, state.filter)
+                });
 
         let (reading, combined) = if entry.kanji_elements.is_empty() {
             let reading = render_iter(
@@ -233,17 +238,17 @@ macro_rules! bullets {
 fn render_extra(
     ctx: &Context<Entry>,
     index: usize,
-    extra: &IndexExtra,
+    extra: &IndexSource,
     inflections: Option<&OwnedInflections>,
     filter: Inflection,
 ) -> Option<Html> {
     let (extra, inflection, title) = match extra {
-        IndexExtra::VerbInflection(inflection) => (
+        IndexSource::VerbInflection { inflection } => (
             "Conjugation:",
             Some(*inflection),
             "Result based on verb conjugation",
         ),
-        IndexExtra::AdjectiveInflection(inflection) => (
+        IndexSource::AdjectiveInflection { inflection } => (
             "Inflection:",
             Some(*inflection),
             "Result based on adverb inflection",

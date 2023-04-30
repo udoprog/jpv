@@ -14,8 +14,8 @@ macro_rules! ichidan {
         $out!("ませんでした", Past, Negative, Polite);
         $out!("ろ", Command);
         $out!("なさい", Command, Polite);
-        $out!("よ", Command, Alternate);
-        $out!("てください", Command, Alternate, Polite);
+        $out!("よ", Command, Yo);
+        $out!("てください", Command, Polite, Kudasai);
         $out!("るな", Command, Negative);
         $out!("ないでください", Command, Negative, Polite);
         $out!("ば", Hypothetical);
@@ -41,8 +41,8 @@ macro_rules! ichidan {
         $out!("られませんでした", Potential, Past, Negative, Polite);
         $out!("よう", Volitional);
         $out!("ましょう", Volitional, Polite);
-        $out!("るだろう", Volitional, Alternate);
-        $out!("るでしょう", Volitional, Alternate, Polite);
+        $out!("るだろう", Volitional, Darou);
+        $out!("るでしょう", Volitional, Darou, Polite);
         $out!("ないだろう", Volitional, Negative);
         $out!("ないでしょう", Volitional, Negative, Polite);
         $out!("させる", Causative);
@@ -67,7 +67,7 @@ macro_rules! godan {
         $out!([$($base, )? $g.i, "ませんでした"], Past, Negative, Polite);
         $out!([$($base, )? $g.e], Command);
         $out!([$($base, )? $g.i, "なさい"], Command, Polite);
-        $out!([$($base, )? $g.te, "ください"], Command, Alternate, Polite);
+        $out!([$($base, )? $g.te, "ください"], Command, Polite, Kudasai);
         $out!([$($base, )? $g.u, "な"], Command, Negative);
         $out!([$($base, )? $g.a, "ないでください"], Command, Negative, Polite);
         $out!([$($base, )? $g.e, "ば"], Hypothetical);
@@ -92,8 +92,8 @@ macro_rules! godan {
         $out!([$($base, )? $g.e, "ませんでした"], Potential, Past, Negative, Polite);
         $out!([$($base, )? $g.o, "う"], Volitional);
         $out!([$($base, )? $g.i, "ましょう"], Volitional, Polite);
-        $out!([$($base, )? $g.u, "だろう"], Volitional, Alternate);
-        $out!([$($base, )? $g.u, "でしょう"], Volitional, Alternate, Polite);
+        $out!([$($base, )? $g.u, "だろう"], Volitional, Darou);
+        $out!([$($base, )? $g.u, "でしょう"], Volitional, Darou, Polite);
         $out!([$($base, )? $g.a, "ないだろう"], Volitional, Negative);
         $out!([$($base, )? $g.a, "ないでしょう"], Volitional, Negative, Polite);
         $out!([$($base, )? $g.a, "せる"], Causative);
@@ -117,7 +117,7 @@ macro_rules! kuru {
         $out!("き", "ませんでした", Past, Negative, Polite);
         $out!("こ", "い", Command);
         $out!("き", "なさい", Command, Polite);
-        $out!("き", "てください", Command, Alternate, Polite);
+        $out!("き", "てください", Command, Polite, Kudasai);
         $out!("く", "るな", Command, Negative);
         $out!("こ", "ないでください", Command, Negative, Polite);
         $out!("く", "れば", Hypothetical);
@@ -134,8 +134,8 @@ macro_rules! kuru {
         $out!("こ", "られる", Potential);
         $out!("こ", "よう", Volitional);
         $out!("き", "ましょう", Volitional, Polite);
-        $out!("く", "るだろう", Volitional, Alternate);
-        $out!("く", "るでしょう", Volitional, Alternate, Polite);
+        $out!("く", "るだろう", Volitional, Darou);
+        $out!("く", "るでしょう", Volitional, Darou, Polite);
         $out!("こ", "ないだろう", Volitional, Negative);
         $out!("こ", "ないでしょう", Volitional, Negative, Polite);
         $out!("こ", "させる", Causative);
@@ -162,7 +162,7 @@ macro_rules! suru {
         $out!("しませんでした", Past, Negative, Polite);
         $out!("しろ", Command);
         $out!("しなさい", Command, Polite);
-        $out!("してください", Command, Alternate, Polite);
+        $out!("してください", Command, Polite, Kudasai);
         $out!("するな", Command, Negative);
         $out!("しないでください", Command, Negative, Polite);
         $out!("すれば", Hypothetical);
@@ -186,13 +186,13 @@ macro_rules! suru {
         $out!("できませんでした", Potential, Past, Negative, Polite);
         $out!("しよう", Volitional);
         $out!("しましょう", Volitional, Polite);
-        $out!("するだろう", Volitional, Alternate);
-        $out!("するでしょう", Volitional, Alternate, Polite);
+        $out!("するだろう", Volitional, Darou);
+        $out!("するでしょう", Volitional, Darou, Polite);
         $out!("しないだろう", Volitional, Negative);
         $out!("しないでしょう", Volitional, Negative, Polite);
         $out!("したろう", Volitional, Past);
         $out!("しましたろう", Volitional, Past, Polite);
-        $out!("しただろう", Volitional, Past, Alternate);
+        $out!("しただろう", Volitional, Past, Darou);
         $out!("しなかっただろう", Volitional, Past, Negative);
         $out!("しなかったでしょう", Volitional, Past, Negative, Polite);
         $out!("させる", Causative);

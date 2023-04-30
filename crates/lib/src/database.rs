@@ -31,8 +31,9 @@ const HEADER_ENCODING: Encoding<DefaultMode, Fixed, FixedUsize<u32>> =
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryResultKey {
     pub index: usize,
-    pub extras: BTreeSet<IndexExtra>,
+    #[serde(flatten)]
     pub key: EntryKey,
+    pub sources: BTreeSet<IndexSource>,
 }
 
 /// Extra information about an index.
@@ -41,25 +42,25 @@ pub struct EntryResultKey {
 )]
 #[non_exhaustive]
 #[serde(tag = "type")]
-pub enum IndexExtra {
+pub enum IndexSource {
     /// No extra information on why the index was added.
-    #[serde(rename = "none")]
+    #[serde(rename = "base")]
     None,
     /// Index was added because of a verb inflection.
-    #[serde(rename = "verb")]
-    VerbInflection(Inflection),
+    #[serde(rename = "verb-c")]
+    VerbInflection { inflection: Inflection },
     /// Index was added because of an adjective inflection.
-    #[serde(rename = "adj")]
-    AdjectiveInflection(Inflection),
+    #[serde(rename = "adj-c")]
+    AdjectiveInflection { inflection: Inflection },
 }
 
-impl IndexExtra {
+impl IndexSource {
     /// Test if extra indicates an inflection.
     pub fn is_inflection(&self) -> bool {
         match self {
-            IndexExtra::None => false,
-            IndexExtra::VerbInflection(_) => true,
-            IndexExtra::AdjectiveInflection(_) => true,
+            IndexSource::None => false,
+            IndexSource::VerbInflection { .. } => true,
+            IndexSource::AdjectiveInflection { .. } => true,
         }
     }
 }
@@ -69,28 +70,28 @@ impl IndexExtra {
 )]
 pub struct Id {
     index: u32,
-    extra: IndexExtra,
+    extra: IndexSource,
 }
 
 impl Id {
     fn new(index: usize) -> Self {
         Self {
             index: index as u32,
-            extra: IndexExtra::None,
+            extra: IndexSource::None,
         }
     }
 
     fn verb_inflection(index: usize, inflection: Inflection) -> Self {
         Self {
             index: index as u32,
-            extra: IndexExtra::VerbInflection(inflection),
+            extra: IndexSource::VerbInflection { inflection },
         }
     }
 
     fn adjective_inflection(index: usize, inflection: Inflection) -> Self {
         Self {
             index: index as u32,
-            extra: IndexExtra::AdjectiveInflection(inflection),
+            extra: IndexSource::AdjectiveInflection { inflection },
         }
     }
 
@@ -100,7 +101,7 @@ impl Id {
     }
 
     /// Extra information on index.
-    pub fn extra(&self) -> IndexExtra {
+    pub fn source(&self) -> IndexSource {
         self.extra
     }
 }
@@ -313,7 +314,7 @@ impl<'a> Database<'a> {
 
                 let data = EntryResultKey {
                     index: id.index(),
-                    extras: [id.extra()].into_iter().collect(),
+                    sources: [id.source()].into_iter().collect(),
                     key: EntryKey::default(),
                 };
 
@@ -325,11 +326,11 @@ impl<'a> Database<'a> {
                 continue;
             };
 
-            data.extras.insert(id.extra());
+            data.sources.insert(id.source());
         }
 
         for (data, e) in &mut entries {
-            let inflection = data.extras.iter().any(|index| index.is_inflection());
+            let inflection = data.sources.iter().any(|index| index.is_inflection());
             data.key = e.sort_key(input, inflection);
         }
 
@@ -355,7 +356,7 @@ impl<'a> Database<'a> {
                     continue;
                 };
 
-                let a = e.sort_key(it.as_str(), id.extra().is_inflection());
+                let a = e.sort_key(it.as_str(), id.source().is_inflection());
 
                 if let Some(b) = sort_key.take() {
                     sort_key = Some(a.min(b));

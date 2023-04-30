@@ -2,6 +2,7 @@ use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
+#[serde(rename_all = "kebab-case")]
 pub enum PriorityKind {
     /// Common words.
     Ichi,
@@ -12,6 +13,7 @@ pub enum PriorityKind {
     /// Especially marked common words.
     Spec,
     /// Word frequency category.
+    #[serde(rename = "nf")]
     WordFrequency,
 }
 

@@ -140,7 +140,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
         }
 
-        inflections.insert(inflect!(TeIru, Te, Alternate), p.concat(["る"]));
+        inflections.insert(inflect!(TeIru, Te, Short), p.concat(["る"]));
         ichidan!(populate);
 
         macro_rules! populate {
@@ -174,7 +174,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
         }
 
         godan!(populate, godan::KU, "お");
-        inflections.insert(inflect!(Te, TeOku, Alternate), p.concat(["く"]));
+        inflections.insert(inflect!(Te, TeOku, Short), p.concat(["く"]));
 
         macro_rules! populate {
             ($r:expr, $suffix:expr $(, $inflect:ident)*) => {

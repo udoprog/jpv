@@ -8,7 +8,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use lib::adjective;
-use lib::database::{Database, IndexExtra};
+use lib::database::{Database, IndexSource};
 use lib::verb;
 use lib::{Form, Furigana, PartOfSpeech};
 use tracing_subscriber::util::SubscriberInitExt;
@@ -131,11 +131,11 @@ fn main() -> Result<()> {
     let current_lang = args.lang.as_deref().unwrap_or("eng");
 
     for (i, index) in to_look_up.iter().enumerate() {
-        let extra = match index.extra() {
-            IndexExtra::VerbInflection(inflection) => {
+        let extra = match index.source() {
+            IndexSource::VerbInflection { inflection } => {
                 Some(format!("Found through verb inflection: {inflection:?}"))
             }
-            IndexExtra::AdjectiveInflection(inflection) => Some(format!(
+            IndexSource::AdjectiveInflection { inflection } => Some(format!(
                 "Found through adjective inflection: {inflection:?}"
             )),
             _ => None,
