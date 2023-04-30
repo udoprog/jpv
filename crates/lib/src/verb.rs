@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use crate::elements::Entry;
 use crate::entities::KanjiInfo;
 use crate::inflection::Inflections;
-use crate::kana::{Pair, Word};
+use crate::kana::{Fragments, Full};
 use crate::PartOfSpeech;
 
 /// Try to conjugate the given entry as a verb.
@@ -37,12 +37,12 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
             macro_rules! populate {
                 ($suffix:expr $(, $inflect:ident)*) => {
-                    inflections.insert(inflect!($($inflect),*), Pair::new([k], [r], [$suffix]));
+                    inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                 }
             }
 
             ichidan!(populate);
-            (inflections, Pair::new([k], [r], []), false)
+            (inflections, Fragments::new([k], [r], []), false)
         }
         VerbKind::GodanIku => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix('く'), reading.text.strip_suffix('く')) else {
@@ -52,16 +52,16 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             let g = godan::IKU;
 
             let mut inflections = BTreeMap::new();
-            inflections.insert(inflect!(Te), Pair::new([k], [r], [g.te]));
+            inflections.insert(inflect!(Te), Fragments::new([k], [r], [g.te]));
 
             macro_rules! populate {
                 ($suffix:expr $(, $inflect:ident)*) => {
-                    inflections.insert(inflect!($($inflect),*),  Pair::new([k], [r], $suffix));
+                    inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], $suffix));
                 }
             }
 
             godan!(populate, g);
-            (inflections, Pair::new([k], [r], []), g.de)
+            (inflections, Fragments::new([k], [r], []), g.de)
         }
         VerbKind::Godan => {
             let mut k = kanji_text.chars();
@@ -86,16 +86,16 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             let r = r.as_str();
 
             let mut inflections = BTreeMap::new();
-            inflections.insert(inflect!(Te), Pair::new([k], [r], [g.te]));
+            inflections.insert(inflect!(Te), Fragments::new([k], [r], [g.te]));
 
             macro_rules! populate {
                 ($suffix:expr $(, $inflect:ident)*) => {
-                    inflections.insert(inflect!($($inflect),*), Pair::new([k], [r], $suffix));
+                    inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], $suffix));
                 }
             }
 
             godan!(populate, g);
-            (inflections, Pair::new([k], [r], []), g.de)
+            (inflections, Fragments::new([k], [r], []), g.de)
         }
         VerbKind::Suru => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix("する"), reading.text.strip_suffix("する")) else {
@@ -103,16 +103,16 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             };
 
             let mut inflections = BTreeMap::new();
-            inflections.insert(inflect!(Te), Pair::new([k], [r], ["して"]));
+            inflections.insert(inflect!(Te), Fragments::new([k], [r], ["して"]));
 
             macro_rules! populate {
                 ($suffix:expr $(, $inflect:ident)*) => {
-                    inflections.insert(inflect!($($inflect),*), Pair::new([k], [r], [$suffix]));
+                    inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                 }
             }
 
             suru!(populate);
-            (inflections, Pair::new([k], [r], []), false)
+            (inflections, Fragments::new([k], [r], []), false)
         }
         VerbKind::Kuru => {
             let (Some(k), Some(r)) = (kanji_text.strip_suffix("来る"), reading.text.strip_suffix("くる")) else {
@@ -120,16 +120,16 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             };
 
             let mut inflections = BTreeMap::new();
-            inflections.insert(inflect!(Te), Pair::new([k, "来"], [r, "き"], ["て"]));
+            inflections.insert(inflect!(Te), Fragments::new([k, "来"], [r, "き"], ["て"]));
 
             macro_rules! populate {
                 ($r:expr, $suffix:expr $(, $inflect:ident)*) => {
-                    inflections.insert(inflect!($($inflect),*), Pair::new([k, "来"], [r, $r], [$suffix]));
+                    inflections.insert(inflect!($($inflect),*), Fragments::new([k, "来"], [r, $r], [$suffix]));
                 }
             }
 
             kuru!(populate);
-            (inflections, Pair::new([k], [r], []), false)
+            (inflections, Fragments::new([k], [r], []), false)
         }
     };
 
@@ -198,7 +198,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
     }
 
     Some(Inflections {
-        dictionary: Word::new(kanji_text, reading.text),
+        dictionary: Full::new(kanji_text, reading.text, ""),
         inflections,
     })
 }

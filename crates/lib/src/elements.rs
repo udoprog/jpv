@@ -56,7 +56,7 @@ pub(crate) mod sense;
 pub(crate) mod source_language;
 pub(crate) mod text;
 
-pub use self::entry::{Entry, EntryKey};
+pub use self::entry::{Entry, EntryKey, OwnedEntry};
 pub use self::example::{
     Example, ExampleSent, ExampleSource, OwnedExample, OwnedExampleSent, OwnedExampleSource,
 };

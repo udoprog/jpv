@@ -2,16 +2,16 @@
 ///
 /// ```
 /// # mod interior {
+/// #[owned::owned]
 /// #[derive(Clone, Debug)]
-/// #[owned::to_owned]
 /// pub struct SourceLanguage<'a> {
-///     #[to_owned(ty = String)]
+///     #[owned(ty = String)]
 ///     pub text: &'a str,
-///     #[to_owned(ty = Option<String>, with = self::option)]
+///     #[owned(ty = Option<String>, with = self::option)]
 ///     pub lang: Option<&'a str>,
-///     #[to_owned(copy)]
+///     #[owned(copy)]
 ///     pub waseigo: bool,
-///     #[to_owned(ty = Option<String>, with = self::option)]
+///     #[owned(ty = Option<String>, with = self::option)]
 ///     pub ty: Option<&'a str>,
 /// }
 ///
@@ -52,11 +52,57 @@
 ///
 /// Indicates that the type is `Copy`, if this is set then the value is not
 /// cloned.
+///
+/// #### `#[owned(borrowed(<attr>))]`
+///
+/// Apply the given attributes `<attr>` to a field, but only for the borrowed
+/// variant.
+///
+/// ```
+/// use serde::{Serialize, Deserialize};
+///
+/// #[owned::owned]
+/// #[derive(Serialize, Deserialize)]
+/// pub struct SourceLanguage<'a> {
+///     #[owned(ty = Option<String>, borrowed(serde(borrow)))]
+///     pub lang: Option<&'a str>,
+/// }
+/// ```
 #[doc(inline)]
-pub use owned_macros::to_owned;
+pub use owned_macros::owned;
 
 mod borrow;
 pub use self::borrow::Borrow;
 
 mod to_owned;
 pub use self::to_owned::ToOwned;
+
+/// Convert the value into an owned variant.
+///
+/// This helper function is provided so that you don't have to have the
+/// [`ToOwned`] trait in scope, and make it explicit when this crate is being
+/// used since this conversion is not a cheap operation in this crate.
+///
+/// This also prevents conflicts with the built-in
+/// [`ToOwned`][std::borrow::ToOwned].
+pub fn to_owned<T>(value: T) -> T::Owned
+where
+    T: ToOwned,
+{
+    value.to_owned()
+}
+
+/// Borrow the given value.
+///
+/// This helper function is provided so that you don't have to have the [`Borrow`]
+/// trait in scope, and make it explicit when this crate is being used since
+/// "borrowing" is not a cheap operation in this crate.
+///
+/// This also prevents conflicts with the built-in
+/// [`Borrow`][std::borrow::Borrow].
+pub fn borrow<T>(value: &T) -> T::Target<'_>
+where
+    T: ?Sized + Borrow,
+{
+    value.borrow()
+}

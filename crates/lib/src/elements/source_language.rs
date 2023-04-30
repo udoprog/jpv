@@ -6,17 +6,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::parser::{Output, Poll};
 
+#[owned::owned]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
-#[owned::to_owned]
 pub struct SourceLanguage<'a> {
-    #[to_owned(ty = Option<String>)]
+    #[owned(ty = Option<String>)]
     pub text: Option<&'a str>,
-    #[to_owned(ty = Option<String>)]
+    #[owned(ty = Option<String>)]
     pub lang: Option<&'a str>,
-    #[to_owned(copy)]
+    #[owned(copy)]
     pub waseigo: bool,
-    #[to_owned(ty = Option<String>)]
+    #[owned(ty = Option<String>)]
     pub ty: Option<&'a str>,
 }
 

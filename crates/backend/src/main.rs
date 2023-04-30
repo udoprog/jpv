@@ -9,7 +9,7 @@ use axum::routing::get;
 use axum::{Extension, Json, Router};
 use clap::Parser;
 use lib::database::{Database, Id};
-use lib::elements::Entry;
+use lib::elements::{Entry, EntryKey};
 use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
 use tokio::signal::windows::ctrl_shutdown;
@@ -55,6 +55,7 @@ async fn main() -> Result<()> {
     tracing::info!("Database loaded");
 
     let app = Router::new()
+        .route("/analyze", get(analyze))
         .route("/search", get(search))
         .layer(Extension(db));
 
@@ -93,7 +94,7 @@ impl From<anyhow::Error> for RequestError {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct SearchRequest {
     q: Option<String>,
 }
@@ -101,7 +102,7 @@ struct SearchRequest {
 #[derive(Serialize)]
 struct SearchEntry {
     id: Id,
-    data: Entry<'static>,
+    entry: Entry<'static>,
 }
 
 #[derive(Serialize)]
@@ -121,10 +122,40 @@ async fn search(
 
     for id in db.lookup(q) {
         let data = db.get(id)?;
-        entries.push(SearchEntry { id, data });
+        entries.push(SearchEntry { id, entry: data });
     }
 
     Ok(Json(SearchResponse { entries }))
+}
+
+#[derive(Deserialize)]
+struct AnalyzeRequest {
+    q: String,
+    start: usize,
+}
+
+#[derive(Serialize)]
+struct AnalyzeEntry {
+    key: EntryKey,
+    string: String,
+}
+
+#[derive(Serialize)]
+struct AnalyzeResponse {
+    data: Vec<AnalyzeEntry>,
+}
+
+async fn analyze(
+    Query(request): Query<AnalyzeRequest>,
+    Extension(db): Extension<Database<'static>>,
+) -> RequestResult<Json<AnalyzeResponse>> {
+    let mut entries = Vec::new();
+
+    for (key, string) in db.analyze(&request.q, request.start) {
+        entries.push(AnalyzeEntry { key, string });
+    }
+
+    Ok(Json(AnalyzeResponse { data: entries }))
 }
 
 impl IntoResponse for RequestError {

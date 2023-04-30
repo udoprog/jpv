@@ -2,7 +2,7 @@ use syn::spanned::Spanned;
 
 use crate::ctxt::Ctxt;
 
-const TO_OWNED: &str = "to_owned";
+pub(crate) const OWNED: &str = "owned";
 
 /// Container attributes.
 pub(crate) struct Container {
@@ -58,6 +58,8 @@ pub(crate) struct Field {
     pub(crate) ty: FieldType,
     pub(crate) borrow: syn::Path,
     pub(crate) copy: bool,
+    // Attributes to only include on the borrowed variant.
+    pub(crate) borrowed_meta: Option<syn::Meta>,
     pub(crate) to_owned: syn::Path,
 }
 
@@ -68,11 +70,12 @@ pub(crate) fn field(cx: &Ctxt, attrs: &mut Vec<syn::Attribute>) -> Result<Field,
         ty: FieldType::default(),
         borrow: cx.borrow.clone(),
         copy: false,
+        borrowed_meta: None,
         to_owned: cx.to_owned.clone(),
     };
 
     for a in attrs.iter() {
-        if !a.path().is_ident(TO_OWNED) {
+        if !a.path().is_ident(OWNED) {
             continue;
         }
 
@@ -86,19 +89,29 @@ pub(crate) fn field(cx: &Ctxt, attrs: &mut Vec<syn::Attribute>) -> Result<Field,
                 meta.input.parse::<syn::Token![=]>()?;
                 let path: syn::Path = meta.input.parse()?;
 
+                let last = path
+                    .segments
+                    .last()
+                    .map(|l| l.span())
+                    .unwrap_or(path.span());
+
                 field.to_owned = path.clone();
                 field.to_owned.segments.push(syn::PathSegment {
-                    ident: syn::Ident::new("to_owned", meta.path.span()),
+                    ident: syn::Ident::new("to_owned", last),
                     arguments: syn::PathArguments::None,
                 });
 
                 field.borrow = path.clone();
                 field.borrow.segments.push(syn::PathSegment {
-                    ident: syn::Ident::new("borrow", meta.path.span()),
+                    ident: syn::Ident::new("borrow", last),
                     arguments: syn::PathArguments::None,
                 });
             } else if meta.path.is_ident("copy") {
                 field.copy = true;
+            } else if meta.path.is_ident("borrowed") {
+                let content;
+                syn::parenthesized!(content in meta.input);
+                field.borrowed_meta = Some(content.parse()?);
             } else {
                 return Err(syn::Error::new(meta.path.span(), "Unsupported attribute"));
             }
@@ -116,5 +129,5 @@ pub(crate) fn field(cx: &Ctxt, attrs: &mut Vec<syn::Attribute>) -> Result<Field,
 }
 
 pub(crate) fn strip(attrs: &mut Vec<syn::Attribute>) {
-    attrs.retain(|a| !a.path().is_ident(TO_OWNED));
+    attrs.retain(|a| !a.path().is_ident(OWNED));
 }

@@ -10,7 +10,7 @@ use crate::elements::{
     KanjiElement, OwnedKanjiElement, OwnedReadingElement, OwnedSense, ReadingElement, Sense,
 };
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
 struct Weight {
     weight: f32,
     #[allow(unused)]
@@ -48,29 +48,82 @@ impl Ord for Weight {
     }
 }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EntryKey {
     weight: Weight,
     sequence: u64,
 }
 
+#[owned::owned]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
-#[owned::to_owned]
 pub struct Entry<'a> {
     pub sequence: u64,
-    #[serde(borrow)]
-    #[to_owned(ty = Vec<OwnedReadingElement>)]
+    #[owned(ty = Vec<OwnedReadingElement>, borrowed(serde(borrow)))]
     pub reading_elements: Vec<ReadingElement<'a>>,
-    #[serde(borrow)]
-    #[to_owned(ty = Vec<OwnedKanjiElement>)]
+    #[owned(ty = Vec<OwnedKanjiElement>, borrowed(serde(borrow)))]
     pub kanji_elements: Vec<KanjiElement<'a>>,
-    #[serde(borrow)]
-    #[to_owned(ty = Vec<OwnedSense>)]
+    #[owned(ty = Vec<OwnedSense>, borrowed(serde(borrow)))]
     pub senses: Vec<Sense<'a>>,
 }
 
 impl Entry<'_> {
+    /// Entry weight.
+    pub fn sort_key(&self, input: &str, conjugation: bool, len: usize) -> EntryKey {
+        // Boost based on exact query.
+        let mut query = 1.0f32;
+        // Store the priority which performs the maximum boost.
+        let mut priority = 1.0f32;
+        // Perform boost by number of senses, maximum boost at 10 senses.
+        let sense_count = 1.0 + self.senses.len().min(10) as f32 / 10.0;
+        // Conjugation boost.
+        let conjugation = conjugation.then_some(2.0).unwrap_or(1.0);
+        // Calculate length boost.
+        let length = (len.min(10) as f32 / 10.0) * 1.2;
+
+        for element in &self.reading_elements {
+            if element.text == input {
+                query = query.max(2.0);
+            }
+
+            for p in &element.priority {
+                priority = priority.max(p.weight());
+            }
+        }
+
+        for element in &self.kanji_elements {
+            if element.text == input {
+                query = query.max(2.5);
+            }
+
+            for p in &element.priority {
+                priority = priority.max(p.weight());
+            }
+        }
+
+        for sense in &self.senses {
+            for gloss in &sense.gloss {
+                if gloss.text == input {
+                    query = query.max(1.5);
+                }
+            }
+        }
+
+        EntryKey {
+            weight: Weight {
+                weight: query * priority * sense_count * conjugation * length,
+                query,
+                priority,
+                sense_count,
+                conjugation,
+                length,
+            },
+            sequence: self.sequence,
+        }
+    }
+}
+
+impl OwnedEntry {
     /// Entry weight.
     pub fn sort_key(&self, input: &str, conjugation: bool, len: usize) -> EntryKey {
         // Boost based on exact query.

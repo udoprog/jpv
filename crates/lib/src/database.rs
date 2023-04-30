@@ -4,7 +4,7 @@ mod file;
 mod index;
 mod strings;
 
-use std::collections::{hash_set, HashSet};
+use std::collections::{hash_set, BTreeMap, HashSet};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
@@ -15,7 +15,7 @@ use musli_storage::Encoding;
 use serde::{Deserialize, Serialize};
 
 use crate::adjective;
-use crate::elements::Entry;
+use crate::elements::{Entry, EntryKey};
 use crate::inflection::Inflection;
 use crate::parser::Parser;
 use crate::verb;
@@ -158,7 +158,7 @@ pub fn load(dict: &str) -> Result<Vec<u8>> {
             for (inflection, pair) in c.iter() {
                 let suffix_index = strings.insert(pair.suffix().to_string())?;
 
-                for word in [pair.kanji(), pair.reading()] {
+                for word in [pair.text(), pair.reading()] {
                     let word_index = strings.insert(word.to_string())?;
 
                     index
@@ -174,7 +174,7 @@ pub fn load(dict: &str) -> Result<Vec<u8>> {
             for (inflection, pair) in c.iter() {
                 let suffix_index = strings.insert(pair.suffix().to_string())?;
 
-                for word in [pair.kanji(), pair.reading()] {
+                for word in [pair.text(), pair.reading()] {
                     let word_index = strings.insert(word.to_string())?;
 
                     index
@@ -291,6 +291,48 @@ impl<'a> Database<'a> {
     /// Test if db contains the given string.
     pub fn contains(&self, query: &str) -> bool {
         self.index.lookup.contains_key(query.as_bytes())
+    }
+
+    /// Analyze the given string, looking it up in the database and returning
+    /// all prefix matching entries and their texts.
+    pub fn analyze(&self, q: &str, start: usize) -> BTreeMap<EntryKey, String> {
+        let mut inputs = BTreeMap::new();
+
+        let Some(suffix) = q.get(start..) else {
+            return inputs;
+        };
+
+        let mut it = suffix.chars();
+
+        while !it.as_str().is_empty() {
+            let mut sort_key = None;
+
+            for id in self.lookup(it.as_str()) {
+                let Ok(e) = self.get(id) else {
+                    continue;
+                };
+
+                let a = e.sort_key(
+                    it.as_str(),
+                    id.extra().is_inflection(),
+                    it.as_str().chars().count(),
+                );
+
+                if let Some(b) = sort_key.take() {
+                    sort_key = Some(a.min(b));
+                } else {
+                    sort_key = Some(a);
+                }
+            }
+
+            if let Some(e) = sort_key.take() {
+                inputs.insert(e, it.as_str().to_owned());
+            }
+
+            it.next_back();
+        }
+
+        inputs
     }
 }
 

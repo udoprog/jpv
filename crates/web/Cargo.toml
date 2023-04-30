@@ -4,6 +4,9 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 
+[features]
+embed = []
+
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
 lib = { path = "../lib" }
@@ -19,3 +22,4 @@ serde_json = "1.0.96"
 url = "2.3.1"
 thiserror = "1.0.40"
 wasm-bindgen = "0.2.84"
+owned = { path = "../owned" }

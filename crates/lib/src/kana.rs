@@ -3,62 +3,92 @@ use core::fmt;
 use crate::concat::Concat;
 use crate::furigana::Furigana;
 
-pub struct Word<'a> {
+/// A kana pair made up of complete text fragments.
+#[owned::owned]
+pub struct Full<'a> {
     /// Verb stem.
+    #[owned(ty = String)]
     pub text: &'a str,
     /// Furigana reading of verb stem.
+    #[owned(ty = String)]
     pub reading: &'a str,
+    /// Common suffix.
+    #[owned(ty = String)]
+    pub suffix: &'a str,
 }
 
-impl<'a> Word<'a> {
+impl<'a> Full<'a> {
     #[inline]
-    pub const fn new(text: &'a str, reading: &'a str) -> Self {
-        Self { text, reading }
+    pub const fn new(text: &'a str, reading: &'a str, suffix: &'a str) -> Self {
+        Self {
+            text,
+            reading,
+            suffix,
+        }
     }
 
     /// Display the given combination as furigana.
-    pub fn furigana(&self) -> Furigana<'a, 1, 0> {
-        Furigana::new(self.text, self.reading)
+    pub fn furigana(&self) -> Furigana<'a, 1, 1> {
+        Furigana::new(self.text, self.reading, self.suffix)
     }
 }
 
-impl fmt::Display for Word<'_> {
+impl OwnedFull {
+    /// Display the given combination as furigana.
+    pub fn furigana(&self) -> Furigana<'_, 1, 1> {
+        Furigana::new(
+            self.text.as_str(),
+            self.reading.as_str(),
+            self.suffix.as_str(),
+        )
+    }
+}
+
+impl fmt::Display for Full<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.text != self.reading {
-            write!(f, "{} ({})", self.text, self.reading)
+            write!(
+                f,
+                "{}{suffix} ({}{suffix})",
+                self.text,
+                self.reading,
+                suffix = self.suffix
+            )
         } else {
-            write!(f, "{}", self.text)
+            write!(f, "{}{}", self.text, self.suffix)
         }
     }
 }
 
-/// A reading pair.
+/// A kana pair made up of many text fragments.
 #[derive(Clone)]
-pub struct Pair<'a, const N: usize, const S: usize> {
-    kanji: Concat<'a, N>,
+pub struct Fragments<'a, const N: usize, const S: usize> {
+    // Text prefix.
+    text: Concat<'a, N>,
+    // Reading prefix.
     reading: Concat<'a, N>,
     // Suffix always guaranteed to be kana.
     suffix: Concat<'a, S>,
 }
 
-impl<'a, const N: usize, const S: usize> Pair<'a, N, S> {
+impl<'a, const N: usize, const S: usize> Fragments<'a, N, S> {
     /// Construct a kanji/reading pair with a common suffix.
-    pub fn new<A, B, C>(kanji: A, reading: B, suffix: C) -> Self
+    pub fn new<A, B, C>(text: A, reading: B, suffix: C) -> Self
     where
         A: IntoIterator<Item = &'a str>,
         B: IntoIterator<Item = &'a str>,
         C: IntoIterator<Item = &'a str>,
     {
-        Pair {
-            kanji: Concat::new(kanji),
+        Fragments {
+            text: Concat::new(text),
             reading: Concat::new(reading),
             suffix: Concat::new(suffix),
         }
     }
 
-    /// Access kanji prefix.
-    pub(crate) fn kanji(&self) -> &Concat<'a, N> {
-        &self.kanji
+    /// Access text prefix.
+    pub(crate) fn text(&self) -> &Concat<'a, N> {
+        &self.text
     }
 
     /// Access reading prefix.
@@ -72,11 +102,7 @@ impl<'a, const N: usize, const S: usize> Pair<'a, N, S> {
     }
 
     pub fn furigana(&self) -> Furigana<'a, N, S> {
-        Furigana::inner(
-            self.kanji.clone(),
-            self.reading.clone(),
-            self.suffix.clone(),
-        )
+        Furigana::inner(self.text.clone(), self.reading.clone(), self.suffix.clone())
     }
 
     /// Append suffixes to this pair.
@@ -92,18 +118,18 @@ impl<'a, const N: usize, const S: usize> Pair<'a, N, S> {
         }
 
         Self {
-            kanji: self.kanji.clone(),
+            text: self.text.clone(),
             reading: self.reading.clone(),
             suffix,
         }
     }
 }
 
-impl<const N: usize, const S: usize> fmt::Display for Pair<'_, N, S> {
+impl<const N: usize, const S: usize> fmt::Display for Fragments<'_, N, S> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
-            kanji,
+            text: kanji,
             reading,
             suffix,
         } = self;

@@ -13,14 +13,14 @@ pub struct Furigana<'a, const N: usize, const S: usize> {
     suffix: Concat<'a, S>,
 }
 
-impl<'a> Furigana<'a, 1, 0> {
+impl<'a> Furigana<'a, 1, 1> {
     /// Construct a new furigana wrapper based on an exact combo of kanji and
     /// reading.
-    pub fn new(kanji: &'a str, reading: &'a str) -> Self {
+    pub fn new(kanji: &'a str, reading: &'a str, suffix: &'a str) -> Self {
         Self {
             kanji: Concat::new([kanji]),
             reading: Concat::new([reading]),
-            suffix: Concat::new([]),
+            suffix: Concat::new([suffix]),
         }
     }
 }

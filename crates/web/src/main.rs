@@ -41,13 +41,21 @@ impl Component for App {
     }
 }
 
-const DATABASE: &[u8] = include_bytes!("../../../database.bin");
+#[cfg(not(feature = "embed"))]
+fn load_database() -> anyhow::Result<Option<lib::database::Database<'static>>> {
+    Ok(None)
+}
+
+#[cfg(feature = "embed")]
+fn load_database() -> anyhow::Result<Option<lib::database::Database<'static>>> {
+    static DATABASE: &[u8] = include_bytes!("../../../database.bin");
+
+    Ok(Some(lib::database::Database::new(DATABASE.as_ref())?))
+}
 
 fn main() -> anyhow::Result<()> {
     wasm_logger::init(wasm_logger::Config::default());
-    let db = Arc::new(Some(
-        lib::database::Database::new(DATABASE.as_ref()).context("loading database")?,
-    ));
+    let db = Arc::new(load_database().context("loading database")?);
     log::info!("Started up");
     yew::Renderer::<App>::with_props(Props { db }).render();
     Ok(())

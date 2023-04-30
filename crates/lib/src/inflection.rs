@@ -6,7 +6,7 @@ use fixed_map::{Key, Set};
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::kana::{Pair, Word};
+use crate::kana::{Fragments, Full, OwnedFull};
 
 /// Helper to construct a particular [`Inflection`].
 ///
@@ -30,15 +30,15 @@ macro_rules! inflect {
 /// Helper macro to build a kana pair.
 macro_rules! pair {
     ($k:expr, $r:expr, $last:expr) => {
-        $crate::kana::Pair::new([$k], [$r], [$last])
+        $crate::kana::Fragments::new([$k], [$r], [$last])
     };
 
     ($k:expr, $r:expr, $a:expr, $last:expr) => {
-        $crate::kana::Pair::new([$k, $a], [$r, $a], [$last])
+        $crate::kana::Fragments::new([$k, $a], [$r, $a], [$last])
     };
 
     ($k:expr, $r:expr, $a:expr, $b:expr, $last:expr) => {
-        $crate::kana::Pair::new([$k, $a], [$r, $b], [$last])
+        $crate::kana::Fragments::new([$k, $a], [$r, $b], [$last])
     };
 }
 
@@ -272,9 +272,12 @@ impl BitAndAssign for Inflection {
 
 /// A collection of inflections.
 #[non_exhaustive]
+#[owned::owned]
 pub struct Inflections<'a> {
-    pub dictionary: Word<'a>,
-    pub inflections: BTreeMap<Inflection, Pair<'a, 3, 4>>,
+    #[owned(ty = OwnedFull)]
+    pub dictionary: Full<'a>,
+    #[owned(ty = BTreeMap<Inflection, OwnedFull>, with = self::inflections)]
+    pub inflections: BTreeMap<Inflection, Fragments<'a, 3, 4>>,
 }
 
 impl<'a> Inflections<'a> {
@@ -295,12 +298,69 @@ impl<'a> Inflections<'a> {
     }
 
     /// Get a inflection.
-    pub fn get(&self, inflection: Inflection) -> Option<&Pair<'a, 3, 4>> {
+    pub fn get(&self, inflection: Inflection) -> Option<&Fragments<'a, 3, 4>> {
         self.inflections.get(&inflection)
     }
 
     /// Iterate over all inflections.
-    pub fn iter(&self) -> impl Iterator<Item = (&Inflection, &Pair<'a, 3, 4>)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&Inflection, &Fragments<'a, 3, 4>)> + '_ {
         self.inflections.iter()
+    }
+}
+
+impl OwnedInflections {
+    /// Test if an inflection exists.
+    pub fn contains(&self, inflection: Inflection) -> bool {
+        self.inflections.contains_key(&inflection)
+    }
+
+    /// Get a inflection.
+    pub fn get(&self, inflection: Inflection) -> Option<&OwnedFull> {
+        self.inflections.get(&inflection)
+    }
+}
+
+mod inflections {
+    use std::collections::BTreeMap;
+
+    use crate::kana::{Fragments, OwnedFull};
+    use crate::Inflection;
+
+    pub(crate) fn to_owned(
+        this: &BTreeMap<Inflection, Fragments<'_, 3, 4>>,
+    ) -> BTreeMap<Inflection, OwnedFull> {
+        let mut out = BTreeMap::new();
+
+        for (key, value) in this {
+            out.insert(
+                *key,
+                OwnedFull {
+                    text: value.text().to_string(),
+                    reading: value.reading().to_string(),
+                    suffix: value.suffix().to_string(),
+                },
+            );
+        }
+
+        out
+    }
+
+    pub(crate) fn borrow(
+        this: &BTreeMap<Inflection, OwnedFull>,
+    ) -> BTreeMap<Inflection, Fragments<'_, 3, 4>> {
+        let mut out = BTreeMap::new();
+
+        for (key, value) in this {
+            out.insert(
+                *key,
+                Fragments::new(
+                    [value.text.as_str()],
+                    [value.reading.as_str()],
+                    [value.suffix.as_str()],
+                ),
+            );
+        }
+
+        out
     }
 }

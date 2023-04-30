@@ -2,9 +2,9 @@ use std::collections::BTreeSet;
 use std::{array, iter};
 
 use lib::database::IndexExtra;
-use lib::elements::{Example, KanjiElement, ReadingElement, Sense};
+use lib::elements::{OwnedExample, OwnedKanjiElement, OwnedReadingElement, OwnedSense};
 use lib::entities::KanjiInfo;
-use lib::{adjective, elements, kana, romaji, verb, Form, Inflection, Inflections};
+use lib::{adjective, elements, kana, romaji, verb, Form, Inflection, OwnedInflections};
 use yew::prelude::*;
 
 pub(crate) enum Msg {
@@ -22,15 +22,15 @@ struct ExtraState {
 pub(crate) struct Entry {
     extras_state: Vec<ExtraState>,
     show_inflection: bool,
-    verb_inflections: Option<Inflections<'static>>,
-    adjective_inflections: Option<Inflections<'static>>,
+    verb_inflections: Option<OwnedInflections>,
+    adjective_inflections: Option<OwnedInflections>,
 }
 
 #[derive(Properties)]
 pub struct Props {
     pub extras: BTreeSet<IndexExtra>,
     pub entry_key: elements::EntryKey,
-    pub entry: elements::Entry<'static>,
+    pub entry: elements::OwnedEntry,
 }
 
 impl PartialEq for Props {
@@ -47,6 +47,8 @@ impl Component for Entry {
     type Properties = Props;
 
     fn create(ctx: &Context<Self>) -> Self {
+        let entry = owned::borrow(&ctx.props().entry);
+
         Self {
             extras_state: ctx
                 .props()
@@ -55,8 +57,8 @@ impl Component for Entry {
                 .map(|_| ExtraState::default())
                 .collect(),
             show_inflection: false,
-            verb_inflections: verb::conjugate(&ctx.props().entry),
-            adjective_inflections: adjective::conjugate(&ctx.props().entry),
+            verb_inflections: verb::conjugate(&entry).map(owned::to_owned),
+            adjective_inflections: adjective::conjugate(&entry).map(owned::to_owned),
         }
     }
 
@@ -81,8 +83,9 @@ impl Component for Entry {
     }
 
     fn changed(&mut self, ctx: &Context<Self>, _: &Self::Properties) -> bool {
-        self.verb_inflections = verb::conjugate(&ctx.props().entry);
-        self.adjective_inflections = adjective::conjugate(&ctx.props().entry);
+        let entry = owned::borrow(&ctx.props().entry);
+        self.verb_inflections = verb::conjugate(&entry).map(owned::to_owned);
+        self.adjective_inflections = adjective::conjugate(&entry).map(owned::to_owned);
         self.extras_state = ctx
             .props()
             .extras
@@ -115,7 +118,7 @@ impl Component for Entry {
         } else {
             let iter = entry.kanji_elements.iter().flat_map(|kanji| {
                 entry.reading_elements.iter().flat_map(move |reading| {
-                    reading.applies_to(kanji.text).then_some((reading, kanji))
+                    reading.applies_to(&kanji.text).then_some((reading, kanji))
                 })
             });
 
@@ -231,7 +234,7 @@ fn render_extra(
     ctx: &Context<Entry>,
     index: usize,
     extra: &IndexExtra,
-    inflections: Option<&Inflections<'_>>,
+    inflections: Option<&OwnedInflections>,
     filter: Inflection,
 ) -> Option<Html> {
     let (extra, inflection, title) = match extra {
@@ -264,9 +267,10 @@ fn render_extra(
     })
 }
 
-fn render_sense((_, s): (usize, &Sense<'_>)) -> Html {
+fn render_sense((_, s): (usize, &OwnedSense)) -> Html {
     let info = s
         .info
+        .as_ref()
         .map(|info| html!(<div class="block row sense-info">{info}</div>));
 
     let stags = render_seq(
@@ -282,7 +286,7 @@ fn render_sense((_, s): (usize, &Sense<'_>)) -> Html {
         None
     };
 
-    let glossary = render_texts(s.gloss.iter().map(|gloss| gloss.text), None);
+    let glossary = render_texts(s.gloss.iter().map(|gloss| gloss.text.as_str()), None);
     let bullets = bullets!(s.pos, "sm")
         .chain(bullets!(s.misc, "sm"))
         .chain(bullets!(s.dialect, "sm"))
@@ -313,7 +317,7 @@ fn render_sense((_, s): (usize, &Sense<'_>)) -> Html {
     }
 }
 
-fn render_reading(reading: &ReadingElement<'_>, not_last: bool) -> Html {
+fn render_reading(reading: &OwnedReadingElement, not_last: bool) -> Html {
     let priority = reading.priority.iter().map(|p| {
         html!(<span class={format!("bullet prio-{}", p.category())}>{p.category()}{p.level()}</span>)
     });
@@ -325,7 +329,7 @@ fn render_reading(reading: &ReadingElement<'_>, not_last: bool) -> Html {
 
     html! {
         <>
-            <span class="text kanji highlight">{reading.text}</span>
+            <span class="text kanji highlight">{reading.text.as_str()}</span>
             {for bullets}
             {for not_last.then(comma)}
         </>
@@ -333,7 +337,7 @@ fn render_reading(reading: &ReadingElement<'_>, not_last: bool) -> Html {
 }
 
 fn render_combined(
-    (reading, kanji): (&ReadingElement<'_>, &KanjiElement<'_>),
+    (reading, kanji): (&OwnedReadingElement, &OwnedKanjiElement),
     not_last: bool,
 ) -> Html {
     let priority = kanji.priority.iter().map(|p| {
@@ -345,7 +349,7 @@ fn render_combined(
         |iter| html!(<span class="bullets">{for iter}</span>),
     );
 
-    let furigana = kana::Word::new(kanji.text, reading.text).furigana();
+    let furigana = kana::Full::new(kanji.text.as_str(), reading.text.as_str(), "").furigana();
     let text = ruby(furigana);
 
     html! {
@@ -378,13 +382,13 @@ fn ruby<const N: usize, const S: usize>(furigana: lib::Furigana<N, S>) -> Html {
     html!(<span title={romaji}>{for elements}</span>)
 }
 
-fn render_example(example: &Example<'_>, _: bool) -> Html {
-    let texts = render_texts(example.texts.iter().copied(), Some("highlight"));
+fn render_example(example: &OwnedExample, _: bool) -> Html {
+    let texts = render_texts(example.texts.iter().map(String::as_str), Some("highlight"));
 
     let sent = example
         .sent
         .iter()
-        .map(|sent| html!(<span>{sent.text}</span>));
+        .map(|sent| html!(<span>{sent.text.as_str()}</span>));
 
     html! {
         <div class="block row entry-example">{for texts}<span class="sep">{":"}</span>{for sent}</div>
@@ -433,7 +437,7 @@ fn render_inflection(
     index: usize,
     inflection: Inflection,
     filter: Inflection,
-    inflections: Option<&Inflections<'_>>,
+    inflections: Option<&OwnedInflections>,
 ) -> Html {
     let this = filter ^ inflection;
 

@@ -15,19 +15,19 @@ use crate::entities::ReadingInfo;
 
 use crate::priority::Priority;
 
+#[owned::owned]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
-#[owned::to_owned]
 pub struct ReadingElement<'a> {
-    #[to_owned(ty = String)]
+    #[owned(ty = String)]
     pub text: &'a str,
     pub no_kanji: bool,
-    #[to_owned(ty = HashSet<String>)]
+    #[owned(ty = HashSet<String>)]
     pub reading_string: HashSet<&'a str>,
     pub priority: Vec<Priority>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(with = "crate::serde::set")]
-    #[to_owned(copy)]
+    #[owned(copy)]
     pub info: Set<ReadingInfo>,
 }
 
@@ -38,6 +38,21 @@ impl<'a> ReadingElement<'a> {
         DebugSparse(self)
     }
 
+    /// Test if this reading applies to the given string.
+    pub fn applies_to(&self, text: &str) -> bool {
+        if self.no_kanji {
+            return false;
+        }
+
+        if self.reading_string.is_empty() {
+            return true;
+        }
+
+        self.reading_string.contains(text)
+    }
+}
+
+impl OwnedReadingElement {
     /// Test if this reading applies to the given string.
     pub fn applies_to(&self, text: &str) -> bool {
         if self.no_kanji {

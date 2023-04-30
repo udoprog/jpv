@@ -7,7 +7,7 @@ use syn::parse::ParseStream;
 use syn::spanned::Spanned;
 
 #[proc_macro_attribute]
-pub fn to_owned(
+pub fn owned(
     attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {

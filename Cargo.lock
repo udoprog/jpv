@@ -946,6 +946,7 @@ name = "owned"
 version = "0.0.0"
 dependencies = [
  "owned-macros",
+ "serde",
 ]
 
 [[package]]
@@ -1677,6 +1678,7 @@ dependencies = [
  "gloo",
  "lib",
  "log",
+ "owned",
  "serde",
  "serde_json",
  "thiserror",

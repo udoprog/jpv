@@ -1,4 +1,9 @@
 use anyhow::Context;
+use lib::{
+    database::Id,
+    elements::{EntryKey, OwnedEntry},
+};
+use serde::{de::DeserializeOwned, Deserialize};
 use thiserror::Error;
 use url::Url;
 use wasm_bindgen::prelude::*;
@@ -23,14 +28,59 @@ impl From<JsValue> for FetchError {
     }
 }
 
+#[derive(Deserialize)]
+pub struct SearchEntry {
+    pub id: Id,
+    pub entry: OwnedEntry,
+}
+
+#[derive(Deserialize)]
+pub struct SearchResponse {
+    pub entries: Vec<SearchEntry>,
+}
+
 /// Perform the given search.
-pub(crate) async fn search(q: &str) -> Result<String, FetchError> {
+pub(crate) async fn search(q: &str) -> Result<SearchResponse, FetchError> {
+    request("search", [("q", q)]).await
+}
+
+#[derive(Deserialize)]
+pub struct AnalyzeEntry {
+    pub key: EntryKey,
+    pub string: String,
+}
+
+#[derive(Deserialize)]
+pub struct AnalyzeResponse {
+    pub data: Vec<AnalyzeEntry>,
+}
+
+/// Perform the given analysis.
+pub(crate) async fn analyze(q: &str, start: usize) -> Result<AnalyzeResponse, FetchError> {
+    request("analyze", [("q", q), ("start", start.to_string().as_str())]).await
+}
+
+async fn request<T, const N: usize>(p: &str, pairs: [(&str, &str); N]) -> Result<T, FetchError>
+where
+    T: DeserializeOwned,
+{
     let mut opts = RequestInit::new();
     opts.method("GET");
     opts.mode(RequestMode::Cors);
 
-    let mut url = Url::parse("http://localhost:8080/api/search")?;
-    url.query_pairs_mut().append_pair("q", q);
+    let mut url = Url::parse("http://localhost:8080/api")?;
+
+    if let Ok(mut path) = url.path_segments_mut() {
+        path.push(p);
+    }
+
+    {
+        let mut p = url.query_pairs_mut();
+
+        for (key, value) in pairs {
+            p.append_pair(key, value);
+        }
+    }
 
     let request = Request::new_with_str_and_init(&url.to_string(), &opts)?;
     let window = gloo::utils::window();
@@ -38,6 +88,6 @@ pub(crate) async fn search(q: &str) -> Result<String, FetchError> {
     let resp: Response = resp_value.dyn_into().unwrap();
     let text = JsFuture::from(resp.text()?).await?;
     let text = text.as_string().context("failed to convert to string")?;
-    let _response: serde_json::Value = serde_json::from_str(&text)?;
-    Ok(text)
+    let response = serde_json::from_str(&text)?;
+    Ok(response)
 }

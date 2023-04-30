@@ -56,6 +56,8 @@ body {
 #analyze {
     .analyze-span {
         &.clickable {
+            cursor: pointer;
+
             &.active {
                 color:  var(--analyzed-color);
             }

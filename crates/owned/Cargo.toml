@@ -17,3 +17,6 @@ categories = ["template-engine"]
 
 [dependencies]
 owned-macros = { path = "../owned-macros" }
+
+[dev-dependencies]
+serde = { version = "1.0.160", features = ["derive"] }

@@ -37,17 +37,30 @@ pub(crate) fn implement(
     let mut to_owned_entries = Vec::new();
     let mut borrow_entries = Vec::new();
 
-    match &mut output {
-        syn::Item::Struct(st) => {
+    match (&mut output, &mut item) {
+        (syn::Item::Struct(st), syn::Item::Struct(b_st)) => {
             let container = attr::container(cx, &st.ident, &attrs);
             let container = container?;
             st.ident = container.name;
 
             strip_generics(&mut st.generics);
 
-            for (index, field) in st.fields.iter_mut().enumerate() {
+            for (index, (field, b_field)) in
+                st.fields.iter_mut().zip(b_st.fields.iter_mut()).enumerate()
+            {
                 let attr = attr::field(cx, &mut field.attrs);
                 let attr = attr?;
+
+                attr::strip(&mut b_field.attrs);
+
+                if let Some(meta) = attr.borrowed_meta {
+                    b_field.attrs.push(syn::Attribute {
+                        pound_token: syn::token::Pound::default(),
+                        style: syn::AttrStyle::Outer,
+                        bracket_token: syn::token::Bracket::default(),
+                        meta,
+                    });
+                }
 
                 if let attr::FieldType::Type(ty) = attr.ty {
                     field.ty = ty;
@@ -83,17 +96,19 @@ pub(crate) fn implement(
                 }
             }
         }
-        syn::Item::Enum(en) => {
+        (syn::Item::Enum(en), syn::Item::Enum(b_en)) => {
             let container = attr::container(cx, &en.ident, &attrs);
             let container = container?;
             en.ident = container.name;
 
             strip_generics(&mut en.generics);
 
-            for variant in &mut en.variants {
-                for field in &mut variant.fields {
+            for (variant, b_variant) in en.variants.iter_mut().zip(b_en.variants.iter_mut()) {
+                for (field, b_field) in variant.fields.iter_mut().zip(b_variant.fields.iter_mut()) {
                     let attr = attr::field(cx, &mut field.attrs);
                     let attr = attr?;
+
+                    attr::strip(&mut b_field.attrs);
 
                     if let attr::FieldType::Type(ty) = attr.ty {
                         field.ty = ty;
@@ -101,7 +116,7 @@ pub(crate) fn implement(
                 }
             }
         }
-        item => {
+        (_, item) => {
             cx.span_error(
                 item.span(),
                 format_args!("{} is only supported on structs and enum", NAME),
@@ -114,8 +129,6 @@ pub(crate) fn implement(
         syn::Item::Struct(st) => (&st.ident, &st.generics),
         _ => return Err(()),
     };
-
-    strip(cx, &mut item)?;
 
     let (borrow_ident, borrow_generics) = match &item {
         syn::Item::Struct(st) => (&st.ident, &st.generics),
@@ -187,33 +200,4 @@ fn strip_generics(generics: &mut syn::Generics) {
     }
 
     generics.params = params;
-}
-
-// Strip original item from our attributes.
-fn strip<'a>(
-    cx: &Ctxt,
-    item: &'a mut syn::Item,
-) -> Result<(&'a syn::Ident, &'a syn::Generics), ()> {
-    match item {
-        syn::Item::Struct(st) => {
-            for field in &mut st.fields {
-                attr::strip(&mut field.attrs);
-            }
-
-            Ok((&st.ident, &st.generics))
-        }
-        syn::Item::Enum(en) => {
-            for variant in &mut en.variants {
-                for field in &mut variant.fields {
-                    attr::strip(&mut field.attrs);
-                }
-            }
-
-            Ok((&en.ident, &en.generics))
-        }
-        item => {
-            cx.span_error(item.span(), "Unsupported item");
-            return Err(());
-        }
-    }
 }

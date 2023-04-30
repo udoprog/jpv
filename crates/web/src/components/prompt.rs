@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use lib::database::{Id, IndexExtra};
-use lib::elements::{Entry, EntryKey};
+use lib::elements::{EntryKey, OwnedEntry};
 use lib::romaji;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
@@ -17,7 +17,8 @@ pub(crate) enum Msg {
     Analyze(usize),
     AnalyzeCycle,
     HistoryChanged(Location),
-    SearchResponse(String, String),
+    SearchResponse(String, fetch::SearchResponse),
+    AnalyzeResponse(String, fetch::AnalyzeResponse),
     Error(FetchError),
 }
 
@@ -80,14 +81,14 @@ struct EntryData {
 #[derive(Default)]
 pub(crate) struct Prompt {
     query: Query,
-    entries: Vec<(EntryData, Entry<'static>)>,
+    entries: Vec<(EntryData, OwnedEntry)>,
     _handle: Option<LocationHandle>,
 }
 
 impl Prompt {
     fn handle_entries<'a, I>(&mut self, input: &str, entries: I)
     where
-        I: IntoIterator<Item = (Id, Entry<'static>)>,
+        I: IntoIterator<Item = (Id, OwnedEntry)>,
     {
         self.entries.clear();
         let mut dedup = HashMap::new();
@@ -127,7 +128,7 @@ impl Prompt {
             let iter = db.lookup(input);
 
             let iter = iter.flat_map(|id| match db.get(id) {
-                Ok(entry) => Some((id, entry)),
+                Ok(entry) => Some((id, owned::to_owned(entry))),
                 Err(error) => {
                     log::error!("Error in entry: {id:?}: {error}");
                     None
@@ -147,48 +148,21 @@ impl Prompt {
         }
     }
 
-    fn analyze(&mut self, ctx: &Context<Self>, start: usize) -> BTreeMap<EntryKey, String> {
+    fn analyze(&mut self, ctx: &Context<Self>, start: usize) -> Option<BTreeMap<EntryKey, String>> {
         let Some(db) = &*ctx.props().db else {
-            return BTreeMap::new();
-        };
+            let input = self.query.q.clone();
 
-        let mut inputs = BTreeMap::new();
-
-        let Some(suffix) = self.query.q.get(start..) else {
-            return inputs;
-        };
-
-        let mut it = suffix.chars();
-
-        while !it.as_str().is_empty() {
-            let mut sort_key = None;
-
-            for id in db.lookup(it.as_str()) {
-                let Ok(e) = db.get(id) else {
-                    continue;
-                };
-
-                let a = e.sort_key(
-                    it.as_str(),
-                    id.extra().is_inflection(),
-                    it.as_str().chars().count(),
-                );
-
-                if let Some(b) = sort_key.take() {
-                    sort_key = Some(a.min(b));
-                } else {
-                    sort_key = Some(a);
+            ctx.link().send_future(async move {
+                match fetch::analyze(&input, start).await {
+                    Ok(entries) => Msg::AnalyzeResponse(input, entries),
+                    Err(error) => Msg::Error(error),
                 }
-            }
+            });
 
-            if let Some(e) = sort_key.take() {
-                inputs.insert(e, it.as_str().to_owned());
-            }
+            return None;
+        };
 
-            it.next_back();
-        }
-
-        inputs
+        Some(db.analyze(&self.query.q, start))
     }
 
     fn save_query(&mut self, ctx: &Context<Prompt>, push: bool) {
@@ -207,6 +181,18 @@ impl Prompt {
             if let Err(error) = result {
                 log::error!("Failed to set route: {error}");
             }
+        }
+    }
+
+    fn handle_analysis(&mut self, ctx: &Context<Prompt>, analysis: Vec<String>) {
+        if let Some(input) = analysis.get(0) {
+            self.refresh(ctx, input);
+        }
+
+        if self.query.a != analysis || self.query.i != 0 {
+            self.query.a = analysis;
+            self.query.i = 0;
+            self.save_query(ctx, true);
         }
     }
 }
@@ -248,7 +234,19 @@ impl Component for Prompt {
                 log::error!("Failed to fetch: {error}");
                 false
             }
-            Msg::SearchResponse(..) => true,
+            Msg::SearchResponse(input, response) => {
+                self.handle_entries(
+                    &input,
+                    response.entries.into_iter().map(|r| (r.id, r.entry)),
+                );
+
+                true
+            }
+            Msg::AnalyzeResponse(_, response) => {
+                let analysis = response.data.into_iter().map(|d| d.string).collect();
+                self.handle_analysis(ctx, analysis);
+                true
+            }
             Msg::Change(input) => {
                 let input = process_query(&input);
                 self.refresh(ctx, &input);
@@ -262,21 +260,11 @@ impl Component for Prompt {
                 true
             }
             Msg::Analyze(i) => {
-                match self.analyze(ctx, i) {
-                    analyze if !analyze.is_empty() => {
-                        let analyze = analyze.into_values().collect::<Vec<_>>();
-
-                        if let Some(input) = analyze.get(0) {
-                            self.refresh(ctx, input);
-                        }
-
-                        if self.query.a != analyze || self.query.i != 0 {
-                            self.query.a = analyze;
-                            self.query.i = 0;
-                            self.save_query(ctx, true);
-                        }
+                if let Some(analysis) = self.analyze(ctx, i) {
+                    if !analysis.is_empty() {
+                        let analysis = analysis.into_values().collect::<Vec<_>>();
+                        self.handle_analysis(ctx, analysis);
                     }
-                    _ => {}
                 }
 
                 true
@@ -311,7 +299,8 @@ impl Component for Prompt {
 
         let entries = (!self.entries.is_empty()).then(|| {
             let entries = self.entries.iter().map(|(data, entry)| {
-                html!(<c::Entry extras={data.extras.clone()} entry_key={data.key.clone()} entry={entry.clone()} />)
+                let entry: OwnedEntry = entry.clone();
+                html!(<c::Entry extras={data.extras.clone()} entry_key={data.key.clone()} entry={entry} />)
             });
 
             html!(<div class="block block-lg">{for entries}</div>)

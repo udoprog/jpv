@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::parser::{Output, Poll};
 
+#[owned::owned]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
-#[owned::to_owned]
 pub struct ExampleSource<'a> {
-    #[to_owned(ty = String)]
+    #[owned(ty = String)]
     pub text: &'a str,
-    #[to_owned(ty = Option<String>)]
+    #[owned(ty = Option<String>)]
     pub ty: Option<&'a str>,
 }
 

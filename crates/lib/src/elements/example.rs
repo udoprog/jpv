@@ -11,18 +11,15 @@ pub use self::example_sent::{ExampleSent, OwnedExampleSent};
 pub use self::example_source::{ExampleSource, OwnedExampleSource};
 use crate::elements::text;
 
+#[owned::owned]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
-#[owned::to_owned]
 pub struct Example<'a> {
-    #[serde(borrow)]
-    #[to_owned(ty = Vec<OwnedExampleSent>)]
+    #[owned(ty = Vec<OwnedExampleSent>, borrowed(serde(borrow)))]
     pub sent: Vec<ExampleSent<'a>>,
-    #[serde(borrow)]
-    #[to_owned(ty = Vec<OwnedExampleSource>)]
+    #[owned(ty = Vec<OwnedExampleSource>, borrowed(serde(borrow)))]
     pub sources: Vec<ExampleSource<'a>>,
-    #[serde(borrow)]
-    #[to_owned(ty = Vec<String>)]
+    #[owned(ty = Vec<String>, borrowed(serde(borrow)))]
     pub texts: Vec<&'a str>,
 }
 
