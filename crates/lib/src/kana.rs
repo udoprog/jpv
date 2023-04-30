@@ -86,6 +86,11 @@ impl<'a, const N: usize, const S: usize> Fragments<'a, N, S> {
         }
     }
 
+    /// Test if fragments is empty.
+    pub fn is_empty(&self) -> bool {
+        self.text.is_empty() && self.suffix.is_empty()
+    }
+
     /// Access text prefix.
     pub(crate) fn text(&self) -> &Concat<'a, N> {
         &self.text

@@ -98,8 +98,11 @@ pub enum Form {
     Tai,
     Negative,
     Past,
+    /// Polite form.
     Polite,
+    /// Conversational form.
     Conversation,
+    /// Alternate forms, when available.
     Alternate,
 }
 

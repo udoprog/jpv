@@ -22,7 +22,7 @@ pub struct ReadingElement<'a> {
     #[owned(ty = String)]
     pub text: &'a str,
     pub no_kanji: bool,
-    #[serde(skip_serializing_if = "HashSet::is_empty")]
+    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
     #[owned(ty = HashSet<String>)]
     pub reading_string: HashSet<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

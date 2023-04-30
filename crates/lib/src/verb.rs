@@ -185,16 +185,18 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
         kuru!(populate);
     }
 
-    macro_rules! populate {
-        ($suffix:expr $(, $inflect:ident)*) => {
-            inflections.insert(inflect!(Chau $(, $inflect)*), stem.concat($suffix));
+    if !stem.is_empty() {
+        macro_rules! populate {
+            ($suffix:expr $(, $inflect:ident)*) => {
+                inflections.insert(inflect!(Chau $(, $inflect)*), stem.concat($suffix));
+            }
         }
-    }
 
-    if de {
-        godan!(populate, godan::U, "じゃ");
-    } else {
-        godan!(populate, godan::U, "ちゃ");
+        if de {
+            godan!(populate, godan::U, "じゃ");
+        } else {
+            godan!(populate, godan::U, "ちゃ");
+        }
     }
 
     Some(Inflections {
