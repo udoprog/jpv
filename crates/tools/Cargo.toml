@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-anyhow = "1.0.70"
+anyhow = "1.0.71"
 flate2 = "1.0.26"
 clap = { version = "4.2.5", features = ["derive", "wrap_help"] }
 tracing = "0.1.37"
