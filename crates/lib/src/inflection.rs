@@ -305,11 +305,11 @@ impl BitAndAssign for Inflection {
 }
 
 /// A collection of inflections.
-#[owned::owned]
+#[borrowme::borrowme]
 pub struct Inflections<'a> {
-    #[owned(ty = OwnedFull)]
+    #[owned(OwnedFull)]
     pub dictionary: Full<'a>,
-    #[owned(ty = BTreeMap<Inflection, OwnedFull>, with = self::inflections)]
+    #[borrowme(owned = BTreeMap<Inflection, OwnedFull>, with = self::inflections)]
     pub inflections: BTreeMap<Inflection, Fragments<'a, 3, 4>>,
 }
 

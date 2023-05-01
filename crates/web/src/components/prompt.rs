@@ -92,7 +92,7 @@ impl Prompt {
 
             self.entries = entries
                 .into_iter()
-                .map(|(key, e)| (key, owned::to_owned(e)))
+                .map(|(key, e)| (key, borrowme::to_owned(e)))
                 .collect();
 
             self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));

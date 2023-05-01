@@ -54,19 +54,22 @@ pub struct EntryKey {
     sequence: u64,
 }
 
-#[owned::owned]
+#[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Entry<'a> {
     pub sequence: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<OwnedReadingElement>, borrowed(serde(borrow)))]
+    #[owned(Vec<OwnedReadingElement>)]
+    #[borrowed_attr(serde(borrow))]
     pub reading_elements: Vec<ReadingElement<'a>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<OwnedKanjiElement>, borrowed(serde(borrow)))]
+    #[owned(Vec<OwnedKanjiElement>)]
+    #[borrowed_attr(serde(borrow))]
     pub kanji_elements: Vec<KanjiElement<'a>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<OwnedSense>, borrowed(serde(borrow)))]
+    #[owned(Vec<OwnedSense>)]
+    #[borrowed_attr(serde(borrow))]
     pub senses: Vec<Sense<'a>>,
 }
 

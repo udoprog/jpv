@@ -14,49 +14,49 @@ use crate::entities::{Dialect, Field, Miscellaneous, PartOfSpeech};
 
 const DEFAULT_LANGUAGE: &str = "eng";
 
-#[owned::owned]
+#[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Sense<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<String>)]
+    #[owned(Vec<String>)]
     pub xref: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<OwnedGlossary>)]
+    #[owned(Vec<OwnedGlossary>)]
     pub gloss: Vec<Glossary<'a>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[owned(ty = Option<String>)]
+    #[owned(Option<String>)]
     pub info: Option<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<String>)]
+    #[owned(Vec<String>)]
     pub stagk: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<String>)]
+    #[owned(Vec<String>)]
     pub stagr: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<OwnedSourceLanguage>)]
+    #[owned(Vec<OwnedSourceLanguage>)]
     pub source_language: Vec<SourceLanguage<'a>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<String>)]
+    #[owned(Vec<String>)]
     pub antonym: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(ty = Vec<OwnedExample>)]
+    #[owned(Vec<OwnedExample>)]
     pub examples: Vec<Example<'a>>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]
-    #[owned(copy)]
+    #[copy]
     pub pos: Set<PartOfSpeech>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]
-    #[owned(copy)]
+    #[copy]
     pub misc: Set<Miscellaneous>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]
-    #[owned(copy)]
+    #[copy]
     pub dialect: Set<Dialect>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]
-    #[owned(copy)]
+    #[copy]
     pub field: Set<Field>,
 }
 

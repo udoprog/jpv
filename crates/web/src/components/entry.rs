@@ -80,7 +80,7 @@ impl Component for Entry {
     type Properties = Props;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let entry = owned::borrow(&ctx.props().entry);
+        let entry = borrowme::borrow(&ctx.props().entry);
 
         let mut this = Self {
             combined: Vec::new(),
@@ -92,8 +92,8 @@ impl Component for Entry {
                 .map(|_| ExtraState::default())
                 .collect(),
             show_inflection: false,
-            verb_inflections: verb::conjugate(&entry).map(owned::to_owned),
-            adjective_inflections: adjective::conjugate(&entry).map(owned::to_owned),
+            verb_inflections: verb::conjugate(&entry).map(borrowme::to_owned),
+            adjective_inflections: adjective::conjugate(&entry).map(borrowme::to_owned),
         };
 
         this.refresh_entry(ctx);
@@ -121,9 +121,9 @@ impl Component for Entry {
     }
 
     fn changed(&mut self, ctx: &Context<Self>, _: &Self::Properties) -> bool {
-        let entry = owned::borrow(&ctx.props().entry);
-        self.verb_inflections = verb::conjugate(&entry).map(owned::to_owned);
-        self.adjective_inflections = adjective::conjugate(&entry).map(owned::to_owned);
+        let entry = borrowme::borrow(&ctx.props().entry);
+        self.verb_inflections = verb::conjugate(&entry).map(borrowme::to_owned);
+        self.adjective_inflections = adjective::conjugate(&entry).map(borrowme::to_owned);
         self.extras = ctx
             .props()
             .extras

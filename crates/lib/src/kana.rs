@@ -4,16 +4,16 @@ use crate::concat::Concat;
 use crate::furigana::Furigana;
 
 /// A kana pair made up of complete text fragments.
-#[owned::owned]
+#[borrowme::borrowme]
 pub struct Full<'a> {
     /// Verb stem.
-    #[owned(ty = String)]
+    #[owned(String)]
     pub text: &'a str,
     /// Furigana reading of verb stem.
-    #[owned(ty = String)]
+    #[owned(String)]
     pub reading: &'a str,
     /// Common suffix.
-    #[owned(ty = String)]
+    #[owned(String)]
     pub suffix: &'a str,
 }
 

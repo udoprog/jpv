@@ -15,4 +15,4 @@ relative-path = "1.8.0"
 serde = { version = "1.0.160", features = ["derive"] }
 tracing = "0.1.37"
 xmlparser = "0.13.5"
-owned = { path = "../owned" }
+borrowme = "0.0.3"

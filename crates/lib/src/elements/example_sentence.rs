@@ -4,14 +4,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::parser::{Output, Poll};
 
-#[owned::owned]
+#[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct ExampleSentence<'a> {
-    #[owned(ty = String)]
+    #[owned(String)]
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[owned(ty = Option<String>)]
+    #[owned(Option<String>)]
     pub lang: Option<&'a str>,
 }
 

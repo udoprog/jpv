@@ -15,21 +15,21 @@ use crate::entities::ReadingInfo;
 
 use crate::priority::Priority;
 
-#[owned::owned]
+#[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct ReadingElement<'a> {
-    #[owned(ty = String)]
+    #[owned(String)]
     pub text: &'a str,
     pub no_kanji: bool,
     #[serde(default, skip_serializing_if = "HashSet::is_empty")]
-    #[owned(ty = HashSet<String>)]
+    #[owned(HashSet<String>)]
     pub reading_string: HashSet<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub priority: Vec<Priority>,
     #[serde(default, skip_serializing_if = "Set::is_empty")]
     #[musli(with = crate::musli::set::<_>)]
-    #[owned(copy)]
+    #[copy]
     pub info: Set<ReadingInfo>,
 }
 

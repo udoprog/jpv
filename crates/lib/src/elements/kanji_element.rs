@@ -12,17 +12,17 @@ use fixed_map::Set;
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-#[owned::owned]
+#[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct KanjiElement<'a> {
-    #[owned(ty = String)]
+    #[owned(String)]
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub priority: Vec<Priority>,
     #[serde(default, skip_serializing_if = "Set::is_empty")]
     #[musli(with = crate::musli::set::<_>)]
-    #[owned(copy)]
+    #[copy]
     pub info: Set<KanjiInfo>,
 }
 
