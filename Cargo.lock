@@ -193,18 +193,18 @@ checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
 name = "borrowme"
-version = "0.0.4"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9548a590b1808f6d1a905ba7ac821ed37bf618e0dcd8f82b72aed54ac222a88"
+checksum = "cf7af4ebaccebe709df7c0d3d3e4872bd8f08e8fe3c045f797413b138e7d1ffd"
 dependencies = [
  "borrowme-macros",
 ]
 
 [[package]]
 name = "borrowme-macros"
-version = "0.0.4"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfd4e93f69b7efa4b196375f0a9411dc2137347d43e5f0627735289f7bbb192e"
+checksum = "01b9af30224ff53c1a92439bf427ecd052b414066591ff80483285adbf3ba4b0"
 dependencies = [
  "proc-macro2",
  "quote",

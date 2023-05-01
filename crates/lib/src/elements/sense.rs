@@ -7,9 +7,7 @@ use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::elements::{example, gloss, source_language, text};
-use crate::elements::{
-    Example, Glossary, OwnedExample, OwnedGlossary, OwnedSourceLanguage, SourceLanguage,
-};
+use crate::elements::{Example, Glossary, SourceLanguage};
 use crate::entities::{Dialect, Field, Miscellaneous, PartOfSpeech};
 
 const DEFAULT_LANGUAGE: &str = "eng";
@@ -19,28 +17,20 @@ const DEFAULT_LANGUAGE: &str = "eng";
 #[musli(packed)]
 pub struct Sense<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<String>)]
     pub xref: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<OwnedGlossary>)]
     pub gloss: Vec<Glossary<'a>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[owned(Option<String>)]
     pub info: Option<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<String>)]
     pub stagk: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<String>)]
     pub stagr: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<OwnedSourceLanguage>)]
     pub source_language: Vec<SourceLanguage<'a>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<String>)]
     pub antonym: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<OwnedExample>)]
     pub examples: Vec<Example<'a>>,
     #[musli(with = crate::musli::set::<_>)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]

@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct KanjiElement<'a> {
-    #[owned(String)]
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub priority: Vec<Priority>,

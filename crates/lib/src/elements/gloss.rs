@@ -8,10 +8,8 @@ use crate::parser::{Output, Poll};
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Glossary<'a> {
-    #[owned(String)]
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[owned(Option<String>)]
     pub lang: Option<&'a str>,
 }
 

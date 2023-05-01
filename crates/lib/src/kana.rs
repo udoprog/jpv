@@ -7,13 +7,10 @@ use crate::furigana::Furigana;
 #[borrowme::borrowme]
 pub struct Full<'a> {
     /// Verb stem.
-    #[owned(String)]
     pub text: &'a str,
     /// Furigana reading of verb stem.
-    #[owned(String)]
     pub reading: &'a str,
     /// Common suffix.
-    #[owned(String)]
     pub suffix: &'a str,
 }
 

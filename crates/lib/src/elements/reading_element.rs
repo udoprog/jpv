@@ -19,11 +19,9 @@ use crate::priority::Priority;
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct ReadingElement<'a> {
-    #[owned(String)]
     pub text: &'a str,
     pub no_kanji: bool,
     #[serde(default, skip_serializing_if = "HashSet::is_empty")]
-    #[owned(HashSet<String>)]
     pub reading_string: HashSet<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub priority: Vec<Priority>,

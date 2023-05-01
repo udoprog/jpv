@@ -5,22 +5,19 @@ use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::elements::{example_sentence, example_source, text};
-use crate::elements::{ExampleSentence, ExampleSource, OwnedExampleSentence, OwnedExampleSource};
+use crate::elements::{ExampleSentence, ExampleSource};
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Example<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<OwnedExampleSentence>)]
     #[borrowed_attr(serde(borrow))]
     pub sentences: Vec<ExampleSentence<'a>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<OwnedExampleSource>)]
     #[borrowed_attr(serde(borrow))]
     pub sources: Vec<ExampleSource<'a>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[owned(Vec<String>)]
     #[borrowed_attr(serde(borrow))]
     pub texts: Vec<&'a str>,
 }
