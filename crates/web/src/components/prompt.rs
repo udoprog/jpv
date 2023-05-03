@@ -320,6 +320,8 @@ impl Component for Prompt {
                         {for analyze_hint}
                         {for entries}
                     </>
+
+                    <div class="block block-lg" id="copyright">{copyright()}</div>
                 </div>
             </BrowserRouter>
         }
@@ -354,4 +356,17 @@ fn decode_query(location: Option<Location>) -> (Query, String) {
     };
 
     (query, input)
+}
+
+fn copyright() -> Html {
+    html! {
+        <div class="block inline">
+            <span>{"This application uses the JMdict dictionary file. "}</span>
+            <span>{"This is the property of the "}</span>
+            <a href="https://www.edrdg.org">{"Electronic Dictionary Research and Development Group"}</a>
+            <span>{", and are used in conformance with the Group's "}</span>
+            <a href="https://www.edrdg.org/edrdg/licence.html">{"licence"}</a>
+            <span>{"."}</span>
+        </div>
+    }
 }

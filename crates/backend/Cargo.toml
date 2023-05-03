@@ -11,4 +11,4 @@ lib = { path = "../lib" }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 serde = { version = "1.0.160", features = ["derive"] }
-clap = { version = "4.2.5", features = ["derive"] }
+clap = { version = "4.2.7", features = ["derive"] }

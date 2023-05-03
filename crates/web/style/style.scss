@@ -82,6 +82,10 @@ body {
     max-width: 1200px;
 }
 
+#copyright {
+    font-size: 0.8em;
+}
+
 @mixin block-margin($margin) {
     margin-bottom: $margin;
 
@@ -102,6 +106,10 @@ body {
     @include block-margin(var(--section-margin));
     display: flex;
     flex-direction: column;
+
+    &.inline {
+        display: block;
+    }
 
     &.row {
         flex-flow: row wrap;
