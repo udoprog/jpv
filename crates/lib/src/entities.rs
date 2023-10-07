@@ -20,7 +20,7 @@ macro_rules! entity {
         }
 
         impl $name {
-            $vis const VALUES: &[$name] = &[
+            $vis const VALUES: &'static [$name] = &[
                 $($name::$variant,)*
             ];
 

@@ -14,7 +14,11 @@ use crate::PartOfSpeech;
 
 /// Try to conjugate the given entry as a verb.
 pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
-    let (Some(kind), [kanji, ..], [reading, ..]) = (as_verb_kind(entry), &entry.kanji_elements[..], &entry.reading_elements[..]) else {
+    let (Some(kind), [kanji, ..], [reading, ..]) = (
+        as_verb_kind(entry),
+        &entry.kanji_elements[..],
+        &entry.reading_elements[..],
+    ) else {
         return None;
     };
 
@@ -26,7 +30,10 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
 
     let (mut inflections, stem, de) = match kind {
         VerbKind::Ichidan => {
-            let (Some(k), Some(r)) = (kanji_text.strip_suffix('る'), reading.text.strip_suffix('る')) else {
+            let (Some(k), Some(r)) = (
+                kanji_text.strip_suffix('る'),
+                reading.text.strip_suffix('る'),
+            ) else {
                 return None;
             };
 
@@ -42,10 +49,13 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
 
             ichidan!(populate);
-            (inflections, Fragments::new([k], [r], []), false)
+            (inflections, Fragments::new([k], [r], ["っ"]), false)
         }
         VerbKind::GodanIku => {
-            let (Some(k), Some(r)) = (kanji_text.strip_suffix('く'), reading.text.strip_suffix('く')) else {
+            let (Some(k), Some(r)) = (
+                kanji_text.strip_suffix('く'),
+                reading.text.strip_suffix('く'),
+            ) else {
                 return None;
             };
 
@@ -61,7 +71,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
 
             godan!(populate, g);
-            (inflections, Fragments::new([k], [r], []), g.de)
+            (inflections, Fragments::new([k], [r], [g.te_stem]), g.de)
         }
         VerbKind::Godan => {
             let mut k = kanji_text.chars();
@@ -95,10 +105,13 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
 
             godan!(populate, g);
-            (inflections, Fragments::new([k], [r], []), g.de)
+            (inflections, Fragments::new([k], [r], [g.te_stem]), g.de)
         }
         VerbKind::Suru => {
-            let (Some(k), Some(r)) = (kanji_text.strip_suffix("する"), reading.text.strip_suffix("する")) else {
+            let (Some(k), Some(r)) = (
+                kanji_text.strip_suffix("する"),
+                reading.text.strip_suffix("する"),
+            ) else {
                 return None;
             };
 
@@ -115,7 +128,10 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             (inflections, Fragments::new([k], [r], []), false)
         }
         VerbKind::Kuru => {
-            let (Some(k), Some(r)) = (kanji_text.strip_suffix("来る"), reading.text.strip_suffix("くる")) else {
+            let (Some(k), Some(r)) = (
+                kanji_text.strip_suffix("来る"),
+                reading.text.strip_suffix("くる"),
+            ) else {
                 return None;
             };
 

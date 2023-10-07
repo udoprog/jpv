@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Error, Result};
 use axum::body::{boxed, Body};
 use axum::extract::Query;
-use axum::http::StatusCode;
+use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Extension, Json, Router};
@@ -13,6 +13,7 @@ use lib::elements::{Entry, EntryKey};
 use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
 use tokio::signal::windows::ctrl_shutdown;
+use tower_http::cors::CorsLayer;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
@@ -54,10 +55,16 @@ async fn main() -> Result<()> {
     let db = lib::database::Database::new(data).context("loading database")?;
     tracing::info!("Database loaded");
 
+    let cors = CorsLayer::new()
+        .allow_origin("http://localhost:8080".parse::<HeaderValue>().unwrap())
+        .allow_origin("http://127.0.0.1:8080".parse::<HeaderValue>().unwrap())
+        .allow_methods([Method::GET]);
+
     let app = Router::new()
         .route("/analyze", get(analyze))
         .route("/search", get(search))
-        .layer(Extension(db));
+        .layer(Extension(db))
+        .layer(cors);
 
     tracing::info!("Listening on {bind}");
 

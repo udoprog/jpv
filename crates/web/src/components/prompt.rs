@@ -13,6 +13,7 @@ use crate::fetch::FetchError;
 use crate::{components as c, fetch};
 
 pub(crate) enum Msg {
+    Hiragana(bool),
     Change(String),
     Analyze(usize),
     AnalyzeCycle,
@@ -27,6 +28,7 @@ struct Query {
     q: String,
     a: Vec<String>,
     i: usize,
+    hiragana: bool,
 }
 
 impl Query {
@@ -45,6 +47,9 @@ impl Query {
                     if let Ok(i) = value.parse() {
                         this.i = i;
                     }
+                }
+                "h" => {
+                    this.hiragana = value == "yes";
                 }
                 _ => {}
             }
@@ -66,6 +71,10 @@ impl Query {
 
         if self.i != 0 {
             out.push(("i", Cow::Owned(self.i.to_string())));
+        }
+
+        if self.hiragana {
+            out.push(("h", Cow::Borrowed("yes")));
         }
 
         out
@@ -208,8 +217,18 @@ impl Component for Prompt {
                 self.handle_analysis(ctx, analysis);
                 true
             }
+            Msg::Hiragana(hiragana) => {
+                self.query.hiragana = hiragana;
+                self.save_query(ctx, false);
+                true
+            }
             Msg::Change(input) => {
-                let input = process_query(&input);
+                let input = if self.query.hiragana {
+                    process_query(&input)
+                } else {
+                    input
+                };
+
                 self.refresh(ctx, &input);
 
                 if self.query.q != input || !self.query.a.is_empty() {
@@ -256,6 +275,12 @@ impl Component for Prompt {
             let input: HtmlInputElement = e.target_dyn_into()?;
             let value = input.value();
             Some(Msg::Change(value))
+        });
+
+        let onhiragana = ctx.link().batch_callback(|e: Event| {
+            let input: HtmlInputElement = e.target_dyn_into()?;
+            let value = input.checked();
+            Some(Msg::Hiragana(value))
         });
 
         let entries = (!self.entries.is_empty()).then(|| {
@@ -311,8 +336,13 @@ impl Component for Prompt {
         html! {
             <BrowserRouter>
                 <div id="container">
-                    <div class="block block-lg row" id="prompt">
+                    <div class="block block row" id="prompt">
                         <input value={self.query.q.clone()} type="text" oninput={oninput} />
+                    </div>
+
+                    <div class="block block-lg row">
+                        <input type="checkbox" id="hiragana" value="Input as hiragana" checked={self.query.hiragana} onchange={onhiragana} />
+                        <label for="hiragana">{"Input as hiragana"}</label>
                     </div>
 
                     <>

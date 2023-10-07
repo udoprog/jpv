@@ -5,13 +5,20 @@ use crate::PartOfSpeech;
 
 /// Try to conjugate the given entry as an adjective.
 pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
-    let (Some(kind), [kanji, ..], [reading, ..]) = (as_adjective_kind(entry), &entry.kanji_elements[..], &entry.reading_elements[..]) else {
+    let (Some(kind), [kanji, ..], [reading, ..]) = (
+        as_adjective_kind(entry),
+        &entry.kanji_elements[..],
+        &entry.reading_elements[..],
+    ) else {
         return None;
     };
 
     let inflections = match kind {
         AdjectiveKind::I => {
-            let (Some(k), Some(r)) = (kanji.text.strip_suffix('い'), reading.text.strip_suffix('い')) else {
+            let (Some(k), Some(r)) = (
+                kanji.text.strip_suffix('い'),
+                reading.text.strip_suffix('い'),
+            ) else {
                 return None;
             };
 
@@ -28,7 +35,10 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
             }
         }
         AdjectiveKind::Yoi => {
-            let (Some(k), Some(r)) = (kanji.text.strip_suffix("いい"), reading.text.strip_suffix("いい")) else {
+            let (Some(k), Some(r)) = (
+                kanji.text.strip_suffix("いい"),
+                reading.text.strip_suffix("いい"),
+            ) else {
                 return None;
             };
 
