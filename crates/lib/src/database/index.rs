@@ -41,15 +41,15 @@ impl Hash for Pair<'_> {
 #[derive(Default)]
 pub(super) struct Index<'a> {
     pub(super) lookup: HashMap<Pair<'a>, Vec<Id>>,
-    pub(super) by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
-    pub(super) by_sequence: HashMap<u64, usize>,
+    pub(super) by_pos: HashMap<PartOfSpeech, HashSet<u32>>,
+    pub(super) by_sequence: HashMap<u64, u32>,
 }
 
 /// How the index is stored.
 #[derive(Default, Encode, Decode)]
 #[musli(packed)]
 pub(super) struct Data {
-    pub(super) lookup: HashMap<(usize, usize), Vec<Id>>,
-    pub(super) by_pos: HashMap<PartOfSpeech, HashSet<usize>>,
-    pub(super) by_sequence: HashMap<u64, usize>,
+    pub(super) lookup: HashMap<(u32, u32), Vec<Id>>,
+    pub(super) by_pos: HashMap<PartOfSpeech, HashSet<u32>>,
+    pub(super) by_sequence: HashMap<u64, u32>,
 }

@@ -11,12 +11,12 @@ const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 #[derive(Default)]
 pub(super) struct Strings {
     data: Vec<u8>,
-    lookup: HashMap<Vec<u8>, usize>,
+    lookup: HashMap<Vec<u8>, u32>,
 }
 
 impl Strings {
     /// Insert a string.
-    pub fn insert<S>(&mut self, string: S) -> Result<usize>
+    pub fn insert<S>(&mut self, string: S) -> Result<u32>
     where
         S: AsRef<[u8]>,
     {
@@ -26,7 +26,7 @@ impl Strings {
             return Ok(index);
         }
 
-        let index = self.data.len();
+        let index = u32::try_from(self.data.len()).context("string offset overflow")?;
         self.lookup.insert(string.to_owned(), index);
         ENCODING.to_writer(&mut self.data, &string)?;
         Ok(index)

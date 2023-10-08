@@ -30,7 +30,7 @@ const HEADER_ENCODING: Encoding<DefaultMode, Fixed, FixedUsize<u32>> =
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryResultKey {
-    pub index: usize,
+    pub index: u32,
     #[serde(flatten)]
     pub key: EntryKey,
     pub sources: BTreeSet<IndexSource>,
@@ -77,16 +77,16 @@ pub struct Id {
 }
 
 impl Id {
-    fn new(index: usize) -> Self {
+    fn new(index: u32) -> Self {
         Self {
-            index: index as u32,
+            index,
             extra: IndexSource::None,
         }
     }
 
-    fn verb_inflection(index: usize, reading: verb::Reading, inflection: Inflection) -> Self {
+    fn verb_inflection(index: u32, reading: verb::Reading, inflection: Inflection) -> Self {
         Self {
-            index: index as u32,
+            index: index,
             extra: IndexSource::VerbInflection {
                 reading,
                 inflection,
@@ -94,16 +94,16 @@ impl Id {
         }
     }
 
-    fn adjective_inflection(index: usize, inflection: Inflection) -> Self {
+    fn adjective_inflection(index: u32, inflection: Inflection) -> Self {
         Self {
-            index: index as u32,
+            index: index,
             extra: IndexSource::AdjectiveInflection { inflection },
         }
     }
 
     /// Get the unique index this id corresponds to.
-    pub fn index(&self) -> usize {
-        self.index as usize
+    pub fn index(&self) -> u32 {
+        self.index
     }
 
     /// Extra information on index.
@@ -129,7 +129,7 @@ pub fn load(dict: &str) -> Result<Vec<u8>> {
     while let Some(entry) = parser.parse()? {
         tracing::trace!(?entry);
 
-        let entry_offset = output.len();
+        let entry_offset = u32::try_from(output.len()).context("offset overflow")?;
         index.by_sequence.insert(entry.sequence, entry_offset);
 
         for sense in &entry.senses {
@@ -245,11 +245,11 @@ impl<'a> Database<'a> {
 
         for (i, ((prefix, suffix), value)) in index_data.lookup.into_iter().enumerate() {
             let prefix = strings
-                .get(prefix)
+                .get(prefix as usize)
                 .with_context(|| anyhow!("Bad prefix string at lookup {i}"))?;
 
             let suffix = strings
-                .get(suffix)
+                .get(suffix as usize)
                 .with_context(|| anyhow!("Bad suffix string at lookup {i}"))?;
 
             index
@@ -281,7 +281,7 @@ impl<'a> Database<'a> {
 
         let slice = self
             .data
-            .get(index..)
+            .get((index as usize)..)
             .with_context(|| anyhow!("Missing index `{index}`"))?;
 
         Ok(ENCODING.from_slice(slice)?)
@@ -295,7 +295,7 @@ impl<'a> Database<'a> {
     }
 
     /// Perform a free text lookup.
-    pub fn lookup(&self, query: &'a str) -> impl Iterator<Item = Id> + 'a {
+    pub fn lookup<'b>(&'b self, query: &'b str) -> impl Iterator<Item = Id> + 'b {
         let pair = index::Pair::new(query.as_bytes(), b"");
         self.index.lookup.get(&pair).into_iter().flatten().copied()
     }
@@ -384,8 +384,8 @@ impl<'a> Database<'a> {
 
 /// A collection of indexes.
 pub struct Indexes<'a> {
-    by_pos: Option<&'a HashSet<usize>>,
-    iter: Option<hash_set::Iter<'a, usize>>,
+    by_pos: Option<&'a HashSet<u32>>,
+    iter: Option<hash_set::Iter<'a, u32>>,
 }
 
 impl Indexes<'_> {
