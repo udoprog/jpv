@@ -37,6 +37,14 @@ async fn main() -> Result<()> {
     let args = Args::try_parse()?;
     let bind: SocketAddr = args.bind.as_deref().unwrap_or(self::bundle::BIND).parse()?;
 
+    let server = match axum::Server::try_bind(&bind) {
+        Ok(server) => server,
+        Err(error) => {
+            self::bundle::open();
+            return Err(error.into());
+        }
+    };
+
     // SAFETY: we know this is only initialized once here exclusively.
     let data = unsafe { self::bundle::database()? };
 
@@ -52,7 +60,7 @@ async fn main() -> Result<()> {
     let app = self::bundle::router().layer(Extension(db)).layer(cors);
 
     self::bundle::open();
-    let server = axum::Server::try_bind(&bind)?.serve(app.into_make_service());
+    let server = server.serve(app.into_make_service());
 
     tracing::info!("Listening on {bind}");
 
