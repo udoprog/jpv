@@ -45,16 +45,24 @@ async fn main() -> Result<()> {
     tracing::info!("Database loaded");
 
     let cors = CorsLayer::new()
-        .allow_origin(format!("http://localhost:8080").parse::<HeaderValue>().unwrap())
-        .allow_origin(format!("http://127.0.0.1:8080").parse::<HeaderValue>().unwrap())
+        .allow_origin(
+            format!("http://localhost:8080")
+                .parse::<HeaderValue>()
+                .unwrap(),
+        )
+        .allow_origin(
+            format!("http://127.0.0.1:8080")
+                .parse::<HeaderValue>()
+                .unwrap(),
+        )
         .allow_methods([Method::GET]);
 
     let app = self::bundle::router().layer(Extension(db)).layer(cors);
 
-    tracing::info!("Listening on {bind}");
-
-    let server = axum::Server::bind(&bind).serve(app.into_make_service());
     self::bundle::open();
+    let server = axum::Server::try_bind(&bind)?.serve(app.into_make_service());
+
+    tracing::info!("Listening on {bind}");
 
     let ctrl_c = ctrl_c();
     let mut shutdown = ctrl_shutdown()?;
@@ -164,9 +172,9 @@ impl IntoResponse for RequestError {
 mod bundle {
     use std::path::PathBuf;
 
-    use anyhow::{Result, Context};
-    use axum::Router;
+    use anyhow::{Context, Result};
     use axum::routing::get;
+    use axum::Router;
 
     pub(super) static BIND: &'static str = "127.0.0.1:8081";
 
@@ -181,15 +189,13 @@ mod bundle {
 
         tracing::info!("Reading from {}", path.display());
 
-        let data =
-            std::fs::read(&path).with_context(|| path.display().to_string())?;
+        let data = std::fs::read(&path).with_context(|| path.display().to_string())?;
 
         DATABASE = data;
         Ok(DATABASE.as_ref())
     }
 
-    pub(super) fn open() {
-    }
+    pub(super) fn open() {}
 
     pub(super) fn router() -> Router {
         Router::new()
@@ -203,10 +209,10 @@ mod bundle {
     use std::borrow::Cow;
 
     use anyhow::Result;
-    use axum::Router;
     use axum::http::{header, StatusCode, Uri};
     use axum::response::{IntoResponse, Response};
     use axum::routing::get;
+    use axum::Router;
     use rust_embed::RustEmbed;
 
     pub(super) static BIND: &'static str = "127.0.0.1:8080";
