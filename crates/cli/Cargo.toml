@@ -1,0 +1,17 @@
+[package]
+name = "cli"
+version = "0.0.0"
+edition = "2021"
+publish = false
+default-run = "cli"
+
+[features]
+embed = []
+
+[dependencies]
+anyhow = "1.0.71"
+flate2 = "1.0.26"
+clap = { version = "4.2.7", features = ["derive", "wrap_help"] }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+lib = { path = "../lib" }

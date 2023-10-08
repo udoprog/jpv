@@ -68,7 +68,7 @@ body {
     }
 
     .analyze-text {
-        font-size: 140%;
+        font-size: 180%;
     }
 
     &.empty {
@@ -90,7 +90,6 @@ body {
     }
 
     &.active {
-        font-weight: bold;
         color: var(--analyzed-color);
     }
 }

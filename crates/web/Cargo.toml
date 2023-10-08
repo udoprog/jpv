@@ -6,6 +6,7 @@ publish = false
 
 [features]
 embed = []
+cli = []
 
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
