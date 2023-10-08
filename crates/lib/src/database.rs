@@ -217,7 +217,7 @@ pub fn load(dict: &str) -> Result<Vec<u8>> {
 pub struct Database<'a> {
     #[allow(unused)]
     header: Arc<file::Header>,
-    index: Arc<index::Index>,
+    index: Arc<index::Index<'a>>,
     data: &'a [u8],
 }
 
@@ -252,9 +252,11 @@ impl<'a> Database<'a> {
                 .get(suffix)
                 .with_context(|| anyhow!("Bad suffix string at lookup {i}"))?;
 
-            let mut string = prefix.to_vec();
-            string.extend(suffix);
-            index.lookup.entry(string).or_default().extend(value);
+            index
+                .lookup
+                .entry(index::Pair::new(prefix, suffix))
+                .or_default()
+                .extend(value);
         }
 
         index.by_pos = index_data.by_pos;
@@ -293,18 +295,16 @@ impl<'a> Database<'a> {
     }
 
     /// Perform a free text lookup.
-    pub fn lookup(&self, query: &str) -> impl Iterator<Item = Id> + '_ {
-        self.index
-            .lookup
-            .get(query.as_bytes())
-            .into_iter()
-            .flatten()
-            .copied()
+    pub fn lookup(&self, query: &'a str) -> impl Iterator<Item = Id> + 'a {
+        let pair = index::Pair::new(query.as_bytes(), b"");
+        self.index.lookup.get(&pair).into_iter().flatten().copied()
     }
 
     /// Test if db contains the given string.
     pub fn contains(&self, query: &str) -> bool {
-        self.index.lookup.contains_key(query.as_bytes())
+        self.index
+            .lookup
+            .contains_key(&index::Pair::new(query.as_bytes(), b""))
     }
 
     /// Perform the given search.
