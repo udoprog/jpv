@@ -45,16 +45,8 @@ async fn main() -> Result<()> {
     tracing::info!("Database loaded");
 
     let cors = CorsLayer::new()
-        .allow_origin(
-            format!("http://localhost:8080")
-                .parse::<HeaderValue>()
-                .unwrap(),
-        )
-        .allow_origin(
-            format!("http://127.0.0.1:8080")
-                .parse::<HeaderValue>()
-                .unwrap(),
-        )
+        .allow_origin(format!("http://localhost:8080").parse::<HeaderValue>()?)
+        .allow_origin(format!("http://127.0.0.1:8080").parse::<HeaderValue>()?)
         .allow_methods([Method::GET]);
 
     let app = self::bundle::router().layer(Extension(db)).layer(cors);

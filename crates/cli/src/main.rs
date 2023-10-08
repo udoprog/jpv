@@ -193,7 +193,7 @@ fn main() -> Result<()> {
         let stdout = std::io::stdout();
         let mut o = stdout.lock();
 
-        if let Some(c) = verb::conjugate(&d) {
+        for (_, c) in verb::conjugate(&d) {
             writeln!(o, "{p}# Inflections:")?;
 
             writeln!(o, "{p}  Dictionary:")?;
