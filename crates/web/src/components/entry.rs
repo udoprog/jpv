@@ -232,8 +232,8 @@ impl Component for Entry {
 
         html! {
             <div class="block block-lg entry">
-                <div class="block block-lg row entry-sequence">{entry.sequence}</div>
-                <div class="block block-lg row entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
+                <div class="block block row entry-sequence">{entry.sequence}</div>
+                <div class="block block row entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
                 {for extras}
                 {for reading}
                 {for common}
@@ -472,7 +472,7 @@ fn ruby<const N: usize, const S: usize>(furigana: lib::Furigana<N, S>) -> Html {
 /// Construct a convenient sequence callback which calls the given `builder`
 /// with the item being iterated over, and a `bool` indicating if it is the last
 /// in sequence.
-fn seq<'a, I, T, B>(iter: I, builder: B) -> impl DoubleEndedIterator<Item = Html> + 'a
+pub(crate) fn seq<'a, I, T, B>(iter: I, builder: B) -> impl DoubleEndedIterator<Item = Html> + 'a
 where
     I: IntoIterator<Item = T>,
     I::IntoIter: 'a + DoubleEndedIterator,

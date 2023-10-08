@@ -29,6 +29,8 @@
 
     --section-margin: 0.5rem;
     --section-lg-margin: 1rem;
+    
+    --separator-color: #ffffff46;
 }
 
 @mixin button-body {
@@ -54,6 +56,21 @@ body {
 }
 
 #analyze {
+    padding-left: var(--section-lg-margin);
+    padding-right: var(--section-lg-margin);
+
+    .hint {
+        font-size: 80%;
+    }
+
+    .analyze-text {
+        font-size: 140%;
+    }
+
+    &.empty {
+        font-style: italic;
+    }
+
     .analyze-span {
         &.clickable {
             cursor: pointer;
@@ -88,6 +105,11 @@ body {
 
 @mixin block-margin($margin) {
     margin-bottom: $margin;
+    margin-top: $margin;
+
+    &:first-child {
+        margin-top: 0 !important;
+    }
 
     &:last-child {
         margin-bottom: 0 !important;
@@ -142,9 +164,6 @@ body {
 }
 
 .entry {
-    padding-top: var(--section-lg-margin);
-    padding-bottom: var(--section-lg-margin);
-
     &-key {
         font-size: var(--bullet-size);
     }
@@ -162,6 +181,13 @@ body {
     & > .block {
         padding-left: var(--section-lg-margin);
         padding-right: var(--section-lg-margin);
+    }
+
+    &-separator {
+        @include block-margin(var(--section-margin));
+        height: 5px;
+        border-radius: 2px;
+        background-color: var(--separator-color);
     }
 }
 

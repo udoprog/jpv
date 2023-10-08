@@ -13,7 +13,7 @@ use crate::fetch::FetchError;
 use crate::{components as c, fetch};
 
 pub(crate) enum Msg {
-    Hiragana(bool),
+    Mode(Mode),
     Change(String),
     Analyze(usize),
     AnalyzeCycle,
@@ -23,12 +23,20 @@ pub(crate) enum Msg {
     Error(FetchError),
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Mode {
+    #[default]
+    Unfiltered,
+    Hiragana,
+    Katakana,
+}
+
 #[derive(Default, Debug)]
 struct Query {
     q: String,
     a: Vec<String>,
     i: usize,
-    hiragana: bool,
+    mode: Mode,
 }
 
 impl Query {
@@ -48,8 +56,12 @@ impl Query {
                         this.i = i;
                     }
                 }
-                "h" => {
-                    this.hiragana = value == "yes";
+                "mode" => {
+                    this.mode = match value.as_str() {
+                        "hiragana" => Mode::Hiragana,
+                        "katakana" => Mode::Katakana,
+                        _ => Mode::Unfiltered,
+                    };
                 }
                 _ => {}
             }
@@ -73,8 +85,14 @@ impl Query {
             out.push(("i", Cow::Owned(self.i.to_string())));
         }
 
-        if self.hiragana {
-            out.push(("h", Cow::Borrowed("yes")));
+        match self.mode {
+            Mode::Unfiltered => {}
+            Mode::Hiragana => {
+                out.push(("mode", Cow::Borrowed("hiragana")));
+            }
+            Mode::Katakana => {
+                out.push(("mode", Cow::Borrowed("katakana")));
+            }
         }
 
         out
@@ -217,16 +235,23 @@ impl Component for Prompt {
                 self.handle_analysis(ctx, analysis);
                 true
             }
-            Msg::Hiragana(hiragana) => {
-                self.query.hiragana = hiragana;
+            Msg::Mode(mode) => {
+                self.query.mode = mode;
+
+                self.query.q = match self.query.mode {
+                    Mode::Unfiltered => self.query.q.clone(),
+                    Mode::Hiragana => process_query(&self.query.q, romaji::Segment::hiragana),
+                    Mode::Katakana => process_query(&self.query.q, romaji::Segment::katakana),
+                };
+
                 self.save_query(ctx, false);
                 true
             }
             Msg::Change(input) => {
-                let input = if self.query.hiragana {
-                    process_query(&input)
-                } else {
-                    input
+                let input = match self.query.mode {
+                    Mode::Unfiltered => input,
+                    Mode::Hiragana => process_query(&input, romaji::Segment::hiragana),
+                    Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
 
                 self.refresh(ctx, &input);
@@ -277,61 +302,103 @@ impl Component for Prompt {
             Some(Msg::Change(value))
         });
 
-        let onhiragana = ctx.link().batch_callback(|e: Event| {
-            let input: HtmlInputElement = e.target_dyn_into()?;
-            let value = input.checked();
-            Some(Msg::Hiragana(value))
-        });
+        let onromanize = ctx
+            .link()
+            .batch_callback(|_: Event| Some(Msg::Mode(Mode::Unfiltered)));
+
+        let onhiragana = ctx
+            .link()
+            .batch_callback(|_: Event| Some(Msg::Mode(Mode::Hiragana)));
+
+        let onkatakana = ctx
+            .link()
+            .batch_callback(|_: Event| Some(Msg::Mode(Mode::Katakana)));
 
         let entries = (!self.entries.is_empty()).then(|| {
-            let entries = self.entries.iter().map(|(data, entry)| {
+            let entries = c::entry::seq(self.entries.iter(), |(data, entry), not_last| {
                 let entry: OwnedEntry = entry.clone();
-                html!(<c::Entry extras={data.sources.clone()} entry_key={data.key.clone()} entry={entry} />)
+
+                let entry = html!(<c::Entry extras={data.sources.clone()} entry_key={data.key.clone()} entry={entry} />);
+
+                if not_last {
+                    html!(<>{entry}<div class="entry-separator" /></>)
+                } else {
+                    entry
+                }
             });
 
-            html!(<div class="block block-lg">{for entries}</div>)
+            html! {
+                <div class="block block-lg">
+                    <div class="entry-separator" />
+                    {for entries}
+                    <div class="entry-separator" />
+                </div>
+            }
         });
 
         let mut rem = 0;
 
-        let query = self.query.q.char_indices().map(|(i, c)| {
-            let sub = self.query.q.get(i..).unwrap_or_default();
+        let analyze = if self.query.q.is_empty() {
+            html! {
+                <div class="block-lg" id="analyze">
+                    <div class="block row analyze-text empty">{"Type something in the prompt"}</div>
+                </div>
+            }
+        } else {
+            let query = self.query.q.char_indices().map(|(i, c)| {
+                let sub = self.query.q.get(i..).unwrap_or_default();
 
-            let event = if let Some(string) = self.query.a.get(self.query.i) {
-                if rem == 0 && sub.starts_with(string) {
-                    rem = string.chars().count();
-                    None
+                let event = if let Some(string) = self.query.a.get(self.query.i) {
+                    if rem == 0 && sub.starts_with(string) {
+                        rem = string.chars().count();
+                        None
+                    } else {
+                        Some(i)
+                    }
                 } else {
                     Some(i)
-                }
-            } else {
-                Some(i)
-            };
+                };
 
-            let onclick = ctx.link().callback(move |e: MouseEvent| {
-                e.prevent_default();
+                let onclick = ctx.link().callback(move |e: MouseEvent| {
+                    e.prevent_default();
 
-                match event {
-                    Some(i) => Msg::Analyze(i),
-                    None => Msg::AnalyzeCycle,
-                }
+                    match event {
+                        Some(i) => Msg::Analyze(i),
+                        None => Msg::AnalyzeCycle,
+                    }
+                });
+
+                let class = classes! {
+                    (rem > 0).then_some("active"),
+                    (!(event.is_none() && self.query.a.len() <= 1)).then_some("clickable"),
+                    "analyze-span"
+                };
+
+                rem = rem.saturating_sub(1);
+                html!(<span {class} {onclick}>{c}</span>)
             });
 
-            let class = classes! {
-                (rem > 0).then_some("active"),
-                (!(event.is_none() && self.query.a.len() <= 1)).then_some("clickable"),
-                "analyze-span"
+            let analyze_hint = if self.query.a.len() > 1 {
+                html! {
+                    <div class="block row hint">
+                        {format!("{} / {} (click character to cycle)", self.query.i + 1, self.query.a.len())}
+                    </div>
+                }
+            } else if self.query.a.is_empty() {
+                html! {
+                    <div class="block row hint">{"Click character for substring search"}</div>
+                }
+            } else {
+                html!()
             };
 
-            rem = rem.saturating_sub(1);
-            html!(<span {class} {onclick}>{c}</span>)
-        });
-
-        let analyze_hint = (self.query.a.len() > 1).then(|| {
-            html!(
-                <div class="block row">{format!("{} / {}", self.query.i + 1, self.query.a.len())}</div>
-            )
-        });
+            html! {
+                <div class="block-lg" id="analyze">
+                    <div class="block row analyze-text">{for query}</div>
+                    {analyze_hint}
+                </div>
+            }
+        };
 
         html! {
             <BrowserRouter>
@@ -341,13 +408,16 @@ impl Component for Prompt {
                     </div>
 
                     <div class="block block-lg row">
-                        <input type="checkbox" id="hiragana" value="Input as hiragana" checked={self.query.hiragana} onchange={onhiragana} />
-                        <label for="hiragana">{"Input as hiragana"}</label>
+                        <input type="checkbox" id="romanize" checked={self.query.mode == Mode::Unfiltered} onchange={onromanize} />
+                        <label for="romanize">{"Default"}</label>
+                        <input type="checkbox" id="hiragana"  checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
+                        <label for="hiragana">{"ひらがな"}</label>
+                        <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
+                        <label for="katakana">{"カタカナ"}</label>
                     </div>
 
                     <>
-                        <div class="block row" id="analyze">{for query}</div>
-                        {for analyze_hint}
+                        {analyze}
                         {for entries}
                     </>
 
@@ -358,11 +428,14 @@ impl Component for Prompt {
     }
 }
 
-fn process_query(input: &str) -> String {
+fn process_query<'a, F>(input: &'a str, segment: F) -> String
+where
+    F: Copy + FnOnce(&romaji::Segment<'a>) -> &'a str,
+{
     let mut out = String::new();
 
-    for segment in romaji::analyze(input) {
-        out.push_str(segment.hiragana());
+    for s in romaji::analyze(input) {
+        out.push_str(segment(&s));
     }
 
     out
