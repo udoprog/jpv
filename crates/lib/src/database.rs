@@ -48,7 +48,10 @@ pub enum IndexSource {
     None,
     /// Index was added because of a verb inflection.
     #[serde(rename = "verb-c")]
-    VerbInflection { inflection: Inflection },
+    VerbInflection {
+        reading: verb::Reading,
+        inflection: Inflection,
+    },
     /// Index was added because of an adjective inflection.
     #[serde(rename = "adj-c")]
     AdjectiveInflection { inflection: Inflection },
@@ -81,10 +84,13 @@ impl Id {
         }
     }
 
-    fn verb_inflection(index: usize, inflection: Inflection) -> Self {
+    fn verb_inflection(index: usize, reading: verb::Reading, inflection: Inflection) -> Self {
         Self {
             index: index as u32,
-            extra: IndexSource::VerbInflection { inflection },
+            extra: IndexSource::VerbInflection {
+                reading,
+                inflection,
+            },
         }
     }
 
@@ -162,7 +168,7 @@ pub fn load(dict: &str) -> Result<Vec<u8>> {
                 .push(Id::new(entry_offset));
         }
 
-        if let Some(c) = verb::conjugate(&entry) {
+        for (reading, c) in verb::conjugate(&entry) {
             for (inflection, pair) in c.iter() {
                 let suffix_index = strings.insert(pair.suffix().to_string())?;
 
@@ -173,7 +179,7 @@ pub fn load(dict: &str) -> Result<Vec<u8>> {
                         .lookup
                         .entry((word_index, suffix_index))
                         .or_default()
-                        .push(Id::verb_inflection(entry_offset, *inflection));
+                        .push(Id::verb_inflection(entry_offset, reading, *inflection));
                 }
             }
         }

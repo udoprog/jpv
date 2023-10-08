@@ -15,6 +15,7 @@ use crate::{components as c, fetch};
 pub(crate) enum Msg {
     Mode(Mode),
     Change(String),
+    ForceChange(String, Option<String>),
     Analyze(usize),
     AnalyzeCycle,
     HistoryChanged(Location),
@@ -34,6 +35,7 @@ pub(crate) enum Mode {
 #[derive(Default, Debug)]
 struct Query {
     q: String,
+    translation: Option<String>,
     a: Vec<String>,
     i: usize,
     mode: Mode,
@@ -47,6 +49,9 @@ impl Query {
             match key.as_str() {
                 "q" => {
                     this.q = value;
+                }
+                "t" => {
+                    this.translation = Some(value);
                 }
                 "a" => {
                     this.a.push(value);
@@ -75,6 +80,10 @@ impl Query {
 
         if !self.q.is_empty() {
             out.push(("q", Cow::Borrowed(self.q.as_str())));
+        }
+
+        if let Some(t) = &self.translation {
+            out.push(("t", Cow::Borrowed(t)));
         }
 
         for a in &self.a {
@@ -259,9 +268,25 @@ impl Component for Prompt {
                 if self.query.q != input || !self.query.a.is_empty() {
                     self.query.q = input;
                     self.query.a.clear();
+                    self.query.translation = None;
                     self.save_query(ctx, false);
                 }
 
+                true
+            }
+            Msg::ForceChange(input, translation) => {
+                let input = match self.query.mode {
+                    Mode::Unfiltered => input,
+                    Mode::Hiragana => process_query(&input, romaji::Segment::hiragana),
+                    Mode::Katakana => process_query(&input, romaji::Segment::katakana),
+                };
+
+                self.refresh(ctx, &input);
+
+                self.query.q = input;
+                self.query.translation = translation;
+                self.query.a.clear();
+                self.save_query(ctx, true);
                 true
             }
             Msg::Analyze(i) => {
@@ -318,7 +343,11 @@ impl Component for Prompt {
             let entries = c::entry::seq(self.entries.iter(), |(data, entry), not_last| {
                 let entry: OwnedEntry = entry.clone();
 
-                let entry = html!(<c::Entry extras={data.sources.clone()} entry_key={data.key.clone()} entry={entry} />);
+                let change = ctx.link().callback(|(input, translation)| {
+                    Msg::ForceChange(input, translation)
+                });
+
+                let entry = html!(<c::Entry sources={data.sources.clone()} entry_key={data.key.clone()} entry={entry} onchange={change} />);
 
                 if not_last {
                     html!(<>{entry}<div class="entry-separator" /></>)
@@ -340,9 +369,7 @@ impl Component for Prompt {
 
         let analyze = if self.query.q.is_empty() {
             html! {
-                <div class="block-lg" id="analyze">
-                    <div class="block row analyze-text empty">{"Type something in the prompt"}</div>
-                </div>
+                <div class="block row analyze-text empty">{"Type something in the prompt"}</div>
             }
         } else {
             let query = self.query.q.char_indices().map(|(i, c)| {
@@ -386,19 +413,37 @@ impl Component for Prompt {
                 }
             } else if self.query.a.is_empty() {
                 html! {
-                    <div class="block row hint">{"Click character for substring search"}</div>
+                    <div class="block row hint">
+                        <span>{"Hint:"}</span>
+                        {c::entry::spacing()}
+                        <span>{"Click character for substring search"}</span>
+                    </div>
                 }
             } else {
                 html!()
             };
 
             html! {
-                <div class="block-lg" id="analyze">
+                <>
                     <div class="block row analyze-text">{for query}</div>
                     {analyze_hint}
-                </div>
+                </>
             }
         };
+
+        let analyze = html! {
+            <div class="block block-lg indent" id="analyze">{analyze}</div>
+        };
+
+        let translation = self.query.translation.as_ref().map(|text| {
+            html! {
+                <div class="block row indent" id="translation">
+                    <span class="translation-title">{"Translation:"}</span>
+                    {c::entry::spacing()}
+                    <span>{text}</span>
+                </div>
+            }
+        });
 
         html! {
             <BrowserRouter>
@@ -408,20 +453,33 @@ impl Component for Prompt {
                     </div>
 
                     <div class="block block-lg row">
-                        <input type="checkbox" id="romanize" checked={self.query.mode == Mode::Unfiltered} onchange={onromanize} />
-                        <label for="romanize">{"Default"}</label>
-                        <input type="checkbox" id="hiragana"  checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
-                        <label for="hiragana">{"ひらがな"}</label>
-                        <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
-                        <label for="katakana">{"カタカナ"}</label>
+                        <label for="romanize" title="Do not process input at all">
+                            <input type="checkbox" id="romanize" checked={self.query.mode == Mode::Unfiltered} onchange={onromanize} />
+                            {"Default"}
+                        </label>
+
+                        {c::entry::spacing()}
+
+                        <label for="hiragana" title="Process input as Hiragana">
+                            <input type="checkbox" id="hiragana"  checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
+                            {"ひらがな"}
+                        </label>
+
+                        {c::entry::spacing()}
+
+                        <label for="katakana" title="Treat input as Katakana">
+                            <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
+                            {"カタカナ"}
+                        </label>
                     </div>
 
                     <>
                         {analyze}
+                        {for translation}
                         {for entries}
                     </>
 
-                    <div class="block block-lg" id="copyright">{copyright()}</div>
+                    <div class="block block-xl" id="copyright">{copyright()}</div>
                 </div>
             </BrowserRouter>
         }

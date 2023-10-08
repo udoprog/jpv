@@ -29,6 +29,7 @@
 
     --section-margin: 0.5rem;
     --section-lg-margin: 1rem;
+    --section-xl-margin: 2rem;
     
     --separator-color: #ffffff46;
 }
@@ -55,10 +56,13 @@ body {
     }
 }
 
-#analyze {
-    padding-left: var(--section-lg-margin);
-    padding-right: var(--section-lg-margin);
+#translation {
+    .translation-title {
+        font-weight: bold;
+    }
+}
 
+#analyze {
     .hint {
         font-size: 80%;
     }
@@ -70,24 +74,24 @@ body {
     &.empty {
         font-style: italic;
     }
+}
 
-    .analyze-span {
-        &.clickable {
-            cursor: pointer;
-
-            &.active {
-                color:  var(--analyzed-color);
-            }
-
-            &:hover {
-                color: var(--text-highlight);
-            }
-        }
+.analyze-span {
+    &.clickable {
+        cursor: pointer;
 
         &.active {
-            font-weight: bold;
             color: var(--analyzed-color);
         }
+
+        &:hover {
+            color: var(--text-highlight);
+        }
+    }
+
+    &.active {
+        font-weight: bold;
+        color: var(--analyzed-color);
     }
 }
 
@@ -101,6 +105,7 @@ body {
 
 #copyright {
     font-size: 0.8em;
+    text-align: center;
 }
 
 @mixin block-margin($margin) {
@@ -129,6 +134,11 @@ body {
     display: flex;
     flex-direction: column;
 
+    &.indent {
+        padding-left: var(--section-lg-margin);
+        padding-right: var(--section-lg-margin);
+    }
+
     &.inline {
         display: block;
     }
@@ -149,6 +159,10 @@ body {
     &-lg {
         @include block-margin(var(--section-lg-margin));
     }
+
+    &-xl {
+        @include block-margin(var(--section-xl-margin));
+    }
 }
 
 .section {
@@ -163,24 +177,19 @@ body {
     display: flex;
 }
 
+.sep {
+    margin-right: var(--bullet-margin);
+}
+
 .entry {
     &-key {
         font-size: var(--bullet-size);
-    }
-
-    .sep {
-        margin-right: var(--bullet-margin);
     }
 
     &-glossary {
         .text {
             color: var(--text-highlight);
         }
-    }
-
-    & > .block {
-        padding-left: var(--section-lg-margin);
-        padding-right: var(--section-lg-margin);
     }
 
     &-separator {
@@ -264,5 +273,13 @@ body {
             color: var(--inflection-color);
             background-color: var(--inflection-bg);
         }
+    }
+}
+
+.clickable {
+    cursor: pointer;
+
+    &:hover {
+        color: var(--text-highlight);
     }
 }

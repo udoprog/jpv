@@ -2,7 +2,9 @@ use std::collections::BTreeSet;
 use std::{array, iter};
 
 use lib::database::IndexSource;
-use lib::elements::{OwnedExample, OwnedKanjiElement, OwnedReadingElement, OwnedSense};
+use lib::elements::{
+    OwnedExample, OwnedExampleSentence, OwnedKanjiElement, OwnedReadingElement, OwnedSense,
+};
 use lib::entities::KanjiInfo;
 use lib::{
     adjective, elements, kana, romaji, verb, Form, Furigana, Inflection, OwnedInflections, Priority,
@@ -13,6 +15,7 @@ pub(crate) enum Msg {
     ToggleInflection,
     ToggleForm(usize, Form),
     ResetForm(usize),
+    Change(String, Option<String>),
 }
 
 #[derive(Default)]
@@ -53,23 +56,24 @@ impl Combined {
 pub(crate) struct Entry {
     combined: Vec<Combined>,
     readings: Vec<OwnedReadingElement>,
-    extras: Vec<ExtraState>,
+    states: Vec<ExtraState>,
     show_inflection: bool,
-    verb_inflections: Option<OwnedInflections>,
+    verb_inflections: Vec<(verb::Reading, OwnedInflections)>,
     adjective_inflections: Option<OwnedInflections>,
 }
 
 #[derive(Properties)]
 pub struct Props {
-    pub extras: BTreeSet<IndexSource>,
+    pub sources: BTreeSet<IndexSource>,
     pub entry_key: elements::EntryKey,
     pub entry: elements::OwnedEntry,
+    pub onchange: Callback<(String, Option<String>), ()>,
 }
 
 impl PartialEq for Props {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.extras == other.extras
+        self.sources == other.sources
             && self.entry_key == other.entry_key
             && self.entry.sequence == other.entry.sequence
     }
@@ -85,14 +89,17 @@ impl Component for Entry {
         let mut this = Self {
             combined: Vec::new(),
             readings: Vec::new(),
-            extras: ctx
+            states: ctx
                 .props()
-                .extras
+                .sources
                 .iter()
                 .map(|_| ExtraState::default())
                 .collect(),
             show_inflection: false,
-            verb_inflections: verb::conjugate(&entry).map(borrowme::to_owned),
+            verb_inflections: verb::conjugate(&entry)
+                .into_iter()
+                .map(|(r, i)| (r, borrowme::to_owned(i)))
+                .collect(),
             adjective_inflections: adjective::conjugate(&entry).map(borrowme::to_owned),
         };
 
@@ -100,20 +107,23 @@ impl Component for Entry {
         this
     }
 
-    fn update(&mut self, _: &Context<Self>, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::ToggleInflection => {
                 self.show_inflection = !self.show_inflection;
             }
             Msg::ToggleForm(index, form) => {
-                if let Some(state) = self.extras.get_mut(index) {
+                if let Some(state) = self.states.get_mut(index) {
                     state.filter.toggle(form);
                 }
             }
             Msg::ResetForm(index) => {
-                if let Some(state) = self.extras.get_mut(index) {
+                if let Some(state) = self.states.get_mut(index) {
                     state.filter = Inflection::default();
                 }
+            }
+            Msg::Change(text, english) => {
+                ctx.props().onchange.emit((text, english));
             }
         }
 
@@ -122,11 +132,16 @@ impl Component for Entry {
 
     fn changed(&mut self, ctx: &Context<Self>, _: &Self::Properties) -> bool {
         let entry = borrowme::borrow(&ctx.props().entry);
-        self.verb_inflections = verb::conjugate(&entry).map(borrowme::to_owned);
+
+        self.verb_inflections = verb::conjugate(&entry)
+            .into_iter()
+            .map(|(r, i)| (r, borrowme::to_owned(i)))
+            .collect();
         self.adjective_inflections = adjective::conjugate(&entry).map(borrowme::to_owned);
-        self.extras = ctx
+
+        self.states = ctx
             .props()
-            .extras
+            .sources
             .iter()
             .map(|_| ExtraState::default())
             .collect();
@@ -136,28 +151,38 @@ impl Component for Entry {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let extras = &ctx.props().extras;
+        let sources = &ctx.props().sources;
         let key = &ctx.props().entry_key;
         let entry = &ctx.props().entry;
 
-        let inflections = self
-            .verb_inflections
-            .as_ref()
-            .or(self.adjective_inflections.as_ref());
+        let inflections =
+            sources
+                .iter()
+                .zip(&self.states)
+                .enumerate()
+                .flat_map(|(index, (source, state))| {
+                    Some((
+                        index,
+                        state,
+                        find_inflection(
+                            source,
+                            &self.verb_inflections,
+                            self.adjective_inflections.as_ref(),
+                        )?,
+                    ))
+                });
 
         let extras =
-            extras
-                .iter()
-                .zip(&self.extras)
-                .enumerate()
-                .flat_map(|(index, (extra, state))| {
-                    render_extra(ctx, index, extra, inflections, state.filter)
+            inflections
+                .clone()
+                .flat_map(|(index, state, (kind, inflection, inflections))| {
+                    render_extra(ctx, index, kind, inflection, inflections, state.filter)
                 });
 
         let common = iter(
             seq(
                 self.combined.iter().filter(|c| c.is_common()),
-                render_combined,
+                |e, not_last| render_combined(ctx, e, not_last),
             ),
             |iter| {
                 html! {
@@ -168,7 +193,9 @@ impl Component for Entry {
 
         let special_readings = |what, f: fn(&Combined) -> bool| {
             iter(
-                seq(self.combined.iter().filter(|c| f(c)), render_combined),
+                seq(self.combined.iter().filter(|c| f(c)), |e, not_last| {
+                    render_combined(ctx, e, not_last)
+                }),
                 |iter| {
                     html! {
                         html!(<div class="block block-lg row"><span>{what}</span>{colon()}{for iter}</div>)
@@ -187,9 +214,11 @@ impl Component for Entry {
         );
 
         let senses = iter(
-            entry.senses.iter().map(|s| self.render_sense(s)),
+            entry.senses.iter().map(|s| self.render_sense(ctx, s)),
             |iter| html!(<ul class="block list-numerical">{for iter}</ul>),
         );
+
+        let inflections = inflections.map(|(_, _, (_, _, i))| i).next();
 
         let show_inflections = inflections.map(|_| {
             let onclick = ctx.link().callback(|_: MouseEvent| Msg::ToggleInflection);
@@ -231,7 +260,7 @@ impl Component for Entry {
         let entry_key_style = format!("display: none;");
 
         html! {
-            <div class="block block-lg entry">
+            <div class="block block-lg entry indent">
                 <div class="block block row entry-sequence">{entry.sequence}</div>
                 <div class="block block row entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
                 {for extras}
@@ -302,18 +331,25 @@ impl Entry {
         }
     }
 
-    fn render_sense(&self, s: &OwnedSense) -> Html {
+    fn render_sense(&self, ctx: &Context<Self>, s: &OwnedSense) -> Html {
         let info = s
             .info
             .as_ref()
             .map(|info| html!(<div class="block row sense-info">{info}</div>));
 
         let stags = seq(s.stagr.iter().chain(s.stagk.iter()), |text, not_last| {
-            if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
-                html!(<><span class="sense-stag">{ruby(c.furigana())}</span>{for not_last.then(comma)}</>)
+            let stag = if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
+                ruby(c.furigana())
             } else {
-                html!(<><span class="sense-stag">{text}</span>{for not_last.then(comma)}</>)
-            }
+                html!(<>{text}</>)
+            };
+
+            let onclick = ctx.link().callback({
+                let text = text.to_owned();
+                move |_: MouseEvent| Msg::Change(text.clone(), None)
+            });
+
+            html!(<><span class="sense-stag clickable" {onclick}>{stag}{for not_last.then(comma)}</span></>)
         });
 
         let stag = iter(stags, |stags| {
@@ -339,7 +375,7 @@ impl Entry {
         );
 
         let examples = iter(
-            s.examples.iter().map(|e| self.render_example(e)),
+            s.examples.iter().map(|e| self.render_example(ctx, e)),
             |iter| html!(<div class="block entry-examples">{for iter}</div>),
         );
 
@@ -353,58 +389,132 @@ impl Entry {
         }
     }
 
-    fn render_example(&self, example: &OwnedExample) -> Html {
-        let texts = seq(example.texts.iter(), |text, not_last| {
-            if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
-                html!(<><span class="text highlight">{ruby(c.furigana())}</span>{for not_last.then(comma)}</>)
-            } else {
-                html!(<><span class="text highlight">{text}</span>{for not_last.then(comma)}</>)
+    fn render_example(&self, ctx: &Context<Self>, example: &OwnedExample) -> Html {
+        struct Languages<'a> {
+            jpn: &'a str,
+            eng: Option<&'a str>,
+        }
+
+        fn languages(sentences: &[OwnedExampleSentence]) -> Option<Languages<'_>> {
+            let mut jpn = None;
+            let mut eng = None;
+
+            for sent in sentences {
+                let out = match sent.lang.as_deref() {
+                    Some("eng") => &mut eng,
+                    Some("jpn") | None => &mut jpn,
+                    _ => continue,
+                };
+
+                *out = Some(sent.text.as_str());
             }
+
+            Some(Languages { jpn: jpn?, eng })
+        }
+
+        let texts = seq(example.texts.iter(), |text, not_last| {
+            let onclick = ctx.link().callback({
+                let text = text.to_owned();
+                move |_: MouseEvent| Msg::Change(text.clone(), None)
+            });
+
+            let text = if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
+                ruby(c.furigana())
+            } else {
+                html!(<>{text}</>)
+            };
+
+            html!(<><span class="text highlight clickable" {onclick}>{text}</span>{for not_last.then(comma)}</>)
         });
 
-        let sent = example
-            .sentences
-            .iter()
-            .map(|sent| html!(<span>{&sent.text}</span>));
+        let sent = languages(&example.sentences).map(|l: Languages<'_>| {
+            let onclick = ctx.link().callback({
+                let jpn = l.jpn.to_owned();
+                let eng = l.eng.map(ToOwned::to_owned);
+                move |_: MouseEvent| Msg::Change(jpn.clone(), eng.clone())
+            });
+
+            let eng = l.eng.map(|text| html!(<span>{text}</span>));
+
+            html!(<>{colon()}<span class="clickable" {onclick}>{l.jpn}</span>{for eng}</>)
+        });
 
         html! {
-            <div class="block row entry-example">{for texts}{colon()}{for sent}</div>
+            <div class="block row entry-example">{for texts}{for sent}</div>
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum InflectionKind {
+    Verb,
+    Adjective,
+}
+
+impl InflectionKind {
+    fn as_title(self) -> &'static str {
+        match self {
+            InflectionKind::Verb => "Conjugation:",
+            InflectionKind::Adjective => "Inflection:",
+        }
+    }
+
+    fn as_description(self) -> &'static str {
+        match self {
+            InflectionKind::Verb => "Result based on verb conjugation",
+            InflectionKind::Adjective => "Result based on adjective inflection",
+        }
+    }
+}
+
+/// Find the matching inflection based on the source.
+fn find_inflection<'a>(
+    source: &IndexSource,
+    verb_inflections: &'a [(verb::Reading, OwnedInflections)],
+    adjective_inflections: Option<&'a OwnedInflections>,
+) -> Option<(InflectionKind, Inflection, &'a OwnedInflections)> {
+    Some(match source {
+        IndexSource::VerbInflection {
+            reading,
+            inflection,
+        } => {
+            let Some((_, inflections)) = verb_inflections.iter().find(|(r, _)| *r == *reading)
+            else {
+                return None;
+            };
+
+            (InflectionKind::Verb, *inflection, inflections)
+        }
+        IndexSource::AdjectiveInflection { inflection } => {
+            let Some(inflections) = adjective_inflections else {
+                return None;
+            };
+
+            (InflectionKind::Adjective, *inflection, inflections)
+        }
+        _ => return None,
+    })
 }
 
 fn render_extra(
     ctx: &Context<Entry>,
     index: usize,
-    extra: &IndexSource,
-    inflections: Option<&OwnedInflections>,
+    kind: InflectionKind,
+    inflection: Inflection,
+    inflections: &OwnedInflections,
     filter: Inflection,
 ) -> Option<Html> {
-    let (extra, inflection, title) = match extra {
-        IndexSource::VerbInflection { inflection } => (
-            "Conjugation:",
-            Some(*inflection),
-            "Result based on verb conjugation",
-        ),
-        IndexSource::AdjectiveInflection { inflection } => (
-            "Inflection:",
-            Some(*inflection),
-            "Result based on adverb inflection",
-        ),
-        _ => return None,
-    };
-
-    let word = inflection.and_then(|inf| inflections.and_then(|i| i.get(inf ^ filter)));
+    let word = inflections.get(inflection ^ filter);
 
     let word = word.map(|w| ruby(w.furigana())).map(
         |word| html!(<div class="block row"><span class="text kanji highlight">{word}</span></div>),
     );
 
-    let inflection = inflection.map(|i| render_inflection(ctx, index, i, filter, inflections));
+    let inflection = render_inflection(ctx, index, inflection, filter, inflections);
 
     Some(html! {
         <div class="block notice">
-            <div class="block row"><span title={title}>{extra}</span>{for inflection}</div>
+            <div class="block row"><span title={kind.as_description()}>{kind.as_title()}</span>{inflection}</div>
             {for word}
         </div>
     })
@@ -427,7 +537,11 @@ fn render_reading(reading: &OwnedReadingElement, not_last: bool) -> Html {
     }
 }
 
-fn render_combined(c @ Combined { kanji, .. }: &Combined, not_last: bool) -> Html {
+fn render_combined(
+    ctx: &Context<Entry>,
+    c @ Combined { kanji, .. }: &Combined,
+    not_last: bool,
+) -> Html {
     let priority = kanji.priority.iter().map(render_priority);
 
     let bullets = iter(
@@ -435,9 +549,14 @@ fn render_combined(c @ Combined { kanji, .. }: &Combined, not_last: bool) -> Htm
         |iter| html!(<span class="bullets">{for iter}</span>),
     );
 
+    let onclick = ctx.link().callback({
+        let text = c.kanji.text.to_owned();
+        move |_: MouseEvent| Msg::Change(text.clone(), None)
+    });
+
     html! {
         <>
-            <span class="text kanji highlight">{ruby(c.furigana())}</span>
+            <span class="text kanji highlight clickable" {onclick}>{ruby(c.furigana())}</span>
             {for bullets}
             {for not_last.then(comma)}
         </>
@@ -513,7 +632,7 @@ fn colon() -> Html {
 }
 
 /// A simple spacing to insert between elements.
-fn spacing() -> Html {
+pub(crate) fn spacing() -> Html {
     html!(<span class="sep">{" "}</span>)
 }
 
@@ -522,7 +641,7 @@ fn render_inflection(
     index: usize,
     inflection: Inflection,
     filter: Inflection,
-    inflections: Option<&OwnedInflections>,
+    inflections: &OwnedInflections,
 ) -> Html {
     let this = filter ^ inflection;
 
@@ -530,9 +649,7 @@ fn render_inflection(
         let mut candidate = this;
         candidate.toggle(f);
 
-        let exists = inflections
-            .map(|i| i.contains(candidate))
-            .unwrap_or_default();
+        let exists = inflections.contains(candidate);
 
         if !exists && !this.contains(f) {
             return None;
