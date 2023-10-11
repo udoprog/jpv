@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
-use anyhow::Result;
 use musli::{Decode, Encode};
 
 use crate::database::Id;
