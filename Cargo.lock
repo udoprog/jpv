@@ -1040,18 +1040,18 @@ dependencies = [
 
 [[package]]
 name = "musli"
-version = "0.0.67"
+version = "0.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78ead8eb774747fd0287be93e749a8cbf71a6809b618bd0141f0e966f4889838"
+checksum = "6718bf8fd555b1dc897b12ac69d58f8ddf6fd54a2f995d08665997570fda50e5"
 dependencies = [
  "musli-macros",
 ]
 
 [[package]]
 name = "musli-common"
-version = "0.0.67"
+version = "0.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94be4e07c9156d8c826008ce5e7a23e7733b1175542da87538893c99ae125ee7"
+checksum = "30ec7f02ac0da447dd6c3dc0bbd72dca3df51385d1cdd5c9ee20c08140b8b349"
 dependencies = [
  "musli",
  "simdutf8",
@@ -1059,9 +1059,9 @@ dependencies = [
 
 [[package]]
 name = "musli-macros"
-version = "0.0.67"
+version = "0.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be567146c7db39291bb7b402ceb5f0825518f4bf6b7424c39cd254dd2c4b29a6"
+checksum = "f68db2bfac263db5562a76afd9f69c85fcb89e46a2845ff3b0bf5f667460adf0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1070,9 +1070,9 @@ dependencies = [
 
 [[package]]
 name = "musli-storage"
-version = "0.0.67"
+version = "0.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72fba63420ba83955ec09019c16f66ed3e2dfbdb6a365c654ebbcc29bfe034b1"
+checksum = "a6a78da4271924d6bdd179415aed4c9cd93026776782f07bf0746e3cbb5e2297"
 dependencies = [
  "musli",
  "musli-common",
@@ -1080,9 +1080,9 @@ dependencies = [
 
 [[package]]
 name = "musli-zerocopy"
-version = "0.0.67"
+version = "0.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ee2c338a219027b41411fd024a26a472fab9a72fee8b32afd6c96e48630bac0"
+checksum = "b92d1cee9eeb3fc3c279aa56b2142dcaa0e021251dad47c0579f0926c578cb41"
 dependencies = [
  "musli-macros",
  "rand",

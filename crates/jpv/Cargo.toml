@@ -17,7 +17,7 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 serde = { version = "1.0.160", features = ["derive"] }
 clap = { version = "4.2.7", features = ["derive"] }
 tower-http = { version = "0.4.4", features = ["cors"] }
-musli-zerocopy = { version = "0.0.67" }
+musli-zerocopy = { version = "0.0.68" }
 
 rust-embed = { version = "8.0.0", optional = true }
 mime_guess = { version = "2.0.4", optional = true }
