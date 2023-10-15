@@ -13,6 +13,7 @@ use lib::database::{Database, EntryResultKey};
 use lib::elements::{Entry, EntryKey};
 use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
+#[cfg(windows)]
 use tokio::signal::windows::ctrl_shutdown;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -46,7 +47,7 @@ async fn main() -> Result<()> {
     };
 
     // SAFETY: we know this is only initialized once here exclusively.
-    let data = unsafe { self::bundle::database()? };
+    let data = unsafe { self::database::open()? };
 
     tracing::info!("Loading database...");
     let db = lib::database::Database::new(data).context("loading database")?;
@@ -65,16 +66,12 @@ async fn main() -> Result<()> {
     tracing::info!("Listening on {bind}");
 
     let ctrl_c = ctrl_c();
-    let mut shutdown = ctrl_shutdown()?;
 
     tokio::select! {
         result = server => {
             result?;
         }
         _ = ctrl_c => {
-            tracing::info!("Shutting down...");
-        }
-        _ = shutdown.recv() => {
             tracing::info!("Shutting down...");
         }
     }
@@ -168,19 +165,37 @@ impl IntoResponse for RequestError {
     }
 }
 
-#[cfg(not(feature = "bundle"))]
-mod bundle {
-    use std::path::PathBuf;
+#[cfg(feature = "bundle-database")]
+mod database {
+    #[repr(C)]
+    struct Align<A, T: ?Sized>([A; 0], T);
+
+    static DATABASE: &Align<u64, [u8]> = &Align(
+        [],
+        *include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../database.bin")),
+    );
+
+    pub(super) unsafe fn open() -> Result<&'static [u8]> {
+        Ok(&DATABASE.1)
+    }
+}
+
+#[cfg(not(feature = "bundle-database"))]
+mod database {
+    use std::fs::File;
+    use std::io;
+    use std::path::{Path, PathBuf};
 
     use anyhow::{Context, Result};
-    use axum::routing::get;
-    use axum::Router;
 
-    pub(super) static BIND: &'static str = "127.0.0.1:8081";
+    #[cfg(not(unix))]
+    static mut DATABASE: musli_zerocopy::AlignedBuf = AlignedBuf::new();
 
-    static mut DATABASE: Vec<u8> = Vec::new();
+    #[cfg(not(unix))]
+    pub(super) unsafe fn open() -> Result<&'static [u8]> {
+        use musli_zerocopy::AlignedBuf;
+        use std::io::Read;
 
-    pub(super) unsafe fn database() -> Result<&'static [u8]> {
         let root = PathBuf::from(
             std::env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?,
         );
@@ -189,11 +204,71 @@ mod bundle {
 
         tracing::info!("Reading from {}", path.display());
 
-        let data = std::fs::read(&path).with_context(|| path.display().to_string())?;
+        fn read(path: &Path, output: &mut AlignedBuf) -> io::Result<()> {
+            let mut f = File::open(path)?;
 
-        DATABASE = data;
-        Ok(DATABASE.as_ref())
+            let mut chunk = [0; 1024];
+
+            loop {
+                let n = f.read(&mut chunk[..])?;
+
+                if n == 0 {
+                    break;
+                }
+
+                output.extend_from_slice(&chunk[..n]);
+            }
+
+            Ok(())
+        }
+
+        read(&path, &mut DATABASE).with_context(|| path.display().to_string())?;
+        Ok(DATABASE.as_slice())
     }
+
+    #[cfg(unix)]
+    static mut DATABASE: Option<memmap::Mmap> = None;
+
+    #[cfg(unix)]
+    pub(super) unsafe fn open() -> Result<&'static [u8]> {
+        use core::mem::ManuallyDrop;
+
+        use memmap::MmapOptions;
+
+        let root = PathBuf::from(
+            std::env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?,
+        );
+
+        let path = root.join("..").join("..").join("database.bin");
+
+        tracing::info!("Reading from {}", path.display());
+
+        fn read(path: &Path) -> io::Result<&'static [u8]> {
+            let f = ManuallyDrop::new(File::open(path)?);
+
+            let mmap = unsafe { MmapOptions::new().map(&f)? };
+
+            unsafe {
+                DATABASE = Some(mmap);
+
+                match &DATABASE {
+                    Some(mmap) => Ok(&mmap[..]),
+                    None => unreachable!(),
+                }
+            }
+        }
+
+        let slice = read(&path).with_context(|| path.display().to_string())?;
+        Ok(slice)
+    }
+}
+
+#[cfg(not(feature = "bundle"))]
+mod bundle {
+    use axum::routing::get;
+    use axum::Router;
+
+    pub(super) static BIND: &'static str = "127.0.0.1:8081";
 
     pub(super) fn open() {}
 
@@ -208,7 +283,6 @@ mod bundle {
 mod bundle {
     use std::borrow::Cow;
 
-    use anyhow::Result;
     use axum::http::{header, StatusCode, Uri};
     use axum::response::{IntoResponse, Response};
     use axum::routing::get;
@@ -216,13 +290,6 @@ mod bundle {
     use rust_embed::RustEmbed;
 
     pub(super) static BIND: &'static str = "127.0.0.1:8080";
-
-    static DATABASE: &'static [u8] =
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../database.bin"));
-
-    pub(super) unsafe fn database() -> Result<&'static [u8]> {
-        Ok(&DATABASE)
-    }
 
     pub(super) fn open() {
         let _ = webbrowser::open("http://localhost:8080");

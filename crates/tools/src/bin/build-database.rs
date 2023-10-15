@@ -49,7 +49,8 @@ fn main() -> Result<()> {
     let duration = Instant::now().duration_since(start);
     tracing::info!(?duration);
 
-    fs::write(&database_path, data).with_context(|| anyhow!("{}", database_path.display()))?;
+    fs::write(&database_path, data.as_slice())
+        .with_context(|| anyhow!("{}", database_path.display()))?;
     Ok(())
 }
 

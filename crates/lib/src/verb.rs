@@ -7,6 +7,7 @@ mod macros;
 use std::collections::BTreeMap;
 
 use musli::{Decode, Encode};
+use musli_zerocopy::ZeroCopy;
 use serde::{Deserialize, Serialize};
 
 use crate::elements::Entry;
@@ -14,13 +15,49 @@ use crate::inflection::Inflections;
 use crate::kana::{Fragments, Full};
 use crate::PartOfSpeech;
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    ZeroCopy,
+)]
+#[repr(u8)]
+#[zero_copy(bounds = {T: ZeroCopy})]
+#[musli(bound = {T: Encode<M>}, decode_bound = {T: Decode<'de, M>})]
+pub enum ReadingOption<T> {
+    None,
+    Some(T),
+}
+
 /// The reading which this set of inflections belong to.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Encode, Decode,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    ZeroCopy,
 )]
+#[repr(C)]
 pub struct Reading {
     /// Index of the kanji that the reading matches, if one is present.
-    pub kanji: Option<usize>,
+    pub kanji: ReadingOption<usize>,
     /// Index of the reading used.
     pub reading: usize,
 }
@@ -243,7 +280,9 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
         }
 
         let reading = Reading {
-            kanji: kanji.map(|(i, _)| i),
+            kanji: kanji
+                .map(|(i, _)| ReadingOption::Some(i))
+                .unwrap_or(ReadingOption::None),
             reading: reading.0,
         };
 

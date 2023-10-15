@@ -93,17 +93,18 @@ fn main() -> Result<()> {
     let mut to_look_up = BTreeSet::new();
 
     for &seq in &args.sequences {
-        to_look_up.extend(db.lookup_sequence(seq));
+        to_look_up.extend(db.lookup_sequence(seq)?);
     }
 
     for input in &args.arguments {
         let seed = args.sequences.is_empty();
 
         if seed {
-            to_look_up.extend(db.lookup(input));
+            to_look_up.extend(db.lookup(input)?);
         } else {
             let filter = db
-                .lookup(input)
+                .lookup(input)?
+                .into_iter()
                 .map(|id| id.index())
                 .collect::<HashSet<_>>();
             to_look_up.retain(|id| filter.contains(&id.index()));
@@ -117,7 +118,7 @@ fn main() -> Result<()> {
             let pos = PartOfSpeech::parse_keyword(pos)
                 .with_context(|| anyhow!("Invalid part of speech `{pos}`"))?;
 
-            let indexes = db.by_pos(pos);
+            let indexes = db.by_pos(pos)?;
 
             if mem::take(&mut seed) {
                 to_look_up.extend(indexes);
