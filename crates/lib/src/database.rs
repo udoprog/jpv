@@ -6,12 +6,12 @@ use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::Variable;
 use musli_storage::Encoding;
-use musli_zerocopy::pointer::{Ref, Slice, Unsized};
+use musli_zerocopy::pointer::{Ref, Unsized};
 use musli_zerocopy::{swiss, AlignedBuf, Buf, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +27,7 @@ const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryResultKey {
-    pub index: usize,
+    pub index: u32,
     #[serde(flatten)]
     pub key: EntryKey,
     pub sources: BTreeSet<IndexSource>,
@@ -81,19 +81,19 @@ impl IndexSource {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ZeroCopy)]
 #[repr(C)]
 pub struct Id {
-    index: Slice<u8>,
+    index: u32,
     extra: IndexSource,
 }
 
 impl Id {
-    fn new(index: Slice<u8>) -> Self {
+    fn new(index: u32) -> Self {
         Self {
-            index,
+            index: index,
             extra: IndexSource::None,
         }
     }
 
-    fn verb_inflection(index: Slice<u8>, reading: verb::Reading, inflection: Inflection) -> Self {
+    fn verb_inflection(index: u32, reading: verb::Reading, inflection: Inflection) -> Self {
         Self {
             index,
             extra: IndexSource::VerbInflection {
@@ -103,7 +103,7 @@ impl Id {
         }
     }
 
-    fn adjective_inflection(index: Slice<u8>, inflection: Inflection) -> Self {
+    fn adjective_inflection(index: u32, inflection: Inflection) -> Self {
         Self {
             index,
             extra: IndexSource::AdjectiveInflection { inflection },
@@ -111,7 +111,7 @@ impl Id {
     }
 
     /// Get the unique index this id corresponds to.
-    pub fn index(&self) -> Slice<u8> {
+    pub fn index(&self) -> u32 {
         self.index
     }
 
@@ -138,9 +138,9 @@ pub fn load(dict: &str) -> Result<AlignedBuf> {
         output.clear();
         ENCODING.to_writer(&mut output, &entry)?;
 
-        let entry_ref = buf.store_slice(&output);
+        let entry_ref = buf.store_slice(&output).offset() as u32;
 
-        by_sequence.insert(entry.sequence, entry_ref);
+        by_sequence.insert(entry.sequence as u32, entry_ref);
 
         for sense in &entry.senses {
             for pos in &sense.pos {
@@ -148,7 +148,15 @@ pub fn load(dict: &str) -> Result<AlignedBuf> {
             }
 
             for g in &sense.gloss {
-                readings.push((Cow::Borrowed(g.text), Id::new(entry_ref)));
+                for word in g.text.split_whitespace() {
+                    let word = word.trim_matches(|c| !char::is_alphabetic(c));
+
+                    if word.is_empty() {
+                        continue;
+                    }
+
+                    readings.push((Cow::Borrowed(word), Id::new(entry_ref)));
+                }
             }
         }
 
@@ -184,7 +192,7 @@ pub fn load(dict: &str) -> Result<AlignedBuf> {
 
     let mut lookup = HashMap::<_, Vec<_>>::new();
 
-    tracing::info!("Inserting readings");
+    tracing::info!("Inserting {} readings", readings.len());
 
     {
         let mut existing = HashMap::<_, usize>::new();
@@ -300,7 +308,7 @@ impl<'a> Database<'a> {
     }
 
     /// Get identifier by sequence.
-    pub fn lookup_sequence(&self, sequence: u64) -> Result<Option<Id>> {
+    pub fn lookup_sequence(&self, sequence: u32) -> Result<Option<Id>> {
         let Some(index) = self.index.by_sequence.get(self.data, &sequence)? else {
             return Ok(None);
         };
@@ -310,7 +318,10 @@ impl<'a> Database<'a> {
 
     /// Get an entry from the database.
     pub fn get(&self, id: Id) -> Result<Entry<'a>> {
-        let bytes = self.data.load(id.index())?;
+        let Some(bytes) = self.data.as_slice().get(id.index() as usize..) else {
+            return Err(anyhow!("Missing entry at {}", id.index()));
+        };
+
         Ok(ENCODING.from_slice(bytes)?)
     }
 
@@ -365,7 +376,7 @@ impl<'a> Database<'a> {
                 dedup.insert(id.index(), entries.len());
 
                 let data = EntryResultKey {
-                    index: id.index().offset(),
+                    index: id.index(),
                     sources: [id.source()].into_iter().collect(),
                     key: EntryKey::default(),
                 };

@@ -47,7 +47,7 @@ struct Args {
     polite: bool,
     /// Only fetch the specified sequence ids.
     #[arg(long = "seq")]
-    sequences: Vec<u64>,
+    sequences: Vec<u32>,
 }
 
 #[cfg(not(feature = "embed"))]

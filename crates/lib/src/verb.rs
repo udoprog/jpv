@@ -57,9 +57,9 @@ pub enum ReadingOption<T> {
 #[repr(C)]
 pub struct Reading {
     /// Index of the kanji that the reading matches, if one is present.
-    pub kanji: ReadingOption<usize>,
+    pub kanji: u8,
     /// Index of the reading used.
-    pub reading: usize,
+    pub reading: u8,
 }
 
 /// Try to conjugate the given entry as a verb.
@@ -280,10 +280,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
         }
 
         let reading = Reading {
-            kanji: kanji
-                .map(|(i, _)| ReadingOption::Some(i))
-                .unwrap_or(ReadingOption::None),
-            reading: reading.0,
+            kanji: kanji.map(|(i, _)| i as u8).unwrap_or(u8::MAX),
+            reading: reading.0 as u8,
         };
 
         let inflections = Inflections {
