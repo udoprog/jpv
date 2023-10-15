@@ -1,5 +1,6 @@
 #![cfg_attr(all(not(feature = "cli"), windows), windows_subsystem = "windows")]
 
+use std::cmp::Reverse;
 use std::net::SocketAddr;
 
 use anyhow::{Context, Error, Result};
@@ -153,6 +154,8 @@ async fn analyze(
         entries.push(AnalyzeEntry { key, string });
     }
 
+    entries
+        .sort_by(|a, b| (Reverse(a.string.len()), &a.key).cmp(&(Reverse(b.string.len()), &b.key)));
     Ok(Json(AnalyzeResponse { data: entries }))
 }
 
@@ -167,16 +170,13 @@ impl IntoResponse for RequestError {
 
 #[cfg(feature = "bundle-database")]
 mod database {
-    #[repr(C)]
-    struct Align<A, T: ?Sized>([A; 0], T);
+    use anyhow::Result;
 
-    static DATABASE: &Align<u64, [u8]> = &Align(
-        [],
-        *include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../database.bin")),
-    );
+    static DATABASE: &[u8] =
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../database.bin"));
 
     pub(super) unsafe fn open() -> Result<&'static [u8]> {
-        Ok(&DATABASE.1)
+        Ok(&DATABASE)
     }
 }
 
