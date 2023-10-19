@@ -5,15 +5,15 @@ edition = "2021"
 publish = false
 
 [dependencies]
-anyhow = "1.0.71"
-arrayvec = "0.7.2"
+anyhow = "1.0.75"
+arrayvec = "0.7.4"
 fixed-map = { version = "0.9.2", features = ["serde"] }
-log = "0.4.17"
-musli = "0.0.68"
-musli-storage = "0.0.68"
-musli-zerocopy = "0.0.68"
-relative-path = "1.8.0"
-serde = { version = "1.0.160", features = ["derive"] }
-tracing = "0.1.37"
-xmlparser = "0.13.5"
+log = "0.4.20"
+musli = "0.0.78"
+musli-storage = "0.0.78"
+musli-zerocopy = "0.0.78"
+relative-path = "1.9.0"
+serde = { version = "1.0.189", features = ["derive"] }
+tracing = "0.1.40"
+xmlparser = "0.13.6"
 borrowme = "0.0.14"

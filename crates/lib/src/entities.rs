@@ -1,5 +1,6 @@
 use fixed_map::Key;
 use musli::{Decode, Encode};
+use musli_zerocopy::buf::Visit;
 use musli_zerocopy::ZeroCopy;
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +11,7 @@ macro_rules! entity {
         $(<$variant:ident $entity:literal $doc:literal>)*
     }) => {
         $(#[$($meta)*])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Key, ZeroCopy)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Key, ZeroCopy, Visit)]
         #[key(bitset)]
         #[repr(u8)]
         $vis enum $name {

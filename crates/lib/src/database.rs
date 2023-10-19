@@ -1,7 +1,5 @@
 //! Database that can be used as a dictionary.
 
-mod index;
-
 use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -11,8 +9,7 @@ use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::Variable;
 use musli_storage::Encoding;
-use musli_zerocopy::pointer::{Ref, Unsized};
-use musli_zerocopy::{swiss, AlignedBuf, Buf, ZeroCopy};
+use musli_zerocopy::{swiss, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
 use crate::adjective;
@@ -21,6 +18,14 @@ use crate::inflection::Inflection;
 use crate::parser::Parser;
 use crate::verb;
 use crate::PartOfSpeech;
+
+#[derive(ZeroCopy)]
+#[repr(C)]
+pub(super) struct Index {
+    pub(super) lookup: swiss::MapRef<Ref<str>, Ref<[Id]>>,
+    pub(super) by_pos: swiss::MapRef<PartOfSpeech, Ref<[u32]>>,
+    pub(super) by_sequence: swiss::MapRef<u32, u32>,
+}
 
 /// Encoding used for storing database.
 const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
@@ -122,10 +127,10 @@ impl Id {
 }
 
 /// Load the given dictionary and convert into the internal format.
-pub fn load(dict: &str) -> Result<AlignedBuf> {
-    let mut buf = AlignedBuf::new();
+pub fn load(dict: &str) -> Result<OwnedBuf> {
+    let mut buf = OwnedBuf::new();
 
-    let index = buf.store_uninit::<index::Index>();
+    let index = buf.store_uninit::<Index>();
 
     let mut parser = Parser::new(dict);
     let mut output = Vec::new();
@@ -208,7 +213,7 @@ pub fn load(dict: &str) -> Result<AlignedBuf> {
 
             let (unsize, substring) = if let Some(existing) = existing.get(key.as_ref()) {
                 reuse += 1;
-                (Unsized::new(*existing, key.len()), true)
+                (Ref::with_metadata(*existing, key.len()), true)
             } else {
                 let unsize = buf.store_unsized(key.as_ref());
                 (unsize, false)
@@ -283,7 +288,7 @@ pub fn load(dict: &str) -> Result<AlignedBuf> {
         swiss::store_map(&mut buf, by_sequence)?
     };
 
-    buf.load_uninit_mut(index).write(&index::Index {
+    buf.load_uninit_mut(index).write(&Index {
         lookup,
         by_pos,
         by_sequence,
@@ -294,7 +299,7 @@ pub fn load(dict: &str) -> Result<AlignedBuf> {
 
 #[derive(Clone)]
 pub struct Database<'a> {
-    index: &'a index::Index,
+    index: &'a Index,
     data: &'a Buf,
 }
 
@@ -302,7 +307,7 @@ impl<'a> Database<'a> {
     /// Construct a new database wrapper.
     pub fn new(data: &'a [u8]) -> Result<Self> {
         let data = Buf::new(data);
-        let index = data.load(Ref::<index::Index>::zero())?;
+        let index = data.load(Ref::<Index>::zero())?;
 
         Ok(Self { index, data })
     }
@@ -318,7 +323,7 @@ impl<'a> Database<'a> {
 
     /// Get an entry from the database.
     pub fn get(&self, id: Id) -> Result<Entry<'a>> {
-        let Some(bytes) = self.data.as_slice().get(id.index() as usize..) else {
+        let Some(bytes) = self.data.get(id.index() as usize..) else {
             return Err(anyhow!("Missing entry at {}", id.index()));
         };
 

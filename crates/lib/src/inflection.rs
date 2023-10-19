@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, ops::BitXor};
 use fixed_map::raw::RawStorage;
 use fixed_map::{Key, Set};
 use musli::{Decode, Encode};
-use musli_zerocopy::buf::{BufMut, Padder, Validator};
+use musli_zerocopy::buf::{Padder, Validator};
 use musli_zerocopy::ZeroCopy;
 use serde::{Deserialize, Serialize};
 
@@ -235,22 +235,12 @@ where
     const ANY_BITS: bool = false;
     const PADDED: bool = false;
 
-    unsafe fn store_to<B: ?Sized>(this: *const Self, buf: &mut B)
-    where
-        B: BufMut,
-    {
-        <<<Form as Key>::SetStorage as RawStorage>::Value as ZeroCopy>::store_to(
-            &(*this).form.as_raw(),
-            buf,
-        )
-    }
-
     unsafe fn validate(v: &mut Validator<'_, Self>) -> Result<(), musli_zerocopy::Error> {
         <<Form as Key>::SetStorage as RawStorage>::Value::validate(v.transparent())
     }
 
-    unsafe fn pad(this: *const Self, p: &mut Padder<'_, Self>) {
-        <<Form as Key>::SetStorage as RawStorage>::Value::pad(this.cast(), p.transparent())
+    unsafe fn pad(p: &mut Padder<'_, Self>) {
+        <<Form as Key>::SetStorage as RawStorage>::Value::pad(p.transparent())
     }
 }
 

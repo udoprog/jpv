@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::{BTreeSet, HashSet};
 use std::fmt;
 use std::io::Write;
@@ -50,17 +49,57 @@ struct Args {
     sequences: Vec<u32>,
 }
 
-#[cfg(not(feature = "embed"))]
-#[inline]
-fn load_database(path: &Path) -> Result<Cow<'static, [u8]>> {
-    Ok(Cow::Owned(std::fs::read(path)?))
+#[cfg(unix)]
+mod database {
+    use std::fs::File;
+    use std::io;
+    use std::path::Path;
+
+    use anyhow::{Context, Result};
+
+    static mut DATABASE: Option<memmap::Mmap> = None;
+
+    pub(super) fn open(path: &Path) -> Result<&'static [u8]> {
+        use core::mem::ManuallyDrop;
+
+        use memmap::MmapOptions;
+
+        tracing::info!("Reading from {}", path.display());
+
+        fn read(path: &Path) -> io::Result<&'static [u8]> {
+            let f = ManuallyDrop::new(File::open(path)?);
+
+            let mmap = unsafe { MmapOptions::new().map(&f)? };
+
+            unsafe {
+                DATABASE = Some(mmap);
+
+                match &DATABASE {
+                    Some(mmap) => Ok(&mmap[..]),
+                    None => unreachable!(),
+                }
+            }
+        }
+
+        let slice = read(&path).with_context(|| path.display().to_string())?;
+        Ok(slice)
+    }
 }
 
-#[cfg(feature = "embed")]
-#[inline]
-fn load_database(_: &Path) -> Result<Cow<'static, [u8]>> {
-    const BYTES: &[u8] = include_bytes!("../../../database.bin");
-    Ok(Cow::Borrowed(BYTES))
+#[cfg(not(unix))]
+mod database {
+    #[cfg(not(feature = "embed"))]
+    #[inline]
+    fn open(path: &Path) -> Result<Cow<'static, [u8]>> {
+        Ok(Cow::Owned(std::fs::read(path)?))
+    }
+
+    #[cfg(feature = "embed")]
+    #[inline]
+    fn open(_: &Path) -> Result<Cow<'static, [u8]>> {
+        const BYTES: &[u8] = include_bytes!("../../../database.bin");
+        Ok(Cow::Borrowed(BYTES))
+    }
 }
 
 fn main() -> Result<()> {
@@ -86,7 +125,7 @@ fn main() -> Result<()> {
     }
 
     let data =
-        load_database(database_path).with_context(|| anyhow!("{}", database_path.display()))?;
+        database::open(database_path).with_context(|| anyhow!("{}", database_path.display()))?;
 
     let db = Database::new(data.as_ref())?;
 
