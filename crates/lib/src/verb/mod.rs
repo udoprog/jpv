@@ -172,11 +172,19 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
                 (inflections, Fragments::new([k], [r], [g.te_stem]), g.de)
             }
             VerbKind::Suru => {
-                let (Some(k), Some(r)) = (
-                    kanji_text.strip_suffix("する"),
-                    reading_text.strip_suffix("する"),
-                ) else {
-                    continue;
+                let (k, r) = if reading_text == "する" {
+                    // TODO: actualy fix suru conjugations to cope with the
+                    // irregular kanji.
+                    (reading_text, reading_text)
+                } else {
+                    let (Some(k), Some(r)) = (
+                        kanji_text.strip_suffix("する"),
+                        reading_text.strip_suffix("する"),
+                    ) else {
+                        continue;
+                    };
+
+                    (k, r)
                 };
 
                 let mut inflections = BTreeMap::new();
@@ -332,8 +340,8 @@ fn as_verb_kind(entry: &Entry<'_>) -> Option<VerbKind> {
                 PartOfSpeech::VerbGodanUru => VerbKind::Godan,
                 PartOfSpeech::VerbKuru => VerbKind::Kuru,
                 PartOfSpeech::VerbSuru => VerbKind::Suru,
-                PartOfSpeech::VerbSuruIncluded => VerbKind::Suru,
                 PartOfSpeech::VerbSuruSpecial => VerbKind::Suru,
+                PartOfSpeech::VerbSuruIncluded => VerbKind::Suru,
                 _ => continue,
             };
 
