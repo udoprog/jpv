@@ -78,13 +78,17 @@ impl Entry<'_> {
         // Perform boost by number of senses, maximum boost at 10 senses.
         let sense_count = 1.0 + self.senses.len().min(10) as f32 / 10.0;
         // Conjugation boost.
-        let conjugation = conjugation.then_some(2.0).unwrap_or(1.0);
+        let conjugation = conjugation.then_some(1.2).unwrap_or(1.0);
         // Calculate length boost.
         let length = (input.chars().count().min(10) as f32 / 10.0) * 1.2;
 
         for element in &self.reading_elements {
             if element.text == input {
-                query = query.max(2.0);
+                if element.no_kanji || self.kanji_elements.iter().all(|k| k.is_rare()) {
+                    query = query.max(3.0);
+                } else {
+                    query = query.max(2.0);
+                }
             }
 
             for p in &element.priority {
@@ -94,7 +98,7 @@ impl Entry<'_> {
 
         for element in &self.kanji_elements {
             if element.text == input {
-                query = query.max(2.5);
+                query = query.max(3.0);
             }
 
             for p in &element.priority {

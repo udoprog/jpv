@@ -26,6 +26,11 @@ pub struct KanjiElement<'a> {
 }
 
 impl<'a> KanjiElement<'a> {
+    /// Test if kanji is rare.
+    pub fn is_rare(&self) -> bool {
+        self.info.contains(KanjiInfo::RareKanji)
+    }
+
     /// Debug the kanji element, while avoiding formatting elements which are
     /// not defined.
     pub fn debug_sparse(&self) -> impl fmt::Debug + '_ {
