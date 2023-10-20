@@ -20,6 +20,7 @@ macro_rules! ichidan {
         $out!("ないでください", Command, Negative, Polite);
         $out!("ば", Hypothetical);
         $out!("なければ", Hypothetical, Negative);
+        $out!("なきゃ", Hypothetical, Negative, Kya);
         $out!("たら", Conditional);
         $out!("ましたら", Conditional, Polite);
         $out!("なかったら", Conditional, Negative);
@@ -73,6 +74,7 @@ macro_rules! godan {
         $out!([$($base, )? $g.a, "ないでください"], Command, Negative, Polite);
         $out!([$($base, )? $g.e, "ば"], Hypothetical);
         $out!([$($base, )? $g.a, "なければ"], Hypothetical, Negative);
+        $out!([$($base, )? $g.a, "なきゃ"], Hypothetical, Negative, Kya);
         $out!([$($base, )? $g.past, "ら"], Conditional);
         $out!([$($base, )? $g.i, "ましたら"], Conditional, Polite);
         $out!([$($base, )? $g.a, "なかったら"], Conditional, Negative);
@@ -123,6 +125,7 @@ macro_rules! kuru {
         $out!("こ", "ないでください", Command, Negative, Polite);
         $out!("く", "れば", Hypothetical);
         $out!("こ", "なければ", Hypothetical, Negative);
+        $out!("こ", "なきゃ", Hypothetical, Negative, Kya);
         $out!("き", "たら", Conditional);
         $out!("き", "ましたら", Conditional, Polite);
         $out!("こ", "なかったら", Conditional, Negative);
@@ -170,6 +173,7 @@ macro_rules! suru {
         $out!("しないでください", Command, Negative, Polite);
         $out!("すれば", Hypothetical);
         $out!("しなければ", Hypothetical, Negative);
+        $out!("しなきゃ", Hypothetical, Negative, Kya);
         $out!("したら", Conditional);
         $out!("しましたら", Conditional, Polite);
         $out!("しなかったら", Conditional, Negative);

@@ -92,6 +92,8 @@ pub enum Form {
     TeOku,
     Command,
     Hypothetical,
+    /// Alternate negative hypoethical form.
+    Kya,
     Conditional,
     Passive,
     Potential,
@@ -116,7 +118,7 @@ pub enum Form {
 }
 
 impl Form {
-    pub const ALL: [Form; 24] = [
+    pub const ALL: [Form; 25] = [
         Form::Short,
         Form::Causative,
         Form::Chau,
@@ -124,6 +126,7 @@ impl Form {
         Form::Conditional,
         Form::Conversation,
         Form::Hypothetical,
+        Form::Kya,
         Form::Negative,
         Form::Passive,
         Form::Past,
@@ -153,6 +156,7 @@ impl Form {
             Form::Conditional => "conditional, if ~, when ~",
             Form::Conversation => "conversational use only",
             Form::Hypothetical => "hypothetical, if ~",
+            Form::Kya => "~kya, alternative hypothetical negative, if not ~",
             Form::Negative => "not doing ~, the absense of ~",
             Form::Passive => "passive, ~ was done to someone or something",
             Form::Past => "past tense",
@@ -185,6 +189,7 @@ impl Form {
             Form::Conditional => "conditional",
             Form::Conversation => "conversation",
             Form::Hypothetical => "hypothetical",
+            Form::Kya => "~kya",
             Form::Negative => "negative",
             Form::Passive => "passive",
             Form::Past => "past",
