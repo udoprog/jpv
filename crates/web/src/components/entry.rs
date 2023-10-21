@@ -59,7 +59,7 @@ pub(crate) struct Entry {
     states: Vec<ExtraState>,
     show_inflection: bool,
     verb_inflections: Vec<(verb::Reading, OwnedInflections)>,
-    adjective_inflections: Option<OwnedInflections>,
+    adjective_inflections: Vec<(verb::Reading, OwnedInflections)>,
 }
 
 #[derive(Properties)]
@@ -100,7 +100,10 @@ impl Component for Entry {
                 .into_iter()
                 .map(|(r, i)| (r, borrowme::to_owned(i)))
                 .collect(),
-            adjective_inflections: adjective::conjugate(&entry).map(borrowme::to_owned),
+            adjective_inflections: adjective::conjugate(&entry)
+                .into_iter()
+                .map(|(r, i)| (r, borrowme::to_owned(i)))
+                .collect(),
         };
 
         this.refresh_entry(ctx);
@@ -137,7 +140,11 @@ impl Component for Entry {
             .into_iter()
             .map(|(r, i)| (r, borrowme::to_owned(i)))
             .collect();
-        self.adjective_inflections = adjective::conjugate(&entry).map(borrowme::to_owned);
+
+        self.adjective_inflections = adjective::conjugate(&entry)
+            .into_iter()
+            .map(|(r, i)| (r, borrowme::to_owned(i)))
+            .collect();
 
         self.states = ctx
             .props()
@@ -471,7 +478,7 @@ impl InflectionKind {
 fn find_inflection<'a>(
     source: &IndexSource,
     verb_inflections: &'a [(verb::Reading, OwnedInflections)],
-    adjective_inflections: Option<&'a OwnedInflections>,
+    adjective_inflections: &'a [(verb::Reading, OwnedInflections)],
 ) -> Option<(InflectionKind, Inflection, &'a OwnedInflections)> {
     Some(match source {
         IndexSource::VerbInflection {
@@ -485,8 +492,12 @@ fn find_inflection<'a>(
 
             (InflectionKind::Verb, *inflection, inflections)
         }
-        IndexSource::AdjectiveInflection { inflection } => {
-            let Some(inflections) = adjective_inflections else {
+        IndexSource::AdjectiveInflection {
+            reading,
+            inflection,
+        } => {
+            let Some((_, inflections)) = adjective_inflections.iter().find(|(r, _)| *r == *reading)
+            else {
                 return None;
             };
 

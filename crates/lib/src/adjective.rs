@@ -1,103 +1,90 @@
 use crate::elements::Entry;
 use crate::inflection::Inflections;
 use crate::kana::Full;
+use crate::verb::Reading;
 use crate::PartOfSpeech;
 
 /// Try to conjugate the given entry as an adjective.
-pub fn conjugate<'a>(entry: &Entry<'a>) -> Option<Inflections<'a>> {
-    let (Some(kind), [kanji, ..], [reading, ..]) = (
-        as_adjective_kind(entry),
-        &entry.kanji_elements[..],
-        &entry.reading_elements[..],
-    ) else {
-        return None;
-    };
+pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
+    let mut output = Vec::new();
 
-    let inflections = match kind {
-        AdjectiveKind::I => {
-            let (Some(k), Some(r)) = (
-                kanji.text.strip_suffix('い'),
-                reading.text.strip_suffix('い'),
-            ) else {
-                return None;
-            };
+    let readings = crate::verb::reading_permutations(entry);
 
-            inflections! {
-                k, r,
-                ("い"),
-                Polite ("いです"),
-                Past ("かった"),
-                Past, Polite ("かったです"),
-                Negative ("くない"),
-                Negative, Polite ("くないです"),
-                Past, Negative ("なかった"),
-                Past, Negative, Polite ("なかったです"),
-            }
-        }
-        AdjectiveKind::Yoi => {
-            let (Some(k), Some(r)) = (
-                kanji.text.strip_suffix("いい"),
-                reading.text.strip_suffix("いい"),
-            ) else {
-                return None;
-            };
+    for pos in crate::verb::parts_of_speech(entry) {
+        for &(kanji, reading) in &readings {
+            let (_, kanji_text) = kanji.unwrap_or(reading);
+            let (_, reading_text) = reading;
 
-            inflections! {
-                k, r,
-                ("いい"),
-                Polite ("いいです"),
-                Past ("よかった"),
-                Past, Polite ("よかったです"),
-                Negative ("よくない"),
-                Negative, Polite ("よくないです"),
-                Past, Negative ("よなかった"),
-                Past, Negative, Polite ("よなかったです"),
-            }
-        }
-        AdjectiveKind::Na => {
-            inflections! {
-                kanji.text, reading.text,
-                ("だ"),
-                Polite ("です"),
-                Past ("だった"),
-                Past, Polite ("でした"),
-                Negative ("ではない"),
-                Negative, Polite ("ではありません"),
-                Past, Negative ("ではなかった"),
-                Past, Negative, Polite ("ではありませんでした"),
-            }
-        }
-    };
+            let inflections = match pos {
+                PartOfSpeech::AdjectiveI => {
+                    let (Some(k), Some(r)) = (
+                        kanji_text.strip_suffix('い'),
+                        reading_text.strip_suffix('い'),
+                    ) else {
+                        continue;
+                    };
 
-    Some(Inflections {
-        dictionary: Full::new(kanji.text, reading.text, ""),
-        inflections,
-    })
-}
+                    inflections! {
+                        k, r,
+                        ("い"),
+                        Polite ("いです"),
+                        Past ("かった"),
+                        Past, Polite ("かったです"),
+                        Negative ("くない"),
+                        Negative, Polite ("くないです"),
+                        Past, Negative ("なかった"),
+                        Past, Negative, Polite ("なかったです"),
+                    }
+                }
+                PartOfSpeech::AdjectiveIx => {
+                    let (Some(k), Some(r)) = (
+                        kanji_text.strip_suffix("いい"),
+                        reading_text.strip_suffix("いい"),
+                    ) else {
+                        continue;
+                    };
 
-enum AdjectiveKind {
-    /// An i-adjective.
-    I,
-    /// Special yoi / ii class.
-    Yoi,
-    /// Na-adjective.
-    Na,
-}
-
-/// If the entry is an adjective, figure out the adjective kind.
-fn as_adjective_kind(entry: &Entry<'_>) -> Option<AdjectiveKind> {
-    for sense in &entry.senses {
-        for pos in sense.pos.iter() {
-            let kind = match pos {
-                PartOfSpeech::AdjectiveI => AdjectiveKind::I,
-                PartOfSpeech::AdjectiveIx => AdjectiveKind::Yoi,
-                PartOfSpeech::AdjectiveNa => AdjectiveKind::Na,
+                    inflections! {
+                        k, r,
+                        ("いい"),
+                        Polite ("いいです"),
+                        Past ("よかった"),
+                        Past, Polite ("よかったです"),
+                        Negative ("よくない"),
+                        Negative, Polite ("よくないです"),
+                        Past, Negative ("よなかった"),
+                        Past, Negative, Polite ("よなかったです"),
+                    }
+                }
+                PartOfSpeech::AdjectiveNa => {
+                    inflections! {
+                        kanji_text, reading_text,
+                        ("だ"),
+                        Polite ("です"),
+                        Past ("だった"),
+                        Past, Polite ("でした"),
+                        Negative ("ではない"),
+                        Negative, Polite ("ではありません"),
+                        Past, Negative ("ではなかった"),
+                        Past, Negative, Polite ("ではありませんでした"),
+                    }
+                }
                 _ => continue,
             };
 
-            return Some(kind);
+            let reading = Reading {
+                kanji: kanji.map(|(i, _)| i as u8).unwrap_or(u8::MAX),
+                reading: reading.0 as u8,
+            };
+
+            let inflections = Inflections {
+                dictionary: Full::new(kanji_text, reading_text, ""),
+                inflections,
+            };
+
+            output.push((reading, inflections));
         }
     }
 
-    None
+    output
 }

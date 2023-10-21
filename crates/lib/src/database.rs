@@ -69,7 +69,10 @@ pub enum IndexSource {
     },
     /// Index was added because of an adjective inflection.
     #[serde(rename = "adj-c")]
-    AdjectiveInflection { inflection: Inflection },
+    AdjectiveInflection {
+        reading: verb::Reading,
+        inflection: Inflection,
+    },
 }
 
 impl IndexSource {
@@ -108,10 +111,13 @@ impl Id {
         }
     }
 
-    fn adjective_inflection(index: u32, inflection: Inflection) -> Self {
+    fn adjective_inflection(index: u32, reading: verb::Reading, inflection: Inflection) -> Self {
         Self {
             index,
-            extra: IndexSource::AdjectiveInflection { inflection },
+            extra: IndexSource::AdjectiveInflection {
+                reading,
+                inflection,
+            },
         }
     }
 
@@ -182,11 +188,14 @@ pub fn load(dict: &str) -> Result<OwnedBuf> {
             }
         }
 
-        if let Some(c) = adjective::conjugate(&entry) {
+        for (reading, c) in adjective::conjugate(&entry) {
             for (inflection, pair) in c.iter() {
                 for word in [pair.text(), pair.reading()] {
                     let key = Cow::Owned(format!("{}{}", word, pair.suffix()));
-                    readings.push((key, Id::adjective_inflection(entry_ref, *inflection)));
+                    readings.push((
+                        key,
+                        Id::adjective_inflection(entry_ref, reading, *inflection),
+                    ));
                 }
             }
         }
