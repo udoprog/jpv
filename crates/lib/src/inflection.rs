@@ -74,6 +74,8 @@ macro_rules! inflections {
 #[key(bitset)]
 #[serde(rename_all = "kebab-case")]
 pub enum Form {
+    /// The stem of the word.
+    Stem,
     /// Te-form.
     Te,
     /// Te-iru or progressive form.
@@ -118,7 +120,8 @@ pub enum Form {
 }
 
 impl Form {
-    pub const ALL: [Form; 25] = [
+    pub const ALL: [Form; 26] = [
+        Form::Stem,
         Form::Short,
         Form::Causative,
         Form::Chau,
@@ -149,6 +152,7 @@ impl Form {
     /// Longer title for the form.
     pub fn title(&self) -> &'static str {
         match self {
+            Form::Stem => "stem, or infinite form",
             Form::Short => "alternate shortened form",
             Form::Causative => "causative, make ~ do something, let / allow ~",
             Form::Chau => "to do something by accident, to finish completely",
@@ -182,6 +186,7 @@ impl Form {
     /// Describe the form.
     pub fn describe(&self) -> &'static str {
         match self {
+            Form::Stem => "stem / infinite",
             Form::Short => "short",
             Form::Causative => "causative",
             Form::Chau => "~chau / ~jau",

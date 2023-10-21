@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 pub type IntoIter<'a, const N: usize> = arrayvec::IntoIter<&'a str, N>;
 
 /// A concatenation of multiple borrowed strings with fixed size storage.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct Concat<'a, const N: usize> {
     storage: arrayvec::ArrayVec<&'a str, N>,
 }

@@ -172,52 +172,84 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
                 (inflections, Fragments::new([k], [r], [g.te_stem]), g.de)
             }
             VerbKind::Suru => {
-                let (k, r) = if reading_text == "する" {
-                    // TODO: actualy fix suru conjugations to cope with the
-                    // irregular kanji.
-                    (reading_text, reading_text)
-                } else {
-                    let (Some(k), Some(r)) = (
-                        kanji_text.strip_suffix("する"),
-                        reading_text.strip_suffix("する"),
-                    ) else {
-                        continue;
-                    };
+                let mut kanji = kanji_text.char_indices();
+                let mut reading = reading_text.char_indices();
 
-                    (k, r)
-                };
-
-                let mut inflections = BTreeMap::new();
-                inflections.insert(inflect!(Te), Fragments::new([k], [r], ["して"]));
-
-                macro_rules! populate {
-                    ($suffix:expr $(, $inflect:ident)*) => {
-                        inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
-                    }
-                }
-
-                suru!(populate);
-                (inflections, Fragments::new([k], [r], []), false)
-            }
-            VerbKind::Kuru => {
-                let (Some(k), Some(r)) = (
-                    kanji_text.strip_suffix("来る"),
-                    reading_text.strip_suffix("くる"),
-                ) else {
+                let (Some((k_e, 'る')), Some((_, 'る'))) = (kanji.next_back(), reading.next_back())
+                else {
                     continue;
                 };
 
-                let mut inflections = BTreeMap::new();
-                inflections.insert(inflect!(Te), Fragments::new([k, "来"], [r, "き"], ["て"]));
+                let (Some((_, k)), Some((_, 'す'))) = (kanji.next_back(), reading.next_back())
+                else {
+                    continue;
+                };
 
-                macro_rules! populate {
-                    ($r:expr, $suffix:expr $(, $inflect:ident)*) => {
-                        inflections.insert(inflect!($($inflect),*), Fragments::new([k, "来"], [r, $r], [$suffix]));
+                let kanji_prefix = reading.as_str();
+                let reading_prefix = reading.as_str();
+                let kanji_stem = &kanji_text[..k_e];
+
+                let mut i = BTreeMap::new();
+
+                if k == 'す' {
+                    macro_rules! populate {
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            i.insert(inflect!($($inflect),*), Fragments::new([kanji_prefix], [reading_prefix], [concat!($prefix, $suffix)]));
+                        }
                     }
+
+                    suru!(populate);
+                } else {
+                    macro_rules! populate {
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            i.insert(inflect!($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
+                        }
+                    }
+
+                    suru!(populate);
                 }
 
-                kuru!(populate);
-                (inflections, Fragments::new([k], [r], []), false)
+                (i, Fragments::default(), false)
+            }
+            VerbKind::Kuru => {
+                let mut kanji = kanji_text.char_indices();
+                let mut reading = reading_text.char_indices();
+
+                let (Some((k_e, 'る')), Some((_, 'る'))) = (kanji.next_back(), reading.next_back())
+                else {
+                    continue;
+                };
+
+                let (Some((_, k)), Some((_, 'く'))) = (kanji.next_back(), reading.next_back())
+                else {
+                    continue;
+                };
+
+                let kanji_prefix = reading.as_str();
+                let reading_prefix = reading.as_str();
+                let kanji_stem = &kanji_text[..k_e];
+
+                let mut i = BTreeMap::new();
+
+                if k == 'く' {
+                    macro_rules! populate {
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            i.insert(inflect!($($inflect),*), Fragments::new([kanji_prefix], [reading_prefix], [concat!($prefix, $suffix)]));
+                        }
+                    }
+
+                    kuru!(populate);
+                } else {
+                    macro_rules! populate {
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            i.insert(inflect!($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
+                        }
+                    }
+
+                    kuru!(populate);
+                }
+
+                (i, Fragments::default(), false)
             }
         };
 
@@ -339,7 +371,6 @@ fn as_verb_kind(entry: &Entry<'_>) -> Option<VerbKind> {
                 PartOfSpeech::VerbGodanUS => VerbKind::Godan,
                 PartOfSpeech::VerbGodanUru => VerbKind::Godan,
                 PartOfSpeech::VerbKuru => VerbKind::Kuru,
-                PartOfSpeech::VerbSuru => VerbKind::Suru,
                 PartOfSpeech::VerbSuruSpecial => VerbKind::Suru,
                 PartOfSpeech::VerbSuruIncluded => VerbKind::Suru,
                 _ => continue,

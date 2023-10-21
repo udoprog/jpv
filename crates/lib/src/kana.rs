@@ -58,7 +58,7 @@ impl fmt::Display for Full<'_> {
 }
 
 /// A kana pair made up of many text fragments.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct Fragments<'a, const N: usize, const S: usize> {
     // Text prefix.
     text: Concat<'a, N>,
