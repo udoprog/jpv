@@ -350,8 +350,8 @@ mod inflections {
     use crate::kana::{Fragments, OwnedFull};
     use crate::Inflection;
 
-    pub(crate) fn to_owned(
-        this: &BTreeMap<Inflection, Fragments<'_, 3, 4>>,
+    pub(crate) fn to_owned<const N: usize, const S: usize>(
+        this: &BTreeMap<Inflection, Fragments<'_, N, S>>,
     ) -> BTreeMap<Inflection, OwnedFull> {
         let mut out = BTreeMap::new();
 
@@ -369,9 +369,9 @@ mod inflections {
         out
     }
 
-    pub(crate) fn borrow(
+    pub(crate) fn borrow<const N: usize, const S: usize>(
         this: &BTreeMap<Inflection, OwnedFull>,
-    ) -> BTreeMap<Inflection, Fragments<'_, 3, 4>> {
+    ) -> BTreeMap<Inflection, Fragments<'_, N, S>> {
         let mut out = BTreeMap::new();
 
         for (key, value) in this {

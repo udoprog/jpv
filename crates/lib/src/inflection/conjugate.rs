@@ -76,12 +76,13 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             let (_, kanji_text) = kanji.unwrap_or(reading);
             let (_, reading_text) = reading;
 
+            let mut inflections;
             let kind;
+            let de_conjugation;
+            let stem;
 
-            let (mut inflections, stem, de) = match pos {
+            match pos {
                 PartOfSpeech::VerbIchidan | PartOfSpeech::VerbIchidanS => {
-                    kind = Kind::Verb;
-
                     let (Some(k), Some(r)) = (
                         kanji_text.strip_suffix('る'),
                         reading_text.strip_suffix('る'),
@@ -89,7 +90,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    let mut inflections = inflections! {
+                    inflections = inflections! {
                         k, r,
                         [Te], ("て"),
                     };
@@ -101,11 +102,11 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     }
 
                     ichidan!(populate);
-                    (inflections, Fragments::new([k], [r], ["っ"]), false)
+                    kind = Kind::Verb;
+                    de_conjugation = false;
+                    stem = Fragments::new([k], [r], ["っ"]);
                 }
                 PartOfSpeech::VerbGodanKS => {
-                    kind = Kind::Verb;
-
                     let (Some(k), Some(r)) = (
                         kanji_text.strip_suffix('く'),
                         reading_text.strip_suffix('く'),
@@ -115,7 +116,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
 
                     let g = godan::IKU;
 
-                    let mut inflections = BTreeMap::new();
+                    inflections = BTreeMap::new();
                     inflections.insert(inflect!(Te), Fragments::new([k], [r], [g.te]));
 
                     macro_rules! populate {
@@ -125,7 +126,10 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     }
 
                     godan!(populate, g);
-                    (inflections, Fragments::new([k], [r], [g.te_stem]), g.de)
+
+                    kind = Kind::Verb;
+                    de_conjugation = g.de;
+                    stem = Fragments::new([k], [r], [g.te_stem]);
                 }
                 PartOfSpeech::VerbGodanAru
                 | PartOfSpeech::VerbGodanB
@@ -140,8 +144,6 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 | PartOfSpeech::VerbGodanU
                 | PartOfSpeech::VerbGodanUS
                 | PartOfSpeech::VerbGodanUru => {
-                    kind = Kind::Verb;
-
                     let mut k = kanji_text.chars();
                     let mut r = reading_text.chars();
 
@@ -163,7 +165,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     let k = k.as_str();
                     let r = r.as_str();
 
-                    let mut inflections = BTreeMap::new();
+                    inflections = BTreeMap::new();
                     inflections.insert(inflect!(Te), Fragments::new([k], [r], [g.te]));
 
                     macro_rules! populate {
@@ -173,11 +175,12 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     }
 
                     godan!(populate, g);
-                    (inflections, Fragments::new([k], [r], [g.te_stem]), g.de)
+
+                    kind = Kind::Verb;
+                    de_conjugation = g.de;
+                    stem = Fragments::new([k], [r], [g.te_stem]);
                 }
                 PartOfSpeech::VerbSuruSpecial | PartOfSpeech::VerbSuruIncluded => {
-                    kind = Kind::Verb;
-
                     let mut kanji = kanji_text.char_indices();
                     let mut reading = reading_text.char_indices();
 
@@ -196,12 +199,12 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     let reading_prefix = reading.as_str();
                     let kanji_stem = &kanji_text[..k_e];
 
-                    let mut i = BTreeMap::new();
+                    inflections = BTreeMap::new();
 
                     if k == 'す' {
                         macro_rules! populate {
                             ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
-                                i.insert(inflect!($($inflect),*), Fragments::new([kanji_prefix], [reading_prefix], [concat!($prefix, $suffix)]));
+                                inflections.insert(inflect!($($inflect),*), Fragments::new([kanji_prefix], [reading_prefix], [concat!($prefix, $suffix)]));
                             }
                         }
 
@@ -209,18 +212,18 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     } else {
                         macro_rules! populate {
                             ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
-                                i.insert(inflect!($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
+                                inflections.insert(inflect!($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
                             }
                         }
 
                         suru!(populate);
                     }
 
-                    (i, Fragments::default(), false)
+                    kind = Kind::Verb;
+                    de_conjugation = false;
+                    stem = Fragments::default();
                 }
                 PartOfSpeech::VerbKuru => {
-                    kind = Kind::Verb;
-
                     let mut kanji = kanji_text.char_indices();
                     let mut reading = reading_text.char_indices();
 
@@ -239,12 +242,12 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     let reading_prefix = reading.as_str();
                     let kanji_stem = &kanji_text[..k_e];
 
-                    let mut i = BTreeMap::new();
+                    inflections = BTreeMap::new();
 
                     if k == 'く' {
                         macro_rules! populate {
                             ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
-                                i.insert(inflect!($($inflect),*), Fragments::new([kanji_prefix], [reading_prefix], [concat!($prefix, $suffix)]));
+                                inflections.insert(inflect!($($inflect),*), Fragments::new([kanji_prefix], [reading_prefix], [concat!($prefix, $suffix)]));
                             }
                         }
 
@@ -252,18 +255,18 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     } else {
                         macro_rules! populate {
                             ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
-                                i.insert(inflect!($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
+                                inflections.insert(inflect!($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
                             }
                         }
 
                         kuru!(populate);
                     }
 
-                    (i, Fragments::default(), false)
+                    kind = Kind::Verb;
+                    de_conjugation = false;
+                    stem = Fragments::default();
                 }
                 PartOfSpeech::AdjectiveI => {
-                    kind = Kind::Adjective;
-
                     let (Some(k), Some(r)) = (
                         kanji_text.strip_suffix('い'),
                         reading_text.strip_suffix('い'),
@@ -271,7 +274,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    let i = inflections! {
+                    inflections = inflections! {
                         k, r,
                         [], ("い"),
                         [Polite], ("いです"),
@@ -283,11 +286,11 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         [Past, Negative, Polite], ("なかったです"),
                     };
 
-                    (i, Fragments::default(), false)
+                    kind = Kind::Adjective;
+                    de_conjugation = false;
+                    stem = Fragments::default();
                 }
                 PartOfSpeech::AdjectiveIx => {
-                    kind = Kind::Adjective;
-
                     let (Some(k), Some(r)) = (
                         kanji_text.strip_suffix("いい"),
                         reading_text.strip_suffix("いい"),
@@ -295,7 +298,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    let i = inflections! {
+                    inflections = inflections! {
                         k, r,
                         [], ("いい"),
                         [Polite], ("いいです"),
@@ -307,12 +310,12 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         [Past, Negative, Polite], ("よなかったです"),
                     };
 
-                    (i, Fragments::default(), false)
+                    kind = Kind::Adjective;
+                    de_conjugation = false;
+                    stem = Fragments::default();
                 }
                 PartOfSpeech::AdjectiveNa => {
-                    kind = Kind::Adjective;
-
-                    let i = inflections! {
+                    inflections = inflections! {
                         kanji_text, reading_text,
                         [], ("だ"),
                         [Polite], ("です"),
@@ -324,7 +327,9 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         [Past, Negative, Polite], ("ではありませんでした"),
                     };
 
-                    (i, Fragments::default(), false)
+                    kind = Kind::Adjective;
+                    de_conjugation = false;
+                    stem = Fragments::default();
                 }
                 _ => {
                     continue;
@@ -390,7 +395,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     }
                 }
 
-                if de {
+                if de_conjugation {
                     godan!(populate, godan::U, "じゃ");
                 } else {
                     godan!(populate, godan::U, "ちゃ");
@@ -420,7 +425,7 @@ pub(crate) fn reading_permutations<'a>(
     let mut readings = Vec::new();
 
     for (reading_index, reading) in entry.reading_elements.iter().enumerate() {
-        if reading.no_kanji {
+        if reading.no_kanji || entry.kanji_elements.is_empty() {
             readings.push((None, (reading_index, reading.text)));
             continue;
         }

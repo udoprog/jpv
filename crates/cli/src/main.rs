@@ -6,7 +6,6 @@ use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use lib::adjective;
 use lib::database::{Database, IndexSource};
 use lib::inflection;
 use lib::{Form, Furigana, PartOfSpeech};
@@ -234,22 +233,6 @@ fn main() -> Result<()> {
         let mut o = stdout.lock();
 
         for (_, c, _) in inflection::conjugate(&d) {
-            writeln!(o, "{p}# Inflections:")?;
-
-            writeln!(o, "{p}  Dictionary:")?;
-            writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
-
-            for (c, form) in c.inflections {
-                if args.polite != c.contains(Form::Polite) {
-                    continue;
-                }
-
-                writeln!(o, "{p}  {c:?}:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-            }
-        }
-
-        for (_, c) in adjective::conjugate(&d) {
             writeln!(o, "{p}# Inflections:")?;
 
             writeln!(o, "{p}  Dictionary:")?;
