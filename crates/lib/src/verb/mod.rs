@@ -85,7 +85,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
 
                     let mut inflections = inflections! {
                         k, r,
-                        Te ("て"),
+                        [Te], ("て"),
                     };
 
                     macro_rules! populate {

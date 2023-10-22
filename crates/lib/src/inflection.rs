@@ -48,7 +48,7 @@ macro_rules! pair {
 /// Setup a collection of inflections.
 macro_rules! inflections {
     ($k:expr, $r:expr, $(
-        $($kind:ident),* $(,)? ( $($tt:tt)* )
+        [$($kind:ident),* $(,)?], ( $($tt:tt)* )
     ),* $(,)?) => {{
         let mut tree = ::std::collections::BTreeMap::new();
         $(tree.insert($crate::inflect!($($kind),*), pair!($k, $r, $($tt)*));)*

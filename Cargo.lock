@@ -419,9 +419,9 @@ dependencies = [
 
 [[package]]
 name = "fixed-map"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a27eb3b05fd77d7f1b5957d24c6fb008f67552c9fb31f54e93c401d28e4eeb7"
+checksum = "7324b3e625344e3d4b3af5a0ae3c90cb3e88bb7eb7cc7c3394b966f21c427d5c"
 dependencies = [
  "fixed-map-derive",
  "hashbrown 0.13.2",
@@ -430,9 +430,9 @@ dependencies = [
 
 [[package]]
 name = "fixed-map-derive"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b95edc00c72ea5b457f570586ea548dd14691abbd8a286cda4104b9443200ac"
+checksum = "616829aedab7377617aca883b1fa1490baaa04a597803eab5c2a12f249ed1c85"
 dependencies = [
  "proc-macro2",
  "quote",

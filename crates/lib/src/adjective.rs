@@ -26,14 +26,14 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
 
                     inflections! {
                         k, r,
-                        ("い"),
-                        Polite ("いです"),
-                        Past ("かった"),
-                        Past, Polite ("かったです"),
-                        Negative ("くない"),
-                        Negative, Polite ("くないです"),
-                        Past, Negative ("なかった"),
-                        Past, Negative, Polite ("なかったです"),
+                        [], ("い"),
+                        [Polite], ("いです"),
+                        [Past], ("かった"),
+                        [Past, Polite], ("かったです"),
+                        [Negative], ("くない"),
+                        [Negative, Polite], ("くないです"),
+                        [Past, Negative], ("なかった"),
+                        [Past, Negative, Polite], ("なかったです"),
                     }
                 }
                 PartOfSpeech::AdjectiveIx => {
@@ -46,27 +46,27 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
 
                     inflections! {
                         k, r,
-                        ("いい"),
-                        Polite ("いいです"),
-                        Past ("よかった"),
-                        Past, Polite ("よかったです"),
-                        Negative ("よくない"),
-                        Negative, Polite ("よくないです"),
-                        Past, Negative ("よなかった"),
-                        Past, Negative, Polite ("よなかったです"),
+                        [], ("いい"),
+                        [Polite], ("いいです"),
+                        [Past], ("よかった"),
+                        [Past, Polite], ("よかったです"),
+                        [Negative], ("よくない"),
+                        [Negative, Polite], ("よくないです"),
+                        [Past, Negative], ("よなかった"),
+                        [Past, Negative, Polite], ("よなかったです"),
                     }
                 }
                 PartOfSpeech::AdjectiveNa => {
                     inflections! {
                         kanji_text, reading_text,
-                        ("だ"),
-                        Polite ("です"),
-                        Past ("だった"),
-                        Past, Polite ("でした"),
-                        Negative ("ではない"),
-                        Negative, Polite ("ではありません"),
-                        Past, Negative ("ではなかった"),
-                        Past, Negative, Polite ("ではありませんでした"),
+                        [], ("だ"),
+                        [Polite], ("です"),
+                        [Past], ("だった"),
+                        [Past, Polite], ("でした"),
+                        [Negative], ("ではない"),
+                        [Negative, Polite], ("ではありません"),
+                        [Past, Negative], ("ではなかった"),
+                        [Past, Negative, Polite], ("ではありませんでした"),
                     }
                 }
                 _ => continue,

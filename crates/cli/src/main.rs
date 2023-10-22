@@ -175,7 +175,7 @@ fn main() -> Result<()> {
             IndexSource::VerbInflection { inflection, .. } => {
                 Some(format!("Found through verb inflection: {inflection:?}"))
             }
-            IndexSource::AdjectiveInflection { inflection } => Some(format!(
+            IndexSource::AdjectiveInflection { inflection, .. } => Some(format!(
                 "Found through adjective inflection: {inflection:?}"
             )),
             _ => None,
@@ -249,7 +249,7 @@ fn main() -> Result<()> {
             }
         }
 
-        if let Some(c) = adjective::conjugate(&d) {
+        for (_, c) in adjective::conjugate(&d) {
             writeln!(o, "{p}# Inflections:")?;
 
             writeln!(o, "{p}  Dictionary:")?;
