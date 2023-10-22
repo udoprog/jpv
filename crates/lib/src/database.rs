@@ -12,11 +12,10 @@ use musli_storage::Encoding;
 use musli_zerocopy::{swiss, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
-use crate::adjective;
 use crate::elements::{Entry, EntryKey};
+use crate::inflection;
 use crate::inflection::Inflection;
 use crate::parser::Parser;
-use crate::verb;
 use crate::PartOfSpeech;
 
 #[derive(ZeroCopy)]
@@ -64,13 +63,13 @@ pub enum IndexSource {
     /// Index was added because of a verb inflection.
     #[serde(rename = "verb-c")]
     VerbInflection {
-        reading: verb::Reading,
+        reading: inflection::Reading,
         inflection: Inflection,
     },
     /// Index was added because of an adjective inflection.
     #[serde(rename = "adj-c")]
     AdjectiveInflection {
-        reading: verb::Reading,
+        reading: inflection::Reading,
         inflection: Inflection,
     },
 }
@@ -96,12 +95,12 @@ pub struct Id {
 impl Id {
     fn new(index: u32) -> Self {
         Self {
-            index: index,
+            index,
             extra: IndexSource::None,
         }
     }
 
-    fn verb_inflection(index: u32, reading: verb::Reading, inflection: Inflection) -> Self {
+    fn verb_inflection(index: u32, reading: inflection::Reading, inflection: Inflection) -> Self {
         Self {
             index,
             extra: IndexSource::VerbInflection {
@@ -111,7 +110,11 @@ impl Id {
         }
     }
 
-    fn adjective_inflection(index: u32, reading: verb::Reading, inflection: Inflection) -> Self {
+    fn adjective_inflection(
+        index: u32,
+        reading: inflection::Reading,
+        inflection: Inflection,
+    ) -> Self {
         Self {
             index,
             extra: IndexSource::AdjectiveInflection {
@@ -179,23 +182,21 @@ pub fn load(dict: &str) -> Result<OwnedBuf> {
             readings.push((Cow::Borrowed(el.text), Id::new(entry_ref)));
         }
 
-        for (reading, c) in verb::conjugate(&entry) {
+        for (reading, c, kind) in inflection::conjugate(&entry) {
             for (inflection, pair) in c.iter() {
                 for word in [pair.text(), pair.reading()] {
                     let key = Cow::Owned(format!("{}{}", word, pair.suffix()));
-                    readings.push((key, Id::verb_inflection(entry_ref, reading, *inflection)));
-                }
-            }
-        }
 
-        for (reading, c) in adjective::conjugate(&entry) {
-            for (inflection, pair) in c.iter() {
-                for word in [pair.text(), pair.reading()] {
-                    let key = Cow::Owned(format!("{}{}", word, pair.suffix()));
-                    readings.push((
-                        key,
-                        Id::adjective_inflection(entry_ref, reading, *inflection),
-                    ));
+                    let id = match kind {
+                        inflection::Kind::Verb => {
+                            Id::verb_inflection(entry_ref, reading, *inflection)
+                        }
+                        inflection::Kind::Adjective => {
+                            Id::adjective_inflection(entry_ref, reading, *inflection)
+                        }
+                    };
+
+                    readings.push((key, id));
                 }
             }
         }

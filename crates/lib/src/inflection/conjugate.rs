@@ -1,9 +1,5 @@
 //! Module which performs verb inflection, based on a words class.
 
-mod godan;
-#[macro_use]
-mod macros;
-
 use std::collections::BTreeMap;
 
 use fixed_map::Set;
@@ -12,7 +8,7 @@ use musli_zerocopy::ZeroCopy;
 use serde::{Deserialize, Serialize};
 
 use crate::elements::Entry;
-use crate::inflection::Inflections;
+use crate::inflection::{godan, Inflections};
 use crate::kana::{Fragments, Full};
 use crate::PartOfSpeech;
 
@@ -63,8 +59,14 @@ pub struct Reading {
     pub reading: u8,
 }
 
+/// The kind of word.
+pub enum Kind {
+    Verb,
+    Adjective,
+}
+
 /// Try to conjugate the given entry as a verb.
-pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
+pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)> {
     let mut output = Vec::new();
 
     let readings = reading_permutations(entry);
@@ -74,8 +76,12 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
             let (_, kanji_text) = kanji.unwrap_or(reading);
             let (_, reading_text) = reading;
 
+            let kind;
+
             let (mut inflections, stem, de) = match pos {
                 PartOfSpeech::VerbIchidan | PartOfSpeech::VerbIchidanS => {
+                    kind = Kind::Verb;
+
                     let (Some(k), Some(r)) = (
                         kanji_text.strip_suffix('る'),
                         reading_text.strip_suffix('る'),
@@ -98,6 +104,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
                     (inflections, Fragments::new([k], [r], ["っ"]), false)
                 }
                 PartOfSpeech::VerbGodanKS => {
+                    kind = Kind::Verb;
+
                     let (Some(k), Some(r)) = (
                         kanji_text.strip_suffix('く'),
                         reading_text.strip_suffix('く'),
@@ -132,6 +140,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
                 | PartOfSpeech::VerbGodanU
                 | PartOfSpeech::VerbGodanUS
                 | PartOfSpeech::VerbGodanUru => {
+                    kind = Kind::Verb;
+
                     let mut k = kanji_text.chars();
                     let mut r = reading_text.chars();
 
@@ -166,6 +176,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
                     (inflections, Fragments::new([k], [r], [g.te_stem]), g.de)
                 }
                 PartOfSpeech::VerbSuruSpecial | PartOfSpeech::VerbSuruIncluded => {
+                    kind = Kind::Verb;
+
                     let mut kanji = kanji_text.char_indices();
                     let mut reading = reading_text.char_indices();
 
@@ -207,6 +219,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
                     (i, Fragments::default(), false)
                 }
                 PartOfSpeech::VerbKuru => {
+                    kind = Kind::Verb;
+
                     let mut kanji = kanji_text.char_indices();
                     let mut reading = reading_text.char_indices();
 
@@ -244,6 +258,71 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
 
                         kuru!(populate);
                     }
+
+                    (i, Fragments::default(), false)
+                }
+                PartOfSpeech::AdjectiveI => {
+                    kind = Kind::Adjective;
+
+                    let (Some(k), Some(r)) = (
+                        kanji_text.strip_suffix('い'),
+                        reading_text.strip_suffix('い'),
+                    ) else {
+                        continue;
+                    };
+
+                    let i = inflections! {
+                        k, r,
+                        [], ("い"),
+                        [Polite], ("いです"),
+                        [Past], ("かった"),
+                        [Past, Polite], ("かったです"),
+                        [Negative], ("くない"),
+                        [Negative, Polite], ("くないです"),
+                        [Past, Negative], ("なかった"),
+                        [Past, Negative, Polite], ("なかったです"),
+                    };
+
+                    (i, Fragments::default(), false)
+                }
+                PartOfSpeech::AdjectiveIx => {
+                    kind = Kind::Adjective;
+
+                    let (Some(k), Some(r)) = (
+                        kanji_text.strip_suffix("いい"),
+                        reading_text.strip_suffix("いい"),
+                    ) else {
+                        continue;
+                    };
+
+                    let i = inflections! {
+                        k, r,
+                        [], ("いい"),
+                        [Polite], ("いいです"),
+                        [Past], ("よかった"),
+                        [Past, Polite], ("よかったです"),
+                        [Negative], ("よくない"),
+                        [Negative, Polite], ("よくないです"),
+                        [Past, Negative], ("よなかった"),
+                        [Past, Negative, Polite], ("よなかったです"),
+                    };
+
+                    (i, Fragments::default(), false)
+                }
+                PartOfSpeech::AdjectiveNa => {
+                    kind = Kind::Adjective;
+
+                    let i = inflections! {
+                        kanji_text, reading_text,
+                        [], ("だ"),
+                        [Polite], ("です"),
+                        [Past], ("だった"),
+                        [Past, Polite], ("でした"),
+                        [Negative], ("ではない"),
+                        [Negative, Polite], ("ではありません"),
+                        [Past, Negative], ("ではなかった"),
+                        [Past, Negative, Polite], ("ではありませんでした"),
+                    };
 
                     (i, Fragments::default(), false)
                 }
@@ -328,7 +407,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>)> {
                 inflections,
             };
 
-            output.push((reading, inflections));
+            output.push((reading, inflections, kind));
         }
     }
 

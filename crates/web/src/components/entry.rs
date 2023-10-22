@@ -7,7 +7,7 @@ use lib::elements::{
 };
 use lib::entities::KanjiInfo;
 use lib::{
-    adjective, elements, kana, romaji, verb, Form, Furigana, Inflection, OwnedInflections, Priority,
+    elements, inflection, kana, romaji, Form, Furigana, Inflection, OwnedInflections, Priority,
 };
 use yew::prelude::*;
 
@@ -58,8 +58,7 @@ pub(crate) struct Entry {
     readings: Vec<OwnedReadingElement>,
     states: Vec<ExtraState>,
     show_inflection: bool,
-    verb_inflections: Vec<(verb::Reading, OwnedInflections)>,
-    adjective_inflections: Vec<(verb::Reading, OwnedInflections)>,
+    inflections: Vec<(inflection::Reading, OwnedInflections)>,
 }
 
 #[derive(Properties)]
@@ -96,13 +95,9 @@ impl Component for Entry {
                 .map(|_| ExtraState::default())
                 .collect(),
             show_inflection: false,
-            verb_inflections: verb::conjugate(&entry)
+            inflections: inflection::conjugate(&entry)
                 .into_iter()
-                .map(|(r, i)| (r, borrowme::to_owned(i)))
-                .collect(),
-            adjective_inflections: adjective::conjugate(&entry)
-                .into_iter()
-                .map(|(r, i)| (r, borrowme::to_owned(i)))
+                .map(|(r, i, _)| (r, borrowme::to_owned(i)))
                 .collect(),
         };
 
@@ -136,14 +131,9 @@ impl Component for Entry {
     fn changed(&mut self, ctx: &Context<Self>, _: &Self::Properties) -> bool {
         let entry = borrowme::borrow(&ctx.props().entry);
 
-        self.verb_inflections = verb::conjugate(&entry)
+        self.inflections = inflection::conjugate(&entry)
             .into_iter()
-            .map(|(r, i)| (r, borrowme::to_owned(i)))
-            .collect();
-
-        self.adjective_inflections = adjective::conjugate(&entry)
-            .into_iter()
-            .map(|(r, i)| (r, borrowme::to_owned(i)))
+            .map(|(r, i, _)| (r, borrowme::to_owned(i)))
             .collect();
 
         self.states = ctx
@@ -168,15 +158,7 @@ impl Component for Entry {
                 .zip(&self.states)
                 .enumerate()
                 .flat_map(|(index, (source, state))| {
-                    Some((
-                        index,
-                        state,
-                        find_inflection(
-                            source,
-                            &self.verb_inflections,
-                            self.adjective_inflections.as_ref(),
-                        )?,
-                    ))
+                    Some((index, state, find_inflection(source, &self.inflections)?))
                 });
 
         let extras =
@@ -477,16 +459,14 @@ impl InflectionKind {
 /// Find the matching inflection based on the source.
 fn find_inflection<'a>(
     source: &IndexSource,
-    verb_inflections: &'a [(verb::Reading, OwnedInflections)],
-    adjective_inflections: &'a [(verb::Reading, OwnedInflections)],
+    inflections: &'a [(inflection::Reading, OwnedInflections)],
 ) -> Option<(InflectionKind, Inflection, &'a OwnedInflections)> {
     Some(match source {
         IndexSource::VerbInflection {
             reading,
             inflection,
         } => {
-            let Some((_, inflections)) = verb_inflections.iter().find(|(r, _)| *r == *reading)
-            else {
+            let Some((_, inflections)) = inflections.iter().find(|(r, _)| *r == *reading) else {
                 return None;
             };
 
@@ -496,8 +476,7 @@ fn find_inflection<'a>(
             reading,
             inflection,
         } => {
-            let Some((_, inflections)) = adjective_inflections.iter().find(|(r, _)| *r == *reading)
-            else {
+            let Some((_, inflections)) = inflections.iter().find(|(r, _)| *r == *reading) else {
                 return None;
             };
 

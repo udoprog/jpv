@@ -35,14 +35,17 @@ impl Eq for Weight {}
 impl PartialOrd for Weight {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.weight.partial_cmp(&other.weight)?.reverse())
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Weight {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Equal)
+        match self.weight.partial_cmp(&other.weight) {
+            None => Ordering::Equal,
+            Some(ordering) => ordering.reverse(),
+        }
     }
 }
 

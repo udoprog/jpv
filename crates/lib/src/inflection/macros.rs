@@ -216,3 +216,48 @@ macro_rules! suru {
         $out!("し", "たくなかった", Tai, Past, Negative);
     };
 }
+
+/// Helper to construct a particular [`Inflection`].
+///
+/// # Examples
+///
+/// ```rust
+/// lib::inflect!(Past);
+/// lib::inflect!(Past, Polite);
+/// lib::inflect!(Past, Short);
+/// ```
+#[macro_export]
+macro_rules! inflect {
+    ($($form:ident),* $(,)?) => {{
+        #[allow(unused_mut)]
+        let mut form = $crate::macro_support::fixed_map::Set::new();
+        $(form.insert($crate::Form::$form);)*
+        $crate::Inflection::new(form)
+    }}
+}
+
+/// Helper macro to build a kana pair.
+macro_rules! pair {
+    ($k:expr, $r:expr, $last:expr) => {
+        $crate::kana::Fragments::new([$k], [$r], [$last])
+    };
+
+    ($k:expr, $r:expr, $a:expr, $last:expr) => {
+        $crate::kana::Fragments::new([$k, $a], [$r, $a], [$last])
+    };
+
+    ($k:expr, $r:expr, $a:expr, $b:expr, $last:expr) => {
+        $crate::kana::Fragments::new([$k, $a], [$r, $b], [$last])
+    };
+}
+
+/// Setup a collection of inflections.
+macro_rules! inflections {
+    ($k:expr, $r:expr, $(
+        [$($kind:ident),* $(,)?], ( $($tt:tt)* )
+    ),* $(,)?) => {{
+        let mut tree = ::std::collections::BTreeMap::new();
+        $(tree.insert($crate::inflect!($($kind),*), pair!($k, $r, $($tt)*));)*
+        tree
+    }};
+}

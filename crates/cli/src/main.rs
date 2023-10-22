@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use lib::adjective;
 use lib::database::{Database, IndexSource};
-use lib::verb;
+use lib::inflection;
 use lib::{Form, Furigana, PartOfSpeech};
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
@@ -233,7 +233,7 @@ fn main() -> Result<()> {
         let stdout = std::io::stdout();
         let mut o = stdout.lock();
 
-        for (_, c) in verb::conjugate(&d) {
+        for (_, c, _) in inflection::conjugate(&d) {
             writeln!(o, "{p}# Inflections:")?;
 
             writeln!(o, "{p}  Dictionary:")?;

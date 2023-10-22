@@ -1,10 +1,8 @@
 #![allow(clippy::large_enum_variant)]
 
 #[macro_use]
-mod inflection;
+pub mod inflection;
 pub use self::inflection::{Form, Inflection, Inflections, OwnedInflections};
-
-pub mod adjective;
 
 mod concat;
 pub use self::concat::Concat;
@@ -20,8 +18,6 @@ pub use self::furigana::{Furigana, FuriganaGroup};
 pub mod romaji;
 
 pub mod kana;
-
-pub mod verb;
 
 mod parser;
 
