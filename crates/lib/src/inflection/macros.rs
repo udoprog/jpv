@@ -56,6 +56,7 @@ macro_rules! ichidan {
 }
 
 // Construct godan conjugations.
+#[allow(unused)]
 #[rustfmt::skip]
 macro_rules! godan {
     ($out:ident, $g:expr$(, $base:literal)?) => {{
@@ -107,6 +108,121 @@ macro_rules! godan {
         $out!([$($base, )? $g.i, "たかった"], Tai, Past);
         $out!([$($base, )? $g.i, "たくなかった"], Tai, Past, Negative);
     }};
+}
+
+// Construct godan conjugations.
+#[rustfmt::skip]
+macro_rules! godan_lit {
+    ($out:path, $prefix:literal, {$a:literal, $i:literal, $u:literal, $e:literal, $o:literal, $te:literal, $past:literal} $(, $chau:literal)?) => {{
+        $out!(concat!($prefix, $u));
+        $out!(concat!($prefix, $i), Stem);
+        $out!(concat!($prefix, $te), Te);
+        $out!(concat!($prefix, $i, "ます"), Polite);
+        $out!(concat!($prefix, $a, "ない"), Negative);
+        $out!(concat!($prefix, $i, "ません"), Negative, Polite);
+        $out!(concat!($prefix, $past), Past);
+        $out!(concat!($prefix, $i, "ました"), Past, Polite);
+        $out!(concat!($prefix, $a, "なかった"), Past, Negative);
+        $out!(concat!($prefix, $i, "ませんでした"), Past, Negative, Polite);
+        $out!(concat!($prefix, $e), Command);
+        $out!(concat!($prefix, $i, "なさい"), Command, Polite);
+        $out!(concat!($prefix, $te, "ください"), Command, Polite, Kudasai);
+        $out!(concat!($prefix, $e, "よ"), Command, Yo);
+        $out!(concat!($prefix, $u, "な"), Command, Negative);
+        $out!(concat!($prefix, $a, "ないでください"), Command, Negative, Polite);
+        $out!(concat!($prefix, $e, "ば"), Hypothetical);
+        $out!(concat!($prefix, $a, "なければ"), Hypothetical, Negative);
+        $out!(concat!($prefix, $a, "なきゃ"), Hypothetical, Negative, Kya);
+        $out!(concat!($prefix, $past, "ら"), Conditional);
+        $out!(concat!($prefix, $i, "ましたら"), Conditional, Polite);
+        $out!(concat!($prefix, $a, "なかったら"), Conditional, Negative);
+        $out!(concat!($prefix, $i, "ませんでしたら"), Conditional, Negative, Polite);
+        $out!(concat!($prefix, $a, "れる"), Passive);
+        $out!(concat!($prefix, $a, "れます"), Passive, Polite);
+        $out!(concat!($prefix, $a, "れない"), Passive, Negative);
+        $out!(concat!($prefix, $a, "れません"), Passive, Negative, Polite);
+        $out!(concat!($prefix, $a, "れた"), Passive, Past);
+        $out!(concat!($prefix, $a, "れました"), Passive, Past, Polite);
+        $out!(concat!($prefix, $e, "る"), Potential);
+        $out!(concat!($prefix, $e, "ます"), Potential, Polite);
+        $out!(concat!($prefix, $e, "ない"), Potential, Negative);
+        $out!(concat!($prefix, $e, "ません"), Potential, Negative, Polite);
+        $out!(concat!($prefix, $e, "た"), Potential, Past);
+        $out!(concat!($prefix, $e, "ました"), Potential, Past, Polite);
+        $out!(concat!($prefix, $e, "なかった"), Potential, Past, Negative);
+        $out!(concat!($prefix, $e, "ませんでした"), Potential, Past, Negative, Polite);
+        $out!(concat!($prefix, $o, "う"), Volitional);
+        $out!(concat!($prefix, $i, "ましょう"), Volitional, Polite);
+        $out!(concat!($prefix, $u, "だろう"), Volitional, Darou);
+        $out!(concat!($prefix, $u, "でしょう"), Volitional, Darou, Polite);
+        $out!(concat!($prefix, $a, "ないだろう"), Volitional, Negative);
+        $out!(concat!($prefix, $a, "ないでしょう"), Volitional, Negative, Polite);
+        $out!(concat!($prefix, $a, "せる"), Causative);
+        $out!(concat!($prefix, $i, "たい"), Tai);
+        $out!(concat!($prefix, $i, "たくない"), Tai, Negative);
+        $out!(concat!($prefix, $i, "たかった"), Tai, Past);
+        $out!(concat!($prefix, $i, "たくなかった"), Tai, Past, Negative);
+    }};
+}
+
+macro_rules! godan_u {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"わ", "い", "う", "え", "お", "って", "った"}, "ちゃ")
+    };
+}
+
+macro_rules! godan_tsu {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"た", "ち", "つ", "て", "と", "って", "った"}, "ちゃ")
+    };
+}
+
+macro_rules! godan_ru {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"ら", "り", "る", "れ", "ろ", "って", "った"}, "ちゃ");
+    };
+}
+
+macro_rules! godan_ku {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"か", "き", "く", "け", "こ", "いて", "いた"}, "ちゃ");
+    };
+}
+
+macro_rules! godan_gu {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"が", "ぎ", "ぐ", "げ", "ご", "いで", "いだ"}, "じゃ");
+    };
+}
+
+macro_rules! godan_mu {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"ま", "み", "む", "め", "も", "んで", "んだ"}, "じゃ");
+    };
+}
+
+macro_rules! godan_bu {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"ば", "び", "ぶ", "べ", "ぼ", "んで", "んだ"}, "じゃ");
+    };
+}
+
+macro_rules! godan_nu {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"な", "に", "ぬ", "ね", "の", "んで", "んだ"}, "じゃ");
+    };
+}
+
+macro_rules! godan_su {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"さ", "し", "す", "せ", "そ", "して", "した"}, "ちゃ");
+    };
+}
+
+macro_rules! godan_iku {
+    ($macro:path) => {
+        godan_lit!($macro, "", {"か", "き", "く", "け", "こ", "って", "った"}, "ちゃ");
+    };
 }
 
 /// Generate kuru conjugations.

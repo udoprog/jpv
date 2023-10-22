@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Godan {
     pub(super) a: &'static str,
