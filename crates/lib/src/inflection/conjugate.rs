@@ -112,7 +112,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -129,7 +129,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -146,7 +146,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -166,7 +166,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -183,7 +183,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -199,7 +199,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -215,7 +215,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -231,7 +231,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -247,7 +247,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -263,7 +263,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
@@ -440,7 +440,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 ichidan!(populate);
 
                 macro_rules! populate {
-                    ($suffix:expr $(, $inflect:ident)*) => {
+                    ($suffix:expr, [$($inflect:ident),*]) => {
                         inflections.insert(inflect!(TeAru, Te $(, $inflect)*), p.concat([concat!("あ", $suffix)]));
                     }
                 }
@@ -448,7 +448,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 godan_ru!(populate);
 
                 macro_rules! populate {
-                    ($suffix:expr $(, $inflect:ident)*) => {
+                    ($suffix:expr, [$($inflect:ident),*]) => {
                         inflections.insert(inflect!(TeIku, Te $(, $inflect)*), p.concat([concat!("い", $suffix)]));
                     }
                 }
@@ -456,7 +456,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 godan_iku!(populate);
 
                 macro_rules! populate {
-                    ($suffix:expr $(, $inflect:ident)*) => {
+                    ($suffix:expr, [$($inflect:ident),*]) => {
                         inflections.insert(inflect!(TeShimau, Te $(, $inflect)*), p.concat([concat!("しま", $suffix)]));
                     }
                 }
@@ -464,7 +464,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 godan_u!(populate);
 
                 macro_rules! populate {
-                    ($suffix:expr $(, $inflect:ident)*) => {
+                    ($suffix:expr, [$($inflect:ident),*]) => {
                         inflections.insert(inflect!(TeOku, Te $(, $inflect)*), p.concat([concat!("お", $suffix)]));
                     }
                 }
@@ -484,7 +484,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             if !stem.is_empty() {
                 if de_conjugation {
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!(Chau $(, $inflect)*), stem.concat([concat!("じゃ", $suffix)]));
                         }
                     }
@@ -492,7 +492,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     godan_u!(populate);
                 } else {
                     macro_rules! populate {
-                        ($suffix:expr $(, $inflect:ident)*) => {
+                        ($suffix:expr, [$($inflect:ident),*]) => {
                             inflections.insert(inflect!(Chau $(, $inflect)*), stem.concat([concat!("ちゃ", $suffix)]));
                         }
                     }
