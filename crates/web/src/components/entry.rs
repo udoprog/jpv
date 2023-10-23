@@ -31,7 +31,11 @@ struct Combined {
 
 impl Combined {
     fn is_common(&self) -> bool {
-        !self.is_rare() && !self.is_outdated()
+        !self.is_irregular() && !self.is_rare() && !self.is_outdated()
+    }
+
+    fn is_irregular(&self) -> bool {
+        self.kanji.info.contains(KanjiInfo::IrregularKanji)
     }
 
     fn is_rare(&self) -> bool {
@@ -161,12 +165,11 @@ impl Component for Entry {
                     Some((index, state, find_inflection(source, &self.inflections)?))
                 });
 
-        let extras =
-            inflections
-                .clone()
-                .flat_map(|(index, state, (kind, inflection, inflections))| {
-                    render_extra(ctx, index, kind, inflection, inflections, state.filter)
-                });
+        let extras = inflections.clone().take(1).flat_map(
+            |(index, state, (kind, inflection, inflections))| {
+                render_extra(ctx, index, kind, inflection, inflections, state.filter)
+            },
+        );
 
         let common = iter(
             seq(
@@ -195,6 +198,7 @@ impl Component for Entry {
 
         let rare = special_readings("Rare kanji", Combined::is_rare);
         let outdated = special_readings("Outdated kanji", Combined::is_outdated);
+        let irregular = special_readings("Irregular kanji", Combined::is_irregular);
 
         let reading = seq(self.readings.iter(), render_reading);
         let reading = iter(
@@ -258,6 +262,7 @@ impl Component for Entry {
                 {for senses}
                 {for rare}
                 {for outdated}
+                {for irregular}
                 {for show_inflections}
                 {for inflection}
             </div>
@@ -510,6 +515,48 @@ fn render_extra(
     })
 }
 
+fn render_inflection(
+    ctx: &Context<Entry>,
+    index: usize,
+    inflection: Inflection,
+    filter: Inflection,
+    inflections: &OwnedInflections,
+) -> Html {
+    let this = filter ^ inflection;
+
+    let form = Inflection::all().iter().flat_map(|f| {
+        let mut candidate = this;
+        candidate.toggle(f);
+
+        let exists = inflections.contains(candidate);
+
+        if !exists && !this.contains(f) {
+            return None;
+        }
+
+        let class = classes! {
+            "bullet",
+            "bullet-inflection",
+            this.contains(f).then_some("active"),
+            exists.then_some("clickable"),
+        };
+
+        let onclick = ctx
+            .link()
+            .batch_callback(move |_: MouseEvent| exists.then_some(Msg::ToggleForm(index, f)));
+        Some(html!(<span {class} {onclick} title={f.title()}>{f.describe()}</span>))
+    });
+
+    let onclick = ctx
+        .link()
+        .callback(move |_: MouseEvent| Msg::ResetForm(index));
+
+    let reset = (!filter.is_empty())
+        .then(|| html!(<span class="bullet bullet-destructive active clickable" {onclick}>{"Reset"}</span>));
+
+    html!(<><span class="bullets">{for form}{for reset}</span></>)
+}
+
 fn render_reading(reading: &OwnedReadingElement, not_last: bool) -> Html {
     let priority = reading.priority.iter().map(render_priority);
 
@@ -624,48 +671,6 @@ fn colon() -> Html {
 /// A simple spacing to insert between elements.
 pub(crate) fn spacing() -> Html {
     html!(<span class="sep">{" "}</span>)
-}
-
-fn render_inflection(
-    ctx: &Context<Entry>,
-    index: usize,
-    inflection: Inflection,
-    filter: Inflection,
-    inflections: &OwnedInflections,
-) -> Html {
-    let this = filter ^ inflection;
-
-    let form = Inflection::all().iter().flat_map(|f| {
-        let mut candidate = this;
-        candidate.toggle(f);
-
-        let exists = inflections.contains(candidate);
-
-        if !exists && !this.contains(f) {
-            return None;
-        }
-
-        let class = classes! {
-            "bullet",
-            "bullet-inflection",
-            this.contains(f).then_some("active"),
-            exists.then_some("clickable"),
-        };
-
-        let onclick = ctx
-            .link()
-            .batch_callback(move |_: MouseEvent| exists.then_some(Msg::ToggleForm(index, f)));
-        Some(html!(<span {class} {onclick} title={f.title()}>{f.describe()}</span>))
-    });
-
-    let onclick = ctx
-        .link()
-        .callback(move |_: MouseEvent| Msg::ResetForm(index));
-
-    let reset = (!filter.is_empty())
-        .then(|| html!(<span class="bullet bullet-destructive active clickable" {onclick}>{"Reset"}</span>));
-
-    html!(<><span class="bullets">{for form}{for reset}</span></>)
 }
 
 /// Render the given iterator if it has at least one element. Else returns
