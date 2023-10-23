@@ -6,9 +6,9 @@ use fixed_map::Set;
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::elements::{example, gloss, source_language, text};
-use crate::elements::{Example, Glossary, SourceLanguage};
 use crate::entities::{Dialect, Field, Miscellaneous, PartOfSpeech};
+use crate::jmdict::{example, gloss, source_language, text};
+use crate::jmdict::{Example, Glossary, SourceLanguage};
 
 const DEFAULT_LANGUAGE: &str = "eng";
 

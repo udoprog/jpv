@@ -1,6 +1,6 @@
 use anyhow::Context;
 use lib::database::EntryResultKey;
-use lib::elements::{EntryKey, OwnedEntry};
+use lib::jmdict::{EntryKey, OwnedEntry};
 use serde::{de::DeserializeOwned, Deserialize};
 use thiserror::Error;
 use url::Url;

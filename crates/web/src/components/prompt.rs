@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use lib::database::EntryResultKey;
-use lib::elements::{EntryKey, OwnedEntry};
+use lib::jmdict::{EntryKey, OwnedEntry};
 use lib::romaji;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;

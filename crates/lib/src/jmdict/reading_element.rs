@@ -9,9 +9,9 @@ use musli::{Decode, Encode};
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::elements::empty;
-use crate::elements::text;
 use crate::entities::ReadingInfo;
+use crate::jmdict::empty;
+use crate::jmdict::text;
 
 use crate::priority::Priority;
 

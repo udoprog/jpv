@@ -4,8 +4,8 @@ use anyhow::Result;
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::elements::{example_sentence, example_source, text};
-use crate::elements::{ExampleSentence, ExampleSource};
+use crate::jmdict::{example_sentence, example_source, text};
+use crate::jmdict::{ExampleSentence, ExampleSource};
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]

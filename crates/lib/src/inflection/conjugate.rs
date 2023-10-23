@@ -9,8 +9,8 @@ use musli::{Decode, Encode};
 use musli_zerocopy::ZeroCopy;
 use serde::{Deserialize, Serialize};
 
-use crate::elements::Entry;
 use crate::inflection::{Inflection, Inflections};
+use crate::jmdict::Entry;
 use crate::kana::{Fragments, Full};
 use crate::PartOfSpeech;
 

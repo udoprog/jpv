@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::elements::{kanji_element, reading_element, sense, text};
-use crate::elements::{KanjiElement, ReadingElement, Sense};
+use crate::jmdict::{kanji_element, reading_element, sense, text};
+use crate::jmdict::{KanjiElement, ReadingElement, Sense};
 
 #[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
 struct Weight {

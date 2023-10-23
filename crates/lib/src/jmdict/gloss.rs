@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::parser::{Output, Poll};
+use crate::jmdict::parser::{Output, Poll};
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]

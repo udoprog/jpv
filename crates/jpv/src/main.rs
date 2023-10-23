@@ -11,7 +11,7 @@ use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use clap::Parser;
 use lib::database::{Database, EntryResultKey};
-use lib::elements::{Entry, EntryKey};
+use lib::jmdict::{Entry, EntryKey};
 use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
 #[cfg(windows)]

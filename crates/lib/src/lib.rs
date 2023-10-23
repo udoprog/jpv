@@ -7,7 +7,7 @@ pub use self::inflection::{Form, Inflection, Inflections, OwnedInflections};
 mod concat;
 pub use self::concat::Concat;
 
-pub mod elements;
+pub mod jmdict;
 
 pub mod entities;
 pub use self::entities::PartOfSpeech;
@@ -18,8 +18,6 @@ pub use self::furigana::{Furigana, FuriganaGroup};
 pub mod romaji;
 
 pub mod kana;
-
-mod parser;
 
 mod priority;
 pub use self::priority::Priority;

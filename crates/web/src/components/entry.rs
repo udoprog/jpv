@@ -2,12 +2,12 @@ use std::collections::BTreeSet;
 use std::{array, iter};
 
 use lib::database::IndexSource;
-use lib::elements::{
+use lib::entities::KanjiInfo;
+use lib::jmdict::{
     OwnedExample, OwnedExampleSentence, OwnedKanjiElement, OwnedReadingElement, OwnedSense,
 };
-use lib::entities::KanjiInfo;
 use lib::{
-    elements, inflection, kana, romaji, Form, Furigana, Inflection, OwnedInflections, Priority,
+    inflection, jmdict, kana, romaji, Form, Furigana, Inflection, OwnedInflections, Priority,
 };
 use yew::prelude::*;
 
@@ -72,8 +72,8 @@ pub(crate) struct Entry {
 #[derive(Properties)]
 pub struct Props {
     pub sources: BTreeSet<IndexSource>,
-    pub entry_key: elements::EntryKey,
-    pub entry: elements::OwnedEntry,
+    pub entry_key: jmdict::EntryKey,
+    pub entry: jmdict::OwnedEntry,
     pub onchange: Callback<(String, Option<String>), ()>,
 }
 

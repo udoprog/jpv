@@ -1,8 +1,8 @@
 use core::fmt;
 use core::mem;
 
-use crate::elements::text;
 use crate::entities::KanjiInfo;
+use crate::jmdict::text;
 
 use crate::priority::Priority;
 

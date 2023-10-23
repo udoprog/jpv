@@ -4,8 +4,8 @@ use anyhow::{bail, Context, Result};
 use relative_path::RelativePathBuf;
 use xmlparser::{ElementEnd, Token, Tokenizer};
 
-use crate::elements::entry;
-use crate::elements::Entry;
+use crate::jmdict::entry;
+use crate::jmdict::Entry;
 
 pub(crate) enum Poll<T> {
     Ready(T),

@@ -2,21 +2,21 @@ use anyhow::{bail, Context, Result};
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::parser::{Output, Poll};
+use crate::jmdict::parser::{Output, Poll};
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
-pub struct ExampleSentence<'a> {
+pub struct ExampleSource<'a> {
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lang: Option<&'a str>,
+    pub ty: Option<&'a str>,
 }
 
 #[derive(Debug, Default)]
 pub(super) struct Builder<'a> {
     text: Option<&'a str>,
-    lang: Option<&'a str>,
+    ty: Option<&'a str>,
 }
 
 impl<'a> Builder<'a> {
@@ -24,19 +24,19 @@ impl<'a> Builder<'a> {
         true
     }
 
-    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<ExampleSentence<'a>>> {
+    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<ExampleSource<'a>>> {
         match output {
             Output::Text(text) if self.text.is_none() => {
                 self.text = Some(text);
                 Ok(Poll::Pending)
             }
-            Output::Attribute("lang", value) if self.lang.is_none() => {
-                self.lang = Some(value);
+            Output::Attribute("exsrc_type", value) if self.ty.is_none() => {
+                self.ty = Some(value);
                 Ok(Poll::Pending)
             }
-            Output::Close => Ok(Poll::Ready(ExampleSentence {
+            Output::Close => Ok(Poll::Ready(ExampleSource {
                 text: self.text.context("missing text")?,
-                lang: self.lang,
+                ty: self.ty,
             })),
             _ => {
                 bail!("Unsupported {output:?}")

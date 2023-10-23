@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 
-use crate::parser::{Output, Poll};
+use crate::jmdict::parser::{Output, Poll};
 
 /// Parses a plain text element.
 #[derive(Debug, Default)]

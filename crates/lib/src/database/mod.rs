@@ -14,10 +14,10 @@ use musli_storage::Encoding;
 use musli_zerocopy::{swiss, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
-use crate::elements::{Entry, EntryKey};
 use crate::inflection;
 use crate::inflection::Inflection;
-use crate::parser::Parser;
+use crate::jmdict;
+use crate::jmdict::{Entry, EntryKey};
 use crate::PartOfSpeech;
 
 #[derive(ZeroCopy)]
@@ -143,7 +143,7 @@ pub fn load(dict: &str) -> Result<OwnedBuf> {
 
     let index = buf.store_uninit::<Index>();
 
-    let mut parser = Parser::new(dict);
+    let mut parser = jmdict::Parser::new(dict);
     let mut output = Vec::new();
     let mut readings = Vec::new();
 

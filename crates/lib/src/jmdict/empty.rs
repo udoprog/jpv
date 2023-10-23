@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 
-use crate::parser::{Output, Poll};
+use crate::jmdict::parser::{Output, Poll};
 
 /// Parses an empty element.
 #[derive(Debug, Default)]
