@@ -118,7 +118,9 @@ pub(crate) struct Prompt {
 impl Prompt {
     fn refresh(&mut self, ctx: &Context<Self>, input: &str) {
         if let Some(db) = &*ctx.props().db {
-            let entries = match db.search(input) {
+            let input = input.to_lowercase();
+
+            let entries = match db.search(&input) {
                 Ok(entries) => entries,
                 Err(error) => {
                     log::error!("Search failed: {error}");
@@ -133,7 +135,7 @@ impl Prompt {
 
             self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
         } else {
-            let input = input.to_owned();
+            let input = input.to_lowercase();
 
             ctx.link().send_future(async move {
                 match fetch::search(&input).await {

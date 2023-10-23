@@ -1,5 +1,7 @@
 //! Database that can be used as a dictionary.
 
+mod analyze_glossary;
+
 use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -161,15 +163,36 @@ pub fn load(dict: &str) -> Result<OwnedBuf> {
                 by_pos.entry(pos).or_default().insert(entry_ref);
             }
 
-            for g in &sense.gloss {
-                for word in g.text.split_whitespace() {
-                    let word = word.trim_matches(|c| !char::is_alphabetic(c));
+            fn is_common(phrase: &str) -> bool {
+                match phrase {
+                    "to" | "a" | "in" | "of" | "for" | "so" | "if" | "by" | "but" | "not"
+                    | "any" | "way" | "into" => true,
+                    string if string.starts_with("e.g.") => {
+                        if let Some(rest) = string.strip_prefix("e.g. ") {
+                            is_common(rest)
+                        } else {
+                            string == "e.g."
+                        }
+                    }
+                    _ => false,
+                }
+            }
 
-                    if word.is_empty() {
+            for g in &sense.gloss {
+                if g.ty == Some("expl") {
+                    continue;
+                }
+
+                for phrase in analyze_glossary::analyze(g.text) {
+                    if phrase.chars().count() > 32 {
                         continue;
                     }
 
-                    readings.push((Cow::Borrowed(word), Id::new(entry_ref)));
+                    // Skip overly common prefixes which would mostly just be
+                    // unhelpful to index.
+                    if !is_common(phrase) {
+                        readings.push((Cow::Borrowed(phrase), Id::new(entry_ref)));
+                    }
                 }
             }
         }

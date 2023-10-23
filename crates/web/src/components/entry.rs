@@ -31,7 +31,7 @@ struct Combined {
 
 impl Combined {
     fn is_common(&self) -> bool {
-        !self.is_irregular() && !self.is_rare() && !self.is_outdated()
+        !self.is_search_only() && !self.is_irregular() && !self.is_rare() && !self.is_outdated()
     }
 
     fn is_irregular(&self) -> bool {
@@ -44,6 +44,10 @@ impl Combined {
 
     fn is_outdated(&self) -> bool {
         self.kanji.info.contains(KanjiInfo::OutdatedKanji)
+    }
+
+    fn is_search_only(&self) -> bool {
+        self.kanji.info.contains(KanjiInfo::SearchOnlyKanji)
     }
 
     /// Provide furigana iterator for the combined reading.
@@ -173,12 +177,24 @@ impl Component for Entry {
 
         let common = iter(
             seq(
-                self.combined.iter().filter(|c| c.is_common()),
+                self.combined.iter().filter(|c| c.is_common()).take(1),
                 |e, not_last| render_combined(ctx, e, not_last),
             ),
             |iter| {
                 html! {
                     html!(<div class="block block-lg row">{for iter}</div>)
+                }
+            },
+        );
+
+        let other = iter(
+            seq(
+                self.combined.iter().filter(|c| c.is_common()).skip(1),
+                |e, not_last| render_combined(ctx, e, not_last),
+            ),
+            |iter| {
+                html! {
+                    html!(<div class="block block-lg row"><span>{"Other"}</span>{colon()}{for iter}</div>)
                 }
             },
         );
@@ -199,6 +215,7 @@ impl Component for Entry {
         let rare = special_readings("Rare kanji", Combined::is_rare);
         let outdated = special_readings("Outdated kanji", Combined::is_outdated);
         let irregular = special_readings("Irregular kanji", Combined::is_irregular);
+        let search_only = special_readings("Search only kanji", Combined::is_search_only);
 
         let reading = seq(self.readings.iter(), render_reading);
         let reading = iter(
@@ -260,9 +277,11 @@ impl Component for Entry {
                 {for reading}
                 {for common}
                 {for senses}
+                {for other}
                 {for rare}
                 {for outdated}
                 {for irregular}
+                {for search_only}
                 {for show_inflections}
                 {for inflection}
             </div>
@@ -628,21 +647,24 @@ fn ruby<const N: usize, const S: usize>(furigana: lib::Furigana<N, S>) -> Html {
 /// Construct a convenient sequence callback which calls the given `builder`
 /// with the item being iterated over, and a `bool` indicating if it is the last
 /// in sequence.
-pub(crate) fn seq<'a, I, T, B>(iter: I, builder: B) -> impl DoubleEndedIterator<Item = Html> + 'a
+pub(crate) fn seq<'a, I, T, B>(iter: I, builder: B) -> impl Iterator<Item = Html> + 'a
 where
     I: IntoIterator<Item = T>,
-    I::IntoIter: 'a + DoubleEndedIterator,
+    I::IntoIter: 'a,
     B: 'a + Copy + Fn(T, bool) -> Html,
     T: 'a,
 {
-    let mut it = iter.into_iter();
-    let last = it.next_back().map(move |value| builder(value, false));
-    it.map(move |value| builder(value, true)).chain(last)
+    let mut it = iter.into_iter().peekable();
+
+    iter::from_fn(move || {
+        let value = it.next()?;
+        Some(builder(value, it.peek().is_some()))
+    })
 }
 
 /// A simple text sequence renderer.
 #[inline]
-fn texts<'a, I>(iter: I, extra: Option<&'static str>) -> impl DoubleEndedIterator<Item = Html> + 'a
+fn texts<'a, I>(iter: I, extra: Option<&'static str>) -> impl Iterator<Item = Html> + 'a
 where
     I: IntoIterator,
     I::Item: 'a + AsRef<str>,
@@ -661,7 +683,7 @@ where
 }
 
 fn comma() -> Html {
-    html!(<span class="sep">{","}</span>)
+    html!(<span class="sep">{", "}</span>)
 }
 
 fn colon() -> Html {

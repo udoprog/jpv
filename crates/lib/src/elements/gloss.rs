@@ -10,6 +10,8 @@ use crate::parser::{Output, Poll};
 pub struct Glossary<'a> {
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ty: Option<&'a str>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lang: Option<&'a str>,
 }
 
@@ -41,6 +43,7 @@ impl<'a> Builder<'a> {
             }
             Output::Close => Ok(Poll::Ready(Glossary {
                 text: self.text.context("missing text")?,
+                ty: self.ty,
                 lang: self.lang,
             })),
             _ => {
