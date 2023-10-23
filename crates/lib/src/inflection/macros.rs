@@ -2,335 +2,500 @@
 
 // Construct ichidan conjugations.
 #[rustfmt::skip]
+#[cfg(not(fake))]
 macro_rules! ichidan {
-    ($out:ident) => {{
-        $out!("る");
-        $out!("", Stem);
-        $out!("ます", Polite);
-        $out!("ない", Negative);
-        $out!("ません", Negative, Polite);
-        $out!("た", Past);
-        $out!("ました", Past, Polite);
-        $out!("なかった", Past, Negative);
-        $out!("ませんでした", Past, Negative, Polite);
-        $out!("ろ", Command);
-        $out!("なさい", Command, Polite);
-        $out!("てください", Command, Polite, Kudasai);
-        $out!("よ", Command, Yo);
-        $out!("るな", Command, Negative);
-        $out!("ないでください", Command, Negative, Polite);
-        $out!("ば", Hypothetical);
-        $out!("なければ", Hypothetical, Negative);
-        $out!("なきゃ", Hypothetical, Negative, Kya);
-        $out!("たら", Conditional);
-        $out!("ましたら", Conditional, Polite);
-        $out!("なかったら", Conditional, Negative);
-        $out!("ませんでしたら", Conditional, Negative, Polite);
-        $out!("れる", Passive, Conversation);
-        $out!("られる", Passive);
-        $out!("られます", Passive, Polite);
-        $out!("られない", Passive, Negative);
-        $out!("られません", Passive, Negative, Polite);
-        $out!("られた", Passive, Past);
-        $out!("られました", Passive, Past, Polite);
-        $out!("られる", Potential);
-        $out!("られます", Potential, Polite);
-        $out!("られない", Potential, Negative);
-        $out!("られません", Potential, Negative, Polite);
-        $out!("られた", Potential, Past);
-        $out!("られました", Potential, Past, Polite);
-        $out!("られなかった", Potential, Past, Negative);
-        $out!("られませんでした", Potential, Past, Negative, Polite);
-        $out!("よう", Volitional);
-        $out!("ましょう", Volitional, Polite);
-        $out!("るだろう", Volitional, Darou);
-        $out!("るでしょう", Volitional, Darou, Polite);
-        $out!("ないだろう", Volitional, Negative);
-        $out!("ないでしょう", Volitional, Negative, Polite);
-        $out!("させる", Causative);
-        $out!("たい", Tai);
-        $out!("たくない", Tai, Negative);
-        $out!("たかった", Tai, Past);
-        $out!("たくなかった", Tai, Past, Negative);
-    }};
+    ($macro:path) => {
+        $macro!("る");
+        $macro!("ます", Polite);
+        $macro!("ない", Negative);
+        $macro!("ません", Negative, Polite);
+        $macro!("た", Past);
+        $macro!("ました", Past, Polite);
+        $macro!("なかった", Past, Negative);
+        $macro!("ませんでした", Past, Negative, Polite);
+        $macro!("ろ", Command);
+        $macro!("なさい", Command, Polite);
+        $macro!("てください", Command, Polite, Kudasai);
+        $macro!("よ", Command, Yo);
+        $macro!("るな", Command, Negative);
+        $macro!("ないでください", Command, Negative, Polite);
+        $macro!("ば", Hypothetical);
+        $macro!("なければ", Hypothetical, Negative);
+        $macro!("なきゃ", Hypothetical, Negative, Kya);
+        $macro!("たら", Conditional);
+        $macro!("ましたら", Conditional, Polite);
+        $macro!("なかったら", Conditional, Negative);
+        $macro!("ませんでしたら", Conditional, Negative, Polite);
+        $macro!("れる", Passive, Conversation);
+        $macro!("られる", Passive);
+        $macro!("られます", Passive, Polite);
+        $macro!("られない", Passive, Negative);
+        $macro!("られません", Passive, Negative, Polite);
+        $macro!("られた", Passive, Past);
+        $macro!("られました", Passive, Past, Polite);
+        $macro!("られる", Potential);
+        $macro!("られます", Potential, Polite);
+        $macro!("られない", Potential, Negative);
+        $macro!("られません", Potential, Negative, Polite);
+        $macro!("られた", Potential, Past);
+        $macro!("られました", Potential, Past, Polite);
+        $macro!("られなかった", Potential, Past, Negative);
+        $macro!("られませんでした", Potential, Past, Negative, Polite);
+        $macro!("よう", Volitional);
+        $macro!("ましょう", Volitional, Polite);
+        $macro!("るだろう", Volitional, Darou);
+        $macro!("るでしょう", Volitional, Darou, Polite);
+        $macro!("ないだろう", Volitional, Negative);
+        $macro!("ないでしょう", Volitional, Negative, Polite);
+        $macro!("させる", Causative);
+        $macro!("たい", Tai);
+        $macro!("たくない", Tai, Negative);
+        $macro!("たかった", Tai, Past);
+        $macro!("たくなかった", Tai, Past, Negative);
+    };
+
+    ($macro:path, te) => {
+        ichidan!($macro);
+        $macro!("", Stem);
+        $macro!("て", Te);
+    };
 }
 
-// Construct godan conjugations.
-#[allow(unused)]
-#[rustfmt::skip]
-macro_rules! godan {
-    ($out:ident, $g:expr$(, $base:literal)?) => {{
-        $out!([$($base, )? $g.u]);
-        $out!([$($base, )? $g.i], Stem);
-        $out!([$($base, )? $g.i, "ます"], Polite);
-        $out!([$($base, )? $g.a, "ない"], Negative);
-        $out!([$($base, )? $g.i, "ません"], Negative, Polite);
-        $out!([$($base, )? $g.past], Past);
-        $out!([$($base, )? $g.i, "ました"], Past, Polite);
-        $out!([$($base, )? $g.a, "なかった"], Past, Negative);
-        $out!([$($base, )? $g.i, "ませんでした"], Past, Negative, Polite);
-        $out!([$($base, )? $g.e], Command);
-        $out!([$($base, )? $g.i, "なさい"], Command, Polite);
-        $out!([$($base, )? $g.te, "ください"], Command, Polite, Kudasai);
-        $out!([$($base, )? $g.e, "よ"], Command, Yo);
-        $out!([$($base, )? $g.u, "な"], Command, Negative);
-        $out!([$($base, )? $g.a, "ないでください"], Command, Negative, Polite);
-        $out!([$($base, )? $g.e, "ば"], Hypothetical);
-        $out!([$($base, )? $g.a, "なければ"], Hypothetical, Negative);
-        $out!([$($base, )? $g.a, "なきゃ"], Hypothetical, Negative, Kya);
-        $out!([$($base, )? $g.past, "ら"], Conditional);
-        $out!([$($base, )? $g.i, "ましたら"], Conditional, Polite);
-        $out!([$($base, )? $g.a, "なかったら"], Conditional, Negative);
-        $out!([$($base, )? $g.i, "ませんでしたら"], Conditional, Negative, Polite);
-        $out!([$($base, )? $g.a, "れる"], Passive);
-        $out!([$($base, )? $g.a, "れます"], Passive, Polite);
-        $out!([$($base, )? $g.a, "れない"], Passive, Negative);
-        $out!([$($base, )? $g.a, "れません"], Passive, Negative, Polite);
-        $out!([$($base, )? $g.a, "れた"], Passive, Past);
-        $out!([$($base, )? $g.a, "れました"], Passive, Past, Polite);
-        $out!([$($base, )? $g.e, "る"], Potential);
-        $out!([$($base, )? $g.e, "ます"], Potential, Polite);
-        $out!([$($base, )? $g.e, "ない"], Potential, Negative);
-        $out!([$($base, )? $g.e, "ません"], Potential, Negative, Polite);
-        $out!([$($base, )? $g.e, "た"], Potential, Past);
-        $out!([$($base, )? $g.e, "ました"], Potential, Past, Polite);
-        $out!([$($base, )? $g.e, "なかった"], Potential, Past, Negative);
-        $out!([$($base, )? $g.e, "ませんでした"], Potential, Past, Negative, Polite);
-        $out!([$($base, )? $g.o, "う"], Volitional);
-        $out!([$($base, )? $g.i, "ましょう"], Volitional, Polite);
-        $out!([$($base, )? $g.u, "だろう"], Volitional, Darou);
-        $out!([$($base, )? $g.u, "でしょう"], Volitional, Darou, Polite);
-        $out!([$($base, )? $g.a, "ないだろう"], Volitional, Negative);
-        $out!([$($base, )? $g.a, "ないでしょう"], Volitional, Negative, Polite);
-        $out!([$($base, )? $g.a, "せる"], Causative);
-        $out!([$($base, )? $g.i, "たい"], Tai);
-        $out!([$($base, )? $g.i, "たくない"], Tai, Negative);
-        $out!([$($base, )? $g.i, "たかった"], Tai, Past);
-        $out!([$($base, )? $g.i, "たくなかった"], Tai, Past, Negative);
-    }};
+#[cfg(fake)]
+macro_rules! ichidan {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
 }
 
 // Construct godan conjugations.
 #[rustfmt::skip]
+#[cfg(not(fake))]
 macro_rules! godan_lit {
-    ($out:path, $prefix:literal, [$($extra:ident),*], {$a:literal, $i:literal, $u:literal, $e:literal, $o:literal, $te:literal, $past:literal} $(, $chau:literal)?) => {{
-        $out!(concat!($prefix, $u), [$($extra),*]);
-        $out!(concat!($prefix, $i), [Stem $(, $extra)*]);
-        $out!(concat!($prefix, $te), [Te $(, $extra)*]);
-        $out!(concat!($prefix, $i, "ます"), [Polite $(, $extra)*]);
-        $out!(concat!($prefix, $a, "ない"), [Negative $(, $extra)*]);
-        $out!(concat!($prefix, $i, "ません"), [Negative, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $past), [Past $(, $extra)*]);
-        $out!(concat!($prefix, $i, "ました"), [Past, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $a, "なかった"), [Past, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $i, "ませんでした"), [Past, Negative, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $e), [Command $(, $extra)*]);
-        $out!(concat!($prefix, $i, "なさい"), [Command, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $te, "ください"), [Command, Polite, Kudasai $(, $extra)*]);
-        $out!(concat!($prefix, $e, "よ"), [Command, Yo $(, $extra)*]);
-        $out!(concat!($prefix, $u, "な"), [Command, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $a, "ないでください"), [Command, Negative, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $e, "ば"), [Hypothetical $(, $extra)*]);
-        $out!(concat!($prefix, $a, "なければ"), [Hypothetical, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $a, "なきゃ"), [Hypothetical, Negative, Kya $(, $extra)*]);
-        $out!(concat!($prefix, $past, "ら"), [Conditional $(, $extra)*]);
-        $out!(concat!($prefix, $i, "ましたら"), [Conditional, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $a, "なかったら"), [Conditional, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $i, "ませんでしたら"), [Conditional, Negative, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $a, "れる"), [Passive $(, $extra)*]);
-        $out!(concat!($prefix, $a, "れます"), [Passive, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $a, "れない"), [Passive, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $a, "れません"), [Passive, Negative, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $a, "れた"), [Passive, Past $(, $extra)*]);
-        $out!(concat!($prefix, $a, "れました"), [Passive, Past, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $e, "る"), [Potential $(, $extra)*]);
-        $out!(concat!($prefix, $e, "ます"), [Potential, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $e, "ない"), [Potential, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $e, "ません"), [Potential, Negative, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $e, "た"), [Potential, Past $(, $extra)*]);
-        $out!(concat!($prefix, $e, "ました"), [Potential, Past, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $e, "なかった"), [Potential, Past, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $e, "ませんでした"), [Potential, Past, Negative, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $o, "う"), [Volitional $(, $extra)*]);
-        $out!(concat!($prefix, $i, "ましょう"), [Volitional, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $u, "だろう"), [Volitional, Darou $(, $extra)*]);
-        $out!(concat!($prefix, $u, "でしょう"), [Volitional, Darou, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $a, "ないだろう"), [Volitional, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $a, "ないでしょう"), [Volitional, Negative, Polite $(, $extra)*]);
-        $out!(concat!($prefix, $a, "せる"), [Causative $(, $extra)*]);
-        $out!(concat!($prefix, $i, "たい"), [Tai $(, $extra)*]);
-        $out!(concat!($prefix, $i, "たくない"), [Tai, Negative $(, $extra)*]);
-        $out!(concat!($prefix, $i, "たかった"), [Tai, Past $(, $extra)*]);
-        $out!(concat!($prefix, $i, "たくなかった"), [Tai, Past, Negative $(, $extra)*]);
+    ($macro:path, {$a:literal, $i:literal, $u:literal, $e:literal, $o:literal, $te:literal, $past:literal}) => {{
+        $macro!("", $u);
+        $macro!("", $past, Past);
+        $macro!("", concat!($past, "ら"), Conditional);
+        $macro!("", $e, Command);
+        $macro!($i, "ます", Polite);
+        $macro!($a, "ない", Negative);
+        $macro!($i, "ません", Negative, Polite);
+        $macro!($i, "ました", Past, Polite);
+        $macro!($a, "なかった", Past, Negative);
+        $macro!($i, "ませんでした", Past, Negative, Polite);
+        $macro!($i, "なさい", Command, Polite);
+        $macro!($te, "ください", Command, Polite, Kudasai);
+        $macro!($e, "よ", Command, Yo);
+        $macro!($u, "な", Command, Negative);
+        $macro!($a, "ないでください", Command, Negative, Polite);
+        $macro!($e, "ば", Hypothetical);
+        $macro!($a, "なければ", Hypothetical, Negative);
+        $macro!($a, "なきゃ", Hypothetical, Negative, Kya);
+        $macro!($i, "ましたら", Conditional, Polite);
+        $macro!($a, "なかったら", Conditional, Negative);
+        $macro!($i, "ませんでしたら", Conditional, Negative, Polite);
+        $macro!($a, "れる", Passive);
+        $macro!($a, "れます", Passive, Polite);
+        $macro!($a, "れない", Passive, Negative);
+        $macro!($a, "れません", Passive, Negative, Polite);
+        $macro!($a, "れた", Passive, Past);
+        $macro!($a, "れました", Passive, Past, Polite);
+        $macro!($e, "る", Potential);
+        $macro!($e, "ます", Potential, Polite);
+        $macro!($e, "ない", Potential, Negative);
+        $macro!($e, "ません", Potential, Negative, Polite);
+        $macro!($e, "た", Potential, Past);
+        $macro!($e, "ました", Potential, Past, Polite);
+        $macro!($e, "なかった", Potential, Past, Negative);
+        $macro!($e, "ませんでした", Potential, Past, Negative, Polite);
+        $macro!($o, "う", Volitional);
+        $macro!($i, "ましょう", Volitional, Polite);
+        $macro!($u, "だろう", Volitional, Darou);
+        $macro!($u, "でしょう", Volitional, Darou, Polite);
+        $macro!($a, "ないだろう", Volitional, Negative);
+        $macro!($a, "ないでしょう", Volitional, Negative, Polite);
+        $macro!($a, "せる", Causative);
+        $macro!($i, "たい", Tai);
+        $macro!($i, "たくない", Tai, Negative);
+        $macro!($i, "たかった", Tai, Past);
+        $macro!($i, "たくなかった", Tai, Past, Negative);
     }};
 }
 
+#[cfg(not(fake))]
 macro_rules! godan_u {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"わ", "い", "う", "え", "お", "って", "った"}, "ちゃ")
+        godan_lit!($macro, {"わ", "い", "う", "え", "お", "って", "った"})
+    };
+
+    ($macro:path, te) => {
+        godan_u!($macro);
+        $macro!("", "い", Stem);
+        $macro!("", "って", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_u {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_tsu {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"た", "ち", "つ", "て", "と", "って", "った"}, "ちゃ")
+        godan_lit!($macro, {"た", "ち", "つ", "て", "と", "って", "った"})
+    };
+
+    ($macro:path, te) => {
+        godan_tsu!($macro);
+        $macro!("", "ち", Stem);
+        $macro!("", "って", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_tsu {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_ru {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"ら", "り", "る", "れ", "ろ", "って", "った"}, "ちゃ");
+        godan_lit!($macro, {"ら", "り", "る", "れ", "ろ", "って", "った"});
+    };
+
+    ($macro:path, te) => {
+        godan_ru!($macro);
+        $macro!("", "り", Stem);
+        $macro!("", "って", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_ru {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_ku {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"か", "き", "く", "け", "こ", "いて", "いた"}, "ちゃ");
+        godan_lit!($macro, {"か", "き", "く", "け", "こ", "いて", "いた"});
+    };
+
+    ($macro:path, te) => {
+        godan_ku!($macro);
+        $macro!("", "き", Stem);
+        $macro!("", "いて", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_ku {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_gu {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"が", "ぎ", "ぐ", "げ", "ご", "いで", "いだ"}, "じゃ");
+        godan_lit!($macro, {"が", "ぎ", "ぐ", "げ", "ご", "いで", "いだ"});
+    };
+
+    ($macro:path, te) => {
+        godan_gu!($macro);
+        $macro!("", "ぎ", Stem);
+        $macro!("", "いで", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_gu {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_mu {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"ま", "み", "む", "め", "も", "んで", "んだ"}, "じゃ");
+        godan_lit!($macro, {"ま", "み", "む", "め", "も", "んで", "んだ"});
+    };
+
+    ($macro:path, te) => {
+        godan_mu!($macro);
+        $macro!("", "み", Stem);
+        $macro!("", "んで", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_mu {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_bu {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"ば", "び", "ぶ", "べ", "ぼ", "んで", "んだ"}, "じゃ");
+        godan_lit!($macro, {"ば", "び", "ぶ", "べ", "ぼ", "んで", "んだ"});
+    };
+
+    ($macro:path, te) => {
+        godan_bu!($macro);
+        $macro!("", "び", Stem);
+        $macro!("", "んで", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_bu {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_nu {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"な", "に", "ぬ", "ね", "の", "んで", "んだ"}, "じゃ");
+        godan_lit!($macro, {"な", "に", "ぬ", "ね", "の", "んで", "んだ"});
+    };
+
+    ($macro:path, te) => {
+        godan_nu!($macro);
+        $macro!("", "に", Stem);
+        $macro!("", "んで", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_nu {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_su {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"さ", "し", "す", "せ", "そ", "して", "した"}, "ちゃ");
+        godan_lit!($macro, {"さ", "し", "す", "せ", "そ", "して", "した"});
+    };
+
+    ($macro:path, te) => {
+        godan_su!($macro);
+        $macro!("", "し", Stem);
+        $macro!("", "して", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! godan_su {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
 macro_rules! godan_iku {
     ($macro:path) => {
-        godan_lit!($macro, "", [], {"か", "き", "く", "け", "こ", "って", "った"}, "ちゃ");
+        godan_lit!($macro, {"か", "き", "く", "け", "こ", "って", "った"});
     };
+
+    ($macro:path, te) => {
+        godan_iku!($macro);
+        $macro!("", "き", Stem);
+        $macro!("", "って", Te);
+    };
+}
+
+#[cfg(fake)]
+macro_rules! godan_iku {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
 }
 
 /// Generate kuru conjugations.
+#[cfg(not(fake))]
 macro_rules! kuru {
-    ($out:ident) => {
-        $out!("く", "る");
-        $out!("き", "て", Te);
-        $out!("き", "", Stem);
-        $out!("き", "ます", Polite);
-        $out!("こ", "ない", Negative);
-        $out!("き", "ません", Negative, Polite);
-        $out!("き", "た", Past);
-        $out!("き", "ました", Past, Polite);
-        $out!("こ", "なかった", Past, Negative);
-        $out!("き", "ませんでした", Past, Negative, Polite);
-        $out!("こ", "い", Command);
-        $out!("き", "なさい", Command, Polite);
-        $out!("き", "てください", Command, Polite, Kudasai);
-        $out!("く", "るな", Command, Negative);
-        $out!("こ", "ないでください", Command, Negative, Polite);
-        $out!("く", "れば", Hypothetical);
-        $out!("こ", "なければ", Hypothetical, Negative);
-        $out!("こ", "なきゃ", Hypothetical, Negative, Kya);
-        $out!("き", "たら", Conditional);
-        $out!("き", "ましたら", Conditional, Polite);
-        $out!("こ", "なかったら", Conditional, Negative);
-        $out!("き", "ませんでしたら", Conditional, Negative, Polite);
-        $out!("こ", "られる", Passive);
-        $out!("こ", "られます", Passive, Polite);
-        $out!("こ", "られない", Passive, Negative);
-        $out!("こ", "られません", Passive, Negative, Polite);
-        $out!("こ", "られた", Passive, Past);
-        $out!("こ", "られました", Passive, Past, Polite);
-        $out!("こ", "られる", Potential);
-        $out!("こ", "よう", Volitional);
-        $out!("き", "ましょう", Volitional, Polite);
-        $out!("く", "るだろう", Volitional, Darou);
-        $out!("く", "るでしょう", Volitional, Darou, Polite);
-        $out!("こ", "ないだろう", Volitional, Negative);
-        $out!("こ", "ないでしょう", Volitional, Negative, Polite);
-        $out!("こ", "させる", Causative);
-        $out!("こ", "させます", Causative, Polite);
-        $out!("こ", "させない", Causative, Negative);
-        $out!("こ", "させません", Causative, Negative, Polite);
-        $out!("き", "たい", Tai);
-        $out!("き", "たくない", Tai, Negative);
-        $out!("き", "たかった", Tai, Past);
-        $out!("き", "たくなかった", Tai, Past, Negative);
+    ($macro:path) => {
+        $macro!("く", "る");
+        $macro!("き", "ます", Polite);
+        $macro!("こ", "ない", Negative);
+        $macro!("き", "ません", Negative, Polite);
+        $macro!("き", "た", Past);
+        $macro!("き", "ました", Past, Polite);
+        $macro!("こ", "なかった", Past, Negative);
+        $macro!("き", "ませんでした", Past, Negative, Polite);
+        $macro!("こ", "い", Command);
+        $macro!("き", "なさい", Command, Polite);
+        $macro!("き", "てください", Command, Polite, Kudasai);
+        $macro!("く", "るな", Command, Negative);
+        $macro!("こ", "ないでください", Command, Negative, Polite);
+        $macro!("く", "れば", Hypothetical);
+        $macro!("こ", "なければ", Hypothetical, Negative);
+        $macro!("こ", "なきゃ", Hypothetical, Negative, Kya);
+        $macro!("き", "たら", Conditional);
+        $macro!("き", "ましたら", Conditional, Polite);
+        $macro!("こ", "なかったら", Conditional, Negative);
+        $macro!("き", "ませんでしたら", Conditional, Negative, Polite);
+        $macro!("こ", "られる", Passive);
+        $macro!("こ", "られます", Passive, Polite);
+        $macro!("こ", "られない", Passive, Negative);
+        $macro!("こ", "られません", Passive, Negative, Polite);
+        $macro!("こ", "られた", Passive, Past);
+        $macro!("こ", "られました", Passive, Past, Polite);
+        $macro!("こ", "られる", Potential);
+        $macro!("こ", "よう", Volitional);
+        $macro!("き", "ましょう", Volitional, Polite);
+        $macro!("く", "るだろう", Volitional, Darou);
+        $macro!("く", "るでしょう", Volitional, Darou, Polite);
+        $macro!("こ", "ないだろう", Volitional, Negative);
+        $macro!("こ", "ないでしょう", Volitional, Negative, Polite);
+        $macro!("こ", "させる", Causative);
+        $macro!("こ", "させます", Causative, Polite);
+        $macro!("こ", "させない", Causative, Negative);
+        $macro!("こ", "させません", Causative, Negative, Polite);
+        $macro!("き", "たい", Tai);
+        $macro!("き", "たくない", Tai, Negative);
+        $macro!("き", "たかった", Tai, Past);
+        $macro!("き", "たくなかった", Tai, Past, Negative);
+    };
+
+    ($macro:path, te) => {
+        kuru!($macro);
+        $macro!("き", "", Stem);
+        $macro!("き", "て", Te);
     };
 }
 
+#[cfg(fake)]
+macro_rules! kuru {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
 /// Conjugations for a suru verb.
+#[cfg(not(fake))]
 macro_rules! suru {
-    ($out:ident) => {
-        $out!("す", "る");
-        $out!("し", "て", Te);
-        $out!("し", "", Stem);
-        $out!("し", "ます", Polite);
-        $out!("し", "ない", Negative);
-        $out!("し", "ません", Negative, Polite);
-        $out!("し", "た", Past);
-        $out!("し", "ました", Past, Polite);
-        $out!("し", "なかった", Past, Negative);
-        $out!("し", "ませんでした", Past, Negative, Polite);
-        $out!("し", "ろ", Command);
-        $out!("し", "なさい", Command, Polite);
-        $out!("し", "てください", Command, Polite, Kudasai);
-        $out!("し", "よ", Command, Yo);
-        $out!("す", "るな", Command, Negative);
-        $out!("し", "ないでください", Command, Negative, Polite);
-        $out!("す", "れば", Hypothetical);
-        $out!("し", "なければ", Hypothetical, Negative);
-        $out!("し", "なきゃ", Hypothetical, Negative, Kya);
-        $out!("し", "たら", Conditional);
-        $out!("し", "ましたら", Conditional, Polite);
-        $out!("し", "なかったら", Conditional, Negative);
-        $out!("し", "ませんでしたら", Conditional, Negative, Polite);
-        $out!("さ", "れる", Passive);
-        $out!("さ", "れます", Passive, Polite);
-        $out!("さ", "れない", Passive, Negative);
-        $out!("さ", "れません", Passive, Negative, Polite);
-        $out!("さ", "れた", Passive, Past);
-        $out!("さ", "れました", Passive, Past, Polite);
-        $out!("で", "きる", Potential);
-        $out!("で", "きます", Potential, Polite);
-        $out!("で", "きない", Potential, Negative);
-        $out!("で", "きません", Potential, Negative, Polite);
-        $out!("で", "きた", Potential, Past);
-        $out!("で", "きました", Potential, Past, Polite);
-        $out!("で", "きなかった", Potential, Past, Negative);
-        $out!("で", "きませんでした", Potential, Past, Negative, Polite);
-        $out!("し", "よう", Volitional);
-        $out!("し", "ましょう", Volitional, Polite);
-        $out!("す", "るだろう", Volitional, Darou);
-        $out!("す", "るでしょう", Volitional, Darou, Polite);
-        $out!("し", "ないだろう", Volitional, Negative);
-        $out!("し", "ないでしょう", Volitional, Negative, Polite);
-        $out!("し", "たろう", Volitional, Past);
-        $out!("し", "ましたろう", Volitional, Past, Polite);
-        $out!("し", "ただろう", Volitional, Past, Darou);
-        $out!("し", "なかっただろう", Volitional, Past, Negative);
-        $out!("し", "なかったでしょう", Volitional, Past, Negative, Polite);
-        $out!("さ", "せる", Causative);
-        $out!("し", "たい", Tai);
-        $out!("し", "たくない", Tai, Negative);
-        $out!("し", "たかった", Tai, Past);
-        $out!("し", "たくなかった", Tai, Past, Negative);
+    ($macro:path) => {
+        $macro!("す", "る");
+        $macro!("し", "ます", Polite);
+        $macro!("し", "ない", Negative);
+        $macro!("し", "ません", Negative, Polite);
+        $macro!("し", "た", Past);
+        $macro!("し", "ました", Past, Polite);
+        $macro!("し", "なかった", Past, Negative);
+        $macro!("し", "ませんでした", Past, Negative, Polite);
+        $macro!("し", "ろ", Command);
+        $macro!("し", "なさい", Command, Polite);
+        $macro!("し", "てください", Command, Polite, Kudasai);
+        $macro!("し", "よ", Command, Yo);
+        $macro!("す", "るな", Command, Negative);
+        $macro!("し", "ないでください", Command, Negative, Polite);
+        $macro!("す", "れば", Hypothetical);
+        $macro!("し", "なければ", Hypothetical, Negative);
+        $macro!("し", "なきゃ", Hypothetical, Negative, Kya);
+        $macro!("し", "たら", Conditional);
+        $macro!("し", "ましたら", Conditional, Polite);
+        $macro!("し", "なかったら", Conditional, Negative);
+        $macro!("し", "ませんでしたら", Conditional, Negative, Polite);
+        $macro!("さ", "れる", Passive);
+        $macro!("さ", "れます", Passive, Polite);
+        $macro!("さ", "れない", Passive, Negative);
+        $macro!("さ", "れません", Passive, Negative, Polite);
+        $macro!("さ", "れた", Passive, Past);
+        $macro!("さ", "れました", Passive, Past, Polite);
+        $macro!("で", "きる", Potential);
+        $macro!("で", "きます", Potential, Polite);
+        $macro!("で", "きない", Potential, Negative);
+        $macro!("で", "きません", Potential, Negative, Polite);
+        $macro!("で", "きた", Potential, Past);
+        $macro!("で", "きました", Potential, Past, Polite);
+        $macro!("で", "きなかった", Potential, Past, Negative);
+        $macro!("で", "きませんでした", Potential, Past, Negative, Polite);
+        $macro!("し", "よう", Volitional);
+        $macro!("し", "ましょう", Volitional, Polite);
+        $macro!("す", "るだろう", Volitional, Darou);
+        $macro!("す", "るでしょう", Volitional, Darou, Polite);
+        $macro!("し", "ないだろう", Volitional, Negative);
+        $macro!("し", "ないでしょう", Volitional, Negative, Polite);
+        $macro!("し", "たろう", Volitional, Past);
+        $macro!("し", "ましたろう", Volitional, Past, Polite);
+        $macro!("し", "ただろう", Volitional, Past, Darou);
+        $macro!("し", "なかっただろう", Volitional, Past, Negative);
+        $macro!("し", "なかったでしょう", Volitional, Past, Negative, Polite);
+        $macro!("さ", "せる", Causative);
+        $macro!("し", "たい", Tai);
+        $macro!("し", "たくない", Tai, Negative);
+        $macro!("し", "たかった", Tai, Past);
+        $macro!("し", "たくなかった", Tai, Past, Negative);
     };
+
+    ($macro:path, te) => {
+        suru!($macro);
+        $macro!("し", "", Stem);
+        $macro!("し", "て", Te);
+    };
+}
+
+#[cfg(fake)]
+macro_rules! suru {
+    ($macro:path) => {};
+    ($macro:path, te) => {};
+}
+
+#[cfg(not(fake))]
+macro_rules! adjective_i {
+    ($macro:path) => {
+        $macro!("い");
+        $macro!("いです", Polite);
+        $macro!("かった", Past);
+        $macro!("かったです", Past, Polite);
+        $macro!("くない", Negative);
+        $macro!("くないです", Negative, Polite);
+        $macro!("なかった", Past, Negative);
+        $macro!("なかったです", Past, Negative, Polite);
+    };
+}
+
+#[cfg(fake)]
+macro_rules! adjective_i {
+    ($macro:path) => {};
+}
+
+#[cfg(not(fake))]
+macro_rules! adjective_ii {
+    ($macro:path) => {
+        $macro!("い", "い");
+        $macro!("い", "いです", Polite);
+        $macro!("よ", "かった", Past);
+        $macro!("よ", "かったです", Past, Polite);
+        $macro!("よ", "くない", Negative);
+        $macro!("よ", "くないです", Negative, Polite);
+        $macro!("よ", "なかった", Past, Negative);
+        $macro!("よ", "なかったです", Past, Negative, Polite);
+    };
+}
+
+#[cfg(fake)]
+macro_rules! adjective_ii {
+    ($macro:path) => {};
+}
+
+#[cfg(not(fake))]
+macro_rules! adjective_na {
+    ($macro:path) => {
+        $macro!("だ");
+        $macro!("です", Polite);
+        $macro!("だった", Past);
+        $macro!("でした", Past, Polite);
+        $macro!("ではない", Negative);
+        $macro!("ではありません", Negative, Polite);
+        $macro!("ではなかった", Past, Negative);
+        $macro!("ではありませんでした", Past, Negative, Polite);
+    };
+}
+
+#[cfg(fake)]
+macro_rules! adjective_na {
+    ($macro:path) => {};
 }
 
 /// Helper to construct a particular [`Inflection`].
@@ -350,30 +515,4 @@ macro_rules! inflect {
         $(form.insert($crate::Form::$form);)*
         $crate::Inflection::new(form)
     }}
-}
-
-/// Helper macro to build a kana pair.
-macro_rules! pair {
-    ($k:expr, $r:expr, $last:expr) => {
-        $crate::kana::Fragments::new([$k], [$r], [$last])
-    };
-
-    ($k:expr, $r:expr, $a:expr, $last:expr) => {
-        $crate::kana::Fragments::new([$k, $a], [$r, $a], [$last])
-    };
-
-    ($k:expr, $r:expr, $a:expr, $b:expr, $last:expr) => {
-        $crate::kana::Fragments::new([$k, $a], [$r, $b], [$last])
-    };
-}
-
-/// Setup a collection of inflections.
-macro_rules! inflections {
-    ($k:expr, $r:expr, $(
-        [$($kind:ident),* $(,)?], ( $($tt:tt)* )
-    ),* $(,)?) => {{
-        let mut tree = ::std::collections::BTreeMap::new();
-        $(tree.insert($crate::inflect!($($kind),*), pair!($k, $r, $($tt)*));)*
-        tree
-    }};
 }

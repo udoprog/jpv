@@ -1,5 +1,7 @@
 //! Module which performs verb inflection, based on a words class.
 
+#![cfg_attr(fake, allow(dead_code, unused, unused_variables, unused_macros))]
+
 use std::collections::BTreeMap;
 
 use fixed_map::Set;
@@ -8,7 +10,7 @@ use musli_zerocopy::ZeroCopy;
 use serde::{Deserialize, Serialize};
 
 use crate::elements::Entry;
-use crate::inflection::Inflections;
+use crate::inflection::{Inflection, Inflections};
 use crate::kana::{Fragments, Full};
 use crate::PartOfSpeech;
 
@@ -76,424 +78,369 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             let (_, kanji_text) = kanji.unwrap_or(reading);
             let (_, reading_text) = reading;
 
-            let mut inflections = BTreeMap::new();
+            let mut inflections = BTreeMap::<Inflection, Fragments<'_, 3, 4>>::new();
+
+            macro_rules! insert {
+                (($($form:ident),* $(,)?), $word:expr) => {
+                    inflections.insert(inflect!($($form),*), $word);
+                }
+            }
+
             let kind;
-            let de_conjugation;
-            let stem;
+            let chau_stem: Option<(Fragments<'_, 3, 4>, bool)>;
+
+            macro_rules! ensure_kanji_ends {
+                ($($expected:literal),*) => {
+                    if !(false $(|| kanji_text.ends_with($expected))*) {
+                        let xrefs = entry.senses.iter().flat_map(|s| s.xref.iter().copied()).collect::<Vec<_>>().join(" / ");
+                        let alts: Vec<String> = vec![$(format!("'{}'", $expected)),*];
+                        let alts = alts.join(" / ");
+                        panic!("Expected to end in {alts}: {kanji_text} / {reading_text} (xrefs: {xrefs})");
+                    }
+                }
+            }
 
             match pos {
                 PartOfSpeech::VerbIchidan | PartOfSpeech::VerbIchidanS => {
-                    let (Some(k), Some(r)) = (
-                        kanji_text.strip_suffix('る'),
-                        reading_text.strip_suffix('る'),
-                    ) else {
+                    let Some((k, r)) = match_char(kanji_text, reading_text, 'る') else {
+                        ensure_kanji_ends!('ル', 'す');
                         continue;
-                    };
-
-                    inflections = inflections! {
-                        k, r,
-                        [Te], ("て"),
                     };
 
                     macro_rules! populate {
                         ($suffix:expr $(, $inflect:ident)*) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                            insert!(($($inflect),*), Fragments::new([k], [r], [$suffix]));
                         }
                     }
 
-                    ichidan!(populate);
+                    ichidan!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::new([k], [r], ["っ"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
                 }
                 PartOfSpeech::VerbGodanKS => {
-                    let Some((k, r)) = match_char(kanji_text, reading_text, 'く') else {
+                    let Some((kanji_stem, reading_prefix)) =
+                        extract_stem(kanji_text, reading_text, 'く')
+                    else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
                         }
                     }
 
-                    godan_iku!(populate);
-
+                    godan_iku!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::new([k], [r], ["っ"]);
+                    chau_stem = Some((
+                        Fragments::new([kanji_stem], [reading_prefix, "き"], ["っ"]),
+                        false,
+                    ));
                 }
                 PartOfSpeech::VerbGodanU | PartOfSpeech::VerbGodanUS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'う') else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_u!(populate);
-
+                    godan_u!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::new([k], [r], ["っ"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
                 }
                 PartOfSpeech::VerbGodanT => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'つ') else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_tsu!(populate);
+                    godan_tsu!(populate, te);
 
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::new([k], [r], ["っ"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
                 }
                 PartOfSpeech::VerbGodanR
                 | PartOfSpeech::VerbGodanRI
                 | PartOfSpeech::VerbGodanAru
                 | PartOfSpeech::VerbGodanUru => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'る') else {
+                        ensure_kanji_ends!('ル');
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_ru!(populate);
-
+                    godan_ru!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::new([k], [r], ["っ"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
                 }
                 PartOfSpeech::VerbGodanK => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'く') else {
+                        ensure_kanji_ends!('ク');
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_ku!(populate);
+                    godan_ku!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::new([k], [r], ["い"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["い"]), false));
                 }
                 PartOfSpeech::VerbGodanG => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぐ') else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_gu!(populate);
+                    godan_gu!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = true;
-                    stem = Fragments::new([k], [r], ["い"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["い"]), true));
                 }
                 PartOfSpeech::VerbGodanM => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'む') else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_mu!(populate);
+                    godan_mu!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = true;
-                    stem = Fragments::new([k], [r], ["ん"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["ん"]), true));
                 }
                 PartOfSpeech::VerbGodanB => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぶ') else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_bu!(populate);
+                    godan_bu!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = true;
-                    stem = Fragments::new([k], [r], ["ん"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["ん"]), true));
                 }
                 PartOfSpeech::VerbGodanN => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぬ') else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_nu!(populate);
+                    godan_nu!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = true;
-                    stem = Fragments::new([k], [r], ["ん"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["ん"]), true));
                 }
                 PartOfSpeech::VerbGodanS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'す') else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [concat!($prefix, $suffix)]));
                         }
                     }
 
-                    godan_su!(populate);
+                    godan_su!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::new([k], [r], ["し"]);
+                    chau_stem = Some((Fragments::new([k], [r], ["し"]), false));
                 }
                 PartOfSpeech::VerbSuruSpecial | PartOfSpeech::VerbSuruIncluded => {
-                    let mut kanji = kanji_text.char_indices();
-                    let mut reading = reading_text.char_indices();
-
-                    let (Some((k_e, 'る')), Some((_, 'る'))) =
-                        (kanji.next_back(), reading.next_back())
+                    let Some((kanji_stem, reading_prefix)) =
+                        extract_stem(kanji_text, reading_text, 'る')
                     else {
+                        ensure_kanji_ends!('す');
                         continue;
                     };
 
-                    let (Some((_, k)), Some((_, 'す'))) = (kanji.next_back(), reading.next_back())
-                    else {
-                        continue;
-                    };
-
-                    let kanji_prefix = kanji.as_str();
-                    let reading_prefix = reading.as_str();
-                    let kanji_stem = &kanji_text[..k_e];
-
-                    inflections = BTreeMap::new();
-
-                    if k == 'す' {
-                        macro_rules! populate {
-                            ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
-                                inflections.insert(inflect!($($inflect),*), Fragments::new([kanji_prefix], [reading_prefix], [concat!($prefix, $suffix)]));
-                            }
+                    macro_rules! populate {
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
                         }
-
-                        suru!(populate);
-                    } else {
-                        macro_rules! populate {
-                            ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
-                                inflections.insert(inflect!($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
-                            }
-                        }
-
-                        suru!(populate);
                     }
 
+                    suru!(populate, te);
+                    chau_stem = Some((
+                        Fragments::new([kanji_stem], [reading_prefix, "し"], []),
+                        false,
+                    ));
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::default();
                 }
                 PartOfSpeech::VerbKuru => {
-                    let mut kanji = kanji_text.char_indices();
-                    let mut reading = reading_text.char_indices();
-
-                    let (Some((k_e, 'る')), Some((_, 'る'))) =
-                        (kanji.next_back(), reading.next_back())
+                    let Some((kanji_stem, reading_prefix)) =
+                        extract_stem(kanji_text, reading_text, 'る')
                     else {
+                        ensure_kanji_ends!();
                         continue;
                     };
 
-                    let (Some((_, k)), Some((_, 'く'))) = (kanji.next_back(), reading.next_back())
-                    else {
-                        continue;
-                    };
-
-                    let kanji_prefix = kanji.as_str();
-                    let reading_prefix = reading.as_str();
-                    let kanji_stem = &kanji_text[..k_e];
-
-                    inflections = BTreeMap::new();
-
-                    if k == 'く' {
-                        macro_rules! populate {
-                            ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
-                                inflections.insert(inflect!($($inflect),*), Fragments::new([kanji_prefix], [reading_prefix], [concat!($prefix, $suffix)]));
-                            }
+                    macro_rules! populate {
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
                         }
-
-                        kuru!(populate);
-                    } else {
-                        macro_rules! populate {
-                            ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
-                                inflections.insert(inflect!($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
-                            }
-                        }
-
-                        kuru!(populate);
                     }
 
+                    kuru!(populate, te);
                     kind = Kind::Verb;
-                    de_conjugation = false;
-                    stem = Fragments::default();
+                    chau_stem = None;
                 }
                 PartOfSpeech::AdjectiveI => {
-                    let (Some(k), Some(r)) = (
-                        kanji_text.strip_suffix('い'),
-                        reading_text.strip_suffix('い'),
-                    ) else {
+                    let Some((k, r)) = match_char(kanji_text, reading_text, 'い') else {
+                        // NB: a bunch of colloquialisms.
+                        ensure_kanji_ends!('い', 'イ', 'え', 'ー', 'ぇ', 'ぃ', 'ぬ', 'ん');
                         continue;
                     };
 
-                    inflections = inflections! {
-                        k, r,
-                        [], ("い"),
-                        [Polite], ("いです"),
-                        [Past], ("かった"),
-                        [Past, Polite], ("かったです"),
-                        [Negative], ("くない"),
-                        [Negative, Polite], ("くないです"),
-                        [Past, Negative], ("なかった"),
-                        [Past, Negative, Polite], ("なかったです"),
-                    };
+                    macro_rules! populate {
+                        ($suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([k], [r], [$suffix]));
+                        }
+                    }
 
+                    adjective_i!(populate);
                     kind = Kind::Adjective;
-                    de_conjugation = false;
-                    stem = Fragments::default();
+                    chau_stem = None;
                 }
                 PartOfSpeech::AdjectiveIx => {
-                    let (Some(k), Some(r)) = (
-                        kanji_text.strip_suffix("いい"),
-                        reading_text.strip_suffix("いい"),
-                    ) else {
+                    let Some((kanji_stem, reading_prefix)) =
+                        extract_stem(kanji_text, reading_text, 'い')
+                    else {
+                        ensure_kanji_ends!('い', 'イ');
                         continue;
                     };
 
-                    inflections = inflections! {
-                        k, r,
-                        [], ("いい"),
-                        [Polite], ("いいです"),
-                        [Past], ("よかった"),
-                        [Past, Polite], ("よかったです"),
-                        [Negative], ("よくない"),
-                        [Negative, Polite], ("よくないです"),
-                        [Past, Negative], ("よなかった"),
-                        [Past, Negative, Polite], ("よなかったです"),
-                    };
+                    macro_rules! populate {
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([kanji_stem], [reading_prefix, $prefix], [$suffix]));
+                        }
+                    }
 
+                    adjective_ii!(populate);
                     kind = Kind::Adjective;
-                    de_conjugation = false;
-                    stem = Fragments::default();
+                    chau_stem = None;
                 }
                 PartOfSpeech::AdjectiveNa => {
-                    inflections = inflections! {
-                        kanji_text, reading_text,
-                        [], ("だ"),
-                        [Polite], ("です"),
-                        [Past], ("だった"),
-                        [Past, Polite], ("でした"),
-                        [Negative], ("ではない"),
-                        [Negative, Polite], ("ではありません"),
-                        [Past, Negative], ("ではなかった"),
-                        [Past, Negative, Polite], ("ではありませんでした"),
-                    };
+                    macro_rules! populate {
+                        ($suffix:expr $(, $inflect:ident)*) => {
+                            insert!(($($inflect),*), Fragments::new([kanji_text], [reading_text], [$suffix]));
+                        }
+                    }
 
+                    adjective_na!(populate);
                     kind = Kind::Adjective;
-                    de_conjugation = false;
-                    stem = Fragments::default();
+                    chau_stem = None;
                 }
                 _ => {
                     continue;
                 }
             };
 
-            if let Some(p) = inflections.get(&inflect!(Te)).cloned() {
+            if let Some(te) = inflections.get(&inflect!(Te)).cloned() {
                 macro_rules! populate {
                     ($suffix:expr $(, $inflect:ident)*) => {
-                        inflections.insert(inflect!(TeIru, Te $(, $inflect)*), p.concat([concat!("い", $suffix)]));
+                        insert!((TeIru, Te $(, $inflect)*), te.concat([concat!("い", $suffix)]));
                     }
                 }
 
-                inflections.insert(inflect!(TeIru, Te, Short), p.concat(["る"]));
+                insert!((TeIru, Te, Short), te.concat(["る"]));
                 ichidan!(populate);
 
                 macro_rules! populate {
-                    ($suffix:expr, [$($inflect:ident),*]) => {
-                        inflections.insert(inflect!(TeAru, Te $(, $inflect)*), p.concat([concat!("あ", $suffix)]));
+                    ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                        insert!((TeAru, Te $(, $inflect)*), te.concat([concat!("あ", $prefix, $suffix)]));
                     }
                 }
 
                 godan_ru!(populate);
 
                 macro_rules! populate {
-                    ($suffix:expr, [$($inflect:ident),*]) => {
-                        inflections.insert(inflect!(TeIku, Te $(, $inflect)*), p.concat([concat!("い", $suffix)]));
+                    ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                        insert!((TeIku, Te $(, $inflect)*), te.concat([concat!("い", $prefix, $suffix)]));
                     }
                 }
 
                 godan_iku!(populate);
 
                 macro_rules! populate {
-                    ($suffix:expr, [$($inflect:ident),*]) => {
-                        inflections.insert(inflect!(TeShimau, Te $(, $inflect)*), p.concat([concat!("しま", $suffix)]));
+                    ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                        insert!((TeShimau, Te $(, $inflect)*), te.concat([concat!("しま", $prefix, $suffix)]));
                     }
                 }
 
                 godan_u!(populate);
 
                 macro_rules! populate {
-                    ($suffix:expr, [$($inflect:ident),*]) => {
-                        inflections.insert(inflect!(TeOku, Te $(, $inflect)*), p.concat([concat!("お", $suffix)]));
+                    ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                        insert!((TeOku, Te $(, $inflect)*), te.concat([concat!("お", $prefix, $suffix)]));
                     }
                 }
 
                 godan_ku!(populate);
-                inflections.insert(inflect!(Te, TeOku, Short), p.concat(["く"]));
+                insert!((Te, TeOku, Short), te.concat(["く"]));
 
                 macro_rules! populate {
                     ($r:expr, $suffix:expr $(, $inflect:ident)*) => {
-                        inflections.insert(inflect!(TeKuru, Te $(, $inflect)*), p.concat([concat!($r, $suffix)]));
+                        insert!((TeKuru, Te $(, $inflect)*), te.concat([concat!($r, $suffix)]));
                     }
                 }
 
                 kuru!(populate);
             }
 
-            if !stem.is_empty() {
-                if de_conjugation {
+            if let Some((stem, de)) = chau_stem {
+                if de {
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!(Chau $(, $inflect)*), stem.concat([concat!("じゃ", $suffix)]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!((Chau $(, $inflect)*), stem.concat([concat!("じゃ", $prefix, $suffix)]));
                         }
                     }
 
                     godan_u!(populate);
                 } else {
                     macro_rules! populate {
-                        ($suffix:expr, [$($inflect:ident),*]) => {
-                            inflections.insert(inflect!(Chau $(, $inflect)*), stem.concat([concat!("ちゃ", $suffix)]));
+                        ($prefix:expr, $suffix:expr $(, $inflect:ident)*) => {
+                            insert!((Chau $(, $inflect)*), stem.concat([concat!("ちゃ", $prefix, $suffix)]));
                         }
                     }
 
@@ -518,6 +465,25 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
     output
 }
 
+fn extract_stem<'a>(
+    kanji_text: &'a str,
+    reading_text: &'a str,
+    c: char,
+) -> Option<(&'a str, &'a str)> {
+    let mut k = kanji_text.char_indices();
+    let mut r = reading_text.char_indices();
+
+    let (k_e, _) = k.next_back()?;
+    let (_, reading_char) = r.next_back()?;
+
+    if reading_char != c {
+        return None;
+    }
+
+    r.next_back();
+    Some((&kanji_text[..k_e], r.as_str()))
+}
+
 fn match_char<'a>(
     kanji_text: &'a str,
     reading_text: &'a str,
@@ -530,9 +496,7 @@ fn match_char<'a>(
         return None;
     }
 
-    let k = k.as_str();
-    let r = r.as_str();
-    Some((k, r))
+    Some((k.as_str(), r.as_str()))
 }
 
 pub(crate) fn reading_permutations<'a>(
