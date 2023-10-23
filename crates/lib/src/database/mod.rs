@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::inflection;
 use crate::inflection::Inflection;
-use crate::jmdict;
-use crate::jmdict::{Entry, EntryKey};
+use crate::jmdict::{self, Entry, EntryKey};
+use crate::kanjidic2;
 use crate::PartOfSpeech;
 
 #[derive(ZeroCopy)]
@@ -138,19 +138,29 @@ impl Id {
 }
 
 /// Load the given dictionary and convert into the internal format.
-pub fn load(dict: &str) -> Result<OwnedBuf> {
+pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
     let mut buf = OwnedBuf::new();
 
     let index = buf.store_uninit::<Index>();
 
-    let mut parser = jmdict::Parser::new(dict);
+    let mut kanjidic2 = kanjidic2::Parser::new(kanjidic2);
+
+    tracing::info!("Parsing kanjidic");
+
+    while let Some(c) = kanjidic2.parse()? {
+        let _ = c;
+    }
+
+    tracing::info!("Parsing JMdict");
+
+    let mut jmdict = jmdict::Parser::new(jmdict);
     let mut output = Vec::new();
     let mut readings = Vec::new();
 
     let mut by_sequence = HashMap::new();
     let mut by_pos = HashMap::<_, HashSet<_>>::new();
 
-    while let Some(entry) = parser.parse()? {
+    while let Some(entry) = jmdict.parse()? {
         output.clear();
         ENCODING.to_writer(&mut output, &entry)?;
 

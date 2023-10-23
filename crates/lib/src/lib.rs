@@ -8,6 +8,7 @@ mod concat;
 pub use self::concat::Concat;
 
 pub mod jmdict;
+pub mod kanjidic2;
 
 pub mod entities;
 pub use self::entities::PartOfSpeech;
