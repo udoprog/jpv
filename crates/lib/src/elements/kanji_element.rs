@@ -31,6 +31,11 @@ impl<'a> KanjiElement<'a> {
         self.info.contains(KanjiInfo::RareKanji)
     }
 
+    /// Test if kanji is search only.
+    pub fn is_search_only(&self) -> bool {
+        self.info.contains(KanjiInfo::SearchOnlyKanji)
+    }
+
     /// Debug the kanji element, while avoiding formatting elements which are
     /// not defined.
     pub fn debug_sparse(&self) -> impl fmt::Debug + '_ {

@@ -38,6 +38,11 @@ impl<'a> ReadingElement<'a> {
         DebugSparse(self)
     }
 
+    /// Test if kana is search only.
+    pub fn is_search_only(&self) -> bool {
+        self.info.contains(ReadingInfo::SearchOnlyKana)
+    }
+
     /// Test if this reading applies to the given string.
     pub fn applies_to(&self, text: &str) -> bool {
         if self.no_kanji {

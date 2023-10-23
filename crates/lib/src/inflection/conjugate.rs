@@ -89,13 +89,16 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             let kind;
             let chau_stem: Option<(Fragments<'_, 3, 4>, bool)>;
 
-            macro_rules! ensure_kanji_ends {
+            macro_rules! allowlist {
                 ($($expected:literal),*) => {
-                    if !(false $(|| kanji_text.ends_with($expected))*) {
-                        let xrefs = entry.senses.iter().flat_map(|s| s.xref.iter().copied()).collect::<Vec<_>>().join(" / ");
-                        let alts: Vec<String> = vec![$(format!("'{}'", $expected)),*];
-                        let alts = alts.join(" / ");
-                        panic!("Expected to end in {alts}: {kanji_text} / {reading_text} (xrefs: {xrefs})");
+                    if let Some((_, kanji_text)) = kanji {
+                        if !(false $(|| kanji_text == $expected)*) {
+                            let alts: Vec<String> = vec![$(format!("'{}'", $expected)),*];
+                            let alts = alts.join(" / ");
+                            tracing::warn!("Expected to end in {alts}: {kanji_text} / {reading_text}: {:?}", entry);
+                        } else {
+                            tracing::info!("{:?}", entry);
+                        }
                     }
                 }
             }
@@ -103,7 +106,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             match pos {
                 PartOfSpeech::VerbIchidan | PartOfSpeech::VerbIchidanS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'る') else {
-                        ensure_kanji_ends!('ル', 'す');
+                        allowlist!("買い増す");
                         continue;
                     };
 
@@ -121,7 +124,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     let Some((kanji_stem, reading_prefix)) =
                         extract_stem(kanji_text, reading_text, 'く')
                     else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -140,7 +143,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::VerbGodanU | PartOfSpeech::VerbGodanUS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'う') else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -156,7 +159,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::VerbGodanT => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'つ') else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -176,7 +179,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 | PartOfSpeech::VerbGodanAru
                 | PartOfSpeech::VerbGodanUru => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'る') else {
-                        ensure_kanji_ends!('ル');
+                        allowlist!();
                         continue;
                     };
 
@@ -192,7 +195,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::VerbGodanK => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'く') else {
-                        ensure_kanji_ends!('ク');
+                        allowlist!();
                         continue;
                     };
 
@@ -208,7 +211,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::VerbGodanG => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぐ') else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -224,7 +227,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::VerbGodanM => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'む') else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -240,7 +243,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::VerbGodanB => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぶ') else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -256,7 +259,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::VerbGodanN => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぬ') else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -272,7 +275,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::VerbGodanS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'す') else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -290,7 +293,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     let Some((kanji_stem, reading_prefix)) =
                         extract_stem(kanji_text, reading_text, 'る')
                     else {
-                        ensure_kanji_ends!('す');
+                        allowlist!();
                         continue;
                     };
 
@@ -311,7 +314,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     let Some((kanji_stem, reading_prefix)) =
                         extract_stem(kanji_text, reading_text, 'る')
                     else {
-                        ensure_kanji_ends!();
+                        allowlist!();
                         continue;
                     };
 
@@ -327,8 +330,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
                 PartOfSpeech::AdjectiveI => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'い') else {
-                        // NB: a bunch of colloquialisms.
-                        ensure_kanji_ends!('い', 'イ', 'え', 'ー', 'ぇ', 'ぃ', 'ぬ', 'ん');
+                        allowlist!("弱っちぃ");
                         continue;
                     };
 
@@ -346,7 +348,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     let Some((kanji_stem, reading_prefix)) =
                         extract_stem(kanji_text, reading_text, 'い')
                     else {
-                        ensure_kanji_ends!('い', 'イ');
+                        allowlist!();
                         continue;
                     };
 
@@ -505,12 +507,20 @@ pub(crate) fn reading_permutations<'a>(
     let mut readings = Vec::new();
 
     for (reading_index, reading) in entry.reading_elements.iter().enumerate() {
+        if reading.is_search_only() {
+            continue;
+        }
+
         if reading.no_kanji || entry.kanji_elements.is_empty() {
             readings.push((None, (reading_index, reading.text)));
             continue;
         }
 
         for (kanji_index, kanji) in entry.kanji_elements.iter().enumerate() {
+            if kanji.is_search_only() {
+                continue;
+            }
+
             if reading.applies_to(&kanji.text) {
                 readings.push((
                     Some((kanji_index, kanji.text)),
