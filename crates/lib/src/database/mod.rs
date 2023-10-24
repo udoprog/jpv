@@ -62,6 +62,8 @@ pub enum IndexSource {
     /// No extra information on why the index was added.
     #[serde(rename = "base")]
     None,
+    #[serde(rename = "kanji")]
+    Kanji,
     /// Index was added because of a verb inflection.
     #[serde(rename = "verb-c")]
     VerbInflection {
@@ -80,9 +82,9 @@ impl IndexSource {
     /// Test if extra indicates an inflection.
     pub fn is_inflection(&self) -> bool {
         match self {
-            IndexSource::None => false,
             IndexSource::VerbInflection { .. } => true,
             IndexSource::AdjectiveInflection { .. } => true,
+            _ => false,
         }
     }
 }
@@ -142,19 +144,26 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
     let mut buf = OwnedBuf::new();
 
     let index = buf.store_uninit::<Index>();
+    let mut output = Vec::new();
 
     let mut kanjidic2 = kanjidic2::Parser::new(kanjidic2);
 
     tracing::info!("Parsing kanjidic");
 
     while let Some(c) = kanjidic2.parse()? {
+        output.clear();
+        ENCODING.to_writer(&mut output, &c)?;
+
+        let kanji_ref = buf.store_slice(&output).offset() as u32;
+
+        for reading in c.reading_meanings.readings {}
+
         let _ = c;
     }
 
     tracing::info!("Parsing JMdict");
 
     let mut jmdict = jmdict::Parser::new(jmdict);
-    let mut output = Vec::new();
     let mut readings = Vec::new();
 
     let mut by_sequence = HashMap::new();

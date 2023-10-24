@@ -14,8 +14,8 @@ pub(crate) struct Builder<'a> {
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Radical<'a> {
-    text: &'a str,
-    ty: &'a str,
+    pub text: &'a str,
+    pub ty: &'a str,
 }
 
 impl<'a> Builder<'a> {

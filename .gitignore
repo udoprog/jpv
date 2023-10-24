@@ -1,5 +1,7 @@
 /JMdict*.gz
 /JMdict*
+/kanjidic*.xml
+/kanjidic*.xml.gz
 /target/
 /*.bin
 /*.bin.gz

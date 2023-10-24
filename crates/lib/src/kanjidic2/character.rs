@@ -45,19 +45,19 @@ pub(crate) struct Builder<'a> {
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Character<'a> {
-    literal: &'a str,
+    pub literal: &'a str,
     #[serde(borrow)]
-    code_point: Vec<CodePoint<'a>>,
+    pub code_point: Vec<CodePoint<'a>>,
     #[serde(borrow)]
-    radical: Vec<Radical<'a>>,
+    pub radical: Vec<Radical<'a>>,
     #[serde(borrow)]
-    misc: Misc<'a>,
+    pub misc: Misc<'a>,
     #[serde(borrow)]
-    dictionary_references: Vec<DictionaryReference<'a>>,
+    pub dictionary_references: Vec<DictionaryReference<'a>>,
     #[serde(borrow)]
-    query_codes: Vec<QueryCode<'a>>,
+    pub query_codes: Vec<QueryCode<'a>>,
     #[serde(borrow)]
-    reading_meaning: ReadingMeaning<'a>,
+    pub reading_meaning: ReadingMeaning<'a>,
 }
 
 impl<'a> Builder<'a> {

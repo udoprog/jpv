@@ -30,11 +30,11 @@ pub(crate) struct Builder<'a> {
 #[musli(packed)]
 pub struct ReadingMeaning<'a> {
     #[serde(borrow)]
-    readings: Vec<Reading<'a>>,
+    pub readings: Vec<Reading<'a>>,
     #[serde(borrow)]
-    meanings: Vec<Meaning<'a>>,
+    pub meanings: Vec<Meaning<'a>>,
     #[serde(borrow)]
-    nanori: Vec<&'a str>,
+    pub nanori: Vec<&'a str>,
 }
 
 impl<'a> Builder<'a> {
