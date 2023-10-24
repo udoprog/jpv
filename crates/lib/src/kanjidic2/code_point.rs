@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use crate::kanjidic2::array::{Element, ElementBuilder};
 use crate::kanjidic2::parser::{Output, Poll};
 
 #[derive(Default, Debug)]
@@ -18,12 +19,20 @@ pub struct CodePoint<'a> {
     ty: &'a str,
 }
 
-impl<'a> Builder<'a> {
-    pub(super) fn wants_text(&self) -> bool {
+impl<'a> Element<'a> for CodePoint<'a> {
+    const NAME: &'static str = "cp_value";
+
+    type Builder = Builder<'a>;
+}
+
+impl<'a> ElementBuilder<'a> for Builder<'a> {
+    type Value = CodePoint<'a>;
+
+    fn wants_text(&self) -> bool {
         true
     }
 
-    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<CodePoint<'a>>> {
+    fn poll(&mut self, output: Output<'a>) -> Result<Poll<CodePoint<'a>>> {
         match output {
             Output::Text(text) if self.text.is_none() => {
                 self.text = Some(text);

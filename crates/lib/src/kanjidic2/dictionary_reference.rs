@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use crate::kanjidic2::array::{Element, ElementBuilder};
 use crate::kanjidic2::parser::{Output, Poll};
 
 #[derive(Default, Debug)]
@@ -22,12 +23,20 @@ pub struct DictionaryReference<'a> {
     page: Option<&'a str>,
 }
 
-impl<'a> Builder<'a> {
-    pub(super) fn wants_text(&self) -> bool {
+impl<'a> Element<'a> for DictionaryReference<'a> {
+    const NAME: &'static str = "dic_ref";
+
+    type Builder = Builder<'a>;
+}
+
+impl<'a> ElementBuilder<'a> for Builder<'a> {
+    type Value = DictionaryReference<'a>;
+
+    fn wants_text(&self) -> bool {
         true
     }
 
-    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<DictionaryReference<'a>>> {
+    fn poll(&mut self, output: Output<'a>) -> Result<Poll<DictionaryReference<'a>>> {
         match output {
             Output::Text(text) if self.text.is_none() => {
                 self.text = Some(text);

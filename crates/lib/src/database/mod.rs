@@ -156,7 +156,7 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
 
         let kanji_ref = buf.store_slice(&output).offset() as u32;
 
-        for reading in c.reading_meanings.readings {}
+        // for reading in c.reading_meanings.readings {}
 
         let _ = c;
     }

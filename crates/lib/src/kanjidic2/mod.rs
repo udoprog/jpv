@@ -23,10 +23,16 @@ macro_rules! builder {
 
             match &mut $self.state {
                 State::Root => match output {
-                    $(crate::kanjidic2::parser::Output::Open($name) => {
-                        $self.state = State::$variant(Default::default());
-                        return Ok(crate::kanjidic2::parser::Poll::Pending);
-                    })*
+                    crate::kanjidic2::parser::Output::Open(name) => {
+                        $(
+                            if name == $name {
+                                $self.state = State::$variant(Default::default());
+                                return Ok(crate::kanjidic2::parser::Poll::Pending);
+                            }
+                        )*
+
+                        ::anyhow::bail!("Unsupported {output:?}")
+                    }
                     crate::kanjidic2::parser::Output::Close => {
                         return Ok(crate::kanjidic2::parser::Poll::Ready($self.build()?));
                     }
@@ -35,8 +41,6 @@ macro_rules! builder {
                     }
                 }
                 $(State::$variant(builder) => {
-                    let span = ::tracing::info_span!($name);
-                    let _enter = span.enter();
                     #[allow(clippy::let_unit_value)]
                     let $var = ready!(builder.poll(output));
                     $action;
@@ -48,6 +52,8 @@ macro_rules! builder {
     }
 }
 
+mod array;
+
 pub use self::parser::Parser;
 mod parser;
 
@@ -56,9 +62,6 @@ mod character;
 
 pub use self::header::Header;
 mod header;
-
-mod code_point_array;
-mod radical_array;
 
 pub use self::code_point::CodePoint;
 mod code_point;
@@ -72,12 +75,8 @@ mod misc;
 pub use self::variant::Variant;
 mod variant;
 
-mod dictionary_reference_array;
-
 pub use self::dictionary_reference::DictionaryReference;
 mod dictionary_reference;
-
-mod query_code_array;
 
 pub use self::query_code::QueryCode;
 mod query_code;

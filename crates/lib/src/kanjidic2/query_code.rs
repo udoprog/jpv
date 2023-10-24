@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use crate::kanjidic2::array::{Element, ElementBuilder};
 use crate::kanjidic2::parser::{Output, Poll};
 
 #[derive(Default, Debug)]
@@ -20,12 +21,20 @@ pub struct QueryCode<'a> {
     skip_misclass: Option<&'a str>,
 }
 
-impl<'a> Builder<'a> {
-    pub(super) fn wants_text(&self) -> bool {
+impl<'a> Element<'a> for QueryCode<'a> {
+    const NAME: &'static str = "q_code";
+
+    type Builder = Builder<'a>;
+}
+
+impl<'a> ElementBuilder<'a> for Builder<'a> {
+    type Value = QueryCode<'a>;
+
+    fn wants_text(&self) -> bool {
         true
     }
 
-    pub(super) fn poll(&mut self, output: Output<'a>) -> Result<Poll<QueryCode<'a>>> {
+    fn poll(&mut self, output: Output<'a>) -> Result<Poll<QueryCode<'a>>> {
         match output {
             Output::Text(text) if self.text.is_none() => {
                 self.text = Some(text);

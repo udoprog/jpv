@@ -4,15 +4,12 @@ use anyhow::{Context, Result};
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use crate::kanjidic2::array;
 use crate::kanjidic2::code_point::CodePoint;
-use crate::kanjidic2::code_point_array;
 use crate::kanjidic2::dictionary_reference::DictionaryReference;
-use crate::kanjidic2::dictionary_reference_array;
 use crate::kanjidic2::misc::{self, Misc};
 use crate::kanjidic2::query_code::QueryCode;
-use crate::kanjidic2::query_code_array;
 use crate::kanjidic2::radical::Radical;
-use crate::kanjidic2::radical_array;
 use crate::kanjidic2::reading_meaning::{self, ReadingMeaning};
 use crate::kanjidic2::text;
 
@@ -21,11 +18,11 @@ enum State<'a> {
     #[default]
     Root,
     Literal(text::Builder<'a>),
-    CodePoint(code_point_array::Builder<'a>),
-    Radical(radical_array::Builder<'a>),
+    CodePoint(array::Builder<'a, CodePoint<'a>>),
+    Radical(array::Builder<'a, Radical<'a>>),
     Misc(misc::Builder<'a>),
-    DicNumber(dictionary_reference_array::Builder<'a>),
-    QueryCode(query_code_array::Builder<'a>),
+    DicNumber(array::Builder<'a, DictionaryReference<'a>>),
+    QueryCode(array::Builder<'a, QueryCode<'a>>),
     ReadingMeaning(reading_meaning::Builder<'a>),
 }
 
