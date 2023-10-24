@@ -36,7 +36,7 @@ pub(crate) struct Builder<'a> {
 pub struct Misc<'a> {
     grade: Option<u8>,
     stroke_count: Option<u8>,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     variant: Option<Variant<'a>>,
     freq: Option<u32>,
     jlpt: Option<u8>,

@@ -10,6 +10,7 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
+use crate::c::entry::{colon, comma, seq};
 use crate::fetch::FetchError;
 use crate::{components as c, fetch};
 
@@ -431,7 +432,7 @@ impl Component for Prompt {
         });
 
         let entries = (!self.entries.is_empty()).then(|| {
-            let entries = c::entry::seq(self.entries.iter(), |(data, entry), not_last| {
+            let entries = seq(self.entries.iter(), |(data, entry), not_last| {
                 let entry: jmdict::OwnedEntry = entry.clone();
 
                 let change = ctx.link().callback(|(input, translation)| {
@@ -448,24 +449,69 @@ impl Component for Prompt {
             });
 
             html! {
-                <div class="block block-lg">
-                    <div class="entry-separator" />
-                    {for entries}
-                    <div class="entry-separator" />
-                </div>
+                <>
+                    <h4>{"Entries"}</h4>
+
+                    <div class="block block-lg">
+                        {for entries}
+                        <div class="entry-separator" />
+                    </div>
+                </>
             }
         });
 
-        let entries = if self.characters.is_empty() {
-            html!({for entries})
-        } else {
-            let characters = c::entry::seq(self.characters.iter(), |c, not_last| {
+        let characters = (!self.characters.is_empty()).then(|| {
+            let iter = seq(self.characters.iter(), |c, not_last| {
                 let separator = not_last.then(|| html!(<div class="character-separator" />));
+
+                let mut onyomi = seq(
+                    c.reading_meaning
+                        .readings
+                        .iter()
+                        .filter(|r| r.ty == "ja_on"),
+                    |r, not_last| {
+                        let sep = not_last.then(comma);
+                        html!(<>{r.text.clone()}{for sep}</>)
+                    },
+                ).peekable();
+
+                let onyomi = onyomi.peek().is_some().then(move || {
+                    html!(<div class="readings row">{"On"}{colon()}{for onyomi}</div>)
+                });
+
+                let mut kunyomi = seq(
+                    c.reading_meaning
+                        .readings
+                        .iter()
+                        .filter(|r| r.ty == "ja_kun"),
+                    |r, not_last| {
+                        let sep = not_last.then(comma);
+                        html!(<>{r.text.clone()}{for sep}</>)
+                    },
+                ).peekable();
+
+                let kunyomi = kunyomi.peek().is_some().then(move || {
+                    html!(<div class="readings row">{"Kun"}{colon()}{for kunyomi}</div>)
+                });
+
+                let meanings = seq(
+                    c.reading_meaning
+                        .meanings
+                        .iter()
+                        .filter(|r| r.lang.is_none()),
+                    |r, _| {
+                        html!(<li>{r.text.clone()}</li>)
+                    },
+                );
 
                 html! {
                     <>
                         <div class="character">
-                            <div class="literal">{c.literal.clone()}</div>
+                            <div class="literal text highlight">{c.literal.clone()}</div>
+
+                            {for onyomi}
+                            {for kunyomi}
+                            <div class="meanings row">{"Meanings"}{colon()}<ul>{for meanings}</ul></div>
                         </div>
 
                         {for separator}
@@ -474,11 +520,18 @@ impl Component for Prompt {
             });
 
             html! {
-                <div class="columns">
-                    <div class="column">{for entries}</div>
-                    <div class="column">{for characters}</div>
-                </div>
+                <>
+                    <h4>{"Characters"}</h4>
+                    <div class="block block-lg">{for iter}</div>
+                </>
             }
+        });
+
+        let results = html! {
+            <div class="columns">
+                <div class="column">{entries}</div>
+                <div class="column characters">{characters}</div>
+            </div>
         };
 
         html! {
@@ -512,7 +565,7 @@ impl Component for Prompt {
                     <>
                         {analyze}
                         {for translation}
-                        {entries}
+                        {results}
                     </>
 
                     <div class="block block-xl" id="copyright">{copyright()}</div>

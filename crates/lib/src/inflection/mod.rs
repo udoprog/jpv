@@ -305,6 +305,33 @@ pub struct Inflections<'a> {
 }
 
 impl<'a> Inflections<'a> {
+    pub fn new(dictionary: Full<'a>) -> Self {
+        Self {
+            dictionary,
+            inflections: BTreeMap::new(),
+        }
+    }
+
+    /// Insert a value into this collection of inflections.
+    pub(crate) fn insert(
+        &mut self,
+        inflect: &[Form],
+        inflect2: &[Form],
+        word: Fragments<'a, 3, 4>,
+    ) {
+        let mut form = crate::macro_support::fixed_map::Set::new();
+
+        for f in inflect {
+            form.insert(*f);
+        }
+
+        for f in inflect2 {
+            form.insert(*f);
+        }
+
+        self.inflections.insert(crate::Inflection::new(form), word);
+    }
+
     /// Test if any polite inflections exist.
     pub fn has_polite(&self) -> bool {
         for c in self.inflections.keys() {

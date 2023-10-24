@@ -29,11 +29,11 @@ pub(crate) struct Builder<'a> {
 #[derive(Default, Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct ReadingMeaning<'a> {
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub readings: Vec<Reading<'a>>,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub meanings: Vec<Meaning<'a>>,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub nanori: Vec<&'a str>,
 }
 

@@ -129,8 +129,19 @@ body {
 }
 
 .columns {
+    width: 100%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    gap: 1rem;
+
+    .column {
+        flex-grow: 1;
+    }
+
+    .column.characters {
+        width: 300px;
+        flex-grow: unset;
+    }
 }
 
 .block {
@@ -198,18 +209,42 @@ body {
 
     &-separator {
         @include block-margin(var(--section-margin));
-        height: 5px;
-        border-radius: 2px;
+        height: 2px;
+        border-radius: 1px;
         background-color: var(--separator-color);
     }
 }
 
 .character {
+    margin: 1rem 0;
+
+    & > div {
+        margin: 0.5rem 0;
+    }
+
+    .literal {
+        font-size: 200%;
+        margin-bottom: 0.5rem;
+    }
+
     &-separator {
         @include block-margin(var(--section-margin));
         height: 2px;
         border-radius: 1px;
         background-color: var(--separator-color);
+    }
+
+    .readings {
+        font-size: 80%;
+    }
+
+    .meanings {
+        font-size: 80%;
+
+        li {
+            margin-left: 1rem;
+            list-style: circle;
+        }
     }
 }
 

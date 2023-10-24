@@ -127,8 +127,6 @@ async fn search(
         entries.push(SearchEntry { key, entry });
     }
 
-    entries.sort_by(|a, b| a.key.key.cmp(&b.key.key));
-
     Ok(Json(SearchResponse {
         entries,
         characters: search.characters,

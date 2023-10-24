@@ -43,17 +43,17 @@ pub(crate) struct Builder<'a> {
 #[musli(packed)]
 pub struct Character<'a> {
     pub literal: &'a str,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub code_point: Vec<CodePoint<'a>>,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub radical: Vec<Radical<'a>>,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub misc: Misc<'a>,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub dictionary_references: Vec<DictionaryReference<'a>>,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub query_codes: Vec<QueryCode<'a>>,
-    #[serde(borrow)]
+    #[borrowed_attr(serde(borrow))]
     pub reading_meaning: ReadingMeaning<'a>,
 }
 

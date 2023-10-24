@@ -682,11 +682,11 @@ where
     })
 }
 
-fn comma() -> Html {
+pub(crate) fn comma() -> Html {
     html!(<span class="sep">{", "}</span>)
 }
 
-fn colon() -> Html {
+pub(crate) fn colon() -> Html {
     html!(<span class="sep">{":"}</span>)
 }
 

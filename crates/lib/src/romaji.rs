@@ -259,9 +259,13 @@ const KATA_T: [Class; 0x60] = [
     /*ヸ*/ U, /*ヹ*/ U, /*ヺ*/ U, /*・*/ P, /*ー*/ P, /*ヽ*/ P, /*ヾ*/ P, /*ヿ*/ P,
 ];
 
+pub(crate) fn is_katakana(c: char) -> bool {
+    test_katakana(c, U)
+}
+
 #[inline]
 #[allow(unused)]
-fn is_kana(c: char, class: Class) -> bool {
+fn test_katakana(c: char, class: Class) -> bool {
     let Ok(c) = usize::try_from(c as u32) else {
         return false;
     };
@@ -277,9 +281,13 @@ fn is_kana(c: char, class: Class) -> bool {
     *c == class
 }
 
+pub(crate) fn is_hiragana(c: char) -> bool {
+    test_hiragana(c, U)
+}
+
 #[inline]
 #[allow(unused)]
-fn is_hira(c: char, class: Class) -> bool {
+fn test_hiragana(c: char, class: Class) -> bool {
     let Ok(c) = usize::try_from(c as u32) else {
         return false;
     };

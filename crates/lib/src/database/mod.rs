@@ -14,11 +14,12 @@ use musli_storage::Encoding;
 use musli_zerocopy::{swiss, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
-use crate::inflection;
 use crate::inflection::Inflection;
 use crate::jmdict::{self, EntryKey};
 use crate::kanjidic2;
+use crate::romaji::{is_hiragana, is_katakana, Segment};
 use crate::PartOfSpeech;
+use crate::{inflection, romaji};
 
 /// A deserialized database entry.
 pub enum Entry<'a> {
@@ -45,6 +46,41 @@ pub struct EntryResultKey {
     pub sources: BTreeSet<IndexSource>,
 }
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    ZeroCopy,
+)]
+#[non_exhaustive]
+#[serde(tag = "type")]
+#[repr(u8)]
+pub enum KanjiReading {
+    /// The literal reading.
+    Literal,
+    Kunyomi,
+    KunyomiFull,
+    KunyomiRomanize,
+    KunyomiKatakana,
+    /// This includes the contextual kunyomi part as well.
+    KunyomiFullRomanize,
+    KunyomiFullKatakana,
+    Onyomi,
+    OnyomiRomanize,
+    OnyomiHiragana,
+    Meaning,
+    Other,
+}
+
 /// Extra information about an index.
 #[derive(
     Debug,
@@ -69,7 +105,7 @@ pub enum IndexSource {
     #[serde(rename = "base")]
     Word,
     #[serde(rename = "kanji")]
-    Kanji,
+    Kanji { reading: KanjiReading },
     /// Index was added because of a verb inflection.
     #[serde(rename = "verb-c")]
     VerbInflection {
@@ -110,10 +146,10 @@ impl Id {
         }
     }
 
-    fn kanji(index: u32) -> Self {
+    fn kanji_reading(index: u32, reading: KanjiReading) -> Self {
         Self {
             index,
-            source: IndexSource::Kanji,
+            source: IndexSource::Kanji { reading },
         }
     }
 
@@ -176,16 +212,46 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
 
         let kanji_ref = buf.store_slice(&output).offset() as u32;
 
-        readings.push((Cow::Borrowed(c.literal), Id::kanji(kanji_ref)));
+        readings.push((
+            Cow::Borrowed(c.literal),
+            Id::kanji_reading(kanji_ref, KanjiReading::Literal),
+        ));
 
         for reading in &c.reading_meaning.readings {
-            let text = if let Some((prefix, _)) = reading.text.split_once('.') {
-                Cow::Borrowed(prefix)
-            } else {
-                Cow::Borrowed(reading.text)
-            };
+            match reading.ty {
+                "ja_kun" => {
+                    if let Some((prefix, _)) = reading.text.split_once('.') {
+                        let a = Id::kanji_reading(kanji_ref, KanjiReading::KunyomiRomanize);
+                        let b = Id::kanji_reading(kanji_ref, KanjiReading::KunyomiKatakana);
+                        other_readings(&mut readings, prefix, a, b, |s| s.katakana());
+                        let id = Id::kanji_reading(kanji_ref, KanjiReading::Kunyomi);
+                        readings.push((Cow::Borrowed(prefix), id));
+                    }
 
-            readings.push((text, Id::kanji(kanji_ref)));
+                    let a = Id::kanji_reading(kanji_ref, KanjiReading::KunyomiFullRomanize);
+                    let b = Id::kanji_reading(kanji_ref, KanjiReading::KunyomiFullKatakana);
+                    other_readings(&mut readings, reading.text, a, b, |s| s.katakana());
+
+                    let id = Id::kanji_reading(kanji_ref, KanjiReading::KunyomiFull);
+                    readings.push((Cow::Borrowed(reading.text), id));
+                }
+                "ja_on" => {
+                    let a = Id::kanji_reading(kanji_ref, KanjiReading::OnyomiRomanize);
+                    let b = Id::kanji_reading(kanji_ref, KanjiReading::OnyomiHiragana);
+                    other_readings(&mut readings, reading.text, a, b, |s| s.hiragana());
+                    let id = Id::kanji_reading(kanji_ref, KanjiReading::Onyomi);
+                    readings.push((Cow::Borrowed(reading.text), id));
+                }
+                _ => {
+                    let id = Id::kanji_reading(kanji_ref, KanjiReading::Other);
+                    readings.push((Cow::Borrowed(reading.text), id));
+                }
+            };
+        }
+
+        for meaning in &c.reading_meaning.meanings {
+            let id = Id::kanji_reading(kanji_ref, KanjiReading::Meaning);
+            populate_analyzed(meaning.text, &mut readings, id);
         }
     }
 
@@ -209,37 +275,14 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
                 by_pos.entry(pos).or_default().insert(entry_ref);
             }
 
-            fn is_common(phrase: &str) -> bool {
-                match phrase {
-                    "to" | "a" | "in" | "of" | "for" | "so" | "if" | "by" | "but" | "not"
-                    | "any" | "way" | "into" => true,
-                    string if string.starts_with("e.g.") => {
-                        if let Some(rest) = string.strip_prefix("e.g. ") {
-                            is_common(rest)
-                        } else {
-                            string == "e.g."
-                        }
-                    }
-                    _ => false,
-                }
-            }
+            let id = Id::new(entry_ref);
 
             for g in &sense.gloss {
                 if g.ty == Some("expl") {
                     continue;
                 }
 
-                for phrase in analyze_glossary::analyze(g.text) {
-                    if phrase.chars().count() > 32 {
-                        continue;
-                    }
-
-                    // Skip overly common prefixes which would mostly just be
-                    // unhelpful to index.
-                    if !is_common(phrase) {
-                        readings.push((Cow::Borrowed(phrase), Id::new(entry_ref)));
-                    }
-                }
+                populate_analyzed(g.text, &mut readings, id);
             }
         }
 
@@ -376,6 +419,54 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
     Ok(buf)
 }
 
+fn populate_analyzed<'a>(text: &'a str, readings: &mut Vec<(Cow<'a, str>, Id)>, id: Id) {
+    fn is_common(phrase: &str) -> bool {
+        match phrase {
+            "to" | "a" | "in" | "of" | "for" | "so" | "if" | "by" | "but" | "not" | "any"
+            | "way" | "into" => true,
+            string if string.starts_with("e.g.") => {
+                if let Some(rest) = string.strip_prefix("e.g. ") {
+                    is_common(rest)
+                } else {
+                    string == "e.g."
+                }
+            }
+            _ => false,
+        }
+    }
+
+    for phrase in analyze_glossary::analyze(text) {
+        if phrase.chars().count() > 32 {
+            continue;
+        }
+
+        // Skip overly common prefixes which would mostly just be
+        // unhelpful to index.
+        if !is_common(phrase) {
+            readings.push((Cow::Borrowed(phrase), id));
+        }
+    }
+}
+
+fn other_readings(
+    output: &mut Vec<(Cow<'_, str>, Id)>,
+    text: &str,
+    a: Id,
+    b: Id,
+    f: for<'a> fn(&'a Segment<'_>) -> &'a str,
+) {
+    let mut romanized = String::new();
+    let mut other = String::new();
+
+    for part in romaji::analyze(text) {
+        romanized += part.romanize();
+        other += f(&part);
+    }
+
+    output.push((Cow::Owned(romanized), a));
+    output.push((Cow::Owned(other), b));
+}
+
 #[derive(Clone)]
 pub struct Database<'a> {
     index: &'a Index,
@@ -407,7 +498,7 @@ impl<'a> Database<'a> {
         };
 
         Ok(match id.source {
-            IndexSource::Kanji => Entry::Kanji(ENCODING.from_slice(bytes)?),
+            IndexSource::Kanji { .. } => Entry::Kanji(ENCODING.from_slice(bytes)?),
             _ => Entry::Dict(ENCODING.from_slice(bytes)?),
         })
     }
@@ -456,12 +547,14 @@ impl<'a> Database<'a> {
         let mut entries = Vec::new();
         let mut characters = Vec::new();
         let mut dedup = HashMap::new();
-        let mut seen_characters = HashSet::new();
+        let mut seen = HashSet::new();
+
+        self.populate_kanji(input, &mut seen, &mut characters)?;
 
         for id in self.lookup(input)? {
             let entry = match self.get(id)? {
                 Entry::Kanji(kanji) => {
-                    if seen_characters.insert(kanji.literal) {
+                    if seen.insert(kanji.literal) {
                         characters.push(kanji);
                     }
 
@@ -495,10 +588,50 @@ impl<'a> Database<'a> {
             data.key = e.sort_key(input, inflection);
         }
 
+        entries.sort_by(|a, b| a.0.key.cmp(&b.0.key));
+
+        for (_, entry) in &entries {
+            for kanji in &entry.kanji_elements {
+                self.populate_kanji(kanji.text, &mut seen, &mut characters)?;
+            }
+        }
+
         Ok(Search {
             entries,
             characters,
         })
+    }
+
+    fn populate_kanji(
+        &self,
+        input: &str,
+        seen: &mut HashSet<&'a str>,
+        out: &mut Vec<kanjidic2::Character<'a>>,
+    ) -> Result<(), anyhow::Error> {
+        for c in input.chars() {
+            if is_katakana(c) || is_hiragana(c) || c.is_ascii_alphabetic() {
+                continue;
+            }
+
+            for id in self.lookup(c.encode_utf8(&mut [0; 4]))? {
+                if !matches!(
+                    id.source,
+                    IndexSource::Kanji {
+                        reading: KanjiReading::Literal
+                    }
+                ) {
+                    continue;
+                }
+
+                if let Entry::Kanji(kanji) = self.get(id)? {
+                    if seen.insert(kanji.literal) {
+                        out.push(kanji);
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Analyze the given string, looking it up in the database and returning
