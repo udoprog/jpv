@@ -6,7 +6,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use lib::database::{Database, IndexSource};
+use lib::database::{Database, Entry, IndexSource};
 use lib::inflection;
 use lib::{Form, Furigana, PartOfSpeech};
 use tracing_subscriber::util::SubscriberInitExt;
@@ -180,7 +180,9 @@ fn main() -> Result<()> {
             _ => None,
         };
 
-        let d = db.get(*index)?;
+        let Entry::Dict(d) = db.get(*index)? else {
+            continue;
+        };
 
         if let Some(extra) = extra {
             println!("{extra}");

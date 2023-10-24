@@ -11,7 +11,8 @@ use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use clap::Parser;
 use lib::database::{Database, EntryResultKey};
-use lib::jmdict::{Entry, EntryKey};
+use lib::jmdict;
+use lib::kanjidic2;
 use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
 #[cfg(windows)]
@@ -101,12 +102,13 @@ struct SearchRequest {
 #[derive(Serialize)]
 struct SearchEntry {
     key: EntryResultKey,
-    entry: Entry<'static>,
+    entry: jmdict::Entry<'static>,
 }
 
 #[derive(Serialize)]
 struct SearchResponse {
     entries: Vec<SearchEntry>,
+    characters: Vec<kanjidic2::Character<'static>>,
 }
 
 async fn search(
@@ -119,12 +121,18 @@ async fn search(
 
     let mut entries = Vec::new();
 
-    for (key, entry) in db.search(q)? {
+    let search = db.search(q)?;
+
+    for (key, entry) in search.entries {
         entries.push(SearchEntry { key, entry });
     }
 
     entries.sort_by(|a, b| a.key.key.cmp(&b.key.key));
-    Ok(Json(SearchResponse { entries }))
+
+    Ok(Json(SearchResponse {
+        entries,
+        characters: search.characters,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -135,7 +143,7 @@ struct AnalyzeRequest {
 
 #[derive(Serialize)]
 struct AnalyzeEntry {
-    key: EntryKey,
+    key: jmdict::EntryKey,
     string: String,
 }
 

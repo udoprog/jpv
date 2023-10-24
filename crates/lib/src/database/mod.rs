@@ -16,9 +16,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::inflection;
 use crate::inflection::Inflection;
-use crate::jmdict::{self, Entry, EntryKey};
+use crate::jmdict::{self, EntryKey};
 use crate::kanjidic2;
 use crate::PartOfSpeech;
+
+/// A deserialized database entry.
+pub enum Entry<'a> {
+    Kanji(kanjidic2::Character<'a>),
+    Dict(jmdict::Entry<'a>),
+}
 
 #[derive(ZeroCopy)]
 #[repr(C)]
@@ -61,7 +67,7 @@ pub struct EntryResultKey {
 pub enum IndexSource {
     /// No extra information on why the index was added.
     #[serde(rename = "base")]
-    None,
+    Word,
     #[serde(rename = "kanji")]
     Kanji,
     /// Index was added because of a verb inflection.
@@ -93,21 +99,28 @@ impl IndexSource {
 #[repr(C)]
 pub struct Id {
     index: u32,
-    extra: IndexSource,
+    source: IndexSource,
 }
 
 impl Id {
     fn new(index: u32) -> Self {
         Self {
             index,
-            extra: IndexSource::None,
+            source: IndexSource::Word,
+        }
+    }
+
+    fn kanji(index: u32) -> Self {
+        Self {
+            index,
+            source: IndexSource::Kanji,
         }
     }
 
     fn verb_inflection(index: u32, reading: inflection::Reading, inflection: Inflection) -> Self {
         Self {
             index,
-            extra: IndexSource::VerbInflection {
+            source: IndexSource::VerbInflection {
                 reading,
                 inflection,
             },
@@ -121,7 +134,7 @@ impl Id {
     ) -> Self {
         Self {
             index,
-            extra: IndexSource::AdjectiveInflection {
+            source: IndexSource::AdjectiveInflection {
                 reading,
                 inflection,
             },
@@ -135,8 +148,14 @@ impl Id {
 
     /// Extra information on index.
     pub fn source(&self) -> IndexSource {
-        self.extra
+        self.source
     }
+}
+
+/// A search result.
+pub struct Search<'a> {
+    pub entries: Vec<(EntryResultKey, jmdict::Entry<'a>)>,
+    pub characters: Vec<kanjidic2::Character<'a>>,
 }
 
 /// Load the given dictionary and convert into the internal format.
@@ -147,6 +166,7 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
     let mut output = Vec::new();
 
     let mut kanjidic2 = kanjidic2::Parser::new(kanjidic2);
+    let mut readings = Vec::new();
 
     tracing::info!("Parsing kanjidic");
 
@@ -156,15 +176,22 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
 
         let kanji_ref = buf.store_slice(&output).offset() as u32;
 
-        // for reading in c.reading_meanings.readings {}
+        readings.push((Cow::Borrowed(c.literal), Id::kanji(kanji_ref)));
 
-        let _ = c;
+        for reading in &c.reading_meaning.readings {
+            let text = if let Some((prefix, _)) = reading.text.split_once('.') {
+                Cow::Borrowed(prefix)
+            } else {
+                Cow::Borrowed(reading.text)
+            };
+
+            readings.push((text, Id::kanji(kanji_ref)));
+        }
     }
 
     tracing::info!("Parsing JMdict");
 
     let mut jmdict = jmdict::Parser::new(jmdict);
-    let mut readings = Vec::new();
 
     let mut by_sequence = HashMap::new();
     let mut by_pos = HashMap::<_, HashSet<_>>::new();
@@ -379,7 +406,10 @@ impl<'a> Database<'a> {
             return Err(anyhow!("Missing entry at {}", id.index()));
         };
 
-        Ok(ENCODING.from_slice(bytes)?)
+        Ok(match id.source {
+            IndexSource::Kanji => Entry::Kanji(ENCODING.from_slice(bytes)?),
+            _ => Entry::Dict(ENCODING.from_slice(bytes)?),
+        })
     }
 
     /// Get indexes by part of speech.
@@ -422,12 +452,23 @@ impl<'a> Database<'a> {
     }
 
     /// Perform the given search.
-    pub fn search(&self, input: &str) -> Result<Vec<(EntryResultKey, Entry<'a>)>> {
+    pub fn search(&self, input: &str) -> Result<Search<'a>> {
         let mut entries = Vec::new();
+        let mut characters = Vec::new();
         let mut dedup = HashMap::new();
+        let mut seen_characters = HashSet::new();
 
         for id in self.lookup(input)? {
-            let entry = self.get(id)?;
+            let entry = match self.get(id)? {
+                Entry::Kanji(kanji) => {
+                    if seen_characters.insert(kanji.literal) {
+                        characters.push(kanji);
+                    }
+
+                    continue;
+                }
+                Entry::Dict(entry) => entry,
+            };
 
             let Some(&i) = dedup.get(&id.index()) else {
                 dedup.insert(id.index(), entries.len());
@@ -454,7 +495,10 @@ impl<'a> Database<'a> {
             data.key = e.sort_key(input, inflection);
         }
 
-        Ok(entries)
+        Ok(Search {
+            entries,
+            characters,
+        })
     }
 
     /// Analyze the given string, looking it up in the database and returning
@@ -480,7 +524,7 @@ impl<'a> Database<'a> {
             };
 
             for id in lookup {
-                let Ok(e) = self.get(id) else {
+                let Ok(Entry::Dict(e)) = self.get(id) else {
                     continue;
                 };
 

@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use lib::database::EntryResultKey;
-use lib::jmdict::{EntryKey, OwnedEntry};
+use lib::jmdict;
+use lib::kanjidic2;
 use lib::romaji;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
@@ -111,7 +112,8 @@ impl Query {
 #[derive(Default)]
 pub(crate) struct Prompt {
     query: Query,
-    entries: Vec<(EntryResultKey, OwnedEntry)>,
+    entries: Vec<(EntryResultKey, jmdict::OwnedEntry)>,
+    characters: Vec<kanjidic2::OwnedCharacter>,
     _handle: Option<LocationHandle>,
 }
 
@@ -120,7 +122,7 @@ impl Prompt {
         if let Some(db) = &*ctx.props().db {
             let input = input.to_lowercase();
 
-            let entries = match db.search(&input) {
+            let search = match db.search(&input) {
                 Ok(entries) => entries,
                 Err(error) => {
                     log::error!("Search failed: {error}");
@@ -128,7 +130,8 @@ impl Prompt {
                 }
             };
 
-            self.entries = entries
+            self.entries = search
+                .entries
                 .into_iter()
                 .map(|(key, e)| (key, borrowme::to_owned(e)))
                 .collect();
@@ -146,7 +149,11 @@ impl Prompt {
         }
     }
 
-    fn analyze(&mut self, ctx: &Context<Self>, start: usize) -> Option<BTreeMap<EntryKey, String>> {
+    fn analyze(
+        &mut self,
+        ctx: &Context<Self>,
+        start: usize,
+    ) -> Option<BTreeMap<jmdict::EntryKey, String>> {
         let Some(db) = &*ctx.props().db else {
             let input = self.query.q.clone();
 
@@ -218,7 +225,8 @@ impl Component for Prompt {
 
         let mut this = Self {
             query,
-            entries: Default::default(),
+            entries: Vec::default(),
+            characters: Vec::default(),
             _handle: handle,
         };
 
@@ -239,6 +247,7 @@ impl Component for Prompt {
                     .map(|e| (e.key, e.entry))
                     .collect();
                 self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
+                self.characters = response.characters;
                 true
             }
             Msg::AnalyzeResponse(response) => {
@@ -341,32 +350,6 @@ impl Component for Prompt {
             .link()
             .batch_callback(|_: Event| Some(Msg::Mode(Mode::Katakana)));
 
-        let entries = (!self.entries.is_empty()).then(|| {
-            let entries = c::entry::seq(self.entries.iter(), |(data, entry), not_last| {
-                let entry: OwnedEntry = entry.clone();
-
-                let change = ctx.link().callback(|(input, translation)| {
-                    Msg::ForceChange(input, translation)
-                });
-
-                let entry = html!(<c::Entry sources={data.sources.clone()} entry_key={data.key.clone()} entry={entry} onchange={change} />);
-
-                if not_last {
-                    html!(<>{entry}<div class="entry-separator" /></>)
-                } else {
-                    entry
-                }
-            });
-
-            html! {
-                <div class="block block-lg">
-                    <div class="entry-separator" />
-                    {for entries}
-                    <div class="entry-separator" />
-                </div>
-            }
-        });
-
         let mut rem = 0;
 
         let analyze = if self.query.q.is_empty() {
@@ -447,6 +430,57 @@ impl Component for Prompt {
             }
         });
 
+        let entries = (!self.entries.is_empty()).then(|| {
+            let entries = c::entry::seq(self.entries.iter(), |(data, entry), not_last| {
+                let entry: jmdict::OwnedEntry = entry.clone();
+
+                let change = ctx.link().callback(|(input, translation)| {
+                    Msg::ForceChange(input, translation)
+                });
+
+                let entry = html!(<c::Entry sources={data.sources.clone()} entry_key={data.key.clone()} entry={entry} onchange={change} />);
+
+                if not_last {
+                    html!(<>{entry}<div class="entry-separator" /></>)
+                } else {
+                    entry
+                }
+            });
+
+            html! {
+                <div class="block block-lg">
+                    <div class="entry-separator" />
+                    {for entries}
+                    <div class="entry-separator" />
+                </div>
+            }
+        });
+
+        let entries = if self.characters.is_empty() {
+            html!({for entries})
+        } else {
+            let characters = c::entry::seq(self.characters.iter(), |c, not_last| {
+                let separator = not_last.then(|| html!(<div class="character-separator" />));
+
+                html! {
+                    <>
+                        <div class="character">
+                            <div class="literal">{c.literal.clone()}</div>
+                        </div>
+
+                        {for separator}
+                    </>
+                }
+            });
+
+            html! {
+                <div class="columns">
+                    <div class="column">{for entries}</div>
+                    <div class="column">{for characters}</div>
+                </div>
+            }
+        };
+
         html! {
             <BrowserRouter>
                 <div id="container">
@@ -478,7 +512,7 @@ impl Component for Prompt {
                     <>
                         {analyze}
                         {for translation}
-                        {for entries}
+                        {entries}
                     </>
 
                     <div class="block block-xl" id="copyright">{copyright()}</div>

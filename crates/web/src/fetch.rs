@@ -1,6 +1,7 @@
 use anyhow::Context;
 use lib::database::EntryResultKey;
-use lib::jmdict::{EntryKey, OwnedEntry};
+use lib::jmdict;
+use lib::kanjidic2;
 use serde::{de::DeserializeOwned, Deserialize};
 use thiserror::Error;
 use url::Url;
@@ -29,12 +30,13 @@ impl From<JsValue> for FetchError {
 #[derive(Deserialize)]
 pub struct SearchEntry {
     pub key: EntryResultKey,
-    pub entry: OwnedEntry,
+    pub entry: jmdict::OwnedEntry,
 }
 
 #[derive(Deserialize)]
 pub struct SearchResponse {
     pub entries: Vec<SearchEntry>,
+    pub characters: Vec<kanjidic2::OwnedCharacter>,
 }
 
 /// Perform the given search.
@@ -44,7 +46,7 @@ pub(crate) async fn search(q: &str) -> Result<SearchResponse, FetchError> {
 
 #[derive(Deserialize)]
 pub struct AnalyzeEntry {
-    pub key: EntryKey,
+    pub key: jmdict::EntryKey,
     pub string: String,
 }
 

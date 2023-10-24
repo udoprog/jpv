@@ -57,7 +57,7 @@ mod array;
 pub use self::parser::Parser;
 mod parser;
 
-pub use self::character::Character;
+pub use self::character::{Character, OwnedCharacter};
 mod character;
 
 pub use self::header::Header;
