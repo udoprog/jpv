@@ -59,16 +59,16 @@ impl fmt::Display for Full<'_> {
 
 /// A kana pair made up of many text fragments.
 #[derive(Default, Clone)]
-pub struct Fragments<'a, const N: usize, const S: usize> {
+pub struct Fragments<'a> {
     // Text prefix.
-    text: Concat<'a, N>,
+    text: Concat<'a, 3>,
     // Reading prefix.
-    reading: Concat<'a, N>,
+    reading: Concat<'a, 3>,
     // Suffix always guaranteed to be kana.
-    suffix: Concat<'a, S>,
+    suffix: Concat<'a, 4>,
 }
 
-impl<'a, const N: usize, const S: usize> Fragments<'a, N, S> {
+impl<'a> Fragments<'a> {
     /// Construct a kanji/reading pair with a common suffix.
     pub fn new<A, B, C>(text: A, reading: B, suffix: C) -> Self
     where
@@ -89,21 +89,21 @@ impl<'a, const N: usize, const S: usize> Fragments<'a, N, S> {
     }
 
     /// Access text prefix.
-    pub(crate) fn text(&self) -> &Concat<'a, N> {
+    pub(crate) fn text(&self) -> &Concat<'a, 3> {
         &self.text
     }
 
     /// Access reading prefix.
-    pub(crate) fn reading(&self) -> &Concat<'a, N> {
+    pub(crate) fn reading(&self) -> &Concat<'a, 3> {
         &self.reading
     }
 
     /// Access shared suffix.
-    pub(crate) fn suffix(&self) -> &Concat<'a, S> {
+    pub(crate) fn suffix(&self) -> &Concat<'a, 4> {
         &self.suffix
     }
 
-    pub fn furigana(&self) -> Furigana<'a, N, S> {
+    pub fn furigana(&self) -> Furigana<'a, 3, 4> {
         Furigana::inner(self.text.clone(), self.reading.clone(), self.suffix.clone())
     }
 
@@ -127,7 +127,7 @@ impl<'a, const N: usize, const S: usize> Fragments<'a, N, S> {
     }
 }
 
-impl<const N: usize, const S: usize> fmt::Display for Fragments<'_, N, S> {
+impl fmt::Display for Fragments<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
@@ -136,7 +136,7 @@ impl<const N: usize, const S: usize> fmt::Display for Fragments<'_, N, S> {
             suffix,
         } = self;
 
-        write!(f, "{kanji}{suffix} ({reading}{suffix})",)?;
+        write!(f, "{kanji}{suffix} [{reading}{suffix}]",)?;
         Ok(())
     }
 }

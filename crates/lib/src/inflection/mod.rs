@@ -71,7 +71,7 @@ pub enum Form {
     Polite,
     /// Conversational form.
     Conversation,
-    /// Alternate forms, when available.
+    /// Alternate shortened form, when available.
     Short,
     /// Alternate form using kudasai.
     Kudasai,
@@ -301,7 +301,7 @@ impl BitAndAssign for Inflection {
 pub struct Inflections<'a> {
     pub dictionary: Full<'a>,
     #[borrowme(owned = BTreeMap<Inflection, OwnedFull>, with = self::inflections)]
-    pub inflections: BTreeMap<Inflection, Fragments<'a, 3, 4>>,
+    pub inflections: BTreeMap<Inflection, Fragments<'a>>,
 }
 
 impl<'a> Inflections<'a> {
@@ -313,12 +313,7 @@ impl<'a> Inflections<'a> {
     }
 
     /// Insert a value into this collection of inflections.
-    pub(crate) fn insert(
-        &mut self,
-        inflect: &[Form],
-        inflect2: &[Form],
-        word: Fragments<'a, 3, 4>,
-    ) {
+    pub(crate) fn insert(&mut self, inflect: &[Form], inflect2: &[Form], word: Fragments<'a>) {
         let mut form = crate::macro_support::fixed_map::Set::new();
 
         for f in inflect {
@@ -349,12 +344,12 @@ impl<'a> Inflections<'a> {
     }
 
     /// Get a inflection.
-    pub fn get(&self, inflection: Inflection) -> Option<&Fragments<'a, 3, 4>> {
+    pub fn get(&self, inflection: Inflection) -> Option<&Fragments<'a>> {
         self.inflections.get(&inflection)
     }
 
     /// Iterate over all inflections.
-    pub fn iter(&self) -> impl Iterator<Item = (&Inflection, &Fragments<'a, 3, 4>)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&Inflection, &Fragments<'a>)> + '_ {
         self.inflections.iter()
     }
 }
@@ -377,8 +372,8 @@ mod inflections {
     use crate::kana::{Fragments, OwnedFull};
     use crate::Inflection;
 
-    pub(crate) fn to_owned<const N: usize, const S: usize>(
-        this: &BTreeMap<Inflection, Fragments<'_, N, S>>,
+    pub(crate) fn to_owned(
+        this: &BTreeMap<Inflection, Fragments<'_>>,
     ) -> BTreeMap<Inflection, OwnedFull> {
         let mut out = BTreeMap::new();
 
@@ -396,9 +391,9 @@ mod inflections {
         out
     }
 
-    pub(crate) fn borrow<const N: usize, const S: usize>(
+    pub(crate) fn borrow(
         this: &BTreeMap<Inflection, OwnedFull>,
-    ) -> BTreeMap<Inflection, Fragments<'_, N, S>> {
+    ) -> BTreeMap<Inflection, Fragments<'_>> {
         let mut out = BTreeMap::new();
 
         for (key, value) in this {

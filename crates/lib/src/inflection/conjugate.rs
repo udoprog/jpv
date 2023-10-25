@@ -83,7 +83,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             let mut inflections = Inflections::new(Full::new(kanji_text, reading_text, ""));
 
             let kind;
-            let chau_stem: Option<(Fragments<'_, 3, 4>, bool)>;
+            let chau_stem: Option<(Fragments<'_>, bool)>;
 
             macro_rules! allowlist {
                 ($($expected:literal),*) => {
@@ -307,11 +307,11 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         );
                     });
 
+                    kind = Kind::Verb;
                     chau_stem = Some((
                         Fragments::new([kanji_stem], [reading_prefix, "し"], []),
                         false,
                     ));
-                    kind = Kind::Verb;
                 }
                 PartOfSpeech::VerbKuru => {
                     let Some((kanji_stem, reading_prefix)) =
@@ -383,6 +383,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
 
             if let Some(te) = inflections.get(inflect!(Te)).cloned() {
                 inflections.insert(&[TeIru, Te, Short], &[], te.concat(["る"]));
+                inflections.insert(&[TeIru, Te, Past, Short], &[], te.concat(["た"]));
 
                 macros::ichidan(|suffix, inflect| {
                     inflections.insert(inflect, &[TeIru, Te], te.concat(["い", suffix]))
