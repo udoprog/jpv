@@ -363,7 +363,7 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         tracing::info!("Reused {} string(s) (out of {})", reuse, total);
     }
 
-    tracing::info!("Serializing to zerocopy structure");
+    tracing::info!("Serializing to zerocopy structure (at {})", buf.len());
 
     let lookup = {
         let mut entries = Vec::new();
