@@ -13,7 +13,7 @@ use fixed_map::raw::RawStorage;
 use fixed_map::{Key, Set};
 use musli::{Decode, Encode};
 use musli_zerocopy::buf::{Padder, Validator};
-use musli_zerocopy::ZeroCopy;
+use musli_zerocopy::{ByteOrder, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
 use crate::kana::{Fragments, Full, OwnedFull};
@@ -206,13 +206,25 @@ where
 {
     const ANY_BITS: bool = false;
     const PADDED: bool = false;
+    const CAN_SWAP_BYTES: bool = <<Form as Key>::SetStorage as RawStorage>::Value::CAN_SWAP_BYTES;
 
+    #[inline]
     unsafe fn validate(v: &mut Validator<'_, Self>) -> Result<(), musli_zerocopy::Error> {
         <<Form as Key>::SetStorage as RawStorage>::Value::validate(v.transparent())
     }
 
+    #[inline]
     unsafe fn pad(p: &mut Padder<'_, Self>) {
         <<Form as Key>::SetStorage as RawStorage>::Value::pad(p.transparent())
+    }
+
+    #[inline]
+    fn swap_bytes<E: ByteOrder>(self) -> Self {
+        let form = <<Form as Key>::SetStorage as RawStorage>::Value::swap_bytes(self.form.as_raw());
+
+        Inflection {
+            form: Set::from_raw(form),
+        }
     }
 }
 

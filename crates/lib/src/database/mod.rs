@@ -4,7 +4,7 @@ mod analyze_glossary;
 
 use std::borrow::Cow;
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use anyhow::{anyhow, Result};
 use musli::mode::DefaultMode;
@@ -318,6 +318,7 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
     readings.sort_by_cached_key(|a| (Reverse(a.0.chars().count()), a.0.clone()));
 
     let mut lookup = HashMap::<_, Vec<_>>::new();
+    let mut queue = VecDeque::new();
 
     tracing::info!("Inserting {} readings", readings.len());
 
@@ -326,7 +327,7 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         let mut reuse = 0usize;
         let mut total = 0usize;
 
-        for (index, (key, id)) in readings.into_iter().enumerate() {
+        for (index, (key, id)) in readings.iter().enumerate() {
             if index % 100000 == 0 {
                 tracing::info!("Building strings: {}: {key}", index);
             }
@@ -335,28 +336,42 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
 
             let (unsize, substring) = if let Some(existing) = existing.get(key.as_ref()) {
                 reuse += 1;
-                (Ref::with_metadata(*existing, key.len()), true)
+                let unsize = Ref::with_metadata(*existing, key.len());
+                debug_assert_eq!(buf.load(unsize)?, key.as_ref());
+                (unsize, true)
             } else {
                 let unsize = buf.store_unsized(key.as_ref());
                 (unsize, false)
             };
 
-            lookup.entry(unsize).or_default().push(id);
+            lookup.entry(unsize).or_default().push(*id);
 
-            if !substring {
-                for (n, _) in key.char_indices() {
-                    let mut s = String::new();
+            if !substring && !existing.contains_key(key.as_ref()) {
+                let mut it = key.char_indices();
 
-                    for c in key[n..].chars() {
-                        s.push(c);
+                queue.push_back(it.clone());
 
-                        if !existing.contains_key(&s) {
-                            existing.insert(s.clone(), unsize.offset() + n);
-                        }
+                while it.next_back().is_some() && !it.as_str().is_empty() {
+                    if !existing.contains_key(it.as_str()) {
+                        queue.push_back(it.clone());
                     }
                 }
 
-                existing.insert(key.into_owned(), unsize.offset());
+                while let Some(mut it) = queue.pop_front() {
+                    if !existing.contains_key(it.as_str()) {
+                        existing.insert(it.as_str(), unsize.offset());
+                    }
+
+                    while let Some((base, c)) = it.next() {
+                        if it.as_str().is_empty() {
+                            continue;
+                        }
+
+                        if !existing.contains_key(it.as_str()) {
+                            existing.insert(it.as_str(), unsize.offset() + base + c.len_utf8());
+                        }
+                    }
+                }
             }
         }
 
@@ -511,7 +526,7 @@ impl<'a> Database<'a> {
         if let Some(by_pos) = self.index.by_pos.get(self.data, &pos)? {
             tracing::trace!(?by_pos);
 
-            for id in self.data.load(by_pos)? {
+            for id in self.data.load(*by_pos)? {
                 output.push(Id::new(*id));
             }
         }
@@ -528,7 +543,7 @@ impl<'a> Database<'a> {
         if let Some(lookup) = self.index.lookup.get(self.data, query)? {
             tracing::trace!(?lookup);
 
-            for id in self.data.load(lookup)? {
+            for id in self.data.load(*lookup)? {
                 output.push(*id);
             }
         }
