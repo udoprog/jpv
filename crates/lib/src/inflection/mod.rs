@@ -33,7 +33,7 @@ use crate::kana::{Fragments, Full, OwnedFull};
     Deserialize,
     Key,
 )]
-#[key(bitset)]
+#[key(bitset = 8)]
 #[serde(rename_all = "kebab-case")]
 pub enum Form {
     /// The stem of the word.

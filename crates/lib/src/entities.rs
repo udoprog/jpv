@@ -1,7 +1,6 @@
 use fixed_map::Key;
 use musli::{Decode, Encode};
-use musli_zerocopy::buf::Visit;
-use musli_zerocopy::ZeroCopy;
+use musli_zerocopy::{Visit, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
 macro_rules! entity {

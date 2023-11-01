@@ -1042,18 +1042,18 @@ dependencies = [
 
 [[package]]
 name = "musli"
-version = "0.0.83"
+version = "0.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9577159e739e97ecfbdcc7fa623938394f5140852612b17f54390d04e73b8b0f"
+checksum = "2e71b09e0c842053b1fbe1e3705c97ced5a5f0463b9ff5ebeb4415ccdf3804f9"
 dependencies = [
  "musli-macros",
 ]
 
 [[package]]
 name = "musli-common"
-version = "0.0.83"
+version = "0.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cad0fc0a00a61736980d644d259c83c236226f448efd2b231eb81dca9768b1e"
+checksum = "84ab2cd3c65861bc1167756acedf72cc4a12eaac96bcfc4efd34278f5027bcd2"
 dependencies = [
  "musli",
  "simdutf8",
@@ -1061,9 +1061,9 @@ dependencies = [
 
 [[package]]
 name = "musli-macros"
-version = "0.0.83"
+version = "0.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1430a764278f05697250ca2061d3535ee6f0b6a15a7075a1eafeae1df7808c2d"
+checksum = "dddf8caa0022fab97641d910108d82e5d75fb3e6e4a86bbba42b03715e27addd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1072,9 +1072,9 @@ dependencies = [
 
 [[package]]
 name = "musli-storage"
-version = "0.0.83"
+version = "0.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0edc70d849e682517bd794998239750e77069ee2a68a2c15949be2a19f1f67cd"
+checksum = "2e83a9287c7c3b36add1b20f1988583a52d27155bbed2a931846ea6048339aaf"
 dependencies = [
  "musli",
  "musli-common",
@@ -1082,12 +1082,23 @@ dependencies = [
 
 [[package]]
 name = "musli-zerocopy"
-version = "0.0.83"
+version = "0.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d50e2ab04c3443b0e6c339a05640917fb8d31814fa416eb73c4a502387bdda6"
+checksum = "0430b893629bb84b9f67f98ee676d88c1439b4e142fcbcc4c942eead85eff3c8"
 dependencies = [
- "musli-macros",
+ "musli-zerocopy-macros",
  "rand",
+]
+
+[[package]]
+name = "musli-zerocopy-macros"
+version = "0.0.87"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60459523cdc6db98d7cc3ef2323f359fd4aac0e5c17cc20b4c1085c05d8b5429"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.38",
 ]
 
 [[package]]
@@ -2298,18 +2309,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.7.15"
+version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81ba595b9f2772fbee2312de30eeb80ec773b4cb2f1e8098db024afadda6c06f"
+checksum = "ede7d7c7970ca2215b8c1ccf4d4f354c4733201dfaaba72d44ae5b37472e4901"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.7.15"
+version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "772666c41fb6dceaf520b564b962d738a8e1a83b41bd48945f50837aed78bb1d"
+checksum = "4b27b1bb92570f989aac0ab7e9cbfbacdd65973f7ee920d9f0e71ebac878fd0b"
 dependencies = [
  "proc-macro2",
  "quote",

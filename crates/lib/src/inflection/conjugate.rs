@@ -55,7 +55,7 @@ pub enum ReadingOption<T> {
     Decode,
     ZeroCopy,
 )]
-#[repr(C)]
+#[repr(C, packed)]
 pub struct Reading {
     /// Index of the kanji that the reading matches, if one is present.
     pub kanji: u8,
