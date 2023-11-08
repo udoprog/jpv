@@ -2,7 +2,10 @@
 
 This is my personal dictionary project.
 
-To use, you'll have to download `JMdict_e_examp.gz` from <http://www.edrdg.org/wiki/index.php/Main_Page>, then run:
+To use, you'll have to download
+- `JMdict_e_examp.gz` from <http://www.edrdg.org/wiki/index.php/Main_Page>
+- `kanjidic2.xml.gz` from <http://www.edrdg.org/wiki/index.php/KANJIDIC_Project>
+and place them in the root of the repository, and then run:
 
 ```sh
 RUST_LOG="lib=info" cargo run --release -p tools --bin build-database
