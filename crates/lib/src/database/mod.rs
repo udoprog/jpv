@@ -1,146 +1,26 @@
 //! Database that can be used as a dictionary.
 
 mod analyze_glossary;
+mod string_indexer;
 
-use core::fmt;
 use std::borrow::Cow;
-use std::collections::btree_map;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::marker::PhantomData;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::Variable;
 use musli_storage::Encoding;
-use musli_zerocopy::buf::Load;
-use musli_zerocopy::{swiss, Buf, OwnedBuf, Ref, Visit, ZeroCopy};
+use musli_zerocopy::{swiss, trie, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
+use self::string_indexer::StringIndexer;
 use crate::inflection::Inflection;
 use crate::jmdict::{self, EntryKey};
 use crate::kanjidic2;
 use crate::romaji::{is_hiragana, is_katakana, Segment};
 use crate::PartOfSpeech;
 use crate::{inflection, romaji};
-
-/// A string reference aligned to 2 bytes so that it can be stored more compactly than an 8 byte reference.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ZeroCopy)]
-#[repr(C, packed)]
-pub(crate) struct StrRef {
-    offset: u32,
-    len: u16,
-}
-
-impl StrRef {
-    fn new<O, L>(offset: O, len: L) -> Self
-    where
-        u32: TryFrom<O>,
-        u16: TryFrom<L>,
-    {
-        let Ok(offset) = u32::try_from(offset) else {
-            panic!("Offset out of bounds")
-        };
-
-        let Ok(len) = u16::try_from(len) else {
-            panic!("Length out of bounds")
-        };
-
-        Self { offset, len }
-    }
-}
-
-impl Load for StrRef {
-    type Target = str;
-
-    #[inline]
-    fn load<'buf>(&self, buf: &'buf Buf) -> musli_zerocopy::Result<&'buf Self::Target> {
-        let unsize = Ref::<str>::with_metadata(self.offset, self.len);
-        buf.load(unsize)
-    }
-}
-
-impl Visit for StrRef {
-    type Target = str;
-
-    #[inline]
-    fn visit<V, O>(&self, buf: &Buf, visitor: V) -> musli_zerocopy::Result<O>
-    where
-        V: FnOnce(&Self::Target) -> O,
-    {
-        Ok(visitor(buf.load(*self)?))
-    }
-}
-
-/// A string reference aligned to 2 bytes so that it can be stored more compactly than an 8 byte reference.
-#[derive(ZeroCopy)]
-#[repr(C, packed)]
-pub(crate) struct Slice<T> {
-    offset: u32,
-    len: u16,
-    _marker: PhantomData<T>,
-}
-
-impl<T> Slice<T> {
-    fn new<O, L>(offset: O, len: L) -> Self
-    where
-        O: Copy + fmt::Debug,
-        L: Copy + fmt::Debug,
-        u32: TryFrom<O>,
-        u16: TryFrom<L>,
-    {
-        let Ok(offset) = u32::try_from(offset) else {
-            panic!("Offset {offset:?} out of bounds")
-        };
-
-        let Ok(len) = u16::try_from(len) else {
-            panic!("Length {len:?} out of bounds")
-        };
-
-        Self {
-            offset,
-            len,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T> Load for Slice<T>
-where
-    T: ZeroCopy,
-{
-    type Target = [T];
-
-    #[inline]
-    fn load<'buf>(&self, buf: &'buf Buf) -> musli_zerocopy::Result<&'buf Self::Target> {
-        let unsize = Ref::<[T]>::with_metadata(self.offset, self.len);
-        buf.load(unsize)
-    }
-}
-
-impl<T> Visit for Slice<T>
-where
-    T: ZeroCopy,
-{
-    type Target = [T];
-
-    #[inline]
-    fn visit<V, O>(&self, buf: &Buf, visitor: V) -> musli_zerocopy::Result<O>
-    where
-        V: FnOnce(&Self::Target) -> O,
-    {
-        Ok(visitor(buf.load(*self)?))
-    }
-}
-
-impl<T> Clone for Slice<T> {
-    #[inline]
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> Copy for Slice<T> {}
 
 /// A deserialized database entry.
 pub enum Entry<'a> {
@@ -151,10 +31,9 @@ pub enum Entry<'a> {
 #[derive(ZeroCopy)]
 #[repr(C)]
 pub(super) struct Index {
-    pub(super) lookup: swiss::MapRef<StrRef, Slice<StoredId>>,
+    pub(super) lookup: trie::TrieRef<Id>,
     pub(super) by_pos: swiss::MapRef<PartOfSpeech, Ref<[u32]>>,
     pub(super) by_sequence: swiss::MapRef<u32, u32>,
-    pub(super) sources: Ref<[IndexSource]>,
 }
 
 /// Encoding used for storing database.
@@ -250,19 +129,6 @@ impl IndexSource {
             IndexSource::AdjectiveInflection { .. } => true,
             _ => false,
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ZeroCopy)]
-#[repr(C, packed)]
-pub struct StoredId {
-    index: u32,
-    source: u16,
-}
-
-impl StoredId {
-    fn source(&self) -> usize {
-        self.source as usize
     }
 }
 
@@ -448,111 +314,40 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         }
     }
 
-    tracing::info!("Sorting readings");
-    readings.sort_by(|a, b| b.0.as_ref().cmp(a.0.as_ref()));
-
-    let mut lookup = HashMap::<_, Vec<_>>::new();
-
+    readings.sort_by(|(a, _), (b, _)| b.as_ref().cmp(a.as_ref()));
     tracing::info!("Inserting {} readings", readings.len());
 
-    let start = buf.len();
     let mut max = 0usize;
 
-    {
-        let mut existing = BTreeMap::<&str, usize>::new();
-        let mut reuse = 0usize;
-        let mut total = 0usize;
+    let mut indexer = StringIndexer::new();
 
-        for (index, (key, id)) in readings.iter().enumerate() {
-            if index % 100000 == 0 {
-                tracing::info!("Building strings: {}: {key:?}", index);
-            }
+    let mut readings2 = Vec::with_capacity(readings.len());
 
-            max = max.max(key.as_ref().len());
-            total += 1;
-
-            let s = match existing.range(key.as_ref()..).next() {
-                Some((&k, &offset)) if k.starts_with(key.as_ref()) => {
-                    reuse += 1;
-                    let unsize = Ref::with_metadata(offset, key.len());
-                    debug_assert_eq!(buf.load(unsize)?, key.as_ref());
-                    unsize
-                }
-                _ => {
-                    let unsize = buf.store_unsized(key.as_ref());
-
-                    let mut it = key.as_ref().chars();
-                    let mut o = unsize.offset();
-
-                    loop {
-                        if let btree_map::Entry::Vacant(e) = existing.entry(it.as_str()) {
-                            e.insert(o);
-                        }
-
-                        let Some(c) = it.next() else {
-                            break;
-                        };
-
-                        o += c.len_utf8();
-                    }
-
-                    unsize
-                }
-            };
-
-            let s = StrRef::new(s.offset(), s.len());
-            lookup.entry(s).or_default().push(*id);
+    for (key, id) in &readings {
+        if indexer.total() % 100000 == 0 {
+            tracing::info!("Building strings: {}: {key:?}", indexer.total());
         }
 
-        tracing::info!("Reused {} string(s) (out of {})", reuse, total);
+        max = max.max(key.as_ref().len());
+        let s = indexer.store(&mut buf, key.as_ref())?;
+        readings2.push((s, *id));
+    }
+
+    let mut lookup = trie::Builder::new();
+
+    for (key, id) in readings2.into_iter().rev() {
+        lookup.insert(&buf, key, id)?;
     }
 
     tracing::info!(
-        "Serializing to zerocopy structure (at {}, strings: {}, max: {max})",
-        buf.len(),
-        buf.len() - start
+        "Reused {} string(s) (out of {})",
+        indexer.reuse(),
+        indexer.total()
     );
 
-    let mut sources_map = HashMap::new();
-    let mut sources = Vec::new();
+    tracing::info!("Serializing to zerocopy structure");
 
-    let lookup = {
-        let mut entries = Vec::new();
-        let mut stored = Vec::new();
-
-        for (index, (key, ids)) in lookup.into_iter().enumerate() {
-            if index % 100000 == 0 {
-                tracing::info!("Building lookup: {}", index);
-            }
-
-            stored.clear();
-
-            for id in &ids {
-                let source = if let Some(existing) = sources_map.get(&id.source) {
-                    *existing
-                } else {
-                    let source_id = u16::try_from(sources.len()).context("source id")?;
-                    sources.push(id.source);
-                    sources_map.insert(id.source, source_id);
-                    source_id
-                };
-
-                stored.push(StoredId {
-                    index: id.index,
-                    source,
-                });
-            }
-
-            let slice = buf.store_slice(&stored);
-            let slice = Slice::new(slice.offset(), slice.len());
-            entries.push((key, slice));
-        }
-
-        tracing::info!("Storing lookup {}:...", entries.len());
-        swiss::store_map(&mut buf, entries)?
-    };
-
-    let sources = buf.store_slice(&sources);
+    let lookup = lookup.build(&mut buf)?;
 
     let by_pos = {
         let mut entries = Vec::new();
@@ -586,7 +381,6 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         lookup,
         by_pos,
         by_sequence,
-        sources,
     });
 
     Ok(buf)
@@ -698,17 +492,15 @@ impl<'a> Database<'a> {
     pub fn lookup(&self, query: &str) -> Result<Vec<Id>> {
         let mut output = Vec::new();
 
-        if let Some(lookup) = self.index.lookup.get(self.data, query)? {
-            for id in self.data.load(*lookup)? {
-                let Some(source) = self.index.sources.get(id.source()) else {
-                    continue;
-                };
-
-                let source = *self.data.load(source)?;
-                output.push(Id {
-                    index: id.index,
-                    source,
-                });
+        if let Some(prefix) = query.strip_suffix(|c: char| matches!(c, '*' | '＊')) {
+            for id in self.index.lookup.prefix(self.data, prefix) {
+                output.push(*id?);
+            }
+        } else {
+            if let Some(lookup) = self.index.lookup.get(self.data, query)? {
+                for id in lookup {
+                    output.push(*id);
+                }
             }
         }
 
@@ -718,7 +510,7 @@ impl<'a> Database<'a> {
 
     /// Test if db contains the given string.
     pub fn contains(&self, query: &str) -> Result<bool> {
-        Ok(self.index.lookup.contains_key(self.data, query)?)
+        Ok(self.index.lookup.get(self.data, query)?.is_some())
     }
 
     /// Perform the given search.
