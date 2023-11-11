@@ -11,16 +11,25 @@ use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::Variable;
 use musli_storage::Encoding;
-use musli_zerocopy::{swiss, trie, Buf, OwnedBuf, Ref, ZeroCopy};
+use musli_zerocopy::{slice, swiss, trie, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
 use self::string_indexer::StringIndexer;
+use crate::inflection;
 use crate::inflection::Inflection;
 use crate::jmdict::{self, EntryKey};
 use crate::kanjidic2;
+use crate::romaji;
 use crate::romaji::{is_hiragana, is_katakana, Segment};
 use crate::PartOfSpeech;
-use crate::{inflection, romaji};
+
+pub(super) struct CompactTrie;
+
+impl trie::Flavor for CompactTrie {
+    type String = slice::Packed<[u8], u32, u8>;
+    type Values<T> = slice::Packed<[T], u32, u16> where T: ZeroCopy;
+    type Children<T> = slice::Packed<[T], u32, u16> where T: ZeroCopy;
+}
 
 /// A deserialized database entry.
 pub enum Entry<'a> {
@@ -31,7 +40,7 @@ pub enum Entry<'a> {
 #[derive(ZeroCopy)]
 #[repr(C)]
 pub(super) struct Index {
-    pub(super) lookup: trie::TrieRef<Id>,
+    pub(super) lookup: trie::TrieRef<Id, CompactTrie>,
     pub(super) by_pos: swiss::MapRef<PartOfSpeech, Ref<[u32]>>,
     pub(super) by_sequence: swiss::MapRef<u32, u32>,
 }
@@ -333,7 +342,7 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         readings2.push((s, *id));
     }
 
-    let mut lookup = trie::Builder::new();
+    let mut lookup = trie::Builder::with_flavor();
 
     for (key, id) in readings2.into_iter().rev() {
         lookup.insert(&buf, key, id)?;

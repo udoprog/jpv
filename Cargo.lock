@@ -276,9 +276,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clap"
-version = "4.4.7"
+version = "4.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac495e00dcec98c83465d5ad66c5c4fabd652fd6686e7c6269b117e729a6f17b"
+checksum = "2275f18819641850fa26c89acc84d465c1bf91ce57bc2748b28c420473352f64"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -286,9 +286,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.7"
+version = "4.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c77ed9a32a62e6ca27175d00d29d05ca32e396ea1eb5fb01d8256b669cec7663"
+checksum = "07cdf1b148b25c1e1f7a42225e30a0d99a615cd4637eae7365548dd4529b95bc"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1042,18 +1042,18 @@ dependencies = [
 
 [[package]]
 name = "musli"
-version = "0.0.88"
+version = "0.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a63f6d63834d8d21262a90d624a70aa911bcc3eb45e7ea9204a3b3cef8ca9730"
+checksum = "5e7f25708b6466350828d41f5e810cb24524a2486db3c85f95e685cf70183222"
 dependencies = [
  "musli-macros",
 ]
 
 [[package]]
 name = "musli-common"
-version = "0.0.88"
+version = "0.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "438e8a54d8f312326d6cc63fcf617296ac914d8f27c7801c9a6df20c87e7f379"
+checksum = "c750fda89c0a4d3f61b534c4cb9a164dc47494186861b101f7d4dfeffad4a38c"
 dependencies = [
  "musli",
  "simdutf8",
@@ -1061,9 +1061,9 @@ dependencies = [
 
 [[package]]
 name = "musli-macros"
-version = "0.0.88"
+version = "0.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfefd67580867b93ad0cbf0e2c2e8ad2b5ab1845a44b7a23d2adee9a188a50a0"
+checksum = "599e6aa83595fef8cfb69e89288be1b14c7e44f27acb86d4c8304be502e31064"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1072,9 +1072,9 @@ dependencies = [
 
 [[package]]
 name = "musli-storage"
-version = "0.0.88"
+version = "0.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8592fdebc060ed7be667854f1f9bae54ede2ace0594eee65c7082708afb28a4d"
+checksum = "06d1a2b78b4dc7ba34978d684f05c5ced3ebabb4790527cbc6386337a794d1bf"
 dependencies = [
  "musli",
  "musli-common",
@@ -1082,9 +1082,9 @@ dependencies = [
 
 [[package]]
 name = "musli-zerocopy"
-version = "0.0.88"
+version = "0.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f41bcabe92da19e40c726a6576b15349f38ddaead7b8ae40ba418977e959e76"
+checksum = "f27ca3cb3848518381d36fb4898bb51acdeaab532adb68935129d1cd82e7a914"
 dependencies = [
  "musli-zerocopy-macros",
  "rand",
@@ -1092,9 +1092,9 @@ dependencies = [
 
 [[package]]
 name = "musli-zerocopy-macros"
-version = "0.0.88"
+version = "0.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90660f3034d8205e8839fd4efa29f167cad7f5404054da957b333ef37e0c9e04"
+checksum = "f4c9059d81b0c0072e0892fcdcbeda125c01882a7234c58334e2b168790be45e"
 dependencies = [
  "proc-macro2",
  "quote",
