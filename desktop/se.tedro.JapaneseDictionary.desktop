@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Keywords=dictionary;jpv;
+Name=Japanese Dictionary
+Comment=Japanese Dictionary by John-John Tedro
+Exec=/usr/bin/jpv
+Icon=se.tedro.JapaneseDictionary
+StartupNotify=true
+Terminal=false

@@ -2,6 +2,8 @@
 name = "jpv"
 version = "0.0.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Japanese Dictionary by John-John Tedro"
 
 [features]
 bundle = ["rust-embed", "mime_guess", "webbrowser"]
@@ -25,3 +27,11 @@ webbrowser = { version = "0.8.12", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 memmap = "0.7.0"
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/jpv", dest = "/usr/bin/jpv", mode = "755" },
+    { source = "desktop/se.tedro.JapaneseDictionary.desktop", dest = "/usr/share/applications/se.tedro.JapaneseDictionary.desktop", mode = "644" },
+    { source = "desktop/se.tedro.JapaneseDictionary.png", dest = "/usr/share/icons/hicolor/256x256/apps/se.tedro.JapaneseDictionary.png", mode = "644" },
+    # { source = "desktop/se.tedro.JapaneseDictionary.service", dest = "/usr/share/dbus-1/services/se.tedro.JapaneseDictionary.service", mode = "644" },
+]

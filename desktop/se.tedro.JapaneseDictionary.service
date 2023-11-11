@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=se.tedro.JapaneseDictionary
+Exec=/usr/bin/jpv

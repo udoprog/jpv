@@ -206,7 +206,7 @@ mod database {
             std::env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?,
         );
 
-        let path = root.join("..").join("..").join("database.bin");
+        let path = manifest_dir.join("..").join("..").join("database.bin");
 
         tracing::info!("Reading from {}", path.display());
 
@@ -241,11 +241,16 @@ mod database {
 
         use memmap::MmapOptions;
 
-        let root = PathBuf::from(
-            std::env::var_os("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?,
-        );
-
-        let path = root.join("..").join("..").join("database.bin");
+        let path = match std::env::var_os("CARGO_MANIFEST_DIR") {
+            Some(manifest_dir) => {
+                let mut path = PathBuf::from(manifest_dir);
+                path.push("..");
+                path.push("..");
+                path.push("database.bin");
+                path
+            }
+            None => PathBuf::from("/usr/share/jpv/database.bin"),
+        };
 
         tracing::info!("Reading from {}", path.display());
 
