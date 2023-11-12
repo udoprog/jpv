@@ -7,6 +7,7 @@ use thiserror::Error;
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
+use web_sys::window;
 use web_sys::{Request, RequestInit, RequestMode, Response};
 
 #[derive(Debug, Error)]
@@ -24,6 +25,18 @@ pub enum FetchError {
 impl From<JsValue> for FetchError {
     fn from(value: JsValue) -> Self {
         Self::JsError(format!("{:?}", value).into())
+    }
+}
+
+impl From<&'static str> for FetchError {
+    fn from(value: &'static str) -> Self {
+        Self::JsError(value.into())
+    }
+}
+
+impl From<String> for FetchError {
+    fn from(value: String) -> Self {
+        Self::JsError(value.into())
     }
 }
 
@@ -68,7 +81,11 @@ where
     opts.method("GET");
     opts.mode(RequestMode::Cors);
 
-    let mut url = Url::parse("http://localhost:8080/api")?;
+    let window = window().ok_or("no window")?;
+    let port = window.location().port()?;
+
+    let url = format!("http://localhost:{port}/api");
+    let mut url = Url::parse(&url)?;
 
     if let Ok(mut path) = url.path_segments_mut() {
         path.push(p);

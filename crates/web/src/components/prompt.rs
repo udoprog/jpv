@@ -610,13 +610,24 @@ fn decode_query(location: Option<Location>) -> (Query, String) {
 
 fn copyright() -> Html {
     html! {
-        <div class="block inline">
-            <span>{"This application uses the JMdict dictionary file. "}</span>
-            <span>{"This is the property of the "}</span>
-            <a href="https://www.edrdg.org">{"Electronic Dictionary Research and Development Group"}</a>
-            <span>{", and are used in conformance with the Group's "}</span>
-            <a href="https://www.edrdg.org/edrdg/licence.html">{"licence"}</a>
-            <span>{"."}</span>
-        </div>
+        <>
+            <div class="block inline">
+                <span>{"Made in ❤️ by "}</span>
+                <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
+                <span>{" made freely available under the "}</span>
+                <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-MIT">{"MIT"}</a>
+                <span>{" or "}</span>
+                <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-APACHE">{"Apache 2.0 license"}</a>
+            </div>
+
+            <div class="block inline">
+                <span>{"This application uses the JMdict dictionary file. "}</span>
+                <span>{"This is the property of the "}</span>
+                <a href="https://www.edrdg.org">{"Electronic Dictionary Research and Development Group"}</a>
+                <span>{", and are used in conformance with the Group's "}</span>
+                <a href="https://www.edrdg.org/edrdg/licence.html">{"licence"}</a>
+                <span>{"."}</span>
+            </div>
+        </>
     }
 }

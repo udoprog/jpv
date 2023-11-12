@@ -6,6 +6,7 @@ license = "MIT OR Apache-2.0"
 description = "Japanese Dictionary by John-John Tedro"
 
 [features]
+default = ["dbus"]
 bundle = ["rust-embed", "mime_guess", "webbrowser"]
 bundle-database = ["rust-embed", "mime_guess", "webbrowser"]
 
@@ -24,14 +25,16 @@ musli-zerocopy = { version = "0.0.89" }
 rust-embed = { version = "8.0.0", optional = true }
 mime_guess = { version = "2.0.4", optional = true }
 webbrowser = { version = "0.8.12", optional = true }
+async-fuse = { version = "0.11.4", features = ["futures-core"] }
 
 [target.'cfg(unix)'.dependencies]
 memmap = "0.7.0"
+dbus = { version = "0.9.7", optional = true }
 
 [package.metadata.generate-rpm]
 assets = [
     { source = "target/release/jpv", dest = "/usr/bin/jpv", mode = "755" },
     { source = "desktop/se.tedro.JapaneseDictionary.desktop", dest = "/usr/share/applications/se.tedro.JapaneseDictionary.desktop", mode = "644" },
     { source = "desktop/se.tedro.JapaneseDictionary.png", dest = "/usr/share/icons/hicolor/256x256/apps/se.tedro.JapaneseDictionary.png", mode = "644" },
-    # { source = "desktop/se.tedro.JapaneseDictionary.service", dest = "/usr/share/dbus-1/services/se.tedro.JapaneseDictionary.service", mode = "644" },
+    { source = "desktop/se.tedro.JapaneseDictionary.service", dest = "/usr/share/dbus-1/services/se.tedro.JapaneseDictionary.service", mode = "644" },
 ]

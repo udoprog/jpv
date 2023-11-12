@@ -1,9 +1,14 @@
 #![cfg_attr(all(not(feature = "cli"), windows), windows_subsystem = "windows")]
 
 use std::cmp::Reverse;
+use std::future::Future;
 use std::net::SocketAddr;
+use std::net::TcpListener;
+use std::pin::pin;
+use std::pin::Pin;
 
 use anyhow::{Context, Error, Result};
+use async_fuse::Fuse;
 use axum::body::{boxed, Body};
 use axum::extract::Query;
 use axum::http::{HeaderValue, Method, StatusCode};
@@ -17,15 +22,143 @@ use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
 #[cfg(windows)]
 use tokio::signal::windows::ctrl_shutdown;
+use tokio::sync::futures::Notified;
+use tokio::sync::Notify;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
 struct Args {
-    /// Bind to the given address. Default is `127.0.0.1:8081`.
+    /// Bind to the given address. Default is `127.0.0.1`.
     #[arg(long)]
     bind: Option<String>,
+}
+
+enum System<F> {
+    Future(F),
+    Port(u16),
+    Busy,
+}
+
+#[cfg(all(unix, feature = "dbus"))]
+fn system<'a>(
+    port: u16,
+    shutdown: Notified<'a>,
+) -> Result<System<impl Future<Output = Result<()>> + 'a>> {
+    const NAME: &'static str = "se.tedro.JapaneseDictionary";
+
+    use std::ffi::CString;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply;
+    use dbus::blocking::Connection;
+    use dbus::channel::MatchingReceiver;
+    use dbus::message::MatchRule;
+
+    let stop = Arc::new(AtomicBool::new(false));
+
+    let c = Connection::new_session()?;
+
+    let reply = c.request_name(NAME, false, false, true)?;
+
+    match reply {
+        RequestNameReply::PrimaryOwner => {}
+        RequestNameReply::Exists => {
+            let proxy = c.with_proxy(NAME, "/", Duration::from_millis(5000));
+            let (port,): (u16,) = proxy.method_call(NAME, "GetPort", ())?;
+            return Ok(System::Port(port));
+        }
+        reply => {
+            tracing::info!(?reply, "Could not acquire name");
+            return Ok(System::Busy);
+        }
+    }
+
+    let task: tokio::task::JoinHandle<Result<()>> = tokio::task::spawn_blocking({
+        let stop = stop.clone();
+
+        move || {
+            tracing::trace!(?reply);
+
+            fn to_c_str(n: &str) -> CString {
+                CString::new(n.as_bytes()).unwrap()
+            }
+
+            c.start_receive(
+                MatchRule::new(),
+                Box::new(move |msg, conn| {
+                    tracing::trace!(?msg);
+
+                    match msg.msg_type() {
+                        dbus::MessageType::MethodCall => {
+                            let m = if let Some(member) = msg.member() {
+                                match member.as_bytes() {
+                                    b"GetPort" => Some(msg.return_with_args((port,))),
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            };
+
+                            let m = match m {
+                                Some(m) => m,
+                                None => msg.error(
+                                    &"org.freedesktop.DBus.Error.UnknownMethod".into(),
+                                    &to_c_str("Method does not exist"),
+                                ),
+                            };
+
+                            _ = conn.channel().send(m);
+                        }
+                        _ => {
+                            tracing::warn!(?msg);
+                        }
+                    }
+
+                    true
+                }),
+            );
+
+            let sleep = Duration::from_millis(250);
+
+            while !stop.load(Ordering::Acquire) {
+                c.process(sleep)?;
+            }
+
+            Ok(())
+        }
+    });
+
+    Ok(System::Future(async move {
+        let mut task = pin!(task);
+        let mut shutdown = pin!(Fuse::new(shutdown));
+
+        loop {
+            tokio::select! {
+                _ = shutdown.as_mut() => {
+                    stop.store(true, Ordering::Release);
+                    continue;
+                }
+                result = task.as_mut() => {
+                    result??;
+                    return Ok(());
+                }
+            };
+        }
+    }))
+}
+
+#[cfg(all(unix, not(feature = "dbus")))]
+fn system<'a>(_: u16, _: Notified<'a>) -> Result<Option<impl Future<Output = Result<()>> + 'a>> {
+    Ok(Some(std::future::pending()))
+}
+
+#[cfg(not(unix))]
+fn system<'a>(_: u16, _: Notified<'a>) -> Result<Option<impl Future<Output = Result<()>> + 'a>> {
+    Ok(Some(std::future::pending()))
 }
 
 #[tokio::main]
@@ -38,12 +171,26 @@ async fn main() -> Result<()> {
         .try_init()?;
 
     let args = Args::try_parse()?;
-    let bind: SocketAddr = args.bind.as_deref().unwrap_or(self::bundle::BIND).parse()?;
+    let addr: SocketAddr = args.bind.as_deref().unwrap_or(self::bundle::BIND).parse()?;
+    let listener = TcpListener::bind(addr)?;
+    let local_addr = listener.local_addr()?;
 
-    let server = match axum::Server::try_bind(&bind) {
+    let shutdown = Notify::new();
+
+    let system = match system(local_addr.port(), shutdown.notified())? {
+        System::Future(system) => system,
+        System::Port(port) => {
+            self::bundle::open(port);
+            return Ok(());
+        }
+        System::Busy => {
+            return Ok(());
+        }
+    };
+
+    let server = match axum::Server::from_tcp(listener) {
         Ok(server) => server,
         Err(error) => {
-            self::bundle::open();
             return Err(error.into());
         }
     };
@@ -56,28 +203,38 @@ async fn main() -> Result<()> {
     tracing::info!("Database loaded");
 
     let cors = CorsLayer::new()
-        .allow_origin(format!("http://localhost:8080").parse::<HeaderValue>()?)
-        .allow_origin(format!("http://127.0.0.1:8080").parse::<HeaderValue>()?)
+        .allow_origin(format!("http://localhost:{}", local_addr.port()).parse::<HeaderValue>()?)
+        .allow_origin(format!("http://127.0.0.1:{}", local_addr.port()).parse::<HeaderValue>()?)
         .allow_methods([Method::GET]);
 
     let app = self::bundle::router().layer(Extension(db)).layer(cors);
 
-    self::bundle::open();
-    let server = server.serve(app.into_make_service());
+    let mut server = pin!(server.serve(app.into_make_service()));
+    self::bundle::open(local_addr.port());
+    tracing::info!("Listening on http://{local_addr}");
 
-    tracing::info!("Listening on {bind}");
+    let mut ctrl_c = pin!(Fuse::new(ctrl_c()));
 
-    let ctrl_c = ctrl_c();
+    let mut system: Pin<&mut dyn Future<Output = Result<()>>> = pin!(system);
 
-    tokio::select! {
-        result = server => {
-            result?;
-        }
-        _ = ctrl_c => {
-            tracing::info!("Shutting down...");
+    loop {
+        tokio::select! {
+            result = server.as_mut() => {
+                result?;
+            }
+            result = system.as_mut() => {
+                result?;
+                tracing::info!("System integration shut down");
+                break;
+            }
+            _ = ctrl_c.as_mut() => {
+                tracing::info!("Shutting down...");
+                shutdown.notify_one();
+            }
         }
     }
 
+    tracing::info!("Bye bye");
     Ok(())
 }
 
@@ -279,9 +436,9 @@ mod bundle {
     use axum::routing::get;
     use axum::Router;
 
-    pub(super) static BIND: &'static str = "127.0.0.1:8081";
+    pub(super) static BIND: &'static str = "127.0.0.1:0";
 
-    pub(super) fn open() {}
+    pub(super) fn open(_: u16) {}
 
     pub(super) fn router() -> Router {
         Router::new()
@@ -300,10 +457,11 @@ mod bundle {
     use axum::Router;
     use rust_embed::RustEmbed;
 
-    pub(super) static BIND: &'static str = "127.0.0.1:8080";
+    pub(super) static BIND: &'static str = "127.0.0.1:0";
 
-    pub(super) fn open() {
-        let _ = webbrowser::open("http://localhost:8080");
+    pub(super) fn open(port: u16) {
+        let address = format!("http://localhost:{port}");
+        let _ = webbrowser::open(&address);
     }
 
     pub(super) fn router() -> Router {

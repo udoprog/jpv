@@ -7,3 +7,4 @@ Exec=/usr/bin/jpv
 Icon=se.tedro.JapaneseDictionary
 StartupNotify=true
 Terminal=false
+DBusActivatable=true
