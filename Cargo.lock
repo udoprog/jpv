@@ -1073,18 +1073,18 @@ dependencies = [
 
 [[package]]
 name = "musli"
-version = "0.0.89"
+version = "0.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e7f25708b6466350828d41f5e810cb24524a2486db3c85f95e685cf70183222"
+checksum = "7196b4d23d19ba23ebf71b6c3c364735165e90e7cdf448f7c0de9ced36cf8331"
 dependencies = [
  "musli-macros",
 ]
 
 [[package]]
 name = "musli-common"
-version = "0.0.89"
+version = "0.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c750fda89c0a4d3f61b534c4cb9a164dc47494186861b101f7d4dfeffad4a38c"
+checksum = "0b9ef7534867bcc65a7a0a4085b6670b015930166b99e36c36ab54b99ad200d9"
 dependencies = [
  "musli",
  "simdutf8",
@@ -1092,9 +1092,9 @@ dependencies = [
 
 [[package]]
 name = "musli-macros"
-version = "0.0.89"
+version = "0.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "599e6aa83595fef8cfb69e89288be1b14c7e44f27acb86d4c8304be502e31064"
+checksum = "931e2abc789a5c7102667ea970ae7ab3b409fd2d440ba7e4c7ab81969f5d32ff"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1103,9 +1103,9 @@ dependencies = [
 
 [[package]]
 name = "musli-storage"
-version = "0.0.89"
+version = "0.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06d1a2b78b4dc7ba34978d684f05c5ced3ebabb4790527cbc6386337a794d1bf"
+checksum = "d77da391aa330100e6d08da9f256ac3fd219bca4753addf7e100b83d62979b1a"
 dependencies = [
  "musli",
  "musli-common",
@@ -1113,9 +1113,9 @@ dependencies = [
 
 [[package]]
 name = "musli-zerocopy"
-version = "0.0.89"
+version = "0.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f27ca3cb3848518381d36fb4898bb51acdeaab532adb68935129d1cd82e7a914"
+checksum = "3b5a5e0ba28fd0720d96bd42ce0247f1823b35b2eef00a5411278b45b7d0d63a"
 dependencies = [
  "musli-zerocopy-macros",
  "rand",
@@ -1123,9 +1123,9 @@ dependencies = [
 
 [[package]]
 name = "musli-zerocopy-macros"
-version = "0.0.89"
+version = "0.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4c9059d81b0c0072e0892fcdcbeda125c01882a7234c58334e2b168790be45e"
+checksum = "a30176c54745ca9e6bfc737d94a0868645dcf6a3bf1f114c1afaa990a85fc368"
 dependencies = [
  "proc-macro2",
  "quote",

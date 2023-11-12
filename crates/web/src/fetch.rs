@@ -50,11 +50,16 @@ pub struct SearchEntry {
 pub struct SearchResponse {
     pub entries: Vec<SearchEntry>,
     pub characters: Vec<kanjidic2::OwnedCharacter>,
+    pub serial: u32,
 }
 
 /// Perform the given search.
-pub(crate) async fn search(q: &str) -> Result<SearchResponse, FetchError> {
-    request("search", [("q", q)]).await
+pub(crate) async fn search(q: &str, serial: u32) -> Result<SearchResponse, FetchError> {
+    request(
+        "search",
+        [("q", q), ("serial", serial.to_string().as_str())],
+    )
+    .await
 }
 
 #[derive(Deserialize)]
@@ -66,11 +71,24 @@ pub struct AnalyzeEntry {
 #[derive(Deserialize)]
 pub struct AnalyzeResponse {
     pub data: Vec<AnalyzeEntry>,
+    pub serial: u32,
 }
 
 /// Perform the given analysis.
-pub(crate) async fn analyze(q: &str, start: usize) -> Result<AnalyzeResponse, FetchError> {
-    request("analyze", [("q", q), ("start", start.to_string().as_str())]).await
+pub(crate) async fn analyze(
+    q: &str,
+    start: usize,
+    serial: u32,
+) -> Result<AnalyzeResponse, FetchError> {
+    request(
+        "analyze",
+        [
+            ("q", q),
+            ("start", start.to_string().as_str()),
+            ("serial", serial.to_string().as_str()),
+        ],
+    )
+    .await
 }
 
 async fn request<T, const N: usize>(p: &str, pairs: [(&str, &str); N]) -> Result<T, FetchError>

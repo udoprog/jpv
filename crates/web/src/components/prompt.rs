@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use lib::database::EntryResultKey;
@@ -10,8 +9,9 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
+const DEFAULT_LIMIT: usize = 100;
+
 use crate::c::entry::{colon, comma, seq};
-use crate::fetch::FetchError;
 use crate::{components as c, fetch};
 
 pub(crate) enum Msg {
@@ -23,7 +23,9 @@ pub(crate) enum Msg {
     HistoryChanged(Location),
     SearchResponse(fetch::SearchResponse),
     AnalyzeResponse(fetch::AnalyzeResponse),
-    Error(FetchError),
+    MoreEntries,
+    MoreCharacters,
+    Error(anyhow::Error),
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -111,10 +113,31 @@ impl Query {
 }
 
 #[derive(Default)]
+struct Serials {
+    search: u32,
+    analyze: u32,
+}
+
+impl Serials {
+    fn search(&mut self) -> u32 {
+        self.search = self.search.wrapping_add(1);
+        self.search
+    }
+
+    fn analyze(&mut self) -> u32 {
+        self.analyze = self.analyze.wrapping_add(1);
+        self.analyze
+    }
+}
+
+#[derive(Default)]
 pub(crate) struct Prompt {
     query: Query,
     entries: Vec<(EntryResultKey, jmdict::OwnedEntry)>,
+    limit_entries: usize,
     characters: Vec<kanjidic2::OwnedCharacter>,
+    limit_characters: usize,
+    serials: Serials,
     _handle: Option<LocationHandle>,
 }
 
@@ -123,52 +146,74 @@ impl Prompt {
         if let Some(db) = &*ctx.props().db {
             let input = input.to_lowercase();
 
-            let search = match db.search(&input) {
-                Ok(entries) => entries,
-                Err(error) => {
-                    log::error!("Search failed: {error}");
-                    return;
+            ctx.link().send_message(match db.search(&input) {
+                Ok(search) => {
+                    let entries = search
+                        .entries
+                        .into_iter()
+                        .map(|(key, e)| fetch::SearchEntry {
+                            key,
+                            entry: borrowme::to_owned(e),
+                        })
+                        .collect();
+
+                    let characters = search
+                        .characters
+                        .into_iter()
+                        .map(|e| borrowme::to_owned(e))
+                        .collect();
+
+                    let serial = self.serials.search();
+
+                    let response = fetch::SearchResponse {
+                        entries,
+                        characters,
+                        serial,
+                    };
+
+                    Msg::SearchResponse(response)
                 }
-            };
-
-            self.entries = search
-                .entries
-                .into_iter()
-                .map(|(key, e)| (key, borrowme::to_owned(e)))
-                .collect();
-
-            self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
+                Err(error) => Msg::Error(error),
+            });
         } else {
             let input = input.to_lowercase();
+            let serial = self.serials.search();
 
             ctx.link().send_future(async move {
-                match fetch::search(&input).await {
+                match fetch::search(&input, serial).await {
                     Ok(entries) => Msg::SearchResponse(entries),
-                    Err(error) => Msg::Error(error),
+                    Err(error) => Msg::Error(anyhow::Error::msg(error)),
                 }
             });
         }
     }
 
-    fn analyze(
-        &mut self,
-        ctx: &Context<Self>,
-        start: usize,
-    ) -> Option<BTreeMap<jmdict::EntryKey, String>> {
-        let Some(db) = &*ctx.props().db else {
+    fn analyze(&mut self, ctx: &Context<Self>, start: usize) {
+        if let Some(db) = &*ctx.props().db {
+            let serial = self.serials.analyze();
+
+            ctx.link()
+                .send_message(match db.analyze(&self.query.q, start) {
+                    Ok(data) => Msg::AnalyzeResponse(fetch::AnalyzeResponse {
+                        data: data
+                            .into_iter()
+                            .map(|(key, string)| fetch::AnalyzeEntry { key, string })
+                            .collect(),
+                        serial,
+                    }),
+                    Err(error) => Msg::Error(error),
+                });
+        } else {
             let input = self.query.q.clone();
+            let serial = self.serials.analyze();
 
             ctx.link().send_future(async move {
-                match fetch::analyze(&input, start).await {
+                match fetch::analyze(&input, start, serial).await {
                     Ok(entries) => Msg::AnalyzeResponse(entries),
-                    Err(error) => Msg::Error(error),
+                    Err(error) => Msg::Error(anyhow::Error::msg(error)),
                 }
             });
-
-            return None;
-        };
-
-        Some(db.analyze(&self.query.q, start))
+        }
     }
 
     fn save_query(&mut self, ctx: &Context<Prompt>, push: bool) {
@@ -227,7 +272,10 @@ impl Component for Prompt {
         let mut this = Self {
             query,
             entries: Vec::default(),
+            limit_entries: DEFAULT_LIMIT,
             characters: Vec::default(),
+            limit_characters: DEFAULT_LIMIT,
+            serials: Serials::default(),
             _handle: handle,
         };
 
@@ -237,24 +285,30 @@ impl Component for Prompt {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::Error(error) => {
-                log::error!("Failed to fetch: {error}");
-                false
-            }
             Msg::SearchResponse(response) => {
-                self.entries = response
-                    .entries
-                    .into_iter()
-                    .map(|e| (e.key, e.entry))
-                    .collect();
-                self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
-                self.characters = response.characters;
-                true
+                if response.serial == self.serials.search {
+                    self.entries = response
+                        .entries
+                        .into_iter()
+                        .map(|e| (e.key, e.entry))
+                        .collect();
+                    self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
+                    self.characters = response.characters;
+                    self.limit_entries = DEFAULT_LIMIT;
+                    self.limit_characters = DEFAULT_LIMIT;
+                    true
+                } else {
+                    false
+                }
             }
             Msg::AnalyzeResponse(response) => {
-                let analysis = response.data.into_iter().map(|d| d.string).collect();
-                self.handle_analysis(ctx, analysis);
-                true
+                if response.serial == self.serials.analyze {
+                    let analysis = response.data.into_iter().map(|d| d.string).collect();
+                    self.handle_analysis(ctx, analysis);
+                    true
+                } else {
+                    false
+                }
             }
             Msg::Mode(mode) => {
                 self.query.mode = mode;
@@ -302,13 +356,7 @@ impl Component for Prompt {
                 true
             }
             Msg::Analyze(i) => {
-                if let Some(analysis) = self.analyze(ctx, i) {
-                    if !analysis.is_empty() {
-                        let analysis = analysis.into_values().collect::<Vec<_>>();
-                        self.handle_analysis(ctx, analysis);
-                    }
-                }
-
+                self.analyze(ctx, i);
                 true
             }
             Msg::AnalyzeCycle => {
@@ -328,6 +376,18 @@ impl Component for Prompt {
                 self.query = query;
                 self.refresh(ctx, &inputs);
                 true
+            }
+            Msg::MoreEntries => {
+                self.limit_entries += DEFAULT_LIMIT;
+                true
+            }
+            Msg::MoreCharacters => {
+                self.limit_characters += DEFAULT_LIMIT;
+                true
+            }
+            Msg::Error(error) => {
+                log::error!("Failed to fetch: {error}");
+                false
             }
         }
     }
@@ -432,7 +492,7 @@ impl Component for Prompt {
         });
 
         let entries = (!self.entries.is_empty()).then(|| {
-            let entries = seq(self.entries.iter(), |(data, entry), not_last| {
+            let entries = seq(self.entries.iter().take(self.limit_entries), |(data, entry), not_last| {
                 let entry: jmdict::OwnedEntry = entry.clone();
 
                 let change = ctx.link().callback(|(input, translation)| {
@@ -448,6 +508,20 @@ impl Component for Prompt {
                 }
             });
 
+            let more = (self.entries.len() > self.limit_entries).then(|| {
+                html! {
+                    <div class="block block-lg">
+                        <div class="block row">
+                            {format!("Showing {} out of {} entries", self.limit_entries, self.entries.len())}
+                        </div>
+
+                        <div class="block row">
+                            <button onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</button>
+                        </div>
+                    </div>
+                }
+            });
+
             html! {
                 <>
                     <h4>{"Entries"}</h4>
@@ -455,13 +529,14 @@ impl Component for Prompt {
                     <div class="block block-lg">
                         {for entries}
                         <div class="entry-separator" />
+                        {for more}
                     </div>
                 </>
             }
         });
 
         let characters = (!self.characters.is_empty()).then(|| {
-            let iter = seq(self.characters.iter(), |c, not_last| {
+            let iter = seq(self.characters.iter().take(self.limit_characters), |c, not_last| {
                 let separator = not_last.then(|| html!(<div class="character-separator" />));
 
                 let mut onyomi = seq(
@@ -519,10 +594,25 @@ impl Component for Prompt {
                 }
             });
 
+            let more = (self.characters.len() > self.limit_characters).then(|| {
+                html! {
+                    <div class="block block-lg">
+                        <div class="block row">
+                            {format!("Showing {} out of {} characters", self.limit_characters, self.characters.len())}
+                        </div>
+
+                        <div class="block row">
+                            <button onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</button>
+                        </div>
+                    </div>
+                }
+            });
+
             html! {
                 <>
                     <h4>{"Characters"}</h4>
                     <div class="block block-lg">{for iter}</div>
+                    {for more}
                 </>
             }
         });

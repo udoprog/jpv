@@ -254,6 +254,8 @@ impl From<anyhow::Error> for RequestError {
 #[derive(Deserialize)]
 struct SearchRequest {
     q: Option<String>,
+    #[serde(default)]
+    serial: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -266,6 +268,8 @@ struct SearchEntry {
 struct SearchResponse {
     entries: Vec<SearchEntry>,
     characters: Vec<kanjidic2::Character<'static>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    serial: Option<u32>,
 }
 
 async fn search(
@@ -287,6 +291,7 @@ async fn search(
     Ok(Json(SearchResponse {
         entries,
         characters: search.characters,
+        serial: request.serial,
     }))
 }
 
@@ -294,6 +299,8 @@ async fn search(
 struct AnalyzeRequest {
     q: String,
     start: usize,
+    #[serde(default)]
+    serial: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -305,6 +312,8 @@ struct AnalyzeEntry {
 #[derive(Serialize)]
 struct AnalyzeResponse {
     data: Vec<AnalyzeEntry>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    serial: Option<u32>,
 }
 
 async fn analyze(
@@ -313,13 +322,16 @@ async fn analyze(
 ) -> RequestResult<Json<AnalyzeResponse>> {
     let mut entries = Vec::new();
 
-    for (key, string) in db.analyze(&request.q, request.start) {
+    for (key, string) in db.analyze(&request.q, request.start)? {
         entries.push(AnalyzeEntry { key, string });
     }
 
     entries
         .sort_by(|a, b| (Reverse(a.string.len()), &a.key).cmp(&(Reverse(b.string.len()), &b.key)));
-    Ok(Json(AnalyzeResponse { data: entries }))
+    Ok(Json(AnalyzeResponse {
+        data: entries,
+        serial: request.serial,
+    }))
 }
 
 impl IntoResponse for RequestError {

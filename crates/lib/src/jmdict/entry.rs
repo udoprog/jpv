@@ -49,7 +49,7 @@ impl Ord for Weight {
     }
 }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EntryKey {
     weight: Weight,
     sequence: u64,

@@ -4,7 +4,7 @@ mod analyze_glossary;
 mod string_indexer;
 
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{hash_map, BTreeMap, BTreeSet, HashMap, HashSet};
 
 use anyhow::{anyhow, Result};
 use musli::mode::DefaultMode;
@@ -496,19 +496,50 @@ impl<'a> Database<'a> {
         Ok(output)
     }
 
+    /// Lookup all entries matching the given prefix.
+    #[tracing::instrument(skip_all)]
+    pub fn prefix(&self, prefix: &str) -> Result<Vec<Id>> {
+        let mut output = Vec::new();
+
+        for id in self.index.lookup.values_in(self.data, prefix) {
+            output.push(*id?);
+        }
+
+        Ok(output)
+    }
+
     /// Perform a free text lookup.
     #[tracing::instrument(skip_all)]
     pub fn lookup(&self, query: &str) -> Result<Vec<Id>> {
         let mut output = Vec::new();
 
-        if let Some(prefix) = query.strip_suffix(|c: char| matches!(c, '*' | '＊')) {
-            for id in self.index.lookup.prefix(self.data, prefix) {
-                output.push(*id?);
+        match query.split_once(|c: char| matches!(c, '*' | '＊')) {
+            Some((prefix, suffix)) if !prefix.is_empty() => {
+                if suffix.is_empty() {
+                    for id in self.index.lookup.values_in(self.data, prefix) {
+                        output.push(*id?);
+                    }
+                } else {
+                    for id in self.index.lookup.iter_in(self.data, prefix) {
+                        let (string, id) = id?;
+
+                        let Some(s) = string.strip_prefix(prefix.as_bytes()) else {
+                            continue;
+                        };
+
+                        if !s.ends_with(suffix.as_bytes()) {
+                            continue;
+                        }
+
+                        output.push(*id);
+                    }
+                }
             }
-        } else {
-            if let Some(lookup) = self.index.lookup.get(self.data, query)? {
-                for id in lookup {
-                    output.push(*id);
+            _ => {
+                if let Some(lookup) = self.index.lookup.get(self.data, query)? {
+                    for id in lookup {
+                        output.push(*id);
+                    }
                 }
             }
         }
@@ -593,7 +624,15 @@ impl<'a> Database<'a> {
                 continue;
             }
 
-            for id in self.lookup(c.encode_utf8(&mut [0; 4]))? {
+            let Some(lookup) = self
+                .index
+                .lookup
+                .get(self.data, c.encode_utf8(&mut [0; 4]))?
+            else {
+                continue;
+            };
+
+            for id in lookup {
                 if !matches!(
                     id.source,
                     IndexSource::Kanji {
@@ -603,10 +642,12 @@ impl<'a> Database<'a> {
                     continue;
                 }
 
-                if let Entry::Kanji(kanji) = self.get(id)? {
-                    if seen.insert(kanji.literal) {
-                        out.push(kanji);
-                    }
+                let Entry::Kanji(kanji) = self.get(*id)? else {
+                    continue;
+                };
+
+                if seen.insert(kanji.literal) {
+                    out.push(kanji);
                 }
             }
         }
@@ -616,47 +657,44 @@ impl<'a> Database<'a> {
 
     /// Analyze the given string, looking it up in the database and returning
     /// all prefix matching entries and their texts.
-    pub fn analyze(&self, q: &str, start: usize) -> BTreeMap<EntryKey, String> {
-        let mut inputs = BTreeMap::new();
-
+    pub fn analyze(&self, q: &str, start: usize) -> Result<BTreeMap<EntryKey, String>> {
         let Some(suffix) = q.get(start..) else {
-            return inputs;
+            return Ok(BTreeMap::new());
         };
+
+        let mut results = HashMap::<_, EntryKey>::new();
 
         let mut it = suffix.chars();
 
         while !it.as_str().is_empty() {
-            let mut sort_key = None;
+            if let Some(values) = self.index.lookup.get(self.data, it.as_str())? {
+                for id in values {
+                    let Entry::Dict(e) = self.get(*id)? else {
+                        continue;
+                    };
 
-            let lookup = match self.lookup(it.as_str()) {
-                Ok(lookup) => lookup,
-                Err(error) => {
-                    log::error!("Lookup failed: {error}");
-                    continue;
+                    let key = e.sort_key(it.as_str(), id.source().is_inflection());
+
+                    match results.entry(it.as_str()) {
+                        hash_map::Entry::Occupied(mut e) => {
+                            e.insert((*e.get()).max(key));
+                        }
+                        hash_map::Entry::Vacant(e) => {
+                            e.insert(key);
+                        }
+                    }
                 }
-            };
-
-            for id in lookup {
-                let Ok(Entry::Dict(e)) = self.get(id) else {
-                    continue;
-                };
-
-                let a = e.sort_key(it.as_str(), id.source().is_inflection());
-
-                if let Some(b) = sort_key.take() {
-                    sort_key = Some(a.min(b));
-                } else {
-                    sort_key = Some(a);
-                }
-            }
-
-            if let Some(e) = sort_key.take() {
-                inputs.insert(e, it.as_str().to_owned());
             }
 
             it.next_back();
         }
 
-        inputs
+        let mut inputs = BTreeMap::new();
+
+        for (string, key) in results {
+            inputs.insert(key, string.to_owned());
+        }
+
+        Ok(inputs)
     }
 }
