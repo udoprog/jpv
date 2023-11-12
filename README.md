@@ -25,7 +25,25 @@ Now you can run the bundled web-ui:
 cargo run --release -p jpv --features bundle
 ```
 
-![Good morning!](splash.png)
+![Good morning!](gfx/splash.png)
+
+## Features
+
+Search for English glossary or Japanese words:
+
+![Searching for english text](gfx/english.png)
+
+Has an intuitive and unique machine conjugator:
+
+![Conjugations can be searched for and toggled](gfx/conjugate.png)
+
+> **Note:** Conjugations can be searched for and toggled.
+
+Wildcard searching:
+
+![Wildcard searching](gfx/wildcard.png)
+
+> **Note:** Currently only suffixes are support.
 
 ## Building for Fedora GNOME
 
@@ -54,4 +72,4 @@ sudo cp database.bin /usr/share/jpv
 Once complete, this installs a desktop entry you can use to start the dictionary
 in the background. Starting the application will open up the browser UI.
 
-![Desktop entry](desktop.png)
+![Desktop entry](gfx/desktop.png)
