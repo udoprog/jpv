@@ -22,7 +22,6 @@ use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
 #[cfg(windows)]
 use tokio::signal::windows::ctrl_shutdown;
-use tokio::sync::futures::Notified;
 use tokio::sync::Notify;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -35,131 +34,23 @@ struct Args {
     bind: Option<String>,
 }
 
-enum System<F> {
-    Future(F),
+enum System<'a> {
+    Future(Pin<Box<dyn Future<Output = Result<()>> + 'a>>),
     Port(u16),
     Busy,
 }
 
 #[cfg(all(unix, feature = "dbus"))]
-fn system<'a>(
-    port: u16,
-    shutdown: Notified<'a>,
-) -> Result<System<impl Future<Output = Result<()>> + 'a>> {
-    const NAME: &'static str = "se.tedro.JapaneseDictionary";
-
-    use std::ffi::CString;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
-    use std::time::Duration;
-
-    use dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply;
-    use dbus::blocking::Connection;
-    use dbus::channel::MatchingReceiver;
-    use dbus::message::MatchRule;
-
-    let stop = Arc::new(AtomicBool::new(false));
-
-    let c = Connection::new_session()?;
-
-    let reply = c.request_name(NAME, false, false, true)?;
-
-    match reply {
-        RequestNameReply::PrimaryOwner => {}
-        RequestNameReply::Exists => {
-            let proxy = c.with_proxy(NAME, "/", Duration::from_millis(5000));
-            let (port,): (u16,) = proxy.method_call(NAME, "GetPort", ())?;
-            return Ok(System::Port(port));
-        }
-        reply => {
-            tracing::info!(?reply, "Could not acquire name");
-            return Ok(System::Busy);
-        }
-    }
-
-    let task: tokio::task::JoinHandle<Result<()>> = tokio::task::spawn_blocking({
-        let stop = stop.clone();
-
-        move || {
-            tracing::trace!(?reply);
-
-            fn to_c_str(n: &str) -> CString {
-                CString::new(n.as_bytes()).unwrap()
-            }
-
-            c.start_receive(
-                MatchRule::new(),
-                Box::new(move |msg, conn| {
-                    tracing::trace!(?msg);
-
-                    match msg.msg_type() {
-                        dbus::MessageType::MethodCall => {
-                            let m = if let Some(member) = msg.member() {
-                                match member.as_bytes() {
-                                    b"GetPort" => Some(msg.return_with_args((port,))),
-                                    _ => None,
-                                }
-                            } else {
-                                None
-                            };
-
-                            let m = match m {
-                                Some(m) => m,
-                                None => msg.error(
-                                    &"org.freedesktop.DBus.Error.UnknownMethod".into(),
-                                    &to_c_str("Method does not exist"),
-                                ),
-                            };
-
-                            _ = conn.channel().send(m);
-                        }
-                        _ => {
-                            tracing::warn!(?msg);
-                        }
-                    }
-
-                    true
-                }),
-            );
-
-            let sleep = Duration::from_millis(250);
-
-            while !stop.load(Ordering::Acquire) {
-                c.process(sleep)?;
-            }
-
-            Ok(())
-        }
-    });
-
-    Ok(System::Future(async move {
-        let mut task = pin!(task);
-        let mut shutdown = pin!(Fuse::new(shutdown));
-
-        loop {
-            tokio::select! {
-                _ = shutdown.as_mut() => {
-                    stop.store(true, Ordering::Release);
-                    continue;
-                }
-                result = task.as_mut() => {
-                    result??;
-                    return Ok(());
-                }
-            };
-        }
-    }))
-}
+#[path = "system/dbus.rs"]
+mod system;
 
 #[cfg(all(unix, not(feature = "dbus")))]
-fn system<'a>(_: u16, _: Notified<'a>) -> Result<Option<impl Future<Output = Result<()>> + 'a>> {
-    Ok(Some(std::future::pending()))
-}
+#[path = "system/unix.rs"]
+mod system;
 
 #[cfg(not(unix))]
-fn system<'a>(_: u16, _: Notified<'a>) -> Result<Option<impl Future<Output = Result<()>> + 'a>> {
-    Ok(Some(std::future::pending()))
-}
+#[path = "system/generic.rs"]
+mod system;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -177,7 +68,7 @@ async fn main() -> Result<()> {
 
     let shutdown = Notify::new();
 
-    let system = match system(local_addr.port(), shutdown.notified())? {
+    let mut system = match system::setup(local_addr.port(), shutdown.notified())? {
         System::Future(system) => system,
         System::Port(port) => {
             self::bundle::open(port);
@@ -214,8 +105,6 @@ async fn main() -> Result<()> {
     tracing::info!("Listening on http://{local_addr}");
 
     let mut ctrl_c = pin!(Fuse::new(ctrl_c()));
-
-    let mut system: Pin<&mut dyn Future<Output = Result<()>>> = pin!(system);
 
     loop {
         tokio::select! {
@@ -448,7 +337,7 @@ mod bundle {
     use axum::routing::get;
     use axum::Router;
 
-    pub(super) static BIND: &'static str = "127.0.0.1:0";
+    pub(super) static BIND: &'static str = "127.0.0.1:8081";
 
     pub(super) fn open(_: u16) {}
 
