@@ -39,14 +39,17 @@ pub(crate) fn setup<'a>(
         Connection::new_session()?
     };
 
+    // Rely on D-Bus activation to start the background service.
+    if service_args.background {
+        return Ok(Setup::Port(get_port(&c)?));
+    }
+
     let reply = c.request_name(NAME, false, false, true)?;
 
     match reply {
         RequestNameReply::PrimaryOwner => {}
         RequestNameReply::Exists => {
-            let proxy = c.with_proxy(NAME, PATH, Duration::from_millis(5000));
-            let (port,): (u16,) = proxy.method_call(NAME, "GetPort", ())?;
-            return Ok(Setup::Port(port));
+            return Ok(Setup::Port(get_port(&c)?));
         }
         reply => {
             tracing::info!(?reply, "Could not acquire name");
@@ -121,6 +124,14 @@ pub(crate) fn setup<'a>(
             };
         }
     }))))
+}
+
+/// Request port from D-Bus service. This will cause the service to activate if
+/// it isn't already.
+fn get_port(c: &Connection) -> Result<u16, anyhow::Error> {
+    let proxy = c.with_proxy(NAME, PATH, Duration::from_millis(5000));
+    let (port,): (u16,) = proxy.method_call(NAME, "GetPort", ())?;
+    Ok(port)
 }
 
 struct State {

@@ -46,9 +46,8 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let filter = EnvFilter::builder()
-        .from_env_lossy()
-        .add_directive("jpv=info".parse()?)
-        .add_directive("lib=info".parse()?);
+        .with_default_directive("jpv=info".parse()?)
+        .from_env_lossy();
 
     tracing_subscriber::fmt()
         .with_env_filter(filter)

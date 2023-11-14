@@ -19,7 +19,10 @@ use crate::{database, dbus, system, web};
 pub(crate) struct ServiceArgs {
     /// Run the dictionary as a background service. This will prevent a browser window from being opened to the service once it's started.
     #[arg(long)]
-    background: bool,
+    pub(crate) background: bool,
+    /// Do not open the URI of the dictionary when started.
+    #[arg(long)]
+    pub(crate) no_open: bool,
     /// Disable D-Bus binding.
     #[cfg(feature = "dbus")]
     #[arg(long)]
@@ -51,7 +54,7 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
         system::Setup::Port(port) => {
             tracing::info!("Listening on http://localhost:{port}");
 
-            if !service_args.background {
+            if !service_args.no_open {
                 let address = format!("http://localhost:{port}");
                 open_uri::open(&address);
             }
@@ -72,7 +75,7 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
     let mut server = pin!(web::setup(local_port, listener, db, system_events)?);
     tracing::info!("Listening on http://{local_addr}");
 
-    if !service_args.background {
+    if !service_args.no_open {
         let address = format!("http://localhost:{local_port}");
         open_uri::open(&address);
     }
