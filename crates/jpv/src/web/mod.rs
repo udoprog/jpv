@@ -6,7 +6,7 @@ mod r#impl;
 #[path = "api.rs"]
 mod r#impl;
 
-pub(crate) use self::r#impl::{open, BIND, PORT};
+pub(crate) use self::r#impl::{BIND, PORT};
 
 use std::cmp::Reverse;
 use std::future::Future;

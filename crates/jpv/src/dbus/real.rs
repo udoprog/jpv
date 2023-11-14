@@ -15,25 +15,29 @@ use dbus::Message;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::futures::Notified;
 
+use crate::command::service::ServiceArgs;
 use crate::system::{Event, SendClipboardData, Setup};
-use crate::Args;
 
 const NAME: &'static str = "se.tedro.JapaneseDictionary";
 const PATH: &'static str = "/se/tedro/JapaneseDictionary";
 
 pub(crate) fn setup<'a>(
-    args: &Args,
+    service_args: &ServiceArgs,
     port: u16,
     shutdown: Notified<'a>,
     broadcast: Sender<Event>,
 ) -> Result<Setup<'a>> {
-    if args.dbus_disable {
+    if service_args.dbus_disable {
         return Ok(Setup::Future(Box::pin(std::future::pending())));
     }
 
     let stop = Arc::new(AtomicBool::new(false));
 
-    let c = Connection::new_session()?;
+    let c = if service_args.dbus_system {
+        Connection::new_system()?
+    } else {
+        Connection::new_session()?
+    };
 
     let reply = c.request_name(NAME, false, false, true)?;
 

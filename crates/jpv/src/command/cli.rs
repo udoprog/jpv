@@ -2,18 +2,18 @@ use std::collections::{BTreeSet, HashSet};
 use std::fmt;
 use std::io::Write;
 use std::mem;
-use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use lib::database::{Database, Entry, IndexSource};
 use lib::inflection;
 use lib::{Form, Furigana, PartOfSpeech};
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
+
+use crate::dirs::Dirs;
+use crate::{database, Args};
 
 #[derive(Parser)]
-struct Args {
+pub(crate) struct CliArgs {
     /// Filter by parts of speech. If no arguments are specified, will filter by
     /// entries which matches all specified parts of speech.
     #[arg(long = "pos", name = "pos")]
@@ -48,72 +48,8 @@ struct Args {
     sequences: Vec<u32>,
 }
 
-#[cfg(unix)]
-mod database {
-    use std::fs::File;
-    use std::io;
-    use std::path::Path;
-
-    use anyhow::{Context, Result};
-
-    static mut DATABASE: Option<memmap::Mmap> = None;
-
-    pub(super) fn open(path: &Path) -> Result<&'static [u8]> {
-        use core::mem::ManuallyDrop;
-
-        use memmap::MmapOptions;
-
-        tracing::info!("Reading from {}", path.display());
-
-        fn read(path: &Path) -> io::Result<&'static [u8]> {
-            let f = ManuallyDrop::new(File::open(path)?);
-
-            let mmap = unsafe { MmapOptions::new().map(&f)? };
-
-            unsafe {
-                DATABASE = Some(mmap);
-
-                match &DATABASE {
-                    Some(mmap) => Ok(&mmap[..]),
-                    None => unreachable!(),
-                }
-            }
-        }
-
-        let slice = read(&path).with_context(|| path.display().to_string())?;
-        Ok(slice)
-    }
-}
-
-#[cfg(not(unix))]
-mod database {
-    #[cfg(not(feature = "embed"))]
-    #[inline]
-    fn open(path: &Path) -> Result<Cow<'static, [u8]>> {
-        Ok(Cow::Owned(std::fs::read(path)?))
-    }
-
-    #[cfg(feature = "embed")]
-    #[inline]
-    fn open(_: &Path) -> Result<Cow<'static, [u8]>> {
-        const BYTES: &[u8] = include_bytes!("../../../database.bin");
-        Ok(Cow::Borrowed(BYTES))
-    }
-}
-
-fn main() -> Result<()> {
-    let filter = EnvFilter::builder().from_env_lossy();
-
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .finish()
-        .try_init()?;
-
-    let database_path = Path::new("database.bin");
-
-    let args = Args::try_parse()?;
-
-    if args.list_pos {
+pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<()> {
+    if cli_args.list_pos {
         println!("Available `--pos` arguments:");
 
         for pos in PartOfSpeech::VALUES {
@@ -123,19 +59,19 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let data =
-        database::open(database_path).with_context(|| anyhow!("{}", database_path.display()))?;
+    // SAFETY: we know this is only initialized once here exclusively.
+    let data = unsafe { database::open(args, dirs)? };
 
     let db = Database::new(data.as_ref())?;
 
     let mut to_look_up = BTreeSet::new();
 
-    for &seq in &args.sequences {
+    for &seq in &cli_args.sequences {
         to_look_up.extend(db.lookup_sequence(seq)?);
     }
 
-    for input in &args.arguments {
-        let seed = args.sequences.is_empty();
+    for input in &cli_args.arguments {
+        let seed = cli_args.sequences.is_empty();
 
         if seed {
             to_look_up.extend(db.lookup(input)?);
@@ -149,10 +85,10 @@ fn main() -> Result<()> {
         }
     }
 
-    if !args.parts_of_speech.is_empty() {
-        let mut seed = args.arguments.is_empty() && args.sequences.is_empty();
+    if !cli_args.parts_of_speech.is_empty() {
+        let mut seed = cli_args.arguments.is_empty() && cli_args.sequences.is_empty();
 
-        for pos in &args.parts_of_speech {
+        for pos in &cli_args.parts_of_speech {
             let pos = PartOfSpeech::parse_keyword(pos)
                 .with_context(|| anyhow!("Invalid part of speech `{pos}`"))?;
 
@@ -167,7 +103,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let current_lang = args.lang.as_deref().unwrap_or("eng");
+    let current_lang = cli_args.lang.as_deref().unwrap_or("eng");
 
     for (i, index) in to_look_up.iter().enumerate() {
         let extra = match index.source() {
@@ -199,7 +135,7 @@ fn main() -> Result<()> {
         }
 
         for (index, sense) in d.senses.iter().enumerate() {
-            if !args.any_lang && !sense.is_lang(current_lang) {
+            if !cli_args.any_lang && !sense.is_lang(current_lang) {
                 continue;
             }
 
@@ -213,7 +149,7 @@ fn main() -> Result<()> {
                 }
             }
 
-            if args.examples && !sense.examples.is_empty() {
+            if cli_args.examples && !sense.examples.is_empty() {
                 println!("  Examples:");
 
                 for e in &sense.examples {
@@ -222,14 +158,14 @@ fn main() -> Result<()> {
             }
         }
 
-        if !args.inflection || (to_look_up.len() > 1 && args.sequences.is_empty()) {
+        if !cli_args.inflection || (to_look_up.len() > 1 && cli_args.sequences.is_empty()) {
             continue;
         }
 
         let p = "  ";
 
-        let dis0 = |furigana| maybe_furigana(furigana, !args.no_furigana);
-        let dis = |furigana| maybe_furigana(furigana, !args.no_furigana);
+        let dis0 = |furigana| maybe_furigana(furigana, !cli_args.no_furigana);
+        let dis = |furigana| maybe_furigana(furigana, !cli_args.no_furigana);
 
         let stdout = std::io::stdout();
         let mut o = stdout.lock();
@@ -241,7 +177,7 @@ fn main() -> Result<()> {
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
             for (c, form) in c.inflections {
-                if args.polite != c.contains(Form::Polite) {
+                if cli_args.polite != c.contains(Form::Polite) {
                     continue;
                 }
 

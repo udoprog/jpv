@@ -9,11 +9,6 @@ use rust_embed::RustEmbed;
 pub(crate) static BIND: &'static str = "127.0.0.1:0";
 pub(crate) static PORT: Option<u16> = None;
 
-pub(crate) fn open(port: u16) {
-    let address = format!("http://localhost:{port}");
-    let _ = webbrowser::open(&address);
-}
-
 pub(crate) fn router() -> Router {
     Router::new()
         .route("/", get(index_handler))
