@@ -45,6 +45,8 @@ Wildcard searching:
 
 > **Note:** Currently only suffixes are support.
 
+<br>
+
 ## Building for Fedora GNOME
 
 To build an rpm package which is suitable for Fedora GNOME, you can do the following:
@@ -74,7 +76,9 @@ in the background. Starting the application will open up the browser UI.
 
 ![Desktop entry](gfx/desktop.png)
 
-#### Clipboard monitoring
+<br>
+
+#### Capture the clipboard on GNOME
 
 Since GNOME and Wayland desktop environments in general currently do not have
 any facilities to monitor the clipboard, extensions for each environment has
@@ -85,6 +89,13 @@ manager after installation (and possibly logging in and out).
 
 ![Gnome extension](gfx/gnome-extension.png)
 
-Once enabled, clipboard monitoring has to be enabled in the panel item.
+Once enabled, clipboard capture has to be enabled in the panel item.
 
 ![GNOME clipboard capture](gfx/gnome-clipboard-capture.png)
+
+![Alt text](gfx/gnome-clipboard-capture-enabled.png)
+
+> **Note:** while clipboard capture is running the extension icon will be red.
+> Only enable it while it's in use since there are currently no security
+> mechanisms in place other than your local system. Any application could
+> pretend to be a dictionary application and capture the clipboard.
