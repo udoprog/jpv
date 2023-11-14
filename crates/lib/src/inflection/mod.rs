@@ -63,9 +63,13 @@ pub enum Form {
     Potential,
     /// Volitional / Presumptive
     Volitional,
+    /// To do, to let, to allow.
     Causative,
+    /// Desire form.
     Tai,
+    /// Negative tense.
     Negative,
+    /// Past tense.
     Past,
     /// Polite form.
     Polite,

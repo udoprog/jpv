@@ -315,6 +315,7 @@ pub(crate) fn adjective_i(mut r: impl FnMut(&'static str, &[Form])) {
     r("くないです", &[Negative, Polite]);
     r("なかった", &[Past, Negative]);
     r("なかったです", &[Past, Negative, Polite]);
+    r("いよう", &[Volitional]);
 }
 
 pub(crate) fn adjective_ii(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
@@ -326,6 +327,7 @@ pub(crate) fn adjective_ii(mut r: impl FnMut(&'static str, &'static str, &[Form]
     r("よ", "くないです", &[Negative, Polite]);
     r("よ", "なかった", &[Past, Negative]);
     r("よ", "なかったです", &[Past, Negative, Polite]);
+    r("い", "いよう", &[Volitional]);
 }
 
 pub(crate) fn adjective_na(mut r: impl FnMut(&'static str, &[Form])) {
