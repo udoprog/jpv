@@ -45,21 +45,16 @@ jpv
 
 ## Features
 
-Search for English glossary or Japanese words:
+* Search for Japanese words and phrases or English glossary.
+* Has an intuitive and very comprehensive machine conjugator.
+* Comes with a GNOME integration and extension to capture the clipboard for use
+  with tools such as [mpvacious].
 
-![Searching for english text](gfx/english.png)
+| ![Searching for english text](gfx/english.png) | ![Conjugations can be searched for and toggled](gfx/conjugate.png) | ![Wildcard searching](gfx/wildcard.png) |
+|------------------------------------------------|--------------------------------------------------------------------|-----------------------------------------|
+| Searching for english text                     | Conjugations can be searched for and cycled                        | Wildcard searching                      |
 
-Has an intuitive and unique machine conjugator:
-
-![Conjugations can be searched for and toggled](gfx/conjugate.png)
-
-> **Note:** Conjugations can be searched for and toggled.
-
-Wildcard searching:
-
-![Wildcard searching](gfx/wildcard.png)
-
-> **Note:** Currently only suffixes are support.
+[mpvacious]: https://github.com/Ajatt-Tools/mpvacious
 
 <br>
 
