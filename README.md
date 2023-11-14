@@ -73,3 +73,18 @@ Once complete, this installs a desktop entry you can use to start the dictionary
 in the background. Starting the application will open up the browser UI.
 
 ![Desktop entry](gfx/desktop.png)
+
+#### Clipboard monitoring
+
+Since GNOME and Wayland desktop environments in general currently do not have
+any facilities to monitor the clipboard, extensions for each environment has
+been written.
+
+To enable the Japanese Dictionary extension for gnome, start the extensions
+manager after installation (and possibly logging in and out).
+
+![Gnome extension](gfx/gnome-extension.png)
+
+Once enabled, clipboard monitoring has to be enabled in the panel item.
+
+![GNOME clipboard capture](gfx/gnome-clipboard-capture.png)

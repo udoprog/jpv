@@ -3,42 +3,13 @@ use lib::database::EntryResultKey;
 use lib::jmdict;
 use lib::kanjidic2;
 use serde::{de::DeserializeOwned, Deserialize};
-use thiserror::Error;
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::window;
 use web_sys::{Request, RequestInit, RequestMode, Response};
 
-#[derive(Debug, Error)]
-pub enum FetchError {
-    #[error("{0}")]
-    JsError(Box<str>),
-    #[error("{0}")]
-    ParseError(#[from] url::ParseError),
-    #[error("{0}")]
-    SerdeJson(#[from] serde_json::Error),
-    #[error("{0}")]
-    Error(#[from] anyhow::Error),
-}
-
-impl From<JsValue> for FetchError {
-    fn from(value: JsValue) -> Self {
-        Self::JsError(format!("{:?}", value).into())
-    }
-}
-
-impl From<&'static str> for FetchError {
-    fn from(value: &'static str) -> Self {
-        Self::JsError(value.into())
-    }
-}
-
-impl From<String> for FetchError {
-    fn from(value: String) -> Self {
-        Self::JsError(value.into())
-    }
-}
+use crate::error::Error;
 
 #[derive(Deserialize)]
 pub struct SearchEntry {
@@ -54,7 +25,7 @@ pub struct SearchResponse {
 }
 
 /// Perform the given search.
-pub(crate) async fn search(q: &str, serial: u32) -> Result<SearchResponse, FetchError> {
+pub(crate) async fn search(q: &str, serial: u32) -> Result<SearchResponse, Error> {
     request(
         "search",
         [("q", q), ("serial", serial.to_string().as_str())],
@@ -75,11 +46,7 @@ pub struct AnalyzeResponse {
 }
 
 /// Perform the given analysis.
-pub(crate) async fn analyze(
-    q: &str,
-    start: usize,
-    serial: u32,
-) -> Result<AnalyzeResponse, FetchError> {
+pub(crate) async fn analyze(q: &str, start: usize, serial: u32) -> Result<AnalyzeResponse, Error> {
     request(
         "analyze",
         [
@@ -91,7 +58,7 @@ pub(crate) async fn analyze(
     .await
 }
 
-async fn request<T, const N: usize>(p: &str, pairs: [(&str, &str); N]) -> Result<T, FetchError>
+async fn request<T, const N: usize>(p: &str, pairs: [(&str, &str); N]) -> Result<T, Error>
 where
     T: DeserializeOwned,
 {

@@ -12,14 +12,19 @@ use dbus::blocking::Connection;
 use dbus::channel::MatchingReceiver;
 use dbus::message::MatchRule;
 use dbus::Message;
+use tokio::sync::broadcast::Sender;
 use tokio::sync::futures::Notified;
 
-use crate::System;
+use crate::{System, SystemEvent, SystemSendClipboardData};
 
 const NAME: &'static str = "se.tedro.JapaneseDictionary";
 const PATH: &'static str = "/se/tedro/JapaneseDictionary";
 
-pub(crate) fn setup<'a>(port: u16, shutdown: Notified<'a>) -> Result<System<'a>> {
+pub(crate) fn setup<'a>(
+    port: u16,
+    shutdown: Notified<'a>,
+    broadcast: Sender<SystemEvent>,
+) -> Result<System<'a>> {
     let stop = Arc::new(AtomicBool::new(false));
 
     let c = Connection::new_session()?;
@@ -49,7 +54,7 @@ pub(crate) fn setup<'a>(port: u16, shutdown: Notified<'a>) -> Result<System<'a>>
                 CString::new(n.as_bytes()).unwrap()
             }
 
-            let mut state = State { port };
+            let mut state = State { port, broadcast };
 
             c.start_receive(
                 MatchRule::new(),
@@ -110,6 +115,7 @@ pub(crate) fn setup<'a>(port: u16, shutdown: Notified<'a>) -> Result<System<'a>>
 
 struct State {
     port: u16,
+    broadcast: Sender<SystemEvent>,
 }
 
 /// Handle a method call.
@@ -125,7 +131,12 @@ fn handle_method_call(state: &mut State, msg: &Message) -> Result<Message> {
         "GetPort" => msg.return_with_args((state.port,)),
         "SendClipboardData" => {
             let (mimetype, data): (String, Vec<u8>) = msg.read2()?;
-            tracing::info!(?mimetype, ?data);
+            let _ = state
+                .broadcast
+                .send(SystemEvent::SendClipboardData(SystemSendClipboardData {
+                    mimetype,
+                    data,
+                }));
             msg.method_return()
         }
         _ => bail!("Unknown method"),

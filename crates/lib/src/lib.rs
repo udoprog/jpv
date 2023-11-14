@@ -4,6 +4,8 @@
 pub mod inflection;
 pub use self::inflection::{Form, Inflection, Inflections, OwnedInflections};
 
+pub mod api;
+
 mod concat;
 pub use self::concat::Concat;
 

@@ -10,11 +10,16 @@ use std::pin::Pin;
 use anyhow::{Context, Error, Result};
 use async_fuse::Fuse;
 use axum::body::{boxed, Body};
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::Query;
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use clap::Parser;
+use futures::sink::SinkExt;
+use futures::stream::SplitSink;
+use futures::stream::StreamExt;
+use lib::api;
 use lib::database::{Database, EntryResultKey};
 use lib::jmdict;
 use lib::kanjidic2;
@@ -22,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use tokio::signal::ctrl_c;
 #[cfg(windows)]
 use tokio::signal::windows::ctrl_shutdown;
+use tokio::sync::broadcast::Sender;
 use tokio::sync::Notify;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -39,6 +45,20 @@ enum System<'a> {
     Port(u16),
     Busy,
 }
+
+#[derive(Clone)]
+struct SystemSendClipboardData {
+    mimetype: String,
+    data: Vec<u8>,
+}
+
+#[derive(Clone)]
+enum SystemEvent {
+    SendClipboardData(SystemSendClipboardData),
+}
+
+#[derive(Clone)]
+struct SystemEvents(Sender<SystemEvent>);
 
 #[cfg(all(unix, feature = "dbus"))]
 #[path = "system/dbus.rs"]
@@ -65,10 +85,14 @@ async fn main() -> Result<()> {
     let addr: SocketAddr = args.bind.as_deref().unwrap_or(self::bundle::BIND).parse()?;
     let listener = TcpListener::bind(addr)?;
     let local_addr = listener.local_addr()?;
+    let local_port = self::bundle::PORT.unwrap_or(local_addr.port());
 
     let shutdown = Notify::new();
 
-    let mut system = match system::setup(local_addr.port(), shutdown.notified())? {
+    let (sender, _) = tokio::sync::broadcast::channel(16);
+    let system_events = SystemEvents(sender.clone());
+
+    let mut system = match system::setup(local_port, shutdown.notified(), sender)? {
         System::Future(system) => system,
         System::Port(port) => {
             self::bundle::open(port);
@@ -94,14 +118,16 @@ async fn main() -> Result<()> {
     tracing::info!("Database loaded");
 
     let cors = CorsLayer::new()
-        .allow_origin(format!("http://localhost:{}", local_addr.port()).parse::<HeaderValue>()?)
-        .allow_origin(format!("http://127.0.0.1:{}", local_addr.port()).parse::<HeaderValue>()?)
+        .allow_origin(format!("http://localhost:{}", local_port).parse::<HeaderValue>()?)
+        .allow_origin(format!("http://127.0.0.1:{}", local_port).parse::<HeaderValue>()?)
         .allow_methods([Method::GET]);
 
-    let app = self::bundle::router().layer(Extension(db)).layer(cors);
+    let app = self::bundle::router()
+        .layer(Extension(db))
+        .layer(Extension(system_events))
+        .layer(cors);
 
     let mut server = pin!(server.serve(app.into_make_service()));
-    self::bundle::open(local_addr.port());
     tracing::info!("Listening on http://{local_addr}");
 
     let mut ctrl_c = pin!(Fuse::new(ctrl_c()));
@@ -182,6 +208,111 @@ async fn search(
         characters: search.characters,
         serial: request.serial,
     }))
+}
+
+async fn ws(
+    ws: WebSocketUpgrade,
+    Extension(system_events): Extension<SystemEvents>,
+) -> impl IntoResponse {
+    let mut system_events = system_events.0.subscribe();
+
+    fn decode_escaped(data: &[u8]) -> Option<String> {
+        fn h(b: u8) -> Option<u32> {
+            let b = match b {
+                b'a'..=b'f' => b - b'a' + 10,
+                b'A'..=b'F' => b - b'A' + 10,
+                b'0'..=b'9' => b - b'0',
+                _ => return None,
+            };
+
+            Some(b as u32)
+        }
+
+        let mut s = String::new();
+
+        let mut it = data.iter().copied();
+
+        while let Some(b) = it.next() {
+            match (b, it.clone().next()) {
+                (b'\\', Some(b'u')) => {
+                    it.next();
+                    let [a, b, c, d] = [it.next()?, it.next()?, it.next()?, it.next()?];
+                    let [a, b, c, d] = [h(a)?, h(b)?, h(c)?, h(d)?];
+                    let c = a << 12 | b << 8 | c << 4 | d;
+                    s.push(char::from_u32(c)?);
+                }
+                (b'\\', Some(b'\\')) => {
+                    it.next();
+                    s.push('\\');
+                }
+                (c, _) if c.is_ascii() => {
+                    s.push(c as char);
+                }
+                _ => {}
+            }
+        }
+
+        Some(s)
+    }
+
+    async fn handle_event(
+        sink: &mut SplitSink<WebSocket, Message>,
+        event: SystemEvent,
+    ) -> Result<()> {
+        match event {
+            SystemEvent::SendClipboardData(clipboard) => match clipboard.mimetype.as_bytes() {
+                b"UTF8_STRING" | b"text/plain;charset=utf-8" => {
+                    let event = api::ClientEvent::SendClipboardData(api::ClientSendClipboardData {
+                        data: String::from_utf8_lossy(&clipboard.data).into_owned(),
+                    });
+
+                    let json = serde_json::to_vec(&event)?;
+                    sink.send(Message::Binary(json)).await?;
+                }
+                b"STRING" | b"text/plain" => {
+                    let Some(data) = decode_escaped(&clipboard.data[..]) else {
+                        tracing::warn!("failed to decode");
+                        return Ok(());
+                    };
+
+                    let event =
+                        api::ClientEvent::SendClipboardData(api::ClientSendClipboardData { data });
+
+                    let json = serde_json::to_vec(&event)?;
+                    sink.send(Message::Binary(json)).await?;
+                }
+                _ => {}
+            },
+        }
+
+        Ok(())
+    }
+
+    ws.on_upgrade(move |socket| async move {
+        let (mut sender, mut receiver) = socket.split();
+
+        loop {
+            tokio::select! {
+                event = system_events.recv() => {
+                    let Ok(event) = event else {
+                        break;
+                    };
+
+                    if let Err(error) = handle_event(&mut sender, event).await {
+                        tracing::error!("{}", error);
+                        break;
+                    }
+                }
+                message = receiver.next() => {
+                    let Some(message) = message else {
+                        break;
+                    };
+
+                    tracing::info!(?message);
+                }
+            }
+        }
+    })
 }
 
 #[derive(Deserialize)]
@@ -338,13 +469,15 @@ mod bundle {
     use axum::Router;
 
     pub(super) static BIND: &'static str = "127.0.0.1:8081";
+    pub(super) static PORT: Option<u16> = Some(8080);
 
     pub(super) fn open(_: u16) {}
 
     pub(super) fn router() -> Router {
         Router::new()
-            .route("/analyze", get(super::analyze))
-            .route("/search", get(super::search))
+            .route("/api/analyze", get(super::analyze))
+            .route("/api/search", get(super::search))
+            .route("/ws", get(super::ws))
     }
 }
 
@@ -359,6 +492,7 @@ mod bundle {
     use rust_embed::RustEmbed;
 
     pub(super) static BIND: &'static str = "127.0.0.1:0";
+    pub(super) static PORT: Option<u16> = None;
 
     pub(super) fn open(port: u16) {
         let address = format!("http://localhost:{port}");
@@ -370,6 +504,7 @@ mod bundle {
             .route("/", get(index_handler))
             .route("/api/analyze", get(super::analyze))
             .route("/api/search", get(super::search))
+            .route("/ws", get(super::ws))
             .route("/*file", get(static_handler))
             .fallback(index_handler)
     }

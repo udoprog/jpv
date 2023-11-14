@@ -1,5 +1,7 @@
 mod components;
+mod error;
 mod fetch;
+mod ws;
 
 use std::sync::Arc;
 

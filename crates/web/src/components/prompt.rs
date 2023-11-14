@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use lib::api;
 use lib::database::EntryResultKey;
 use lib::jmdict;
 use lib::kanjidic2;
@@ -12,10 +13,13 @@ use yew_router::{prelude::*, AnyRoute};
 const DEFAULT_LIMIT: usize = 100;
 
 use crate::c::entry::{colon, comma, seq};
+use crate::error::Error;
+use crate::ws;
 use crate::{components as c, fetch};
 
 pub(crate) enum Msg {
     Mode(Mode),
+    CaptureClipboard(bool),
     Change(String),
     ForceChange(String, Option<String>),
     Analyze(usize),
@@ -25,7 +29,30 @@ pub(crate) enum Msg {
     AnalyzeResponse(fetch::AnalyzeResponse),
     MoreEntries,
     MoreCharacters,
-    Error(anyhow::Error),
+    WebSocket(ws::Msg),
+    ClientEvent(api::ClientEvent),
+    Error(Error),
+}
+
+impl From<ws::Msg> for Msg {
+    #[inline]
+    fn from(msg: ws::Msg) -> Self {
+        Msg::WebSocket(msg)
+    }
+}
+
+impl From<api::ClientEvent> for Msg {
+    #[inline]
+    fn from(msg: api::ClientEvent) -> Self {
+        Msg::ClientEvent(msg)
+    }
+}
+
+impl From<Error> for Msg {
+    #[inline]
+    fn from(error: Error) -> Self {
+        Msg::Error(error)
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +70,7 @@ struct Query {
     a: Vec<String>,
     i: usize,
     mode: Mode,
+    capture_clipboard: bool,
 }
 
 impl Query {
@@ -71,6 +99,9 @@ impl Query {
                         "katakana" => Mode::Katakana,
                         _ => Mode::Unfiltered,
                     };
+                }
+                "cb" => {
+                    this.capture_clipboard = value == "yes";
                 }
                 _ => {}
             }
@@ -108,6 +139,10 @@ impl Query {
             }
         }
 
+        if self.capture_clipboard {
+            out.push(("cb", Cow::Borrowed("yes")));
+        }
+
         out
     }
 }
@@ -130,7 +165,6 @@ impl Serials {
     }
 }
 
-#[derive(Default)]
 pub(crate) struct Prompt {
     query: Query,
     entries: Vec<(EntryResultKey, jmdict::OwnedEntry)>,
@@ -138,6 +172,7 @@ pub(crate) struct Prompt {
     characters: Vec<kanjidic2::OwnedCharacter>,
     limit_characters: usize,
     serials: Serials,
+    ws: ws::Service<Self>,
     _handle: Option<LocationHandle>,
 }
 
@@ -173,7 +208,7 @@ impl Prompt {
 
                     Msg::SearchResponse(response)
                 }
-                Err(error) => Msg::Error(error),
+                Err(error) => Msg::Error(error.into()),
             });
         } else {
             let input = input.to_lowercase();
@@ -182,7 +217,7 @@ impl Prompt {
             ctx.link().send_future(async move {
                 match fetch::search(&input, serial).await {
                     Ok(entries) => Msg::SearchResponse(entries),
-                    Err(error) => Msg::Error(anyhow::Error::msg(error)),
+                    Err(error) => Msg::Error(error),
                 }
             });
         }
@@ -201,7 +236,7 @@ impl Prompt {
                             .collect(),
                         serial,
                     }),
-                    Err(error) => Msg::Error(error),
+                    Err(error) => Msg::Error(error.into()),
                 });
         } else {
             let input = self.query.q.clone();
@@ -210,7 +245,7 @@ impl Prompt {
             ctx.link().send_future(async move {
                 match fetch::analyze(&input, start, serial).await {
                     Ok(entries) => Msg::AnalyzeResponse(entries),
-                    Err(error) => Msg::Error(anyhow::Error::msg(error)),
+                    Err(error) => Msg::Error(error),
                 }
             });
         }
@@ -267,6 +302,7 @@ impl Component for Prompt {
         let handle = ctx
             .link()
             .add_location_listener(ctx.link().callback(Msg::HistoryChanged));
+
         let (query, inputs) = decode_query(ctx.link().location());
 
         let mut this = Self {
@@ -276,8 +312,13 @@ impl Component for Prompt {
             characters: Vec::default(),
             limit_characters: DEFAULT_LIMIT,
             serials: Serials::default(),
+            ws: ws::Service::new(),
             _handle: handle,
         };
+
+        if let Err(error) = this.ws.connect(ctx) {
+            ctx.link().send_message(error);
+        }
 
         this.refresh(ctx, &inputs);
         this
@@ -313,12 +354,19 @@ impl Component for Prompt {
             Msg::Mode(mode) => {
                 self.query.mode = mode;
 
-                self.query.q = match self.query.mode {
+                let new_query = match self.query.mode {
                     Mode::Unfiltered => self.query.q.clone(),
                     Mode::Hiragana => process_query(&self.query.q, romaji::Segment::hiragana),
                     Mode::Katakana => process_query(&self.query.q, romaji::Segment::katakana),
                 };
 
+                let is_changed = new_query != self.query.q;
+                self.query.q = new_query;
+                self.save_query(ctx, is_changed);
+                true
+            }
+            Msg::CaptureClipboard(capture_clipboard) => {
+                self.query.capture_clipboard = capture_clipboard;
                 self.save_query(ctx, false);
                 true
             }
@@ -385,6 +433,25 @@ impl Component for Prompt {
                 self.limit_characters += DEFAULT_LIMIT;
                 true
             }
+            Msg::WebSocket(msg) => {
+                self.ws.update(ctx, msg);
+                false
+            }
+            Msg::ClientEvent(event) => {
+                match event {
+                    api::ClientEvent::SendClipboardData(clipboard) => {
+                        if self.query.capture_clipboard && self.query.q != clipboard.data {
+                            self.query.q = clipboard.data.clone();
+                            self.query.a.clear();
+                            self.query.translation = None;
+                            self.save_query(ctx, true);
+                            self.refresh(ctx, &clipboard.data);
+                        }
+                    }
+                }
+
+                true
+            }
             Msg::Error(error) => {
                 log::error!("Failed to fetch: {error}");
                 false
@@ -410,6 +477,11 @@ impl Component for Prompt {
         let onkatakana = ctx
             .link()
             .batch_callback(|_: Event| Some(Msg::Mode(Mode::Katakana)));
+
+        let oncaptureclipboard = ctx.link().batch_callback({
+            let capture_clipboard = self.query.capture_clipboard;
+            move |_: Event| Some(Msg::CaptureClipboard(!capture_clipboard))
+        });
 
         let mut rem = 0;
 
@@ -650,6 +722,13 @@ impl Component for Prompt {
                             <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
                             {"カタカナ"}
                         </label>
+
+                        {c::entry::spacing()}
+
+                        <label for="clipboard" title="Capture clipboard">
+                            <input type="checkbox" id="clipboard" checked={self.query.capture_clipboard} onchange={oncaptureclipboard} />
+                            {"Capture clipboard"}
+                        </label>
                     </div>
 
                     <>
@@ -702,7 +781,7 @@ fn copyright() -> Html {
     html! {
         <>
             <div class="block inline">
-                <span>{"Made in ❤️ by "}</span>
+                <span>{"Made with ❤️ by "}</span>
                 <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
                 <span>{" made freely available under the "}</span>
                 <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-MIT">{"MIT"}</a>

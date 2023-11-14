@@ -3,4 +3,9 @@ target = "crates/web/index.html"
 
 [[proxy]]
 rewrite = "/api"
-backend = "http://localhost:8081"
+backend = "http://localhost:8081/api"
+
+[[proxy]]
+rewrite = "/ws"
+backend = "ws://localhost:8081/ws"
+ws = true

@@ -1,1 +1,5 @@
 /* Add your custom extension styling here */
+
+.japanese-dictionary-icon:capture {
+    background-color: rgb(146, 45, 45) !important;
+}
