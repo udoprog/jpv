@@ -281,6 +281,52 @@ impl Prompt {
             self.save_query(ctx, true);
         }
     }
+
+    /// Update from what looks like JSON in a clipboard.
+    fn update_from_clipboard_json(
+        &mut self,
+        ctx: &Context<Self>,
+        json: &serde_json::Value,
+    ) -> Result<(), Error> {
+        let Some(serde_json::Value::String(primary)) = json.get("primary") else {
+            return Ok(());
+        };
+
+        let secondary = match json.get("secondary") {
+            Some(serde_json::Value::String(secondary)) => Some(secondary),
+            _ => None,
+        };
+
+        if self.query.capture_clipboard && self.query.q != primary.as_str() {
+            self.query.q = primary.to_owned();
+            self.query.a.clear();
+            self.query.translation = secondary.filter(|s| !s.is_empty()).cloned();
+            self.save_query(ctx, true);
+            self.refresh(ctx, primary);
+        }
+
+        Ok(())
+    }
+
+    /// Update from clipboard.
+    fn update_from_clipboard(&mut self, ctx: &Context<Self>, text: &str) -> Result<(), Error> {
+        if text.starts_with('{') {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
+                self.update_from_clipboard_json(ctx, &json)?;
+                return Ok(());
+            }
+        }
+
+        if self.query.capture_clipboard && self.query.q != text {
+            self.query.q = text.to_owned();
+            self.query.a.clear();
+            self.query.translation = None;
+            self.save_query(ctx, true);
+            self.refresh(ctx, text);
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Properties)]
@@ -440,12 +486,8 @@ impl Component for Prompt {
             Msg::ClientEvent(event) => {
                 match event {
                     api::ClientEvent::SendClipboardData(clipboard) => {
-                        if self.query.capture_clipboard && self.query.q != clipboard.data {
-                            self.query.q = clipboard.data.clone();
-                            self.query.a.clear();
-                            self.query.translation = None;
-                            self.save_query(ctx, true);
-                            self.refresh(ctx, &clipboard.data);
+                        if let Err(error) = self.update_from_clipboard(ctx, &clipboard.data) {
+                            ctx.link().send_message(error);
                         }
                     }
                 }
