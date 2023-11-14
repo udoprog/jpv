@@ -15,16 +15,22 @@ use dbus::Message;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::futures::Notified;
 
-use crate::{System, SystemEvent, SystemSendClipboardData};
+use crate::system::{Event, SendClipboardData, Setup};
+use crate::Args;
 
 const NAME: &'static str = "se.tedro.JapaneseDictionary";
 const PATH: &'static str = "/se/tedro/JapaneseDictionary";
 
 pub(crate) fn setup<'a>(
+    args: &Args,
     port: u16,
     shutdown: Notified<'a>,
-    broadcast: Sender<SystemEvent>,
-) -> Result<System<'a>> {
+    broadcast: Sender<Event>,
+) -> Result<Setup<'a>> {
+    if args.dbus_disable {
+        return Ok(Setup::Future(Box::pin(std::future::pending())));
+    }
+
     let stop = Arc::new(AtomicBool::new(false));
 
     let c = Connection::new_session()?;
@@ -36,11 +42,11 @@ pub(crate) fn setup<'a>(
         RequestNameReply::Exists => {
             let proxy = c.with_proxy(NAME, PATH, Duration::from_millis(5000));
             let (port,): (u16,) = proxy.method_call(NAME, "GetPort", ())?;
-            return Ok(System::Port(port));
+            return Ok(Setup::Port(port));
         }
         reply => {
             tracing::info!(?reply, "Could not acquire name");
-            return Ok(System::Busy);
+            return Ok(Setup::Busy);
         }
     }
 
@@ -94,7 +100,7 @@ pub(crate) fn setup<'a>(
         }
     });
 
-    Ok(System::Future(Box::pin(async move {
+    Ok(Setup::Future(Box::pin(async move {
         let mut task = pin!(task);
         let mut shutdown = pin!(Fuse::new(shutdown));
 
@@ -115,7 +121,7 @@ pub(crate) fn setup<'a>(
 
 struct State {
     port: u16,
-    broadcast: Sender<SystemEvent>,
+    broadcast: Sender<Event>,
 }
 
 /// Handle a method call.
@@ -133,7 +139,7 @@ fn handle_method_call(state: &mut State, msg: &Message) -> Result<Message> {
             let (mimetype, data): (String, Vec<u8>) = msg.read2()?;
             let _ = state
                 .broadcast
-                .send(SystemEvent::SendClipboardData(SystemSendClipboardData {
+                .send(Event::SendClipboardData(SendClipboardData {
                     mimetype,
                     data,
                 }));
