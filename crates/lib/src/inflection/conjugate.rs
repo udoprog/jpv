@@ -383,6 +383,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
 
             if let Some(te) = inflections.get(inflect!(Te)).cloned() {
                 inflections.insert(&[TeIru, Te, Short], &[], te.concat(["る"]));
+                inflections.insert(&[TeIru, Te, Short, Polite], &[], te.concat(["ます"]));
                 inflections.insert(&[TeIru, Te, Past, Short], &[], te.concat(["た"]));
 
                 macros::ichidan(|suffix, inflect| {
