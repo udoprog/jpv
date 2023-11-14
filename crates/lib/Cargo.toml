@@ -17,3 +17,4 @@ serde = { version = "1.0.189", features = ["derive"] }
 tracing = "0.1.40"
 xmlparser = "0.13.6"
 borrowme = "0.0.14"
+thiserror = "1.0.50"

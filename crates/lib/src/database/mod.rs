@@ -11,17 +11,20 @@ use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::Variable;
 use musli_storage::Encoding;
+use musli_zerocopy::endian::Little;
 use musli_zerocopy::{slice, swiss, trie, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use self::string_indexer::StringIndexer;
-use crate::inflection;
 use crate::inflection::Inflection;
 use crate::jmdict::{self, EntryKey};
-use crate::kanjidic2;
 use crate::romaji;
 use crate::romaji::{is_hiragana, is_katakana, Segment};
 use crate::PartOfSpeech;
+use crate::{inflection, DICTIONARY_VERSION};
+use crate::{kanjidic2, DICTIONARY_MAGIC};
+
+use self::string_indexer::StringIndexer;
 
 pub(super) struct CompactTrie;
 
@@ -35,6 +38,14 @@ impl trie::Flavor for CompactTrie {
 pub enum Entry<'a> {
     Kanji(kanjidic2::Character<'a>),
     Dict(jmdict::Entry<'a>),
+}
+
+#[derive(ZeroCopy)]
+#[repr(C)]
+struct Header {
+    magic: u32,
+    version: u32,
+    index: Ref<Index, Little>,
 }
 
 #[derive(ZeroCopy)]
@@ -204,10 +215,11 @@ pub struct Search<'a> {
     pub characters: Vec<kanjidic2::Character<'a>>,
 }
 
-/// Load the given dictionary and convert into the internal format.
-pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
+/// Build a dictionary from the given jmdict and kanjidic sources.
+pub fn build(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
     let mut buf = OwnedBuf::new();
 
+    let header = buf.store_uninit::<Header>();
     let index = buf.store_uninit::<Index>();
     let mut output = Vec::new();
 
@@ -392,6 +404,12 @@ pub fn load(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         by_sequence,
     });
 
+    buf.load_uninit_mut(header).write(&Header {
+        magic: DICTIONARY_MAGIC,
+        version: DICTIONARY_VERSION,
+        index: index.assume_init(),
+    });
+
     Ok(buf)
 }
 
@@ -449,12 +467,39 @@ pub struct Database<'a> {
     data: &'a Buf,
 }
 
+/// An error raised while interacting with the database.
+#[derive(Debug, Error)]
+pub enum DatabaseOpenError {
+    #[error("Not valid due to magic mismatch")]
+    MagicMismatch,
+    #[error("Outdated")]
+    Outdated,
+    #[error("Error: {0}")]
+    Error(
+        #[from]
+        #[source]
+        musli_zerocopy::Error,
+    ),
+}
+
 impl<'a> Database<'a> {
     /// Construct a new database wrapper.
-    pub fn new(data: &'a [u8]) -> Result<Self> {
+    ///
+    /// This returns `Ok(None)` if the database is incompatible with the current
+    /// version.
+    pub fn open(data: &'a [u8]) -> Result<Self, DatabaseOpenError> {
         let data = Buf::new(data);
-        let index = data.load(Ref::<Index>::zero())?;
+        let header = data.load(Ref::<Header>::zero())?;
 
+        if header.magic != DICTIONARY_MAGIC {
+            return Err(DatabaseOpenError::MagicMismatch);
+        }
+
+        if header.version != DICTIONARY_VERSION {
+            return Err(DatabaseOpenError::Outdated);
+        }
+
+        let index = data.load(header.index)?;
         Ok(Self { index, data })
     }
 
@@ -618,7 +663,7 @@ impl<'a> Database<'a> {
         input: &str,
         seen: &mut HashSet<&'a str>,
         out: &mut Vec<kanjidic2::Character<'a>>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<()> {
         for c in input.chars() {
             if is_katakana(c) || is_hiragana(c) || c.is_ascii_alphabetic() {
                 continue;

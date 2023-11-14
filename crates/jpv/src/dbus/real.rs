@@ -28,7 +28,7 @@ pub(crate) fn setup<'a>(
     broadcast: Sender<Event>,
 ) -> Result<Setup<'a>> {
     if service_args.dbus_disable {
-        return Ok(Setup::Future(Box::pin(std::future::pending())));
+        return Ok(Setup::Future(None));
     }
 
     let stop = Arc::new(AtomicBool::new(false));
@@ -104,7 +104,7 @@ pub(crate) fn setup<'a>(
         }
     });
 
-    Ok(Setup::Future(Box::pin(async move {
+    Ok(Setup::Future(Some(Box::pin(async move {
         let mut task = pin!(task);
         let mut shutdown = pin!(Fuse::new(shutdown));
 
@@ -120,7 +120,7 @@ pub(crate) fn setup<'a>(
                 }
             };
         }
-    })))
+    }))))
 }
 
 struct State {

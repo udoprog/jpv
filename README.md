@@ -1,31 +1,47 @@
 # jpv
 
-This is my personal dictionary project.
+Welcome to my personal dictionary project!
 
-To use, you'll have to download
-- `JMdict_e_examp.gz` from <http://www.edrdg.org/wiki/index.php/Main_Page>
-- `kanjidic2.xml.gz` from <http://www.edrdg.org/wiki/index.php/KANJIDIC_Project>
-and place them in the root of the repository, and then run:
+<br>
 
-```sh
-RUST_LOG="lib=info" cargo run --release -p tools --bin build-database
+## Build instructions
+
+First you need to build the dictionary file that the project will use:
+
+```
+cargo run --release -p jpv -- build
 ```
 
-After that, install trunk and build the web-ui:
+This will build and store a dictionary file for your user, respecting data
+directory conventions.
+
+Next, install trunk and build the UI:
 
 ```sh
 cargo install trunk
 cargo toolchain add wasm32-unknown-unknown
 trunk build --release
+cargo install --path crates/jpv --features bundle,gnome
 ```
 
-Now you can run the bundled web-ui:
+> **Note:** The `gnome` feature should only be used when building for GNOME
+> environments.
+
+After this, you must build the dictionary file this project will use:
 
 ```
-cargo run --release -p jpv --features bundle
+jpv build
+```
+
+Finally you can start the UI:
+
+```
+jpv
 ```
 
 ![Good morning!](gfx/splash.png)
+
+<br>
 
 ## Features
 
@@ -47,12 +63,12 @@ Wildcard searching:
 
 <br>
 
-## Building for Fedora GNOME
+## Building and packing for Fedora GNOME
 
 To build an rpm package which is suitable for Fedora GNOME, you can do the following:
 
 ```sh
-cargo build --release -p jpv --features bundle,dbus
+cargo build --release -p jpv --features bundle,gnome
 cargo generate-rpm -p crates/jpv
 ```
 
@@ -62,30 +78,22 @@ The generated rpm will be located in `target/generate-rpm`.
 sudo npm -i target/generate-rpm/jpv-0.0.0-1.x86_64.rpm
 ```
 
-> **Note:** You currently have to manually copy `database.bin` to
-> `/usr/share/jpv`. Including it in the rpm currently takes too
-> long to build.
-
-```sh
-sudo mkdir /usr/share/jpv
-sudo cp database.bin /usr/share/jpv
-```
-
 Once complete, this installs a desktop entry you can use to start the dictionary
 in the background. Starting the application will open up the browser UI.
+
+Note that you still need to build the database before it can be used.
 
 ![Desktop entry](gfx/desktop.png)
 
 <br>
 
-#### Capture the clipboard on GNOME
+#### GNOME Extension
 
 Since GNOME and Wayland desktop environments in general currently do not have
-any facilities to monitor the clipboard, extensions for each environment has
-been written.
+any facilities to generically capture the clipboard we must rely on extensions.
 
 To enable the Japanese Dictionary extension for gnome, start the extensions
-manager after installation (and possibly logging in and out).
+manager after installing the package:
 
 ![Gnome extension](gfx/gnome-extension.png)
 

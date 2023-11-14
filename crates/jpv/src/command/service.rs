@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::pin::pin;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_fuse::Fuse;
 use clap::Parser;
 use tokio::signal::ctrl_c;
@@ -11,6 +11,7 @@ use tokio::signal::windows::ctrl_shutdown;
 use tokio::sync::Notify;
 
 use crate::dirs::Dirs;
+use crate::open_uri;
 use crate::Args;
 use crate::{database, dbus, system, web};
 
@@ -43,13 +44,16 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
     let mut dbus = match dbus::setup(service_args, local_port, shutdown.notified(), sender)
         .context("Setting up D-Bus")?
     {
-        system::Setup::Future(dbus) => dbus,
+        system::Setup::Future(dbus) => match dbus {
+            Some(dbus) => Fuse::new(dbus),
+            None => Fuse::empty(),
+        },
         system::Setup::Port(port) => {
             tracing::info!("Listening on http://localhost:{port}");
 
             if !service_args.background {
                 let address = format!("http://localhost:{port}");
-                let _ = webbrowser::open(&address);
+                open_uri::open(&address);
             }
 
             return Ok(());
@@ -60,18 +64,17 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
     };
 
     // SAFETY: we know this is only initialized once here exclusively.
-    let data = unsafe { database::open(args, dirs)? };
+    let (data, location) = unsafe { database::open(args, dirs)? };
 
-    tracing::info!("Loading database...");
-    let db = lib::database::Database::new(data).context("loading database")?;
-    tracing::info!("Database loaded");
+    let db = lib::database::Database::open(data)
+        .with_context(|| anyhow!("Loading dictionary from {location}"))?;
 
     let mut server = pin!(web::setup(local_port, listener, db, system_events)?);
     tracing::info!("Listening on http://{local_addr}");
 
     if !service_args.background {
         let address = format!("http://localhost:{local_port}");
-        let _ = webbrowser::open(&address);
+        open_uri::open(&address);
     }
 
     let mut ctrl_c = pin!(Fuse::new(ctrl_c()));
@@ -81,14 +84,18 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
             result = server.as_mut() => {
                 result?;
             }
-            result = dbus.as_mut() => {
+            result = dbus.as_pin_mut() => {
                 result?;
-                tracing::info!("System integration shut down");
+                tracing::info!("D-Bus integration shut down");
                 break;
             }
             _ = ctrl_c.as_mut() => {
                 tracing::info!("Shutting down...");
                 shutdown.notify_one();
+
+                if dbus.is_empty() {
+                    break;
+                }
             }
         }
     }

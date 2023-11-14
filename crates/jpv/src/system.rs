@@ -5,7 +5,7 @@ use anyhow::Result;
 use tokio::sync::broadcast::Sender;
 
 pub(crate) enum Setup<'a> {
-    Future(Pin<Box<dyn Future<Output = Result<()>> + 'a>>),
+    Future(Option<Pin<Box<dyn Future<Output = Result<()>> + 'a>>>),
     #[allow(unused)]
     Port(u16),
     #[allow(unused)]

@@ -4,6 +4,7 @@ mod command;
 mod database;
 mod dbus;
 mod dirs;
+mod open_uri;
 mod system;
 mod web;
 

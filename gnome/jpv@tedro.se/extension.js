@@ -74,22 +74,23 @@ class Indicator extends PanelMenu.Button {
 
         this.add_style_class_name('japanese-dictionary-icon');
 
-        let openUi = new PopupMenu.PopupMenuItem(_('Open UI'));
+        let openDictionary = new PopupMenu.PopupMenuItem(_('Open dictionary'));
 
-        openUi.connect('activate', () => {
+        openDictionary.connect('activate', () => {
             extension.proxy.GetPortRemote((port, error) => {
                 if (error) {
-                    console.error(error);
+                    Main.notifyError(_(`Failed to open dictionary`), `${error}`);
                 } else {
                     let p = port[0];
-                    Gio.app_info_launch_default_for_uri(`http://localhost:${p}`, null);
+                    let url = `http://localhost:${p}`;
+                    Gio.app_info_launch_default_for_uri(url, null);
                 }
             });
         });
 
         this._toggleClipboard = new ClipboardToggle(_('Capture clipboard'));
 
-        this.menu.addMenuItem(openUi);
+        this.menu.addMenuItem(openDictionary);
         this.menu.addMenuItem(this._toggleClipboard);
 
         const metaDisplay = Shell.Global.get().get_display();
@@ -127,7 +128,7 @@ class Indicator extends PanelMenu.Button {
         }
     }
 
-    async _sendClipboardData () {
+    async _sendClipboardData() {
         if (this.#sendInProgress) {
             return;
         }
@@ -152,7 +153,7 @@ class Indicator extends PanelMenu.Button {
         }
     }
 
-    async #getClipboardContent () {
+    async #getClipboardContent() {
         for (let atom of ATOMS) {
             let result = await new Promise(resolve => this.extension.clipboard.get_content(CLIPBOARD_TYPE, atom, (_cb, bytes) => {
                 if (bytes === null || bytes.get_size() === 0) {
@@ -163,7 +164,9 @@ class Indicator extends PanelMenu.Button {
                 resolve(new ClipboardEntry(atom, bytes.get_data()));
             }));
 
-            if (result) return result;
+            if (result) {
+                return result;
+            }
         }
 
         return null;

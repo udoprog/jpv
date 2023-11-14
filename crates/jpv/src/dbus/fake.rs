@@ -11,5 +11,5 @@ pub(crate) fn setup<'a>(
     _: Notified<'a>,
     _: Sender<Event>,
 ) -> Result<Setup<'a>> {
-    Ok(Setup::Future(Box::pin(std::future::pending())))
+    Ok(Setup::Future(None))
 }

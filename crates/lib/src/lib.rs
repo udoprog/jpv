@@ -1,5 +1,10 @@
 #![allow(clippy::large_enum_variant)]
 
+/// Dictionary magic.
+pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44; // "JPVD";
+/// Current database version in use.
+pub const DICTIONARY_VERSION: u32 = 1;
+
 #[macro_use]
 pub mod inflection;
 pub use self::inflection::{Form, Inflection, Inflections, OwnedInflections};

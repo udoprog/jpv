@@ -60,9 +60,10 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
     }
 
     // SAFETY: we know this is only initialized once here exclusively.
-    let data = unsafe { database::open(args, dirs)? };
+    let (data, location) = unsafe { database::open(args, dirs)? };
 
-    let db = Database::new(data.as_ref())?;
+    let db = Database::open(data.as_ref())
+        .with_context(|| anyhow!("Loading dictionary from {location}"))?;
 
     let mut to_look_up = BTreeSet::new();
 
