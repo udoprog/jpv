@@ -312,6 +312,10 @@ pub fn build(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         }
 
         for el in &entry.kanji_elements {
+            if let Some(s) = full_to_half_string(el.text) {
+                readings.push((Cow::Owned(s), Id::new(entry_ref)));
+            }
+
             readings.push((Cow::Borrowed(el.text), Id::new(entry_ref)));
         }
 
@@ -440,6 +444,86 @@ fn populate_analyzed<'a>(text: &'a str, readings: &mut Vec<(Cow<'a, str>, Id)>, 
             readings.push((Cow::Borrowed(phrase), id));
         }
     }
+}
+
+fn full_to_half_char(c: char) -> Option<char> {
+    let c = match c {
+        '\u{FF01}' => '!',
+        '\u{FF02}' => '"',
+        '\u{FF03}' => '#',
+        '\u{FF04}' => '$',
+        '\u{FF05}' => '%',
+        '\u{FF06}' => '&',
+        '\u{FF07}' => '\'',
+        '\u{FF08}' => '(',
+        '\u{FF09}' => ')',
+        '\u{FF0A}' => '*',
+        '\u{FF0B}' => '+',
+        '\u{FF0C}' => ',',
+        '\u{FF0D}' => '-',
+        '\u{FF0E}' => '.',
+        '\u{FF0F}' => '/',
+        '\u{FF10}'..='\u{FF19}' => ((c as u32 - 0xFF10) as u8 + b'0') as char,
+        '\u{FF1A}' => ':',
+        '\u{FF1B}' => ';',
+        '\u{FF1C}' => '<',
+        '\u{FF1D}' => '=',
+        '\u{FF1E}' => '>',
+        '\u{FF1F}' => '?',
+        '\u{FF20}' => '@',
+        '\u{FF21}'..='\u{FF3A}' => ((c as u32 - 0xFF21) as u8 + b'A') as char,
+        '\u{FF3B}' => '[',
+        '\u{FF3C}' => '\\',
+        '\u{FF3D}' => ']',
+        '\u{FF3E}' => '^',
+        '\u{FF3F}' => '_',
+        '\u{FF40}' => '`',
+        '\u{FF41}'..='\u{FF5A}' => ((c as u32 - 0xFF41) as u8 + b'a') as char,
+        '\u{FF5B}' => '{',
+        '\u{FF5C}' => '|',
+        '\u{FF5D}' => '}',
+        '\u{FF5E}' => '~',
+        '\u{FF5F}' => '\u{2985}',
+        '\u{FF60}' => '\u{2986}',
+        '\u{FFE0}' => '\u{00A2}',
+        '\u{FFE1}' => '\u{00A3}',
+        '\u{FFE2}' => '\u{00AC}',
+        '\u{FFE3}' => '\u{00AF}',
+        '\u{FFE4}' => '\u{00A6}',
+        '\u{FFE5}' => '\u{00A5}',
+        '\u{FFE6}' => '\u{20A9}',
+        _ => {
+            return None;
+        }
+    };
+
+    Some(c)
+}
+
+fn full_to_half_string(input: &str) -> Option<String> {
+    let mut output = String::new();
+
+    let mut it = input.char_indices();
+
+    'escape: {
+        for (index, c) in it.by_ref() {
+            let Some(c) = full_to_half_char(c) else {
+                continue;
+            };
+
+            output.push_str(&input[..index]);
+            output.push(c);
+            break 'escape;
+        }
+
+        return None;
+    }
+
+    for (_, c) in it {
+        output.push(full_to_half_char(c).unwrap_or(c));
+    }
+
+    Some(output)
 }
 
 fn other_readings(
