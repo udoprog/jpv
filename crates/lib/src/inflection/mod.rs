@@ -79,7 +79,6 @@ form! {
         {CommandTeKudasai = 5, "～てください", "～てください, alternate command form", None},
         {CommandYo = 6, "～よ", "～よ, alternate command form", None},
         {Conditional = 7, "cond", "～たら, conditional, if ~, when ~", Some("https://www.tofugu.com/japanese-grammar/conditional-form-tara/")},
-        {Conversation = 8, "clq", "conversational / colloquial", None},
         {Darou = 9, "～だろう", "～だろう, alternate form", None},
         {Hypothetical = 10, "hyp", "hypothetical, if ~", None},
         {Kya = 11, "～きゃ", "～きゃ, alternative hypothetical negative, if not ~", None},
@@ -88,8 +87,9 @@ form! {
         {Potential = 14, "pot", "potential, can do ~", None},
         {Simultaneous = 28, "～ながら", "～ながら, simultaneous, while ~", Some("https://www.tofugu.com/japanese-grammar/verb-nagara/")},
         {Volitional = 24, "vol", "～よう, volitional / presumptive, let's do ~", Some("https://www.tofugu.com/japanese-grammar/verb-volitional-form-you/")},
-        {Short = 25, "short", "alternate shortened form", None},
         {LooksLike = 26, "～そう", "～そう, looks like", Some("https://www.tofugu.com/japanese-grammar/verb-sou/")},
+        {Short = 25, "short", "alternate shortened form", None},
+        {Conversation = 8, "clq", "conversational / colloquial", None},
     }
 }
 

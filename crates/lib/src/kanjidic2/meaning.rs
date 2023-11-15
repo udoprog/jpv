@@ -15,6 +15,7 @@ pub(crate) struct Builder<'a> {
 #[musli(packed)]
 pub struct Meaning<'a> {
     pub text: &'a str,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lang: Option<&'a str>,
 }
 

@@ -18,6 +18,7 @@ pub(crate) struct Builder<'a> {
 pub struct QueryCode<'a> {
     text: &'a str,
     ty: &'a str,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     skip_misclass: Option<&'a str>,
 }
 

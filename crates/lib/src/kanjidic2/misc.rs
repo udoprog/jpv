@@ -34,12 +34,18 @@ pub(crate) struct Builder<'a> {
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Misc<'a> {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     grade: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     stroke_count: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[borrowed_attr(serde(borrow))]
     variant: Option<Variant<'a>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     freq: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     jlpt: Option<u8>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     radical_names: Vec<&'a str>,
 }
 

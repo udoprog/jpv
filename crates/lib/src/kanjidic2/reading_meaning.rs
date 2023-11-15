@@ -29,10 +29,13 @@ pub(crate) struct Builder<'a> {
 #[derive(Default, Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct ReadingMeaning<'a> {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[borrowed_attr(serde(borrow))]
     pub readings: Vec<Reading<'a>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[borrowed_attr(serde(borrow))]
     pub meanings: Vec<Meaning<'a>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[borrowed_attr(serde(borrow))]
     pub nanori: Vec<&'a str>,
 }

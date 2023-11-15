@@ -5,7 +5,7 @@
 /// Dictionary magic.
 pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44; // "JPVD";
 /// Current database version in use.
-pub const DICTIONARY_VERSION: u32 = 1;
+pub const DICTIONARY_VERSION: u32 = 2;
 
 #[macro_use]
 pub mod inflection;

@@ -9,16 +9,18 @@ mod r#impl;
 pub(crate) use self::r#impl::{BIND, PORT};
 
 use std::cmp::Reverse;
+use std::fmt;
 use std::future::Future;
 use std::net::TcpListener;
 
 use anyhow::{Error, Result};
 use axum::body::{boxed, Body};
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::Query;
+use axum::extract::{Path, Query};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::{Extension, Json};
+use axum::routing::get;
+use axum::{Extension, Json, Router};
 use futures::sink::SinkExt;
 use futures::stream::SplitSink;
 use futures::stream::StreamExt;
@@ -62,17 +64,68 @@ pub(crate) fn setup(
     })
 }
 
+fn common_routes(router: Router) -> Router {
+    router
+        .route("/api/analyze", get(analyze))
+        .route("/api/search", get(search))
+        .route("/api/entry/:sequence", get(entry))
+        .route("/api/kanji/:literal", get(kanji))
+        .route("/ws", get(ws))
+}
+
 type RequestResult<T> = std::result::Result<T, RequestError>;
 
 struct RequestError {
     error: anyhow::Error,
+    status: Option<StatusCode>,
+}
+
+impl RequestError {
+    fn not_found<M>(msg: M) -> Self
+    where
+        M: fmt::Display + fmt::Debug + Send + Sync + 'static,
+    {
+        Self {
+            error: anyhow::Error::msg(msg),
+            status: Some(StatusCode::NOT_FOUND),
+        }
+    }
 }
 
 impl From<anyhow::Error> for RequestError {
     #[inline]
     fn from(error: anyhow::Error) -> Self {
-        Self { error }
+        Self {
+            error,
+            status: None,
+        }
     }
+}
+
+#[derive(Deserialize)]
+struct EntryQuery {
+    #[serde(default)]
+    serial: Option<u32>,
+}
+
+#[derive(Serialize)]
+struct EntryResponse {
+    entry: jmdict::Entry<'static>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    serial: Option<u32>,
+}
+
+#[derive(Deserialize)]
+struct KanjiQuery {
+    #[serde(default)]
+    serial: Option<u32>,
+}
+
+#[derive(Serialize)]
+struct KanjiResponse {
+    entry: kanjidic2::Character<'static>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    serial: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -94,6 +147,41 @@ struct SearchResponse {
     characters: Vec<kanjidic2::Character<'static>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     serial: Option<u32>,
+}
+
+async fn entry(
+    Path(sequence): Path<u32>,
+    Query(query): Query<EntryQuery>,
+    Extension(db): Extension<Database<'static>>,
+) -> RequestResult<Json<EntryResponse>> {
+    let Some(entry) = db.sequence_to_entry(sequence)? else {
+        return Err(RequestError::not_found(format!(
+            "Missing entry by id `{}`",
+            sequence
+        )));
+    };
+
+    Ok(Json(EntryResponse {
+        entry,
+        serial: query.serial,
+    }))
+}
+
+async fn kanji(
+    Path(literal): Path<String>,
+    Query(query): Query<KanjiQuery>,
+    Extension(db): Extension<Database<'static>>,
+) -> RequestResult<Json<KanjiResponse>> {
+    let Some(entry) = db.literal_to_kanji(&literal)? else {
+        return Err(RequestError::not_found(format!(
+            "Missing kanji by literal `{literal}`",
+        )));
+    };
+
+    Ok(Json(KanjiResponse {
+        entry,
+        serial: query.serial,
+    }))
 }
 
 async fn search(
@@ -266,8 +354,9 @@ async fn analyze(
 impl IntoResponse for RequestError {
     fn into_response(self) -> Response {
         tracing::error!("{}", self.error);
-        let mut response = Response::new(boxed(Body::empty()));
-        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+        let bytes = format!("{}", self.error).into_bytes();
+        let mut response = Response::new(boxed(Body::from(bytes)));
+        *response.status_mut() = self.status.unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         response
     }
 }

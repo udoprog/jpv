@@ -67,7 +67,7 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
     let mut to_look_up = BTreeSet::new();
 
     for &seq in &cli_args.sequences {
-        to_look_up.extend(db.lookup_sequence(seq)?);
+        to_look_up.extend(db.sequence_to_id(seq)?);
     }
 
     for input in &cli_args.arguments {

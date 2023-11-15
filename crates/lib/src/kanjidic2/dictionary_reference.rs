@@ -19,7 +19,9 @@ pub(crate) struct Builder<'a> {
 pub struct DictionaryReference<'a> {
     text: &'a str,
     ty: &'a str,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     volume: Option<&'a str>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     page: Option<&'a str>,
 }
 

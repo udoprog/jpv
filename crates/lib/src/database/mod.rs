@@ -53,6 +53,7 @@ struct Header {
 pub(super) struct Index {
     pub(super) lookup: trie::TrieRef<Id, CompactTrie>,
     pub(super) by_pos: swiss::MapRef<PartOfSpeech, Ref<[u32]>>,
+    pub(super) by_kanji_literal: swiss::MapRef<Ref<str>, u32>,
     pub(super) by_sequence: swiss::MapRef<u32, u32>,
 }
 
@@ -226,6 +227,8 @@ pub fn build(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
     let mut kanjidic2 = kanjidic2::Parser::new(kanjidic2);
     let mut readings = Vec::new();
 
+    let mut by_kanji_literal = HashMap::new();
+
     tracing::info!("Parsing kanjidic");
 
     while let Some(c) = kanjidic2.parse()? {
@@ -233,6 +236,8 @@ pub fn build(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         ENCODING.to_writer(&mut output, &c)?;
 
         let kanji_ref = buf.store_slice(&output).offset() as u32;
+
+        by_kanji_literal.insert(c.literal, kanji_ref);
 
         readings.push((
             Cow::Borrowed(c.literal),
@@ -358,6 +363,17 @@ pub fn build(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         readings2.push((s, *id));
     }
 
+    let by_kanji_literal = {
+        let mut output = HashMap::new();
+
+        for (key, value) in by_kanji_literal {
+            let s = indexer.store(&mut buf, key.as_ref())?;
+            output.insert(s, value);
+        }
+
+        output
+    };
+
     let mut lookup = trie::Builder::with_flavor();
 
     for (key, id) in readings2.into_iter().rev() {
@@ -397,6 +413,11 @@ pub fn build(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
         swiss::store_map(&mut buf, entries)?
     };
 
+    let by_kanji_literal = {
+        tracing::info!("Storing by_kanji_literal: {}...", by_kanji_literal.len());
+        swiss::store_map(&mut buf, by_kanji_literal)?
+    };
+
     let by_sequence = {
         tracing::info!("Storing by_sequence: {}...", by_sequence.len());
         swiss::store_map(&mut buf, by_sequence)?
@@ -405,6 +426,7 @@ pub fn build(jmdict: &str, kanjidic2: &str) -> Result<OwnedBuf> {
     buf.load_uninit_mut(index).write(&Index {
         lookup,
         by_pos,
+        by_kanji_literal,
         by_sequence,
     });
 
@@ -587,13 +609,39 @@ impl<'a> Database<'a> {
         Ok(Self { index, data })
     }
 
-    /// Get identifier by sequence.
-    pub fn lookup_sequence(&self, sequence: u32) -> Result<Option<Id>> {
+    /// Convert a sequence to Id.
+    pub fn sequence_to_id(&self, sequence: u32) -> Result<Option<Id>> {
         let Some(index) = self.index.by_sequence.get(self.data, &sequence)? else {
             return Ok(None);
         };
 
         Ok(Some(Id::new(*index)))
+    }
+
+    /// Get kanji by character.
+    pub fn literal_to_kanji(&self, literal: &str) -> Result<Option<kanjidic2::Character<'a>>> {
+        let Some(index) = self.index.by_kanji_literal.get(self.data, literal)? else {
+            return Ok(None);
+        };
+
+        let Some(bytes) = self.data.get(*index as usize..) else {
+            return Err(anyhow!("Missing entry at {}", *index));
+        };
+
+        Ok(Some(ENCODING.from_slice(bytes)?))
+    }
+
+    /// Get identifier by sequence.
+    pub fn sequence_to_entry(&self, sequence: u32) -> Result<Option<jmdict::Entry<'a>>> {
+        let Some(index) = self.index.by_sequence.get(self.data, &sequence)? else {
+            return Ok(None);
+        };
+
+        let Some(bytes) = self.data.get(*index as usize..) else {
+            return Err(anyhow!("Missing entry at {}", *index));
+        };
+
+        Ok(Some(ENCODING.from_slice(bytes)?))
     }
 
     /// Get an entry from the database.

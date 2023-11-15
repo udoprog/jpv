@@ -10,11 +10,11 @@ pub(crate) static BIND: &'static str = "127.0.0.1:0";
 pub(crate) static PORT: Option<u16> = None;
 
 pub(crate) fn router() -> Router {
-    Router::new()
-        .route("/", get(index_handler))
-        .route("/api/analyze", get(super::analyze))
-        .route("/api/search", get(super::search))
-        .route("/ws", get(super::ws))
+    let router = Router::new().route("/", get(index_handler));
+
+    let router = super::common_routes(router);
+
+    router
         .route("/*file", get(static_handler))
         .fallback(index_handler)
 }

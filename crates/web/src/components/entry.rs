@@ -12,7 +12,6 @@ use lib::{
 use yew::prelude::*;
 
 pub(crate) enum Msg {
-    ToggleInflection,
     ToggleForm(usize, Form),
     ResetForm(usize),
     Change(String, Option<String>),
@@ -65,7 +64,6 @@ pub(crate) struct Entry {
     combined: Vec<Combined>,
     readings: Vec<OwnedReadingElement>,
     states: Vec<ExtraState>,
-    show_inflection: bool,
     inflections: Vec<(inflection::Reading, OwnedInflections)>,
 }
 
@@ -102,7 +100,6 @@ impl Component for Entry {
                 .iter()
                 .map(|_| ExtraState::default())
                 .collect(),
-            show_inflection: false,
             inflections: inflection::conjugate(&entry)
                 .into_iter()
                 .map(|(r, i, _)| (r, borrowme::to_owned(i)))
@@ -115,9 +112,6 @@ impl Component for Entry {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::ToggleInflection => {
-                self.show_inflection = !self.show_inflection;
-            }
             Msg::ToggleForm(index, form) => {
                 if let Some(state) = self.states.get_mut(index) {
                     state.filter.toggle(form);
@@ -228,50 +222,11 @@ impl Component for Entry {
             |iter| html!(<ul class="block list-numerical">{for iter}</ul>),
         );
 
-        let inflections = inflections.map(|(_, _, (_, _, i))| i).next();
-
-        let show_inflections = inflections.map(|_| {
-            let onclick = ctx.link().callback(|_: MouseEvent| Msg::ToggleInflection);
-
-            let button = if self.show_inflection {
-                "Hide inflections"
-            } else {
-                "Show inflections"
-            };
-
-            html! {
-                <div class="block row">
-                    <button class="btn btn-lg" {onclick}>{button}</button>
-                </div>
-            }
-        });
-
-        let inflection = inflections.filter(|_| self.show_inflection).map(|inflections| {
-            let iter = inflections.inflections.iter().map(|(inflection, word)| {
-                html! {
-                    <li class="section">
-                        <div class="block">{format!("{inflection:?}")}</div>
-                        <div class="block text kanji highlight">{ruby(word.furigana())}</div>
-                    </li>
-                }
-            });
-
-            html! {
-                <ul class="block list-bulleted">
-                    <li class="section">
-                        <div class="block">{"Dictionary"}</div>
-                        <div class="block text kanji highlight">{ruby(inflections.dictionary.furigana())}</div>
-                    </li>
-                    {for iter}
-                </ul>
-            }
-        });
-
         let entry_key_style = "display: none;".to_string();
 
         html! {
-            <div class="block block-lg entry indent">
-                <div class="block block row entry-sequence">{entry.sequence}</div>
+            <div class="block block-lg entry">
+                <div class="block block row entry-sequence"><a href={format!("/api/entry/{}", entry.sequence)}>{format!("#{}", entry.sequence)}</a></div>
                 <div class="block block row entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
                 {for extras}
                 {for reading}
@@ -282,8 +237,6 @@ impl Component for Entry {
                 {for outdated}
                 {for irregular}
                 {for search_only}
-                {for show_inflections}
-                {for inflection}
             </div>
         }
     }
@@ -550,10 +503,8 @@ fn render_inflection<'a>(
         }
 
         let class = classes! {
-            "bullet",
-            "bullet-inflection",
+            "inflection",
             this.contains(f).then_some("active"),
-            exists.then_some("clickable"),
         };
 
         let onclick = ctx
@@ -568,7 +519,7 @@ fn render_inflection<'a>(
         .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
     let reset = (!filter.is_empty())
-        .then(|| html!(<span class="bullet bullet-destructive active clickable" {onclick}>{"Reset"}</span>));
+        .then(|| html!(<span class="inflection destructive" {onclick}>{"Reset"}</span>));
 
     form.chain(reset)
 }

@@ -630,22 +630,18 @@ impl Component for Prompt {
                         </div>
 
                         <div class="block row">
-                            <button onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</button>
+                            <button class="btn" onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</button>
                         </div>
                     </div>
                 }
             });
 
             html! {
-                <>
+                <div class="block block-lg">
                     <h4>{"Entries"}</h4>
-
-                    <div class="block block-lg">
-                        {for entries}
-                        <div class="entry-separator" />
-                        {for more}
-                    </div>
-                </>
+                    {for entries}
+                    {for more}
+                </div>
             }
         });
 
@@ -696,8 +692,7 @@ impl Component for Prompt {
                 html! {
                     <>
                         <div class="character">
-                            <div class="literal text highlight">{c.literal.clone()}</div>
-
+                            <div class="literal text highlight"><a href={format!("/api/kanji/{}", c.literal)}>{c.literal.clone()}</a></div>
                             {for onyomi}
                             {for kunyomi}
                             <div class="meanings row">{"Meanings"}{colon()}<ul>{for meanings}</ul></div>
@@ -716,18 +711,18 @@ impl Component for Prompt {
                         </div>
 
                         <div class="block row">
-                            <button onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</button>
+                            <button class="btn" onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</button>
                         </div>
                     </div>
                 }
             });
 
             html! {
-                <>
+                <div class="block block-lg">
                     <h4>{"Characters"}</h4>
-                    <div class="block block-lg">{for iter}</div>
+                    {for iter}
                     {for more}
-                </>
+                </div>
             }
         });
 
