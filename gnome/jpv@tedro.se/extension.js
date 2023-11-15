@@ -7,7 +7,6 @@ import Gio from 'gi://Gio';
 import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import {loadInterfaceXML} from 'resource:///org/gnome/shell/misc/fileUtils.js';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -52,12 +51,18 @@ class ClipboardToggle extends PopupMenu.PopupSwitchMenuItem {
         super._init(title, settings.get_boolean('capture-clipboard-enabled'));
 
         this.connect('toggled', (item, state) => {
-            settings.set_boolean('capture-clipboard-enabled', state);
+            if (settings.get_boolean('capture-clipboard-enabled') !== state) {
+                settings.set_boolean('capture-clipboard-enabled', state);
+            }
         });
 
         settings.connect('changed::capture-clipboard-enabled', (settings, key) => {
-            this.setToggleState(settings.get_boolean(key));
-            this.emit('toggled', this.state);
+            let state = settings.get_boolean(key);
+
+            if (this.state !== state) {
+                this.setToggleState(state);
+                this.emit('toggled', state);
+            }
         });
     }
 });
@@ -116,6 +121,10 @@ class Indicator extends PanelMenu.Button {
     }
 
     _setup() {
+        if (this._selection) {
+            return;
+        }
+
         const metaDisplay = Shell.Global.get().get_display();
 
         this._selection = metaDisplay.get_selection();
