@@ -4,36 +4,52 @@ Welcome to my personal dictionary project!
 
 <br>
 
-## Build instructions
+## Building and Installing
 
-First you need to build the dictionary file that the project will use:
+Install dependencies for the platform you intend to build for:
+* For the `gnome` feature:
+  * `Fedora` - `sudo dnf install dbus-devel pkgconf-pkg-config`
 
-```
-cargo run --release -p jpv -- build
-```
+Install [`trunk`] and the `wasm32` toolchain to build the UI:
 
-This will build and store a dictionary file for your user, respecting data
-directory conventions.
-
-Next, install trunk and build the UI:
+[`trunk`]: https://trunkrs.dev/
 
 ```sh
 cargo install trunk
 cargo toolchain add wasm32-unknown-unknown
-trunk build --release
-cargo install --path crates/jpv --features bundle,gnome
 ```
 
-> **Note:** The `gnome` feature should only be used when building for GNOME
-> environments.
+After this, you can run the project directly in the project directory:
 
-After this, you must build the dictionary file this project will use:
+```sh
+trunk build --release
+cargo run --features bundle
+```
+
+There are scripts available to conveniently build and install packages for
+various environments:
+
+* [tools/install-fedora] to build and install for GNOME on Fedora.
+
+You can also the project manually, but this will lack any system integration
+like clipboard capture:
+
+```
+cargo install --path crates/jpv
+```
+
+<br>
+
+## Configuring
+
+After `jpv` has been installed, you must construct the dictionary file the
+project will use.
 
 ```
 jpv build
 ```
 
-Finally you can start the UI:
+After this, you can start the session with:
 
 ```
 jpv

@@ -595,7 +595,7 @@ fn render_tutorials(inflection: Inflection, filter: Inflection) -> Html {
         |(f, url), not_last| {
             html! {
                 <>
-                    <a href={url} target="_tutorial" title={format!("Tutorial on {}", f.title())}>{format!("Tutorial `{}`", f.describe())}</a>
+                    <a href={url} target="_tutorial" title={format!("Tutorial for {}", f.title())}>{format!("Tutorial for `{}`", f.describe())}</a>
                     {for not_last.then(comma)}
                 </>
             }
