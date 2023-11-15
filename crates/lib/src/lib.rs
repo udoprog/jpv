@@ -1,4 +1,6 @@
 #![allow(clippy::large_enum_variant)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::match_like_matches_macro)]
 
 /// Dictionary magic.
 pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44; // "JPVD";

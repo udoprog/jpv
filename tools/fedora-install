@@ -3,7 +3,7 @@
 trunk build --release
 cargo build --release --features bundle,gnome
 cargo generate-rpm -p crates/jpv
-sudo dnf remove jpv
+sudo dnf remove --assumeyes jpv
 sudo rpm -i target/generate-rpm/jpv-0.0.0-1.x86_64.rpm
 
 echo "Building database"

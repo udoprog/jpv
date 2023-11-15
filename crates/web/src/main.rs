@@ -43,16 +43,8 @@ impl Component for App {
     }
 }
 
-#[cfg(not(feature = "embed"))]
 fn load_database() -> anyhow::Result<Option<lib::database::Database<'static>>> {
     Ok(None)
-}
-
-#[cfg(feature = "embed")]
-fn load_database() -> anyhow::Result<Option<lib::database::Database<'static>>> {
-    static DATABASE: &[u8] = include_bytes!("../../../database.bin");
-
-    Ok(Some(lib::database::Database::open(DATABASE.as_ref())?))
 }
 
 fn main() -> anyhow::Result<()> {

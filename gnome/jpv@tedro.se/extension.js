@@ -97,7 +97,7 @@ class Indicator extends PanelMenu.Button {
             });
         });
 
-        this._toggleClipboard = new ClipboardToggle(_('Capture clipboard'), extension.getSettings());
+        this._toggleClipboard = new ClipboardToggle(_('Capture clipboard 📋'), extension.getSettings());
 
         this.menu.addMenuItem(openDictionary);
         this.menu.addMenuItem(this._toggleClipboard);

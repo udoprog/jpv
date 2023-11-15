@@ -178,7 +178,7 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
             writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
 
             for (c, form) in c.inflections {
-                if cli_args.polite != c.contains(Form::Polite) {
+                if cli_args.polite != c.contains(Form::Honorific) {
                     continue;
                 }
 

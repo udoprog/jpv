@@ -769,7 +769,7 @@ impl Component for Prompt {
 
                         <label for="clipboard" title="Capture clipboard">
                             <input type="checkbox" id="clipboard" checked={self.query.capture_clipboard} onchange={oncaptureclipboard} />
-                            {"Capture clipboard"}
+                            {"📋"}
                         </label>
                     </div>
 

@@ -81,7 +81,7 @@ impl Entry<'_> {
         // Perform boost by number of senses, maximum boost at 10 senses.
         let sense_count = 1.0 + self.senses.len().min(10) as f32 / 10.0;
         // Conjugation boost.
-        let conjugation = conjugation.then_some(1.2).unwrap_or(1.0);
+        let conjugation = if conjugation { 1.2 } else { 1.0 };
         // Calculate length boost.
         let length = (input.chars().count().min(10) as f32 / 10.0) * 1.2;
 

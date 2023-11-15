@@ -71,18 +71,18 @@ pub enum Form {
     Negative,
     /// Past tense.
     Past,
-    /// Polite form.
-    Polite,
     /// Conversational form.
     Conversation,
     /// Alternate shortened form, when available.
     Short,
     /// Alternate form using kudasai.
-    Kudasai,
+    TeKudasai,
     /// Alternate form using darou.
     Darou,
     /// Alternate command form using yo.
     Yo,
+    /// Honorific speech.
+    Honorific,
 }
 
 impl Form {
@@ -99,7 +99,6 @@ impl Form {
         Form::Negative,
         Form::Passive,
         Form::Past,
-        Form::Polite,
         Form::Potential,
         Form::Tai,
         Form::Te,
@@ -110,9 +109,10 @@ impl Form {
         Form::TeOku,
         Form::TeShimau,
         Form::Volitional,
-        Form::Kudasai,
+        Form::TeKudasai,
         Form::Darou,
         Form::Yo,
+        Form::Honorific,
     ];
 
     /// Longer title for the form.
@@ -121,63 +121,63 @@ impl Form {
             Form::Stem => "stem, or infinite form",
             Form::Short => "alternate shortened form",
             Form::Causative => "causative, make ~ do something, let / allow ~",
-            Form::Chau => "to do something by accident, to finish completely",
-            Form::Command => "command",
+            Form::Chau => "~ちゃう, to do something by accident, to finish completely",
+            Form::Command => "command forms, よ / なさい / ください",
             Form::Conditional => "conditional, if ~, when ~",
-            Form::Conversation => "conversational use only",
+            Form::Conversation => "conversational / colloquial",
             Form::Hypothetical => "hypothetical, if ~",
-            Form::Kya => "~kya, alternative hypothetical negative, if not ~",
+            Form::Kya => "~きゃ, alternative hypothetical negative, if not ~",
             Form::Negative => "not doing ~, the absense of ~",
             Form::Passive => "passive, ~ was done to someone or something",
-            Form::Past => "past tense",
-            Form::Polite => "polite form",
+            Form::Past => "過去形 (かこけい) past tense",
             Form::Potential => "potential, can do ~",
-            Form::Tai => "tai-form, used to express desire",
+            Form::Tai => "~たい, used to express desire",
             Form::Te => "~te form, by itself acts as a command",
-            Form::TeAru => "~te aru, resulting, is/has been done",
-            Form::TeIku => "~te iku, starting, to start, to continue, to go on",
+            Form::TeAru => "~てある, resulting, is / has been done",
+            Form::TeIku => "~ていく, starting, to start, to continue, to go on",
             Form::TeIru => {
-                "~te iru, progressive, shows that something is currently happening or ongoing"
+                "~ている, progressive, shows that something is currently happening or ongoing"
             }
-            Form::TeKuru => "~te kuru, to do .. and come back, to become, to continue, to start ~",
-            Form::TeOku => "~te oku, to do something in advance",
-            Form::TeShimau => "~te shimau, to do something by accident, to finish completely",
+            Form::TeKuru => "~てくる, to do .. and come back, to become, to continue, to start ~",
+            Form::TeOku => "~ておく, to do something in advance",
+            Form::TeShimau => "~てしまう, to do something by accident, to finish completely",
             Form::Volitional => "volitional / presumptive, let's do ~",
-            Form::Kudasai => "alternate form using ~kudasai",
-            Form::Darou => "alternate form using ~darou / ~deshou",
-            Form::Yo => "alternate command form using ~yo",
+            Form::TeKudasai => "alternate form using ~te kudasai",
+            Form::Darou => "~だろう, alternate form",
+            Form::Yo => "~よ, alternate command form using",
+            Form::Honorific => "敬語 (ていご) honorific speech",
         }
     }
 
     /// Describe the form.
     pub fn describe(&self) -> &'static str {
         match self {
-            Form::Stem => "stem / infinite",
+            Form::Stem => "stem",
             Form::Short => "short",
-            Form::Causative => "causative",
-            Form::Chau => "~chau / ~jau",
-            Form::Command => "command",
-            Form::Conditional => "conditional",
-            Form::Conversation => "conversation",
-            Form::Hypothetical => "hypothetical",
-            Form::Kya => "~kya",
-            Form::Negative => "negative",
+            Form::Causative => "caus",
+            Form::Chau => "~ちゃう",
+            Form::Command => "cmd",
+            Form::Conditional => "cond",
+            Form::Conversation => "clq",
+            Form::Hypothetical => "hyp",
+            Form::Kya => "~きゃ",
+            Form::Negative => "not",
             Form::Passive => "passive",
             Form::Past => "past",
-            Form::Polite => "polite",
-            Form::Potential => "potential",
-            Form::Tai => "~tai",
-            Form::Te => "~te",
-            Form::TeAru => "~te aru,",
-            Form::TeIku => "~te iku",
-            Form::TeIru => "~te iru",
-            Form::TeKuru => "~te kuru",
-            Form::TeOku => "~te oku",
-            Form::TeShimau => "~te shimau",
-            Form::Volitional => "volitional",
-            Form::Kudasai => "kudasai",
-            Form::Darou => "~darou / ~deshou",
-            Form::Yo => "~yo",
+            Form::Potential => "pot",
+            Form::Tai => "~たい",
+            Form::Te => "~て",
+            Form::TeAru => "~てある",
+            Form::TeIku => "~ていく",
+            Form::TeIru => "~ている",
+            Form::TeKuru => "~てくる",
+            Form::TeOku => "~ておく",
+            Form::TeShimau => "~てしまう",
+            Form::Volitional => "vol",
+            Form::TeKudasai => "~てください",
+            Form::Darou => "~だろう",
+            Form::Yo => "~よ",
+            Form::Honorific => "敬語",
         }
     }
 }
@@ -346,7 +346,7 @@ impl<'a> Inflections<'a> {
     /// Test if any polite inflections exist.
     pub fn has_polite(&self) -> bool {
         for c in self.inflections.keys() {
-            if c.form.contains(Form::Polite) {
+            if c.form.contains(Form::Honorific) {
                 return true;
             }
         }

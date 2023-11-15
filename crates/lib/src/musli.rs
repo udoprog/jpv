@@ -1,4 +1,6 @@
 pub mod set {
+    #![allow(clippy::extra_unused_type_parameters)]
+
     use fixed_map::raw::RawStorage;
     use fixed_map::{Key, Set};
     use musli::de::{Decode, Decoder};
