@@ -94,11 +94,19 @@ manager after installing the package:
 
 Once enabled, clipboard capture has to be enabled in the panel item.
 
-![GNOME clipboard capture](gfx/gnome-clipboard-capture.png)
+![Clipboard capture](gfx/gnome-clipboard-capture.png)
 
-![Alt text](gfx/gnome-clipboard-capture-enabled.png)
+![Clipboard capture enabled](gfx/gnome-clipboard-capture-enabled.png)
 
 > **Note:** while clipboard capture is running the extension icon will be red.
 > Only enable it while it's in use since there are currently no security
 > mechanisms in place other than your local system. Any application could
 > pretend to be a dictionary application and capture the clipboard.
+
+Clipboard capture is governed by the `capture-clipboard-enabled` setting:
+
+```sh
+> gsettings get se.tedro.japanese-dictionary.plugins capture-clipboard-enabled
+true
+> gsettings set se.tedro.japanese-dictionary.plugins capture-clipboard-enabled false
+```

@@ -3,5 +3,6 @@
   "description": "Japanese Dictionary by John-John Tedro",
   "uuid": "jpv@tedro.se",
   "shell-version": ["45"],
-  "url": "https://github.com/udoprog/jpv"
+  "url": "https://github.com/udoprog/jpv",
+  "settings-schema": "se.tedro.japanese-dictionary.plugins"
 }

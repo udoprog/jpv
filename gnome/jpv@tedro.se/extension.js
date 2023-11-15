@@ -7,6 +7,7 @@ import Gio from 'gi://Gio';
 import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import {loadInterfaceXML} from 'resource:///org/gnome/shell/misc/fileUtils.js';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -19,7 +20,10 @@ const ATOMS = [
 ];
 
 const JapaneseDictionaryInterface = `
-<node>
+<!DOCTYPE node PUBLIC
+    "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+    "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd" >
+<node xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
     <interface name="se.tedro.JapaneseDictionary">
         <method name="GetPort">
             <arg type="q" direction="out" name="port" />
@@ -31,7 +35,6 @@ const JapaneseDictionaryInterface = `
     </interface>
 </node>
 `;
-
 const JapaneseDictionaryProxy = Gio.DBusProxy.makeProxyWrapper(JapaneseDictionaryInterface);
 
 const CLIPBOARD_TYPE = St.ClipboardType.CLIPBOARD;
@@ -44,19 +47,20 @@ class ClipboardEntry {
 }
 
 const ClipboardToggle = GObject.registerClass(
-    class ClipboardToggle extends PopupMenu.PopupSwitchMenuItem {
-        _init(title) {
-            let settings = new Gio.Settings({
-                schema_id: 'se.tedro.japanese-dictionary.plugins',
-            });
+class ClipboardToggle extends PopupMenu.PopupSwitchMenuItem {
+    _init(title, settings) {
+        super._init(title, settings.get_boolean('capture-clipboard-enabled'));
 
-            super._init(title, settings.get_boolean('capture-clipboard-enabled'));
+        this.connect('toggled', (item, state) => {
+            settings.set_boolean('capture-clipboard-enabled', state);
+        });
 
-            this.connect('toggled', (item, state) => {
-                settings.set_boolean('capture-clipboard-enabled', state);
-            });
-        }
-    });    
+        settings.connect('changed::capture-clipboard-enabled', (settings, key) => {
+            this.setToggleState(settings.get_boolean(key));
+            this.emit('toggled', this.state);
+        });
+    }
+});
 
 const Indicator = GObject.registerClass(
 class Indicator extends PanelMenu.Button {
@@ -88,21 +92,19 @@ class Indicator extends PanelMenu.Button {
             });
         });
 
-        this._toggleClipboard = new ClipboardToggle(_('Capture clipboard'));
+        this._toggleClipboard = new ClipboardToggle(_('Capture clipboard'), extension.getSettings());
 
         this.menu.addMenuItem(openDictionary);
         this.menu.addMenuItem(this._toggleClipboard);
 
-        const metaDisplay = Shell.Global.get().get_display();
-        const selection = metaDisplay.get_selection();
-        this._selection = selection;
+        this._selection = null;
 
         if (this._toggleClipboard.state) {
             this._setup();
             this.add_style_pseudo_class('capture');
         }
 
-        this._toggleClipboard.connect('toggled', (item, state) => {
+        this._toggleClipboard.connect('toggled', (_item, state) => {
             if (state) {
                 this._setup();
                 this.add_style_pseudo_class('capture');
@@ -114,9 +116,13 @@ class Indicator extends PanelMenu.Button {
     }
 
     _setup() {
-        this._currentSelection = this._selection.connect('owner-changed', (selection, selectionType, selectionSource) => {
-            if (selectionType === Meta.SelectionType.SELECTION_CLIPBOARD) {
-                this._sendClipboardData().catch(console.error);
+        const metaDisplay = Shell.Global.get().get_display();
+
+        this._selection = metaDisplay.get_selection();
+
+        this._currentSelection = this._selection.connect('owner-changed', (_selection, type, _source) => {
+            if (type === Meta.SelectionType.SELECTION_CLIPBOARD) {
+                this._sendClipboardData().catch(e => console.error(e));
             }
         });
     }
@@ -126,6 +132,8 @@ class Indicator extends PanelMenu.Button {
             this._selection.disconnect(this._currentSelection);
             this._currentSelection = null;
         }
+
+        this._selection = null;
     }
 
     async _sendClipboardData() {
@@ -139,11 +147,13 @@ class Indicator extends PanelMenu.Button {
             const result = await this.#getClipboardContent();
 
             if (result) {
-                this.extension.proxy.SendClipboardDataRemote(result.mimeType, result.data, (_response, error) => {
+                await new Promise((resolve, reject) => this.extension.proxy.SendClipboardDataRemote(result.mimeType, result.data, (_response, error) => {
                     if (error) {
-                        console.error(error);
+                        reject(error);
+                    } else {
+                        resolve();
                     }
-                });
+                }));
             }
         } catch (e) {
             console.error('Failed to send clipboard data');
@@ -157,7 +167,7 @@ class Indicator extends PanelMenu.Button {
         for (let atom of ATOMS) {
             let result = await new Promise(resolve => this.extension.clipboard.get_content(CLIPBOARD_TYPE, atom, (_cb, bytes) => {
                 if (bytes === null || bytes.get_size() === 0) {
-                    resolve(null);
+                    resolve();
                     return;
                 }
 
