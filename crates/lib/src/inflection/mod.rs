@@ -18,167 +18,78 @@ use serde::{Deserialize, Serialize};
 
 use crate::kana::{Fragments, Full, OwnedFull};
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Encode,
-    Decode,
-    Serialize,
-    Deserialize,
-    Key,
-)]
-#[key(bitset = 8)]
-#[serde(rename_all = "kebab-case")]
-pub enum Form {
-    /// The stem of the word.
-    Stem,
-    /// Te-form.
-    Te,
-    /// Te-iru or progressive form.
-    TeIru,
-    /// Te-aru or resulting form.
-    TeAru,
-    /// Te-iku form.
-    TeIku,
-    /// te-shimau form
-    TeShimau,
-    /// chau form
-    Chau,
-    /// te-kuru form
-    TeKuru,
-    /// te-oku form
-    TeOku,
-    Command,
-    Hypothetical,
-    /// Alternate negative hypoethical form.
-    Kya,
-    Conditional,
-    Passive,
-    Potential,
-    /// Volitional / Presumptive
-    Volitional,
-    /// To do, to let, to allow.
-    Causative,
-    /// Desire form.
-    Tai,
-    /// Negative tense.
-    Negative,
-    /// Past tense.
-    Past,
-    /// Conversational form.
-    Conversation,
-    /// Alternate shortened form, when available.
-    Short,
-    /// Alternate form using kudasai.
-    TeKudasai,
-    /// Alternate form using darou.
-    Darou,
-    /// Alternate command form using yo.
-    Yo,
-    /// Honorific speech.
-    Honorific,
-}
+macro_rules! form {
+    ($vis:vis enum $name:ident { $({$variant:ident = $d:literal, $describe:literal, $title:literal, $url:expr $(,)?}),* $(,)? }) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+        #[derive(Encode, Decode, Serialize, Deserialize, Key)]
+        #[key(bitset = 8)]
+        #[serde(rename_all = "kebab-case")]
+        $vis enum $name {
+            $($variant = $d,)*
+        }
 
-impl Form {
-    pub const ALL: [Form; 26] = [
-        Form::Stem,
-        Form::Short,
-        Form::Causative,
-        Form::Chau,
-        Form::Command,
-        Form::Conditional,
-        Form::Conversation,
-        Form::Hypothetical,
-        Form::Kya,
-        Form::Negative,
-        Form::Passive,
-        Form::Past,
-        Form::Potential,
-        Form::Tai,
-        Form::Te,
-        Form::TeAru,
-        Form::TeIku,
-        Form::TeIru,
-        Form::TeKuru,
-        Form::TeOku,
-        Form::TeShimau,
-        Form::Volitional,
-        Form::TeKudasai,
-        Form::Darou,
-        Form::Yo,
-        Form::Honorific,
-    ];
+        impl $name {
+            $vis const ALL: [Form; 31] = [
+                $(Form::$variant,)*
+            ];
 
-    /// Longer title for the form.
-    pub fn title(&self) -> &'static str {
-        match self {
-            Form::Stem => "stem, or infinite form",
-            Form::Short => "alternate shortened form",
-            Form::Causative => "causative, make ~ do something, let / allow ~",
-            Form::Chau => "~ちゃう, to do something by accident, to finish completely",
-            Form::Command => "command forms, よ / なさい / ください",
-            Form::Conditional => "conditional, if ~, when ~",
-            Form::Conversation => "conversational / colloquial",
-            Form::Hypothetical => "hypothetical, if ~",
-            Form::Kya => "~きゃ, alternative hypothetical negative, if not ~",
-            Form::Negative => "not doing ~, the absense of ~",
-            Form::Passive => "passive, ~ was done to someone or something",
-            Form::Past => "過去形 (かこけい) past tense",
-            Form::Potential => "potential, can do ~",
-            Form::Tai => "~たい, used to express desire",
-            Form::Te => "~te form, by itself acts as a command",
-            Form::TeAru => "~てある, resulting, is / has been done",
-            Form::TeIku => "~ていく, starting, to start, to continue, to go on",
-            Form::TeIru => {
-                "~ている, progressive, shows that something is currently happening or ongoing"
+            /// Describe the form.
+            $vis fn describe(&self) -> &'static str {
+                match self {
+                    $(Form::$variant => $describe,)*
+                }
             }
-            Form::TeKuru => "~てくる, to do .. and come back, to become, to continue, to start ~",
-            Form::TeOku => "~ておく, to do something in advance",
-            Form::TeShimau => "~てしまう, to do something by accident, to finish completely",
-            Form::Volitional => "volitional / presumptive, let's do ~",
-            Form::TeKudasai => "alternate form using ~te kudasai",
-            Form::Darou => "~だろう, alternate form",
-            Form::Yo => "~よ, alternate command form using",
-            Form::Honorific => "敬語 (ていご) honorific speech",
+
+            /// Longer title for the form.
+            $vis fn title(&self) -> &'static str {
+                match self {
+                    $(Form::$variant => $title,)*
+                }
+            }
+
+            /// Tutorial URL for the form.
+            $vis fn url(&self) -> Option<&'static str> {
+                match self {
+                    $(Form::$variant => $url,)*
+                }
+            }
         }
     }
+}
 
-    /// Describe the form.
-    pub fn describe(&self) -> &'static str {
-        match self {
-            Form::Stem => "stem",
-            Form::Short => "short",
-            Form::Causative => "caus",
-            Form::Chau => "~ちゃう",
-            Form::Command => "cmd",
-            Form::Conditional => "cond",
-            Form::Conversation => "clq",
-            Form::Hypothetical => "hyp",
-            Form::Kya => "~きゃ",
-            Form::Negative => "not",
-            Form::Passive => "passive",
-            Form::Past => "past",
-            Form::Potential => "pot",
-            Form::Tai => "~たい",
-            Form::Te => "~て",
-            Form::TeAru => "~てある",
-            Form::TeIku => "~ていく",
-            Form::TeIru => "~ている",
-            Form::TeKuru => "~てくる",
-            Form::TeOku => "~ておく",
-            Form::TeShimau => "~てしまう",
-            Form::Volitional => "vol",
-            Form::TeKudasai => "~てください",
-            Form::Darou => "~だろう",
-            Form::Yo => "~よ",
-            Form::Honorific => "敬語",
-        }
+form! {
+    pub enum Form {
+        {Stem = 0, "stem", "stem / infinite", None},
+        {Honorific = 27, "敬語", "敬語 (ていご) honorific speech", None},
+        {Negative = 1, "not", "not doing ~, the absense of ~", None},
+        {Te = 17, "～て", "～te form, by itself acts as a command", None},
+        {TeAru = 18, "～てある", "～てある, resulting, is / has been done", None},
+        {TeIku = 19, "～ていく", "～ていく, starting, to start, to continue, to go on", None},
+        {TeIru = 20, "～ている", "～ている, progressive, shows that something is currently happening or ongoing", Some("https://www.tofugu.com/japanese-grammar/verb-continuous-form-teiru/")},
+        {TeKuru = 21, "～てくる", "～てくる, to do .. and come back, to become, to continue, to start ~", None},
+        {TeOku = 22, "～ておく", "～ておく, to do something in advance", None},
+        {TeShimau = 23, "～てしまう", "～てしまう, to do something by accident, to finish completely", None},
+        {Tai = 15, "～たい", "～たい, expressing desire", Some("https://www.tofugu.com/japanese-grammar/tai-form/")},
+        {EasyTo = 29, "easy", "～やすい, easy to do ~", Some("https://www.tofugu.com/japanese-grammar/yasui/")},
+        {HardTo = 30, "hard", "～にくい, hard to do ~", Some("https://www.tofugu.com/japanese-grammar/nikui/")},
+        {TaGaRu = 16, "～たがる", "～たがる, noting desire", Some("https://www.tofugu.com/japanese-grammar/tagaru-form/")},
+        {Causative = 2, "caus", "causative, make ~ do something, let / allow ~", None},
+        {Chau = 3, "～ちゃう", "～ちゃう, to do something by accident, to finish completely", None},
+        {Command = 4, "cmd", "command forms, よ / なさい / ください", Some("https://www.tofugu.com/japanese-grammar/verb-command-form-ro/")},
+        {CommandTeKudasai = 5, "～てください", "～てください, alternate command form", None},
+        {CommandYo = 6, "～よ", "～よ, alternate command form", None},
+        {Conditional = 7, "cond", "～たら, conditional, if ~, when ~", Some("https://www.tofugu.com/japanese-grammar/conditional-form-tara/")},
+        {Conversation = 8, "clq", "conversational / colloquial", None},
+        {Darou = 9, "～だろう", "～だろう, alternate form", None},
+        {Hypothetical = 10, "hyp", "hypothetical, if ~", None},
+        {Kya = 11, "～きゃ", "～きゃ, alternative hypothetical negative, if not ~", None},
+        {Passive = 12, "psv", "～られる, passive, ~ was done to someone or something", Some("https://www.tofugu.com/japanese-grammar/verb-passive-form-rareru/")},
+        {Past = 13, "past", "過去形 (かこけい) past tense", None},
+        {Potential = 14, "pot", "potential, can do ~", None},
+        {Simultaneous = 28, "～ながら", "～ながら, simultaneous, while ~", Some("https://www.tofugu.com/japanese-grammar/verb-nagara/")},
+        {Volitional = 24, "vol", "～よう, volitional / presumptive, let's do ~", Some("https://www.tofugu.com/japanese-grammar/verb-volitional-form-you/")},
+        {Short = 25, "short", "alternate shortened form", None},
+        {LooksLike = 26, "～そう", "～そう, looks like", Some("https://www.tofugu.com/japanese-grammar/verb-sou/")},
     }
 }
 

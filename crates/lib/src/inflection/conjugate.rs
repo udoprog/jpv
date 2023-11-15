@@ -381,6 +381,18 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
             };
 
+            if let Some(stem) = inflections.get(inflect!(Stem)).cloned() {
+                macros::godan_ru(|prefix, suffix, inflect| {
+                    inflections.insert(inflect, &[TaGaRu], stem.concat(["たが", prefix, suffix]));
+                });
+
+                macros::adjective_i(|suffix, inflect| {
+                    inflections.insert(inflect, &[Tai], stem.concat(["た", suffix]));
+                    inflections.insert(inflect, &[EasyTo], stem.concat(["やす", suffix]));
+                    inflections.insert(inflect, &[HardTo], stem.concat(["にく", suffix]));
+                });
+            }
+
             if let Some(te) = inflections.get(inflect!(Te)).cloned() {
                 inflections.insert(&[TeIru, Te, Short], &[], te.concat(["る"]));
                 inflections.insert(&[TeIru, Te, Short, Honorific], &[], te.concat(["ます"]));

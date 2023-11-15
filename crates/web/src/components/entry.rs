@@ -246,7 +246,7 @@ impl Component for Entry {
             }
         });
 
-        let inflection = inflections.filter(|_| self.show_inflection).and_then(|inflections| {
+        let inflection = inflections.filter(|_| self.show_inflection).map(|inflections| {
             let iter = inflections.inflections.iter().map(|(inflection, word)| {
                 html! {
                     <li class="section">
@@ -256,7 +256,7 @@ impl Component for Entry {
                 }
             });
 
-            Some(html! {
+            html! {
                 <ul class="block list-bulleted">
                     <li class="section">
                         <div class="block">{"Dictionary"}</div>
@@ -264,10 +264,10 @@ impl Component for Entry {
                     </li>
                     {for iter}
                 </ul>
-            })
+            }
         });
 
-        let entry_key_style = format!("display: none;");
+        let entry_key_style = "display: none;".to_string();
 
         html! {
             <div class="block block-lg entry indent">
@@ -465,13 +465,6 @@ enum InflectionKind {
 }
 
 impl InflectionKind {
-    fn as_title(self) -> &'static str {
-        match self {
-            InflectionKind::Verb => "Conjugation:",
-            InflectionKind::Adjective => "Inflection:",
-        }
-    }
-
     fn as_description(self) -> &'static str {
         match self {
             InflectionKind::Verb => "Result based on verb conjugation",
@@ -524,26 +517,29 @@ fn render_extra(
         |word| html!(<div class="block row"><span class="text kanji highlight">{word}</span></div>),
     );
 
-    let inflection = render_inflection(ctx, index, inflection, filter, inflections);
+    let inflection_html = render_inflection(ctx, index, inflection, filter, inflections);
+    let tutorials = render_tutorials(inflection, filter);
 
     Some(html! {
         <div class="block notice">
-            <div class="block row"><span title={kind.as_description()}>{kind.as_title()}</span>{inflection}</div>
+            <div class="block block-sm title">{kind.as_description()}{":"}</div>
+            <div class="block block-sm row bullets">{for inflection_html}</div>
+            {tutorials}
             {for word}
         </div>
     })
 }
 
-fn render_inflection(
-    ctx: &Context<Entry>,
+fn render_inflection<'a>(
+    ctx: &'a Context<Entry>,
     index: usize,
     inflection: Inflection,
     filter: Inflection,
-    inflections: &OwnedInflections,
-) -> Html {
+    inflections: &'a OwnedInflections,
+) -> impl Iterator<Item = Html> + 'a {
     let this = filter ^ inflection;
 
-    let form = Inflection::all().iter().flat_map(|f| {
+    let form = Inflection::all().iter().flat_map(move |f| {
         let mut candidate = this;
         candidate.toggle(f);
 
@@ -563,6 +559,7 @@ fn render_inflection(
         let onclick = ctx
             .link()
             .batch_callback(move |_: MouseEvent| exists.then_some(Msg::ToggleForm(index, f)));
+
         Some(html!(<span {class} {onclick} title={f.title()}>{f.describe()}</span>))
     });
 
@@ -573,7 +570,39 @@ fn render_inflection(
     let reset = (!filter.is_empty())
         .then(|| html!(<span class="bullet bullet-destructive active clickable" {onclick}>{"Reset"}</span>));
 
-    html!(<><span class="bullets">{for form}{for reset}</span></>)
+    form.chain(reset)
+}
+
+fn render_tutorials(inflection: Inflection, filter: Inflection) -> Html {
+    let this = filter ^ inflection;
+
+    let mut tutorials = Inflection::all().iter().flat_map(|f| {
+        if this.contains(f) {
+            Some((f, f.url()?))
+        } else {
+            None
+        }
+    });
+
+    let first = tutorials.next();
+
+    let Some(first) = first else {
+        return html!();
+    };
+
+    let tutorials = seq(
+        [first].into_iter().chain(tutorials),
+        |(f, url), not_last| {
+            html! {
+                <>
+                    <a href={url} target="_tutorial" title={format!("Tutorial on {}", f.title())}>{format!("Tutorial `{}`", f.describe())}</a>
+                    {for not_last.then(comma)}
+                </>
+            }
+        },
+    );
+
+    html!(<div class="block block-sm tutorials row">{for tutorials}</div>)
 }
 
 fn render_reading(reading: &OwnedReadingElement, not_last: bool) -> Html {

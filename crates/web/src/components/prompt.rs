@@ -195,7 +195,7 @@ impl Prompt {
                     let characters = search
                         .characters
                         .into_iter()
-                        .map(|e| borrowme::to_owned(e))
+                        .map(borrowme::to_owned)
                         .collect();
 
                     let serial = self.serials.search();
@@ -592,7 +592,7 @@ impl Component for Prompt {
         };
 
         let analyze = html! {
-            <div class="block block-lg indent" id="analyze">{analyze}</div>
+            <div class="block block-xl indent" id="analyze">{analyze}</div>
         };
 
         let translation = self.query.translation.as_ref().map(|text| {
@@ -613,7 +613,7 @@ impl Component for Prompt {
                     Msg::ForceChange(input, translation)
                 });
 
-                let entry = html!(<c::Entry sources={data.sources.clone()} entry_key={data.key.clone()} entry={entry} onchange={change} />);
+                let entry = html!(<c::Entry sources={data.sources.clone()} entry_key={data.key} entry={entry} onchange={change} />);
 
                 if not_last {
                     html!(<>{entry}<div class="entry-separator" /></>)

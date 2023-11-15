@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 trunk build --release
 cargo build --release --features bundle,gnome
 cargo generate-rpm -p crates/jpv

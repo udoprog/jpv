@@ -17,8 +17,8 @@ pub fn ichidan(mut r: impl FnMut(&'static str, &[Form])) {
     r("ませんでした", &[Past, Negative, Honorific]);
     r("ろ", &[Command]);
     r("なさい", &[Command, Honorific]);
-    r("てください", &[Command, Honorific, TeKudasai]);
-    r("よ", &[Command, Yo]);
+    r("てください", &[Command, Honorific, CommandTeKudasai]);
+    r("よ", &[Command, CommandYo]);
     r("るな", &[Command, Negative]);
     r("ないでください", &[Command, Negative, Honorific]);
     r("りゃ", &[Hypothetical, Conversation]);
@@ -52,10 +52,8 @@ pub fn ichidan(mut r: impl FnMut(&'static str, &[Form])) {
     r("ないだろう", &[Volitional, Negative]);
     r("ないでしょう", &[Volitional, Negative, Honorific]);
     r("させる", &[Causative]);
-    r("たい", &[Tai]);
-    r("たくない", &[Tai, Negative]);
-    r("たかった", &[Tai, Past]);
-    r("たくなかった", &[Tai, Past, Negative]);
+    r("ながら", &[Simultaneous]);
+    r("そう", &[LooksLike]);
 }
 
 pub fn ichidan_te(mut r: impl FnMut(&'static str, &[Form])) {
@@ -76,8 +74,8 @@ pub(crate) fn godan_lit(g: &'static Godan, mut r: impl FnMut(&'static str, &'sta
     r(g.a, "なかった", &[Past, Negative]);
     r(g.i, "ませんでした", &[Past, Negative, Honorific]);
     r(g.i, "なさい", &[Command, Honorific]);
-    r(g.te, "ください", &[Command, Honorific, TeKudasai]);
-    r(g.e, "よ", &[Command, Yo]);
+    r(g.te, "ください", &[Command, Honorific, CommandTeKudasai]);
+    r(g.e, "よ", &[Command, CommandYo]);
     r(g.u, "な", &[Command, Negative]);
     r(g.a, "ないでください", &[Command, Negative, Honorific]);
 
@@ -113,10 +111,8 @@ pub(crate) fn godan_lit(g: &'static Godan, mut r: impl FnMut(&'static str, &'sta
     r(g.a, "ないだろう", &[Volitional, Negative]);
     r(g.a, "ないでしょう", &[Volitional, Negative, Honorific]);
     r(g.a, "せる", &[Causative]);
-    r(g.i, "たい", &[Tai]);
-    r(g.i, "たくない", &[Tai, Negative]);
-    r(g.i, "たかった", &[Tai, Past]);
-    r(g.i, "たくなかった", &[Tai, Past, Negative]);
+    r(g.i, "ながら", &[Simultaneous]);
+    r(g.i, "そう", &[LooksLike]);
 }
 
 pub(crate) fn godan_u(r: impl FnMut(&'static str, &'static str, &[Form])) {
@@ -207,7 +203,7 @@ pub(crate) fn kuru(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
     r("き", "ませんでした", &[Past, Negative, Honorific]);
     r("こ", "い", &[Command]);
     r("き", "なさい", &[Command, Honorific]);
-    r("き", "てください", &[Command, Honorific, TeKudasai]);
+    r("き", "てください", &[Command, Honorific, CommandTeKudasai]);
     r("く", "るな", &[Command, Negative]);
     r("こ", "ないでください", &[Command, Negative, Honorific]);
     r("く", "りゃ", &[Hypothetical, Conversation]);
@@ -236,10 +232,8 @@ pub(crate) fn kuru(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
     r("こ", "させます", &[Causative, Honorific]);
     r("こ", "させない", &[Causative, Negative]);
     r("こ", "させません", &[Causative, Negative, Honorific]);
-    r("き", "たい", &[Tai]);
-    r("き", "たくない", &[Tai, Negative]);
-    r("き", "たかった", &[Tai, Past]);
-    r("き", "たくなかった", &[Tai, Past, Negative]);
+    r("き", "ながら", &[Simultaneous]);
+    r("き", "そう", &[LooksLike]);
 }
 
 pub(crate) fn kuru_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
@@ -261,8 +255,8 @@ pub(crate) fn suru(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
     r("し", "ませんでした", &[Past, Negative, Honorific]);
     r("し", "ろ", &[Command]);
     r("し", "なさい", &[Command, Honorific]);
-    r("し", "てください", &[Command, Honorific, TeKudasai]);
-    r("し", "よ", &[Command, Yo]);
+    r("し", "てください", &[Command, Honorific, CommandTeKudasai]);
+    r("し", "よ", &[Command, CommandYo]);
     r("す", "るな", &[Command, Negative]);
     r("し", "ないでください", &[Command, Negative, Honorific]);
     r("す", "りゃ", &[Hypothetical, Conversation]);
@@ -300,10 +294,8 @@ pub(crate) fn suru(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
     r("し", "なかっただろう", &[Volitional, Past, Negative]);
     r("し", "なかったでしょう", &[Volitional, Past, Negative, Honorific]);
     r("さ", "せる", &[Causative]);
-    r("し", "たい", &[Tai]);
-    r("し", "たくない", &[Tai, Negative]);
-    r("し", "たかった", &[Tai, Past]);
-    r("し", "たくなかった", &[Tai, Past, Negative]);
+    r("し", "ながら", &[Simultaneous]);
+    r("し", "そう", &[LooksLike]);
 }
 
 pub(crate) fn suru_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {

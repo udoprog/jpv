@@ -14,9 +14,9 @@ use tokio::io::AsyncWriteExt;
 use crate::dirs::Dirs;
 use crate::Args;
 
-const USER_AGENT: &'static str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
-const JMDICT_URL: &'static str = "http://ftp.edrdg.org/pub/Nihongo/JMdict_e_examp.gz";
-const KANJIDIC2_URL: &'static str = "http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz";
+const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
+const JMDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMdict_e_examp.gz";
+const KANJIDIC2_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz";
 
 #[derive(Parser)]
 pub(crate) struct BuildArgs {
@@ -163,7 +163,7 @@ async fn download(url: &str, path: &Path) -> Result<Vec<u8>> {
     let mut data = Vec::new();
 
     while let Some(chunk) = response.chunk().await? {
-        f.write(chunk.as_ref()).await?;
+        f.write_all(chunk.as_ref()).await?;
         data.extend_from_slice(chunk.as_ref());
     }
 

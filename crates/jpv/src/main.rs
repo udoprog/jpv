@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
         }
         #[cfg(feature = "build")]
         Some(Command::Build(build_args)) => {
-            self::command::build::run(&args, &build_args, &dirs).await?;
+            self::command::build::run(&args, build_args, &dirs).await?;
         }
     }
 

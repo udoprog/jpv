@@ -84,7 +84,7 @@ where
         }
     }
 
-    let request = Request::new_with_str_and_init(&url.to_string(), &opts)?;
+    let request = Request::new_with_str_and_init(url.as_ref(), &opts)?;
     let window = gloo::utils::window();
     let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
     let resp: Response = resp_value.dyn_into().unwrap();
