@@ -26,6 +26,7 @@ pub struct Service<C> {
     _on_message: Option<Closure<dyn Fn(MessageEvent)>>,
     _on_error: Option<Closure<dyn Fn(ErrorEvent)>>,
     _timeout: Option<Timeout>,
+    _ping_timeout: Option<Timeout>,
     _marker: PhantomData<C>,
 }
 
@@ -42,6 +43,7 @@ where
             _on_message: None,
             _on_error: None,
             _timeout: None,
+            _ping_timeout: None,
             _marker: PhantomData,
         }
     }

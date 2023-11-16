@@ -8,6 +8,7 @@ mod r#impl;
 
 pub(crate) use self::r#impl::{BIND, PORT};
 
+use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::fmt;
 use std::future::Future;
@@ -15,7 +16,7 @@ use std::net::TcpListener;
 
 use anyhow::{Error, Result};
 use axum::body::{boxed, Body};
-use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
+use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, Query};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -28,7 +29,11 @@ use lib::api;
 use lib::database::{Database, EntryResultKey};
 use lib::jmdict;
 use lib::kanjidic2;
+use rand::prelude::*;
+use rand::rngs::SmallRng;
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast::Receiver;
+use tokio::time::Duration;
 use tower_http::cors::CorsLayer;
 
 use crate::system;
@@ -211,8 +216,6 @@ async fn ws(
     ws: WebSocketUpgrade,
     Extension(system_events): Extension<system::SystemEvents>,
 ) -> impl IntoResponse {
-    let mut system_events = system_events.0.subscribe();
-
     fn decode_escaped(data: &[u8]) -> Option<String> {
         fn h(b: u8) -> Option<u32> {
             let b = match b {
@@ -252,7 +255,7 @@ async fn ws(
         Some(s)
     }
 
-    async fn handle_event(
+    async fn system_event(
         sink: &mut SplitSink<WebSocket, Message>,
         event: system::Event,
     ) -> Result<()> {
@@ -297,29 +300,89 @@ async fn ws(
         Ok(())
     }
 
-    ws.on_upgrade(move |socket| async move {
+    async fn run(mut system_events: Receiver<system::Event>, socket: WebSocket) -> Result<()> {
+        const CLOSE_NORMAL: u16 = 1000;
+        const CLOSE_PROTOCOL_ERROR: u16 = 1002;
+        const CLOSE_TIMEOUT: Duration = Duration::from_secs(30);
+        const PING_TIMEOUT: Duration = Duration::from_secs(10);
+
         let (mut sender, mut receiver) = socket.split();
 
-        loop {
+        let mut last_ping = None::<u32>;
+        let mut rng = SmallRng::seed_from_u64(0x404241112);
+        let mut close_interval = tokio::time::interval(CLOSE_TIMEOUT);
+        let mut ping_interval = tokio::time::interval(PING_TIMEOUT);
+
+        let close_here = loop {
             tokio::select! {
+                _ = close_interval.tick() => {
+                    break Some((CLOSE_NORMAL, "connection timed out"));
+                }
+                _ = ping_interval.tick() => {
+                    let payload = rng.gen::<u32>();
+                    last_ping = Some(payload);
+                    let data = payload.to_ne_bytes().into_iter().collect::<Vec<_>>();
+                    tracing::trace!("sending ping: {:?}", &data[..]);
+                    sender.send(Message::Ping(data)).await?;
+                    ping_interval.reset();
+                }
                 event = system_events.recv() => {
                     let Ok(event) = event else {
-                        break;
+                        break Some((CLOSE_NORMAL, "system shutting down"));
                     };
 
-                    if let Err(error) = handle_event(&mut sender, event).await {
-                        tracing::error!("{}", error);
-                        break;
-                    }
+                    system_event(&mut sender, event).await?;
                 }
                 message = receiver.next() => {
                     let Some(message) = message else {
-                        break;
+                        break None;
                     };
 
-                    tracing::info!(?message);
+                    match message? {
+                        Message::Text(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
+                        Message::Binary(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
+                        Message::Ping(payload) => {
+                            sender.send(Message::Pong(payload)).await?;
+                            continue;
+                        },
+                        Message::Pong(data) => {
+                            tracing::trace!("pong: {:?}", &data[..]);
+
+                            let Some(expected) = last_ping else {
+                                continue;
+                            };
+
+                            if &expected.to_ne_bytes()[..] != &data[..] {
+                                continue;
+                            }
+
+                            close_interval.reset();
+                            ping_interval.reset();
+                            last_ping = None;
+                        },
+                        Message::Close(_) => break None,
+                    }
                 }
             }
+        };
+
+        if let Some((code, reason)) = close_here {
+            sender
+                .send(Message::Close(Some(CloseFrame {
+                    code,
+                    reason: Cow::Borrowed(reason),
+                })))
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    let receiver = system_events.0.subscribe();
+
+    ws.on_upgrade(move |socket| async move {
+        if let Err(error) = run(receiver, socket).await {
+            tracing::error!("{}", error);
         }
     })
 }

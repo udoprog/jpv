@@ -1162,6 +1162,7 @@ dependencies = [
  "memmap",
  "mime_guess",
  "musli-zerocopy",
+ "rand",
  "reqwest",
  "rust-embed",
  "serde",
