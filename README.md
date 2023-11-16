@@ -1,14 +1,52 @@
 # jpv
 
-Welcome to my personal dictionary project!
+<a href="https://github.com/udoprog/jpv">
+<img height="128" width="128" alt="Japanese Dictionary by John-John Tedro" src="https://github.com/udoprog/jpv/blob/main/gfx/logo.png?raw=true" />
+</a>
+
+Welcome to my Japanese dictionary project!
+
+This used to be a personal project of mine, but I have now spent enough time and
+effort on it that I think it might be useful for others.
+
+<br>
+
+## Overview
+
+<table>
+<tr>
+<td valign="top">
+  <img alt="Searching for english text" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-english.png?raw=true" />
+  <div style="font-size: 0.8em;">Search for Japanese words and phrases or English glossary.</div>
+</td>
+<td valign="top">
+  <img alt="Conjugations" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-conjugate.png?raw=true" /><br>
+  <div style="font-size: 0.8em;">Advanced word conjugator.</div>
+</td>
+</tr>
+
+<tr>
+<td valign="top">
+  <img alt="Image recognition using tesseract through the clipboard" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-ocr.png?raw=true" />
+  <div style="font-size: 0.8em;">Image recognition through the clipboard using <a href="https://github.com/tesseract-ocr/tesseract">tesseract</a> (<code>ocr</code> feature).</div>
+</td>
+<td valign="top">
+  <img alt="Wildcard searching" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-wildcard.png?raw=true" />
+  <div style="font-size: 0.8em;">Wildcard searching.</div>
+</td>
+</tr>
+</table>
 
 <br>
 
 ## Building and Installing
 
 Install dependencies for the platform you intend to build for:
+
 * For the `gnome` feature:
   * `Fedora` - `sudo dnf install dbus-devel pkgconf-pkg-config`
+* For the `ocr` feature:
+  * `Fedora` - `sudo dnf install tesseract-devel`
 
 Install [`trunk`] and the `wasm32` toolchain to build the UI:
 
@@ -57,22 +95,23 @@ automatically open up the interface.
 jpv service --background
 ```
 
-![Good morning!](gfx/splash.png)
+![Good morning!](https://github.com/udoprog/jpv/blob/main/gfx/splash.png?raw=true)
 
 <br>
 
 ## Features
 
-* Search for Japanese words and phrases or English glossary.
-* Has an intuitive and very comprehensive machine conjugator.
-* Comes with a GNOME integration and extension to capture the clipboard for use
-  with tools such as [mpvacious].
+For rust features, we have the following:
 
-| ![Searching for english text](gfx/english.png) | ![Conjugations can be searched for and toggled](gfx/conjugate.png) | ![Wildcard searching](gfx/wildcard.png) |
-|------------------------------------------------|--------------------------------------------------------------------|-----------------------------------------|
-| Searching for english text                     | Conjugations can be searched for and cycled                        | Wildcard searching                      |
-
-[mpvacious]: https://github.com/Ajatt-Tools/mpvacious
+* The `gnome` feature enabled full GNOME desktop integration, which includes the
+  `dbus` and `ocr` features. This is also necessary to use the GNOME extension
+  to capture the clipboard.
+* The `dbus` feature provides the ability for the service to interact with
+  D-Bus. Which is necessary for extensions to communicate with it and to perform
+  D-Bus activation.
+* The `ocr` feature provides image recognition for clipboard events where the
+  mimetype is appropriate.
+* The `mmap` feature (Unix only) loads the database using memory maps.
 
 <br>
 
@@ -84,7 +123,7 @@ more notable features are:
 
 * `jpv cli <query>` can be used to perform commandline queries.
 * `jpv send-clipboard --type text/plain hello` can be used to inject a phrase
-  into the dictionary for analysis.
+  into the dictionary for analysis (requires the `dbus` feature).
 
 All relevant tools that interact with the background service rely on features
 such as D-Bus activation, which will ensure that a background service is up and
@@ -112,7 +151,7 @@ in the background. Starting the application will open up the browser UI.
 
 Note that you still need to build the database before it can be used.
 
-![Desktop entry](gfx/desktop.png)
+![Desktop entry](https://github.com/udoprog/jpv/blob/main/gfx/desktop.png?raw=true)
 
 <br>
 
@@ -124,13 +163,13 @@ any facilities to generically capture the clipboard we must rely on extensions.
 To enable the Japanese Dictionary extension for gnome, start the extensions
 manager after installing the package:
 
-![Gnome extension](gfx/gnome-extension.png)
+![Gnome extension](https://github.com/udoprog/jpv/blob/main/gfx/gnome-extension.png?raw=true)
 
 Once enabled, clipboard capture has to be enabled in the panel item.
 
-![Clipboard capture](gfx/gnome-clipboard-capture.png)
+![Clipboard capture](https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture.png?raw=true)
 
-![Clipboard capture enabled](gfx/gnome-clipboard-capture-enabled.png)
+![Clipboard capture enabled](https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture-enabled.png?raw=true)
 
 > **Note:** while clipboard capture is running the extension icon will be red.
 > Only enable it while it's in use since there are currently no security

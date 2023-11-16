@@ -16,6 +16,7 @@ const ATOMS = [
     "STRING",
     'text/plain;charset=utf-8',
     'text/plain',
+    'image/png',
 ];
 
 const JapaneseDictionaryInterface = `

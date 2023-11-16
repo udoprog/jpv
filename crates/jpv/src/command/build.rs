@@ -27,7 +27,7 @@ pub(crate) struct BuildArgs {
     jmdict_path: Option<PathBuf>,
     /// Path to load kanjidic2 file from. By default this will be download into a local cache directory.
     #[arg(long, value_name = "path")]
-    kanjidic_path: Option<PathBuf>,
+    kanjidic2_path: Option<PathBuf>,
     /// Force a dictionary rebuild.
     #[arg(long, short = 'f')]
     force: bool,
@@ -64,7 +64,7 @@ pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result
         url: KANJIDIC2_URL,
         url_name: "kanjidic2.xml.gz",
         index_path: dirs.index_path("kanjidic2"),
-        path: build_args.kanjidic_path.as_deref(),
+        path: build_args.kanjidic2_path.as_deref(),
         kind: IndexKind::Kanjidic2,
     });
 

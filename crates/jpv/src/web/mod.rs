@@ -12,12 +12,12 @@ use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::fmt;
 use std::future::Future;
-use std::net::TcpListener;
+use std::net::{SocketAddr, TcpListener};
 
 use anyhow::{Error, Result};
 use axum::body::{boxed, Body};
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, Query};
+use axum::extract::{ConnectInfo, Path, Query};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -25,6 +25,7 @@ use axum::{Extension, Json, Router};
 use futures::sink::SinkExt;
 use futures::stream::SplitSink;
 use futures::stream::StreamExt;
+use image::ImageFormat;
 use lib::api;
 use lib::database::{Database, EntryResultKey};
 use lib::jmdict;
@@ -35,6 +36,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::Receiver;
 use tokio::time::Duration;
 use tower_http::cors::CorsLayer;
+use tracing::{Instrument, Level};
 
 use crate::system;
 
@@ -61,7 +63,7 @@ pub(crate) fn setup(
         .layer(Extension(system_events))
         .layer(cors);
 
-    let service = server.serve(app.into_make_service());
+    let service = server.serve(app.into_make_service_with_connect_info::<SocketAddr>());
 
     Ok(async move {
         service.await?;
@@ -215,6 +217,7 @@ async fn search(
 async fn ws(
     ws: WebSocketUpgrade,
     Extension(system_events): Extension<system::SystemEvents>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
     fn decode_escaped(data: &[u8]) -> Option<String> {
         fn h(b: u8) -> Option<u32> {
@@ -255,6 +258,30 @@ async fn ws(
         Some(s)
     }
 
+    fn trim_whitespace(input: &str) -> Cow<'_, str> {
+        let mut output = String::new();
+        let mut c = input.char_indices();
+
+        'ws: {
+            while let Some((n, c)) = c.next() {
+                if c.is_whitespace() {
+                    output.push_str(&input[..n]);
+                    break 'ws;
+                }
+            }
+
+            return Cow::Borrowed(input);
+        };
+
+        for (_, c) in c {
+            if !c.is_whitespace() {
+                output.push(c);
+            }
+        }
+
+        Cow::Owned(output)
+    }
+
     async fn system_event(
         sink: &mut SplitSink<WebSocket, Message>,
         event: system::Event,
@@ -293,6 +320,49 @@ async fn ws(
                     let json = serde_json::to_vec(&event)?;
                     sink.send(Message::Binary(json)).await?;
                 }
+                "image/png" => {
+                    tracing::info!("Decoding image");
+
+                    let image = match image::load_from_memory_with_format(
+                        &clipboard.data[..],
+                        ImageFormat::Png,
+                    ) {
+                        Ok(image) => image,
+                        Err(error) => {
+                            tracing::warn!("failed to clipboard image: {}", error);
+                            return Ok(());
+                        }
+                    };
+
+                    let data = image.as_bytes();
+                    let width = usize::try_from(image.width())?;
+                    let height = usize::try_from(image.height())?;
+                    let bytes_per_pixel = usize::try_from(image.color().bytes_per_pixel())?;
+
+                    tracing::info!(len = data.len(), width, height, bytes_per_pixel);
+
+                    let text =
+                        match tesseract::image_to_text("jpn", data, width, height, bytes_per_pixel)
+                        {
+                            Ok(text) => text,
+                            Err(error) => {
+                                tracing::warn!(?error, "Image recognition failed");
+                                return Ok(());
+                            }
+                        };
+
+                    let trimmed = trim_whitespace(&text[..]);
+
+                    tracing::info!(text = &text[..], ?trimmed, "Recognized");
+
+                    let event = api::ClientEvent::SendClipboardData(api::ClientSendClipboardData {
+                        ty: Some("text/plain".to_owned()),
+                        data: trimmed.into_owned().into_bytes(),
+                    });
+
+                    let json = serde_json::to_vec(&event)?;
+                    sink.send(Message::Binary(json)).await?;
+                }
                 _ => {}
             },
         }
@@ -301,6 +371,8 @@ async fn ws(
     }
 
     async fn run(mut system_events: Receiver<system::Event>, socket: WebSocket) -> Result<()> {
+        tracing::info!("Accepted connection");
+
         const CLOSE_NORMAL: u16 = 1000;
         const CLOSE_PROTOCOL_ERROR: u16 = 1002;
         const CLOSE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -311,7 +383,10 @@ async fn ws(
         let mut last_ping = None::<u32>;
         let mut rng = SmallRng::seed_from_u64(0x404241112);
         let mut close_interval = tokio::time::interval(CLOSE_TIMEOUT);
+        close_interval.reset();
+
         let mut ping_interval = tokio::time::interval(PING_TIMEOUT);
+        ping_interval.reset();
 
         let close_here = loop {
             tokio::select! {
@@ -331,7 +406,9 @@ async fn ws(
                         break Some((CLOSE_NORMAL, "system shutting down"));
                     };
 
-                    system_event(&mut sender, event).await?;
+                    if let Err(error) = system_event(&mut sender, event).await {
+                        tracing::error!(?error, "Failed to process system event");
+                    };
                 }
                 message = receiver.next() => {
                     let Some(message) = message else {
@@ -367,13 +444,17 @@ async fn ws(
         };
 
         if let Some((code, reason)) = close_here {
+            tracing::info!(code, reason, "Closing websocket with reason");
+
             sender
                 .send(Message::Close(Some(CloseFrame {
                     code,
                     reason: Cow::Borrowed(reason),
                 })))
                 .await?;
-        }
+        } else {
+            tracing::info!("Closing websocket");
+        };
 
         Ok(())
     }
@@ -381,7 +462,9 @@ async fn ws(
     let receiver = system_events.0.subscribe();
 
     ws.on_upgrade(move |socket| async move {
-        if let Err(error) = run(receiver, socket).await {
+        let span = tracing::span!(Level::INFO, "websocket", ?addr);
+
+        if let Err(error) = run(receiver, socket).instrument(span).await {
             tracing::error!("{}", error);
         }
     })

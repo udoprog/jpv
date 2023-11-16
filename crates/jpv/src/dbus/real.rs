@@ -174,12 +174,15 @@ fn handle_method_call(state: &mut State, msg: &Message) -> Result<Message> {
         "GetPort" => msg.return_with_args((state.port,)),
         "SendClipboardData" => {
             let (mimetype, data): (String, Vec<u8>) = msg.read2()?;
+            tracing::trace!(?mimetype, len = data.len());
+
             let _ = state
                 .broadcast
                 .send(Event::SendClipboardData(SendClipboardData {
                     mimetype,
                     data,
                 }));
+
             msg.method_return()
         }
         "Shutdown" => {
