@@ -25,6 +25,8 @@ enum Command {
     Service(command::service::ServiceArgs),
     /// Perform a cli lookup.
     Cli(command::cli::CliArgs),
+    /// Send clipboard to the service.
+    SendClipboard(command::send_clipboard::SendClipboardArgs),
     /// Build the dictionary database. This must be performed before the cli or service can be used.
     #[cfg(feature = "build")]
     Build(command::build::BuildArgs),
@@ -67,6 +69,9 @@ async fn main() -> Result<()> {
         }
         Some(Command::Cli(cli_args)) => {
             self::command::cli::run(&args, cli_args, &dirs).await?;
+        }
+        Some(Command::SendClipboard(send_clipboard_args)) => {
+            self::command::send_clipboard::run(&send_clipboard_args)?;
         }
         #[cfg(feature = "build")]
         Some(Command::Build(build_args)) => {

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::str::from_utf8;
 use std::sync::Arc;
 
 use lib::api;
@@ -309,20 +310,34 @@ impl Prompt {
     }
 
     /// Update from clipboard.
-    fn update_from_clipboard(&mut self, ctx: &Context<Self>, text: &str) -> Result<(), Error> {
-        if text.starts_with('{') {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
+    fn update_from_clipboard(
+        &mut self,
+        ctx: &Context<Self>,
+        ty: Option<&str>,
+        data: &[u8],
+    ) -> Result<(), Error> {
+        if matches!(ty, Some("application/json")) {
+            let json = serde_json::from_slice::<serde_json::Value>(data)?;
+            self.update_from_clipboard_json(ctx, &json)?;
+            return Ok(());
+        }
+
+        // Heuristics.
+        if data.starts_with(&[b'{']) {
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(data) {
                 self.update_from_clipboard_json(ctx, &json)?;
                 return Ok(());
             }
         }
 
-        if self.query.capture_clipboard && self.query.q != text {
-            self.query.q = text.to_owned();
+        let data = from_utf8(data)?;
+
+        if self.query.capture_clipboard && self.query.q != data {
+            self.query.q = data.to_owned();
             self.query.a.clear();
             self.query.translation = None;
             self.save_query(ctx, true);
-            self.refresh(ctx, text);
+            self.refresh(ctx, data);
         }
 
         Ok(())
@@ -486,7 +501,11 @@ impl Component for Prompt {
             Msg::ClientEvent(event) => {
                 match event {
                     api::ClientEvent::SendClipboardData(clipboard) => {
-                        if let Err(error) = self.update_from_clipboard(ctx, &clipboard.data) {
+                        if let Err(error) = self.update_from_clipboard(
+                            ctx,
+                            clipboard.ty.as_deref(),
+                            &clipboard.data,
+                        ) {
                             ctx.link().send_message(error);
                         }
                     }

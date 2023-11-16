@@ -257,23 +257,35 @@ async fn ws(
         event: system::Event,
     ) -> Result<()> {
         match event {
-            system::Event::SendClipboardData(clipboard) => match clipboard.mimetype.as_bytes() {
-                b"UTF8_STRING" | b"text/plain;charset=utf-8" => {
+            system::Event::SendClipboardData(clipboard) => match clipboard.mimetype.as_str() {
+                "UTF8_STRING" | "text/plain;charset=utf-8" => {
                     let event = api::ClientEvent::SendClipboardData(api::ClientSendClipboardData {
-                        data: String::from_utf8_lossy(&clipboard.data).into_owned(),
+                        ty: Some("text/plain".to_owned()),
+                        data: clipboard.data,
                     });
 
                     let json = serde_json::to_vec(&event)?;
                     sink.send(Message::Binary(json)).await?;
                 }
-                b"STRING" | b"text/plain" => {
+                "STRING" | "text/plain" => {
                     let Some(data) = decode_escaped(&clipboard.data[..]) else {
                         tracing::warn!("failed to decode");
                         return Ok(());
                     };
 
-                    let event =
-                        api::ClientEvent::SendClipboardData(api::ClientSendClipboardData { data });
+                    let event = api::ClientEvent::SendClipboardData(api::ClientSendClipboardData {
+                        ty: Some("text/plain".to_owned()),
+                        data: data.into_bytes(),
+                    });
+
+                    let json = serde_json::to_vec(&event)?;
+                    sink.send(Message::Binary(json)).await?;
+                }
+                ty @ "application/json" => {
+                    let event = api::ClientEvent::SendClipboardData(api::ClientSendClipboardData {
+                        ty: Some(ty.to_owned()),
+                        data: clipboard.data,
+                    });
 
                     let json = serde_json::to_vec(&event)?;
                     sink.send(Message::Binary(json)).await?;

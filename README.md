@@ -23,19 +23,20 @@ After this, you can run the project directly in the project directory:
 
 ```sh
 trunk build --release
-cargo run --features bundle
+cargo run --features bundle,gnome
 ```
 
 There are scripts available to conveniently build and install packages for
-various environments:
+specific environments:
 
-* [tools/install-fedora] to build and install for GNOME on Fedora.
+* [tools/install-fedora](tools/install-fedora) to build and install for GNOME on
+  Fedora.
 
 You can also the project manually, but this will lack any system integration
 like clipboard capture:
 
 ```
-cargo install --path crates/jpv
+cargo install --path crates/jpv --features bundle,gnome
 ```
 
 <br>
@@ -49,10 +50,11 @@ project will use.
 jpv build
 ```
 
-After this, you can start the session with:
+After this, you can start the dictionary in the background with. This will also
+automatically open up the interface.
 
 ```
-jpv
+jpv service --background
 ```
 
 ![Good morning!](gfx/splash.png)
@@ -71,6 +73,22 @@ jpv
 | Searching for english text                     | Conjugations can be searched for and cycled                        | Wildcard searching                      |
 
 [mpvacious]: https://github.com/Ajatt-Tools/mpvacious
+
+<br>
+
+#### Interface
+
+The dictionary is primarily interacted with using the `jpv` tools. It has a
+comprehensive help section you can get through `jpv --help`, but some of the
+more notable features are:
+
+* `jpv cli <query>` can be used to perform commandline queries.
+* `jpv send-clipboard --type text/plain hello` can be used to inject a phrase
+  into the dictionary for analysis.
+
+All relevant tools that interact with the background service rely on features
+such as D-Bus activation, which will ensure that a background service is up and
+running as needed.
 
 <br>
 

@@ -1,4 +1,5 @@
-use core::fmt;
+use std::fmt;
+use std::str::Utf8Error;
 
 /// Result type in use.
 pub type Result<T, E = Error> = core::result::Result<T, E>;
@@ -52,6 +53,15 @@ impl From<url::ParseError> for Error {
 impl From<serde_json::Error> for Error {
     #[inline]
     fn from(error: serde_json::Error) -> Self {
+        Self {
+            error: anyhow::Error::from(error),
+        }
+    }
+}
+
+impl From<Utf8Error> for Error {
+    #[inline]
+    fn from(error: Utf8Error) -> Self {
         Self {
             error: anyhow::Error::from(error),
         }

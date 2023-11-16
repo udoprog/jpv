@@ -1,4 +1,5 @@
-use std::ffi::CString;
+use std::ffi::{CString, OsStr};
+use std::os::unix::ffi::OsStrExt;
 use std::pin::pin;
 use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,6 +21,15 @@ use crate::system::{Event, SendClipboardData, Setup};
 
 const NAME: &'static str = "se.tedro.JapaneseDictionary";
 const PATH: &'static str = "/se/tedro/JapaneseDictionary";
+const TIMEOUT: Duration = Duration::from_millis(5000);
+
+pub(crate) fn send_clipboard(ty: Option<&str>, data: &OsStr) -> Result<()> {
+    let c = Connection::new_session()?;
+    let proxy = c.with_proxy(NAME, PATH, TIMEOUT);
+    let mimetype = ty.unwrap_or("text/plain");
+    proxy.method_call(NAME, "SendClipboardData", (mimetype, data.as_bytes()))?;
+    Ok(())
+}
 
 pub(crate) fn setup<'a>(
     service_args: &ServiceArgs,
@@ -129,7 +139,7 @@ pub(crate) fn setup<'a>(
 /// Request port from D-Bus service. This will cause the service to activate if
 /// it isn't already.
 fn get_port(c: &Connection) -> Result<u16, anyhow::Error> {
-    let proxy = c.with_proxy(NAME, PATH, Duration::from_millis(5000));
+    let proxy = c.with_proxy(NAME, PATH, TIMEOUT);
     let (port,): (u16,) = proxy.method_call(NAME, "GetPort", ())?;
     Ok(port)
 }

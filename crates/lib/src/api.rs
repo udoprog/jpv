@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientSendClipboardData {
-    pub data: String,
+    pub ty: Option<String>,
+    pub data: Vec<u8>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
