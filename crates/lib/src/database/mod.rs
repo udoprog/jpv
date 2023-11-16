@@ -35,9 +35,13 @@ impl trie::Flavor for CompactTrie {
 }
 
 /// A deserialized database entry.
+#[derive(Serialize)]
+#[serde(tag = "type")]
 pub enum Entry<'a> {
+    #[serde(rename = "entry")]
+    Entry(jmdict::Entry<'a>),
+    #[serde(rename = "kanji")]
     Kanji(kanjidic2::Character<'a>),
-    Dict(jmdict::Entry<'a>),
 }
 
 #[derive(ZeroCopy)]
@@ -652,7 +656,7 @@ impl<'a> Database<'a> {
 
         Ok(match id.source {
             IndexSource::Kanji { .. } => Entry::Kanji(ENCODING.from_slice(bytes)?),
-            _ => Entry::Dict(ENCODING.from_slice(bytes)?),
+            _ => Entry::Entry(ENCODING.from_slice(bytes)?),
         })
     }
 
@@ -748,7 +752,7 @@ impl<'a> Database<'a> {
 
                     continue;
                 }
-                Entry::Dict(entry) => entry,
+                Entry::Entry(entry) => entry,
             };
 
             let Some(&i) = dedup.get(&id.index()) else {
@@ -846,7 +850,7 @@ impl<'a> Database<'a> {
         while !it.as_str().is_empty() {
             if let Some(values) = self.index.lookup.get(self.data, it.as_str())? {
                 for id in values {
-                    let Entry::Dict(e) = self.get(*id)? else {
+                    let Entry::Entry(e) = self.get(*id)? else {
                         continue;
                     };
 

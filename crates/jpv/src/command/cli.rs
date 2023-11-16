@@ -3,9 +3,9 @@ use std::fmt;
 use std::io::Write;
 use std::mem;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
-use lib::database::{Database, Entry, IndexSource};
+use lib::database::{Database, Entry, Id, IndexSource};
 use lib::inflection;
 use lib::{Form, Furigana, PartOfSpeech};
 
@@ -36,19 +36,37 @@ pub(crate) struct CliArgs {
     /// Don't print output in furigana.
     #[arg(long)]
     no_furigana: bool,
-    /// Search arguments to filter by. Must be either kana or kanji, which is
-    /// matched against entries searched for.
-    #[arg(name = "arguments")]
-    arguments: Vec<String>,
     /// Include polite variants of inflections.
     #[arg(long)]
     polite: bool,
     /// Only fetch the specified sequence ids.
     #[arg(long = "seq")]
     sequences: Vec<u32>,
+    /// Output format to use, defaults to `json`. Available options are: rich,
+    /// json, json-pretty.
+    #[arg(long)]
+    output_format: Option<String>,
+    /// Search arguments to filter by. Must be either kana or kanji, which is
+    /// matched against entries searched for.
+    #[arg(name = "arguments")]
+    arguments: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum OutputFormat {
+    Rich,
+    Json,
+    JsonPretty,
 }
 
 pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<()> {
+    let format = match cli_args.output_format.as_deref() {
+        Some("rich") => OutputFormat::Rich,
+        Some("json") | None => OutputFormat::Json,
+        Some("json-pretty") => OutputFormat::JsonPretty,
+        Some(name) => bail!("Unsupported output format: {}", name),
+    };
+
     if cli_args.list_pos {
         println!("Available `--pos` arguments:");
 
@@ -105,90 +123,141 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
 
     let current_lang = cli_args.lang.as_deref().unwrap_or("eng");
 
+    let o = std::io::stdout();
+    let mut o = o.lock();
+
     for (i, index) in to_look_up.iter().enumerate() {
-        let extra = match index.source() {
-            IndexSource::VerbInflection { inflection, .. } => {
-                Some(format!("Found through verb inflection: {inflection:?}"))
+        match format {
+            OutputFormat::Rich => {
+                print_rich(&mut o, &db, &cli_args, &current_lang, &to_look_up, i, index)?
             }
-            IndexSource::AdjectiveInflection { inflection, .. } => Some(format!(
-                "Found through adjective inflection: {inflection:?}"
-            )),
-            _ => None,
-        };
+            OutputFormat::Json | OutputFormat::JsonPretty => print_json(
+                &mut o,
+                &db,
+                &cli_args,
+                matches!(format, OutputFormat::JsonPretty),
+                i,
+                index,
+            )?,
+        }
+    }
 
-        let Entry::Dict(d) = db.get(*index)? else {
+    Ok(())
+}
+
+fn print_rich<O>(
+    o: &mut O,
+    db: &Database,
+    cli_args: &CliArgs,
+    current_lang: &str,
+    to_look_up: &BTreeSet<Id>,
+    i: usize,
+    id: &Id,
+) -> Result<()>
+where
+    O: ?Sized + Write,
+{
+    let extra = match id.source() {
+        IndexSource::VerbInflection { inflection, .. } => {
+            Some(format!("Found through verb inflection: {inflection:?}"))
+        }
+        IndexSource::AdjectiveInflection { inflection, .. } => Some(format!(
+            "Found through adjective inflection: {inflection:?}"
+        )),
+        _ => None,
+    };
+
+    let Entry::Entry(d) = db.get(*id)? else {
+        return Ok(());
+    };
+
+    if let Some(extra) = extra {
+        println!("{extra}");
+    }
+
+    println!("#{i} Sequence: {}", d.sequence);
+
+    for (index, reading) in d.reading_elements.iter().enumerate() {
+        println!("  #{index} {:?}", reading.debug_sparse());
+    }
+
+    for (index, kanji) in d.kanji_elements.iter().enumerate() {
+        println!("  #{index} {:?}", kanji.debug_sparse());
+    }
+
+    for (index, sense) in d.senses.iter().enumerate() {
+        if !cli_args.any_lang && !sense.is_lang(current_lang) {
             continue;
-        };
-
-        if let Some(extra) = extra {
-            println!("{extra}");
         }
 
-        println!("#{i} Sequence: {}", d.sequence);
+        println!("  #{index} {:?}", sense.debug_sparse());
 
-        for (index, reading) in d.reading_elements.iter().enumerate() {
-            println!("  #{index} {:?}", reading.debug_sparse());
+        for g in &sense.gloss {
+            if let Some(lang) = g.lang {
+                println!("  - {} ({lang})", g.text);
+            } else {
+                println!("  - {}", g.text);
+            }
         }
 
-        for (index, kanji) in d.kanji_elements.iter().enumerate() {
-            println!("  #{index} {:?}", kanji.debug_sparse());
-        }
+        if cli_args.examples && !sense.examples.is_empty() {
+            println!("  Examples:");
 
-        for (index, sense) in d.senses.iter().enumerate() {
-            if !cli_args.any_lang && !sense.is_lang(current_lang) {
+            for e in &sense.examples {
+                println!("  - {e:?}");
+            }
+        }
+    }
+
+    if !cli_args.inflection || (to_look_up.len() > 1 && cli_args.sequences.is_empty()) {
+        return Ok(());
+    }
+
+    let p = "  ";
+
+    let dis0 = |furigana| maybe_furigana(furigana, !cli_args.no_furigana);
+    let dis = |furigana| maybe_furigana(furigana, !cli_args.no_furigana);
+
+    for (_, c, _) in inflection::conjugate(&d) {
+        writeln!(o, "{p}# Inflections:")?;
+
+        writeln!(o, "{p}  Dictionary:")?;
+        writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
+
+        for (c, form) in c.inflections {
+            if cli_args.polite != c.contains(Form::Honorific) {
                 continue;
             }
 
-            println!("  #{index} {:?}", sense.debug_sparse());
-
-            for g in &sense.gloss {
-                if let Some(lang) = g.lang {
-                    println!("  - {} ({lang})", g.text);
-                } else {
-                    println!("  - {}", g.text);
-                }
-            }
-
-            if cli_args.examples && !sense.examples.is_empty() {
-                println!("  Examples:");
-
-                for e in &sense.examples {
-                    println!("  - {e:?}");
-                }
-            }
+            writeln!(o, "{p}  {c:?}:")?;
+            writeln!(o, "{p}  - {}", dis(form.furigana()))?;
         }
-
-        if !cli_args.inflection || (to_look_up.len() > 1 && cli_args.sequences.is_empty()) {
-            continue;
-        }
-
-        let p = "  ";
-
-        let dis0 = |furigana| maybe_furigana(furigana, !cli_args.no_furigana);
-        let dis = |furigana| maybe_furigana(furigana, !cli_args.no_furigana);
-
-        let stdout = std::io::stdout();
-        let mut o = stdout.lock();
-
-        for (_, c, _) in inflection::conjugate(&d) {
-            writeln!(o, "{p}# Inflections:")?;
-
-            writeln!(o, "{p}  Dictionary:")?;
-            writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
-
-            for (c, form) in c.inflections {
-                if cli_args.polite != c.contains(Form::Honorific) {
-                    continue;
-                }
-
-                writeln!(o, "{p}  {c:?}:")?;
-                writeln!(o, "{p}  - {}", dis(form.furigana()))?;
-            }
-        }
-
-        o.flush()?;
     }
 
+    o.flush()?;
+    Ok(())
+}
+
+fn print_json<O>(
+    o: &mut O,
+    db: &Database,
+    _: &CliArgs,
+    pretty: bool,
+    _: usize,
+    id: &Id,
+) -> Result<()>
+where
+    O: ?Sized + Write,
+{
+    let output = db.get(*id)?;
+
+    if pretty {
+        serde_json::to_writer_pretty(&mut *o, &output)?;
+    } else {
+        serde_json::to_writer(&mut *o, &output)?;
+    }
+
+    writeln!(o)?;
     Ok(())
 }
 
