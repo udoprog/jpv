@@ -60,10 +60,10 @@ pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result
     });
 
     to_download.push(ToDownload {
-        name: "kanjidic",
+        name: "kanjidic2",
         url: KANJIDIC2_URL,
         url_name: "kanjidic2.xml.gz",
-        index_path: dirs.index_path("kanjidic"),
+        index_path: dirs.index_path("kanjidic2"),
         path: build_args.kanjidic_path.as_deref(),
         kind: IndexKind::Kanjidic2,
     });
