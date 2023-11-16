@@ -173,55 +173,53 @@ impl Component for Entry {
 
         let common = iter(
             seq(
-                self.combined.iter().filter(|c| c.is_common()).take(1),
+                self.combined.iter().filter(|c| c.is_common()),
                 |e, not_last| render_combined(ctx, e, not_last),
             ),
             |iter| {
                 html! {
-                    html!(<div class="block block-lg row">{for iter}</div>)
+                    html!(<div class="block row">{for iter}</div>)
                 }
             },
         );
 
-        let other = iter(
-            seq(
-                self.combined.iter().filter(|c| c.is_common()).skip(1),
-                |e, not_last| render_combined(ctx, e, not_last),
-            ),
-            |iter| {
-                html! {
-                    html!(<div class="block block-lg row"><span>{"Other"}</span>{colon()}{for iter}</div>)
-                }
-            },
-        );
-
-        let special_readings = |what, f: fn(&Combined) -> bool| {
-            iter(
-                seq(self.combined.iter().filter(|c| f(c)), |e, not_last| {
-                    render_combined(ctx, e, not_last)
-                }),
-                |iter| {
-                    html! {
-                        html!(<div class="block block-lg row"><span>{what}</span>{colon()}{for iter}</div>)
-                    }
-                },
-            )
-        };
-
-        let rare = special_readings("Rare kanji", Combined::is_rare);
-        let outdated = special_readings("Outdated kanji", Combined::is_outdated);
-        let irregular = special_readings("Irregular kanji", Combined::is_irregular);
-        let search_only = special_readings("Search only kanji", Combined::is_search_only);
-
-        let reading = seq(self.readings.iter(), render_reading);
         let reading = iter(
-            reading,
-            |iter| html!(<div class="block block-lg row entry-readings">{for iter}</div>),
+            seq(
+                self.readings.iter().filter(|r| !r.is_search_only()),
+                |e, not_last| render_reading(ctx, e, not_last),
+            ),
+            |iter| html!(<div class="block row entry-readings">{for iter}</div>),
+        );
+
+        let other_kana = iter(
+            seq(
+                self.readings.iter().filter(|c| c.is_search_only()),
+                |e, not_last| render_reading(ctx, e, not_last),
+            ),
+            |iter| {
+                html! {
+                    html!(<div class="block row"><span>{"Other kana"}</span>{colon()}{spacing()}{for iter}</div>)
+                }
+            },
+        );
+
+        let other_kanji = iter(
+            seq(
+                self.combined.iter().filter(|c| {
+                    c.is_rare() || c.is_outdated() || c.is_irregular() || c.is_search_only()
+                }),
+                |e, not_last| render_combined(ctx, e, not_last),
+            ),
+            |iter| {
+                html! {
+                    html!(<div class="block row"><span>{"Other kanji"}</span>{colon()}{spacing()}{for iter}</div>)
+                }
+            },
         );
 
         let senses = iter(
             entry.senses.iter().map(|s| self.render_sense(ctx, s)),
-            |iter| html!(<ul class="block list-numerical">{for iter}</ul>),
+            |iter| html!(<ul class="block block-lg list-numerical">{for iter}</ul>),
         );
 
         let entry_key_style = "display: none;".to_string();
@@ -234,11 +232,8 @@ impl Component for Entry {
                 {for reading}
                 {for common}
                 {for senses}
-                {for other}
-                {for rare}
-                {for outdated}
-                {for irregular}
-                {for search_only}
+                {for other_kana}
+                {for other_kanji}
             </div>
         }
     }
@@ -283,7 +278,7 @@ impl Entry {
                 entry
                     .reading_elements
                     .iter()
-                    .filter(|r| r.no_kanji)
+                    .filter(|r| r.applies_to_nothing())
                     .cloned(),
             );
 
@@ -292,7 +287,7 @@ impl Entry {
                     entry
                         .reading_elements
                         .iter()
-                        .filter(|r| !r.no_kanji)
+                        .filter(|r| !r.applies_to_nothing())
                         .cloned(),
                 );
             }
@@ -532,7 +527,7 @@ fn render_tutorials(inflection: Inflection, filter: Inflection) -> Html {
     html!(<div class="block block-sm tutorials row">{for tutorials}</div>)
 }
 
-fn render_reading(reading: &OwnedReadingElement, not_last: bool) -> Html {
+fn render_reading(ctx: &Context<Entry>, reading: &OwnedReadingElement, not_last: bool) -> Html {
     let priority = reading.priority.iter().map(render_priority);
 
     let bullets = iter(
@@ -540,9 +535,14 @@ fn render_reading(reading: &OwnedReadingElement, not_last: bool) -> Html {
         |iter| html!(<span class="bullets">{for iter}</span>),
     );
 
+    let onclick = ctx.link().callback({
+        let text = reading.text.to_owned();
+        move |_: MouseEvent| Msg::Change(text.clone(), None)
+    });
+
     html! {
         <>
-            <span class="text kanji highlight">{&reading.text}</span>
+            <span class="text kanji highlight clickable" {onclick}>{&reading.text}</span>
             {for bullets}
             {for not_last.then(comma)}
         </>
@@ -639,7 +639,7 @@ where
 }
 
 pub(crate) fn comma() -> Html {
-    html!(<span class="sep">{", "}</span>)
+    html!(<><span class="sep">{","}</span>{spacing()}</>)
 }
 
 pub(crate) fn colon() -> Html {

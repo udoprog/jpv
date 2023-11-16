@@ -45,7 +45,7 @@ impl<'a> ReadingElement<'a> {
 
     /// Test if this reading applies to the given string.
     pub fn applies_to(&self, text: &str) -> bool {
-        if self.no_kanji {
+        if self.no_kanji || self.is_search_only() {
             return false;
         }
 
@@ -58,9 +58,19 @@ impl<'a> ReadingElement<'a> {
 }
 
 impl OwnedReadingElement {
+    /// If the reading element applies to nothing.
+    pub fn applies_to_nothing(&self) -> bool {
+        self.no_kanji || self.is_search_only()
+    }
+
+    /// Test if kana is search only.
+    pub fn is_search_only(&self) -> bool {
+        self.info.contains(ReadingInfo::SearchOnlyKana)
+    }
+
     /// Test if this reading applies to the given string.
     pub fn applies_to(&self, text: &str) -> bool {
-        if self.no_kanji {
+        if self.applies_to_nothing() {
             return false;
         }
 
