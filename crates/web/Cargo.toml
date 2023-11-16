@@ -8,8 +8,8 @@ publish = false
 cli = []
 
 [dependencies]
+lib = { package = "jpv-lib", path = "../jpv-lib" }
 yew = { version = "0.20.0", features = ["csr"] }
-lib = { path = "../lib" }
 anyhow = "1.0.75"
 log = "0.4.20"
 wasm-logger = "0.2.0"

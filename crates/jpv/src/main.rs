@@ -47,16 +47,27 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let filter = EnvFilter::builder()
-        .with_default_directive("jpv=info".parse()?)
-        .from_env_lossy();
+    let args = Args::try_parse()?;
+
+    let directive = match &args.command {
+        // Logging is not desired for CLI tool by default.
+        Some(Command::Cli(..)) => None,
+        _ => Some("jpv=info"),
+    };
+
+    let mut filter = EnvFilter::builder();
+
+    if let Some(directive) = directive {
+        filter = filter.with_default_directive(directive.parse()?);
+    }
+
+    let filter = filter.from_env_lossy();
 
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .finish()
         .try_init()?;
 
-    let args = Args::try_parse()?;
     let dirs = Dirs::open()?;
 
     match &args.command {

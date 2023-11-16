@@ -16,7 +16,7 @@ gnome = ["dbus", "gio"]
 anyhow = "1.0.75"
 axum = { version = "0.6.20", features = ["ws"] }
 tokio = { version = "1.33.0", features = ["full"] }
-lib = { path = "../lib" }
+lib = { package = "jpv-lib", path = "../jpv-lib" }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 serde = { version = "1.0.189", features = ["derive"] }
