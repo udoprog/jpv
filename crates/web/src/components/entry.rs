@@ -171,6 +171,14 @@ impl Component for Entry {
                     render_extra(ctx, index, inflection, inflections, state.filter)
                 });
 
+        let reading = iter(
+            seq(
+                self.readings.iter().filter(|r| !r.is_search_only()),
+                |e, not_last| render_reading(ctx, e, not_last),
+            ),
+            |iter| html!(<div class="block row entry-readings">{for iter}</div>),
+        );
+
         let common = iter(
             seq(
                 self.combined.iter().filter(|c| c.is_common()),
@@ -181,14 +189,6 @@ impl Component for Entry {
                     html!(<div class="block row">{for iter}</div>)
                 }
             },
-        );
-
-        let reading = iter(
-            seq(
-                self.readings.iter().filter(|r| !r.is_search_only()),
-                |e, not_last| render_reading(ctx, e, not_last),
-            ),
-            |iter| html!(<div class="block row entry-readings">{for iter}</div>),
         );
 
         let other_kana = iter(
@@ -205,9 +205,7 @@ impl Component for Entry {
 
         let other_kanji = iter(
             seq(
-                self.combined.iter().filter(|c| {
-                    c.is_rare() || c.is_outdated() || c.is_irregular() || c.is_search_only()
-                }),
+                self.combined.iter().filter(|c| !c.is_common()),
                 |e, not_last| render_combined(ctx, e, not_last),
             ),
             |iter| {
