@@ -67,7 +67,7 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
     };
 
     // SAFETY: we know this is only initialized once here exclusively.
-    let indexes = unsafe { database::open(args, dirs)? };
+    let indexes = unsafe { database::open_from_args(args, dirs)? };
 
     let db = lib::database::Database::open(indexes)?;
 

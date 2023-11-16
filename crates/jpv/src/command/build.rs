@@ -74,7 +74,7 @@ pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result
         ensure_parent_dir(&download.index_path).await;
 
         // SAFETY: We are the only ones calling this function now.
-        let result = unsafe { crate::database::load_path(&download.index_path) };
+        let result = unsafe { crate::database::open(&download.index_path) };
 
         match result {
             Ok(data) => match database::Index::open(data.as_slice()) {

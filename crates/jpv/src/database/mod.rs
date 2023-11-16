@@ -1,7 +1,14 @@
 use std::mem;
 
-pub(crate) use self::file_system::{load_path, Data};
-mod file_system;
+pub(crate) use self::r#impl::{open, Data};
+
+#[cfg(all(unix, feature = "mmap"))]
+#[path = "mmap.rs"]
+mod r#impl;
+
+#[cfg(any(not(unix), not(feature = "mmap")))]
+#[path = "buf.rs"]
+mod r#impl;
 
 use anyhow::Result;
 
@@ -13,7 +20,10 @@ use lib::database::Location;
 static mut GUARDS: Vec<Data> = Vec::new();
 
 /// Open a database using the default method based on current arguments and directories.
-pub(crate) unsafe fn open(args: &Args, dirs: &Dirs) -> Result<Vec<(&'static [u8], Location)>> {
+pub(crate) unsafe fn open_from_args(
+    args: &Args,
+    dirs: &Dirs,
+) -> Result<Vec<(&'static [u8], Location)>> {
     let mut indexes = Vec::new();
     let found;
 
@@ -26,7 +36,7 @@ pub(crate) unsafe fn open(args: &Args, dirs: &Dirs) -> Result<Vec<(&'static [u8]
     };
 
     for path in paths {
-        let data = load_path(path)?;
+        let data = r#impl::open(path)?;
         let slice = mem::transmute(data.as_slice());
         GUARDS.push(data);
         indexes.push((slice, Location::Path(path.as_path().into())));
