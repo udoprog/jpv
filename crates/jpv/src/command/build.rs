@@ -111,6 +111,7 @@ pub(crate) async fn run(args: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Res
         .await
         .with_context(|| anyhow!("{}", dictionary_path.display()))?;
 
+    crate::dbus::shutdown()?;
     Ok(())
 }
 

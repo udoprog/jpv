@@ -31,6 +31,13 @@ pub(crate) fn send_clipboard(ty: Option<&str>, data: &OsStr) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn shutdown() -> Result<()> {
+    let c = Connection::new_session()?;
+    let proxy = c.with_proxy(NAME, PATH, TIMEOUT);
+    proxy.method_call(NAME, "Shutdown", ())?;
+    Ok(())
+}
+
 pub(crate) fn setup<'a>(
     service_args: &ServiceArgs,
     port: u16,
@@ -77,7 +84,11 @@ pub(crate) fn setup<'a>(
                 CString::new(n.as_bytes()).unwrap()
             }
 
-            let mut state = State { port, broadcast };
+            let mut state = State {
+                port,
+                broadcast,
+                stop: stop.clone(),
+            };
 
             c.start_receive(
                 MatchRule::new(),
@@ -147,6 +158,7 @@ fn get_port(c: &Connection) -> Result<u16, anyhow::Error> {
 struct State {
     port: u16,
     broadcast: Sender<Event>,
+    stop: Arc<AtomicBool>,
 }
 
 /// Handle a method call.
@@ -168,6 +180,10 @@ fn handle_method_call(state: &mut State, msg: &Message) -> Result<Message> {
                     mimetype,
                     data,
                 }));
+            msg.method_return()
+        }
+        "Shutdown" => {
+            state.stop.store(true, Ordering::Release);
             msg.method_return()
         }
         _ => bail!("Unknown method"),

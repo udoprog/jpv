@@ -11,6 +11,10 @@ pub(crate) fn send_clipboard(_: Option<&str>, _: &OsStr) -> Result<()> {
     bail!("Sending the clipboard is not supported")
 }
 
+pub(crate) fn shutdown() -> Result<()> {
+    Ok(())
+}
+
 pub(crate) fn setup<'a>(
     _: &ServiceArgs,
     _: u16,
