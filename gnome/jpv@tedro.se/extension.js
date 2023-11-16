@@ -17,6 +17,10 @@ const ATOMS = [
     'text/plain;charset=utf-8',
     'text/plain',
     'image/png',
+    'image/tiff',
+    'image/webp',
+    'image/jpeg',
+    'image/jpg',
 ];
 
 const JapaneseDictionaryInterface = `

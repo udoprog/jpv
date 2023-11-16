@@ -1,5 +1,4 @@
-use std::ffi::{CString, OsStr};
-use std::os::unix::ffi::OsStrExt;
+use std::ffi::CString;
 use std::pin::pin;
 use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -23,11 +22,11 @@ const NAME: &'static str = "se.tedro.JapaneseDictionary";
 const PATH: &'static str = "/se/tedro/JapaneseDictionary";
 const TIMEOUT: Duration = Duration::from_millis(5000);
 
-pub(crate) fn send_clipboard(ty: Option<&str>, data: &OsStr) -> Result<()> {
+pub(crate) fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> {
     let c = Connection::new_session()?;
     let proxy = c.with_proxy(NAME, PATH, TIMEOUT);
     let mimetype = ty.unwrap_or("text/plain");
-    proxy.method_call(NAME, "SendClipboardData", (mimetype, data.as_bytes()))?;
+    proxy.method_call(NAME, "SendClipboardData", (mimetype, data.to_vec()))?;
     Ok(())
 }
 

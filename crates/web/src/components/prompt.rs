@@ -287,23 +287,14 @@ impl Prompt {
     fn update_from_clipboard_json(
         &mut self,
         ctx: &Context<Self>,
-        json: &serde_json::Value,
+        json: &lib::api::SendClipboardJson,
     ) -> Result<(), Error> {
-        let Some(serde_json::Value::String(primary)) = json.get("primary") else {
-            return Ok(());
-        };
-
-        let secondary = match json.get("secondary") {
-            Some(serde_json::Value::String(secondary)) => Some(secondary),
-            _ => None,
-        };
-
-        if self.query.capture_clipboard && self.query.q != primary.as_str() {
-            self.query.q = primary.to_owned();
+        if self.query.capture_clipboard && self.query.q != json.primary {
+            self.query.q = json.primary.clone();
             self.query.a.clear();
-            self.query.translation = secondary.filter(|s| !s.is_empty()).cloned();
+            self.query.translation = json.secondary.as_ref().filter(|s| !s.is_empty()).cloned();
             self.save_query(ctx, true);
-            self.refresh(ctx, primary);
+            self.refresh(ctx, &json.primary);
         }
 
         Ok(())
@@ -317,14 +308,14 @@ impl Prompt {
         data: &[u8],
     ) -> Result<(), Error> {
         if matches!(ty, Some("application/json")) {
-            let json = serde_json::from_slice::<serde_json::Value>(data)?;
+            let json = serde_json::from_slice::<lib::api::SendClipboardJson>(data)?;
             self.update_from_clipboard_json(ctx, &json)?;
             return Ok(());
         }
 
         // Heuristics.
         if data.starts_with(&[b'{']) {
-            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(data) {
+            if let Ok(json) = serde_json::from_slice::<lib::api::SendClipboardJson>(data) {
                 self.update_from_clipboard_json(ctx, &json)?;
                 return Ok(());
             }
