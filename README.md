@@ -167,9 +167,18 @@ manager after installing the package:
 
 Once enabled, clipboard capture has to be enabled in the panel item.
 
-![Clipboard capture](https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture.png?raw=true)
-
-![Clipboard capture enabled](https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture-enabled.png?raw=true)
+<table>
+<tr>
+<td valign="top">
+  <img alt="Searching for english text" src="https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture.png?raw=true" />
+  <div style="font-size: 0.8em;">Extension button.</div>
+</td>
+<td valign="top">
+  <img alt="Conjugations" src="https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture-enabled.png?raw=true" /><br>
+  <div style="font-size: 0.8em;">Clipboard capture enabled.</div>
+</td>
+</tr>
+</table>
 
 > **Note:** while clipboard capture is running the extension icon will be red.
 > Only enable it while it's in use since there are currently no security
