@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use directories::ProjectDirs;
@@ -16,17 +19,31 @@ impl Dirs {
         })
     }
 
-    /// Get dictionary path.
-    pub(crate) fn dictionary(&self) -> PathBuf {
-        self.data_dir("dict.bin")
+    /// The path to an individual index.
+    pub(crate) fn index_path(&self, name: &str) -> PathBuf {
+        self.project_dirs.data_dir().join(format!("{name}.index"))
     }
 
-    /// Construct a path inside of the data directory.
-    fn data_dir<P>(&self, path: P) -> PathBuf
-    where
-        P: AsRef<Path>,
-    {
-        self.project_dirs.data_dir().join(path)
+    /// Get dictionary path.
+    pub(crate) fn indexes(&self) -> Result<Vec<PathBuf>> {
+        let mut indexes = Vec::new();
+
+        let d = fs::read_dir(self.project_dirs.data_dir())?;
+
+        for e in d {
+            let e = e?;
+            let path = e.path();
+
+            if path.extension() != Some("index".as_ref()) {
+                continue;
+            }
+
+            if path.is_file() {
+                indexes.push(path);
+            }
+        }
+
+        Ok(indexes)
     }
 
     /// Construct a path inside of the cache directory.

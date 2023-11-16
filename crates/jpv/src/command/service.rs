@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::pin::pin;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use async_fuse::Fuse;
 use clap::Parser;
 use tokio::signal::ctrl_c;
@@ -67,10 +67,9 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
     };
 
     // SAFETY: we know this is only initialized once here exclusively.
-    let (data, location) = unsafe { database::open(args, dirs)? };
+    let indexes = unsafe { database::open(args, dirs)? };
 
-    let db = lib::database::Database::open(data)
-        .with_context(|| anyhow!("Loading dictionary from {location}"))?;
+    let db = lib::database::Database::open(indexes)?;
 
     let mut server = pin!(web::setup(local_port, listener, db, system_events)?);
     tracing::info!("Listening on http://{local_addr}");

@@ -37,9 +37,9 @@ struct Args {
     /// Bind to the given address. Default is `127.0.0.1:0`.
     #[arg(long, value_name = "address")]
     bind: Option<String>,
-    /// Specify path to dictionary to use.
-    #[arg(long, value_name = "path")]
-    dictionary: Option<PathBuf>,
+    /// Specify paths to indexes to use.
+    #[arg(long, value_name = "index")]
+    index: Vec<PathBuf>,
     /// Command to run, by default this runs the service.
     #[command(subcommand)]
     command: Option<Command>,

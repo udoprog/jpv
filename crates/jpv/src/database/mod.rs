@@ -1,47 +1,36 @@
-/// Load the given path.
-///
-/// # Safety
-///
-/// Only one path may be loaded at a time, and the caller must ensure that they
-/// only access it before any references that has been returned from it
-/// previously are used.
-pub(crate) use self::file_system::load_path;
-mod file_system;
+use std::mem;
 
-use std::fmt;
-use std::path::Path;
+pub(crate) use self::file_system::{load_path, Data};
+mod file_system;
 
 use anyhow::Result;
 
 use crate::dirs::Dirs;
 use crate::Args;
 
-/// Used for diagnostics to indicate where a dictionary was loaded from.
-#[non_exhaustive]
-pub(crate) enum Location {
-    /// The dictionary was loaded from the given path.
-    Path(Box<Path>),
-    /// The dictionary was loaded from memory.
-    #[allow(unused)]
-    Memory(usize),
-}
+use lib::database::Location;
 
-impl fmt::Display for Location {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Location::Path(path) => path.display().fmt(f),
-            Location::Memory(address) => write!(f, "<memory at {address:08x}>"),
-        }
-    }
-}
+static mut GUARDS: Vec<Data> = Vec::new();
 
 /// Open a database using the default method based on current arguments and directories.
-pub(crate) unsafe fn open(args: &Args, dirs: &Dirs) -> Result<(&'static [u8], Location)> {
-    let path = match &args.dictionary {
-        Some(path) => path.clone(),
-        None => dirs.dictionary(),
+pub(crate) unsafe fn open(args: &Args, dirs: &Dirs) -> Result<Vec<(&'static [u8], Location)>> {
+    let mut indexes = Vec::new();
+    let found;
+
+    let paths = match &args.index[..] {
+        [] => {
+            found = dirs.indexes()?;
+            &found[..]
+        }
+        rest => rest,
     };
 
-    let data = load_path(&path)?;
-    Ok((data, Location::Path(path.into())))
+    for path in paths {
+        let data = load_path(path)?;
+        let slice = mem::transmute(data.as_slice());
+        GUARDS.push(data);
+        indexes.push((slice, Location::Path(path.as_path().into())));
+    }
+
+    Ok(indexes)
 }

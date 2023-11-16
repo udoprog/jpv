@@ -163,11 +163,13 @@ impl Component for Entry {
                     Some((index, state, find_inflection(source, &self.inflections)?))
                 });
 
-        let extras = inflections.clone().take(1).flat_map(
-            |(index, state, (kind, inflection, inflections))| {
-                render_extra(ctx, index, kind, inflection, inflections, state.filter)
-            },
-        );
+        let extras =
+            inflections
+                .clone()
+                .take(1)
+                .flat_map(|(index, state, (inflection, inflections))| {
+                    render_extra(ctx, index, inflection, inflections, state.filter)
+                });
 
         let common = iter(
             seq(
@@ -411,28 +413,13 @@ impl Entry {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum InflectionKind {
-    Verb,
-    Adjective,
-}
-
-impl InflectionKind {
-    fn as_description(self) -> &'static str {
-        match self {
-            InflectionKind::Verb => "Result based on verb conjugation",
-            InflectionKind::Adjective => "Result based on adjective inflection",
-        }
-    }
-}
-
 /// Find the matching inflection based on the source.
 fn find_inflection<'a>(
     source: &IndexSource,
     inflections: &'a [(inflection::Reading, OwnedInflections)],
-) -> Option<(InflectionKind, Inflection, &'a OwnedInflections)> {
-    Some(match source {
-        IndexSource::VerbInflection {
+) -> Option<(Inflection, &'a OwnedInflections)> {
+    match source {
+        IndexSource::Inflection {
             reading,
             inflection,
         } => {
@@ -440,26 +427,15 @@ fn find_inflection<'a>(
                 return None;
             };
 
-            (InflectionKind::Verb, *inflection, inflections)
+            Some((*inflection, inflections))
         }
-        IndexSource::AdjectiveInflection {
-            reading,
-            inflection,
-        } => {
-            let Some((_, inflections)) = inflections.iter().find(|(r, _)| *r == *reading) else {
-                return None;
-            };
-
-            (InflectionKind::Adjective, *inflection, inflections)
-        }
-        _ => return None,
-    })
+        _ => None,
+    }
 }
 
 fn render_extra(
     ctx: &Context<Entry>,
     index: usize,
-    kind: InflectionKind,
     inflection: Inflection,
     inflections: &OwnedInflections,
     filter: Inflection,
@@ -475,7 +451,7 @@ fn render_extra(
 
     Some(html! {
         <div class="block notice">
-            <div class="block block-sm title">{kind.as_description()}{":"}</div>
+            <div class="block block-sm title">{"Result based on inflection:"}</div>
             <div class="block block-sm row bullets">{for inflection_html}</div>
             {tutorials}
             {for word}
