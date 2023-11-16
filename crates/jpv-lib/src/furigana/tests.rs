@@ -51,3 +51,22 @@ fn test_trailing_kana() {
         ]
     );
 }
+
+#[test]
+fn no_matching_hiragana() {
+    let furigana = Furigana::new("十八禁", "じゅうはちきん", "");
+    assert_eq!(furigana.to_string(), "十八禁[じゅうはちきん]");
+
+    assert_eq!(
+        furigana.iter().collect::<Vec<_>>(),
+        &[FuriganaGroup::Kanji("十八禁", "じゅうはちきん")]
+    );
+
+    let furigana = Furigana::new("18禁", "じゅうはちきん", "");
+    assert_eq!(furigana.to_string(), "18禁[じゅうはちきん]");
+
+    assert_eq!(
+        furigana.iter().collect::<Vec<_>>(),
+        &[FuriganaGroup::Kanji("18禁", "じゅうはちきん")]
+    );
+}

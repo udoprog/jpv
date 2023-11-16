@@ -20,8 +20,7 @@ use thiserror::Error;
 
 use crate::inflection::Inflection;
 use crate::jmdict::{self, EntryKey};
-use crate::romaji;
-use crate::romaji::{is_hiragana, is_katakana, Segment};
+use crate::romaji::{self, is_hiragana, is_katakana, Segment};
 use crate::PartOfSpeech;
 use crate::{inflection, DICTIONARY_VERSION};
 use crate::{kanjidic2, DICTIONARY_MAGIC};

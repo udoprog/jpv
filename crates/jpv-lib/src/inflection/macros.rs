@@ -350,9 +350,9 @@ pub(crate) fn adjective_na(mut r: impl FnMut(&'static str, &[Form])) {
 /// # Examples
 ///
 /// ```rust
-/// lib::inflect!(Past);
-/// lib::inflect!(Past, Polite);
-/// lib::inflect!(Past, Short);
+/// jpv_lib::inflect!(Past);
+/// jpv_lib::inflect!(Past, Honorific);
+/// jpv_lib::inflect!(Past, Short);
 /// ```
 #[macro_export]
 macro_rules! inflect {

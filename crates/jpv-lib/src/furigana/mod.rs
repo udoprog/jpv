@@ -4,7 +4,10 @@ mod tests;
 use core::fmt;
 use std::slice;
 
-use crate::concat::{self, Concat};
+use crate::{
+    concat::{self, Concat},
+    romaji::{is_hiragana, is_katakana},
+};
 
 /// An iterator over furigana groups.
 pub struct Furigana<'a, const N: usize, const S: usize> {
@@ -87,8 +90,12 @@ impl<const N: usize, const S: usize> fmt::Display for Furigana<'_, N, S> {
     }
 }
 
-fn is_kanji(c: char) -> bool {
-    matches!(c, '\u{4e00}'..='\u{9faf}')
+fn is_kana(c: char) -> bool {
+    is_hiragana(c) || is_katakana(c)
+}
+
+fn is_not_kana(c: char) -> bool {
+    !is_kana(c)
 }
 
 /// A single furigana group.
@@ -151,11 +158,11 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
 
         let (kanji, reading) = self.current?;
 
-        match kanji.find(is_kanji) {
+        match kanji.find(is_not_kana) {
             Some(0) => {
                 // Kanji found in the first position, so we process the
                 // remaining string to test if it's all kanji or not.
-                let Some((n, _)) = kanji.char_indices().find(|(_, c)| !is_kanji(*c)) else {
+                let Some((n, _)) = kanji.char_indices().find(|(_, c)| is_kana(*c)) else {
                     // Remainder is all kanji, output it as a furigana group.
                     let group = FuriganaGroup::Kanji(kanji, reading);
                     self.current = self.advance();
@@ -167,7 +174,7 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
                 // group.
                 let (group_kanji, trailing) = kanji.split_at(n);
 
-                let Some(suffix) = trailing.find(is_kanji) else {
+                let Some(suffix) = trailing.find(is_not_kana) else {
                     // Trailing is *all* kanji, so simply find its offset in the
                     // reading group and extract it.
                     let group_kana =
