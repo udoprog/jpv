@@ -21,15 +21,15 @@ use crate::system;
 pub(super) async fn entry(
     ws: WebSocketUpgrade,
     Extension(system_events): Extension<system::SystemEvents>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    ConnectInfo(remote): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
     let receiver = system_events.0.subscribe();
 
     ws.on_upgrade(move |socket| async move {
-        let span = tracing::span!(Level::INFO, "websocket", ?addr);
+        let span = tracing::span!(Level::INFO, "websocket", ?remote);
 
         if let Err(error) = run(receiver, socket).instrument(span).await {
-            tracing::error!("{}", error);
+            tracing::error!(?error);
         }
     })
 }
@@ -167,12 +167,12 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::C
         _ => return Ok(None),
     };
 
-    tracing::info!("Decoding image");
+    tracing::info!(len = c.data.len(), "Decoding image");
 
     let image = match image::load_from_memory_with_format(&c.data[..], format) {
         Ok(image) => image,
         Err(error) => {
-            tracing::warn!("failed to clipboard image: {}", error);
+            tracing::warn!(?error, "Failed to load clipboard image");
             return Ok(None);
         }
     };
@@ -205,7 +205,7 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::C
 }
 
 async fn run(mut system_events: Receiver<system::Event>, socket: WebSocket) -> Result<()> {
-    tracing::info!("Accepted connection");
+    tracing::info!("Accepted");
 
     const CLOSE_NORMAL: u16 = 1000;
     const CLOSE_PROTOCOL_ERROR: u16 = 1002;
@@ -231,7 +231,7 @@ async fn run(mut system_events: Receiver<system::Event>, socket: WebSocket) -> R
                 let payload = rng.gen::<u32>();
                 last_ping = Some(payload);
                 let data = payload.to_ne_bytes().into_iter().collect::<Vec<_>>();
-                tracing::trace!("sending ping: {:?}", &data[..]);
+                tracing::trace!(data = ?&data[..], "Sending ping");
                 sender.send(Message::Ping(data)).await?;
                 ping_interval.reset();
             }
@@ -257,7 +257,7 @@ async fn run(mut system_events: Receiver<system::Event>, socket: WebSocket) -> R
                         continue;
                     },
                     Message::Pong(data) => {
-                        tracing::trace!("pong: {:?}", &data[..]);
+                        tracing::trace!(data = ?&data[..], "Pong");
 
                         let Some(expected) = last_ping else {
                             continue;

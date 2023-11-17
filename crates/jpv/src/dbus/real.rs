@@ -1,6 +1,5 @@
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::pin::pin;
-use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,10 +15,13 @@ use tokio::sync::broadcast::Sender;
 use tokio::sync::futures::Notified;
 
 use crate::command::service::ServiceArgs;
+use crate::open_uri;
 use crate::system::{Event, SendClipboardData, Setup};
 
-const NAME: &'static str = "se.tedro.JapaneseDictionary";
-const PATH: &'static str = "/se/tedro/JapaneseDictionary";
+const NAME: &'static CStr =
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"se.tedro.JapaneseDictionary\0") };
+const PATH: &'static CStr =
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"/se/tedro/JapaneseDictionary\0") };
 const TIMEOUT: Duration = Duration::from_millis(5000);
 
 pub(crate) fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> {
@@ -164,31 +166,43 @@ struct State {
 fn handle_method_call(state: &mut State, msg: &Message) -> Result<Message> {
     let path = msg.path().context("Missing destination")?;
     let member = msg.member().context("Missing member")?;
+    let interface = msg.interface().context("Missing interface")?;
 
-    let PATH = from_utf8(path.as_bytes()).context("Bad path")? else {
-        bail!("Unknown path")
+    let b"/se/tedro/JapaneseDictionary" = path.as_bytes() else {
+        bail!("Bad path");
     };
 
-    let m = match from_utf8(member.as_bytes()).context("Bad method")? {
-        "GetPort" => msg.return_with_args((state.port,)),
-        "SendClipboardData" => {
-            let (mimetype, data): (String, Vec<u8>) = msg.read2()?;
-            tracing::trace!(?mimetype, len = data.len());
+    let m = match interface.as_bytes() {
+        b"org.freedesktop.Application" => match member.as_bytes() {
+            b"Activate" => {
+                let address = format!("http://localhost:{}", state.port);
+                open_uri::open(&address);
+                msg.method_return()
+            }
+            _ => bail!("Unknown method"),
+        },
+        b"se.tedro.JapaneseDictionary" => match member.as_bytes() {
+            b"GetPort" => msg.return_with_args((state.port,)),
+            b"SendClipboardData" => {
+                let (mimetype, data): (String, Vec<u8>) = msg.read2()?;
+                tracing::trace!(?mimetype, len = data.len());
 
-            let _ = state
-                .broadcast
-                .send(Event::SendClipboardData(SendClipboardData {
-                    mimetype,
-                    data,
-                }));
+                let _ = state
+                    .broadcast
+                    .send(Event::SendClipboardData(SendClipboardData {
+                        mimetype,
+                        data,
+                    }));
 
-            msg.method_return()
-        }
-        "Shutdown" => {
-            state.stop.store(true, Ordering::Release);
-            msg.method_return()
-        }
-        _ => bail!("Unknown method"),
+                msg.method_return()
+            }
+            b"Shutdown" => {
+                state.stop.store(true, Ordering::Release);
+                msg.method_return()
+            }
+            _ => bail!("Unknown method"),
+        },
+        _ => bail!("Unknown interface"),
     };
 
     Ok(m)
