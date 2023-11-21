@@ -1,7 +1,16 @@
 [package]
 name = "jpv-tesseract"
 version = "0.0.0"
+authors = ["John-John Tedro <udoprog@tedro.se>"]
 edition = "2021"
+description = "Japanese Dictionary by John-John Tedro"
+documentation = "https://docs.rs/jpv"
+readme = "README.md"
+homepage = "https://github.com/udoprog/jpv"
+repository = "https://github.com/udoprog/jpv"
+license = "MIT OR Apache-2.0"
+keywords = ["dictionary"]
+categories = ["development-tools"]
 
 [dependencies]
 tesseract-sys = "0.6.1"

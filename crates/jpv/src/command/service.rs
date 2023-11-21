@@ -45,6 +45,7 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
     let system_events = system::SystemEvents(sender.clone());
 
     let mut dbus = match dbus::setup(service_args, local_port, shutdown.notified(), sender)
+        .await
         .context("Setting up D-Bus")?
     {
         system::Setup::Future(dbus) => match dbus {

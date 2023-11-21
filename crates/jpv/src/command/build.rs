@@ -138,7 +138,7 @@ pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result
         future.await?;
     }
 
-    crate::dbus::shutdown()?;
+    crate::dbus::shutdown().await?;
     Ok(())
 }
 

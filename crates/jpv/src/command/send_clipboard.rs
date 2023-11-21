@@ -17,7 +17,7 @@ pub(crate) struct SendClipboardArgs {
     data: OsString,
 }
 
-pub(crate) fn run(args: &SendClipboardArgs) -> Result<()> {
+pub(crate) async fn run(args: &SendClipboardArgs) -> Result<()> {
     match args.ty.as_deref() {
         Some("application/json") => {
             let json = lib::api::SendClipboardJson {
@@ -26,11 +26,11 @@ pub(crate) fn run(args: &SendClipboardArgs) -> Result<()> {
             };
 
             let data = serde_json::to_vec(&json)?;
-            crate::dbus::send_clipboard(args.ty.as_deref(), &data)?;
+            crate::dbus::send_clipboard(args.ty.as_deref(), &data).await?;
         }
         _ => {
             let data = to_bytes(&args.data);
-            crate::dbus::send_clipboard(args.ty.as_deref(), data.as_ref())?;
+            crate::dbus::send_clipboard(args.ty.as_deref(), data.as_ref()).await?;
         }
     }
 

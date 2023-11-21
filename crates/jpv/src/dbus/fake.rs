@@ -5,15 +5,15 @@ use tokio::sync::futures::Notified;
 use crate::command::service::ServiceArgs;
 use crate::system::{Event, Setup};
 
-pub(crate) fn send_clipboard(_: Option<&str>, _: &[u8]) -> Result<()> {
+pub(crate) async fn send_clipboard(_: Option<&str>, _: &[u8]) -> Result<()> {
     bail!("Sending the clipboard is not supported")
 }
 
-pub(crate) fn shutdown() -> Result<()> {
+pub(crate) async fn shutdown() -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn setup<'a>(
+pub(crate) async fn setup<'a>(
     _: &ServiceArgs,
     _: u16,
     _: Notified<'a>,

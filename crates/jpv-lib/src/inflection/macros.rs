@@ -347,6 +347,8 @@ pub(crate) fn adjective_na(mut r: impl FnMut(&'static str, &[Form])) {
 
 /// Helper to construct a particular [`Inflection`].
 ///
+/// [`Inflection`]: crate::Inflection
+///
 /// # Examples
 ///
 /// ```rust
