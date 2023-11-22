@@ -519,9 +519,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2e66c9d817f1720209181c316d28635c050fa304f9c79e47a520882661b7308"
+checksum = "7e962a19be5cfc3f3bf6dd8f61eb50107f356ad6270fbb3ed41476571db78be5"
 
 [[package]]
 name = "digest"
@@ -2617,9 +2617,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-dbus"
-version = "0.0.4"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e06312bec6ef66ca09eff40f228b5d6e66a86b497d0b987a9569b4352e3a469"
+checksum = "53cceda7f0a8c2c61649501626d7f012b51f5e6605ac224aa55373c617af2578"
 dependencies = [
  "libc",
  "tokio",

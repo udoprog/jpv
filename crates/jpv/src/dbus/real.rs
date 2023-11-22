@@ -5,7 +5,7 @@ use async_fuse::Fuse;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::futures::Notified;
 use tokio_dbus::org_freedesktop_dbus::{NameFlag, NameReply};
-use tokio_dbus::{BodyBuf, Client, Flags, Message, MessageKind, ObjectPath, SendBuf};
+use tokio_dbus::{BodyBuf, Connection, Flags, Message, MessageKind, ObjectPath, SendBuf};
 
 use crate::command::service::ServiceArgs;
 use crate::open_uri;
@@ -15,7 +15,7 @@ const NAME: &'static str = "se.tedro.JapaneseDictionary";
 const PATH: &'static ObjectPath = ObjectPath::new_const(b"/se/tedro/JapaneseDictionary");
 
 pub(crate) async fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> {
-    let mut c = Client::session_bus().await?;
+    let mut c = Connection::session_bus().await?;
 
     let mimetype = ty.unwrap_or("text/plain");
 
@@ -27,7 +27,7 @@ pub(crate) async fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> 
         .method_call(PATH, "SendClipboardData")
         .with_interface(NAME)
         .with_destination(NAME)
-        .with_body_buf(&body)
+        .with_body(&body)
         .with_flags(Flags::NO_REPLY_EXPECTED);
 
     send.write_message(&m)?;
@@ -37,7 +37,7 @@ pub(crate) async fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> 
 }
 
 pub(crate) async fn shutdown() -> Result<()> {
-    let mut c = Client::session_bus().await?;
+    let mut c = Connection::session_bus().await?;
 
     let m = c
         .method_call(PATH, "Shutdown")
@@ -52,7 +52,7 @@ pub(crate) async fn shutdown() -> Result<()> {
 
 /// Request port from D-Bus service. This will cause the service to activate if
 /// it isn't already.
-async fn get_port(c: &mut Client) -> Result<u16> {
+async fn get_port(c: &mut Connection) -> Result<u16> {
     let m = c
         .method_call(PATH, "GetPort")
         .with_interface(NAME)
@@ -76,9 +76,9 @@ pub(crate) async fn setup<'a>(
     }
 
     let mut c = if service_args.dbus_system {
-        Client::system_bus().await?
+        Connection::system_bus().await?
     } else {
-        Client::session_bus().await?
+        Connection::session_bus().await?
     };
 
     // Rely on D-Bus activation to start the background service.
@@ -121,7 +121,7 @@ pub(crate) async fn setup<'a>(
                                     tracing::error!("{}", error);
                                     body.clear();
                                     body.write(error.to_string().as_str())?;
-                                    let m = message.error("se.tedro.JapaneseDictionary.Error", send.next_serial()).with_body_buf(body);
+                                    let m = message.error("se.tedro.JapaneseDictionary.Error", send.next_serial()).with_body(body);
                                     (m, None)
                                 }
                             };
@@ -185,10 +185,7 @@ fn handle_method_call<'a>(
         "se.tedro.JapaneseDictionary" => match member {
             "GetPort" => {
                 body.store(state.port)?;
-                (
-                    msg.method_return(send.next_serial()).with_body_buf(body),
-                    None,
-                )
+                (msg.method_return(send.next_serial()).with_body(body), None)
             }
             "SendClipboardData" => {
                 let mut body = msg.body();
