@@ -30,7 +30,7 @@ pub(crate) async fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> 
         .with_body(&body)
         .with_flags(Flags::NO_REPLY_EXPECTED);
 
-    send.write_message(&m)?;
+    send.write_message(m)?;
 
     c.flush().await?;
     Ok(())
@@ -45,7 +45,7 @@ pub(crate) async fn shutdown() -> Result<()> {
         .with_destination(NAME)
         .with_flags(Flags::NO_REPLY_EXPECTED);
 
-    c.write_message(&m)?;
+    c.write_message(m)?;
     c.flush().await?;
     Ok(())
 }
@@ -58,10 +58,10 @@ async fn get_port(c: &mut Connection) -> Result<u16> {
         .with_interface(NAME)
         .with_destination(NAME);
 
-    c.write_message(&m)?;
+    c.write_message(m)?;
 
-    let message = c.process().await?;
-    let message = c.read_message(&message)?;
+    c.process().await?;
+    let message = c.last_message()?;
     Ok(message.body().load::<u16>()?)
 }
 
@@ -106,10 +106,12 @@ pub(crate) async fn setup<'a>(
 
         loop {
             tokio::select! {
-                message = c.process() => {
-                    let message = message?;
+                result = c.process() => {
+                    result?;
+
                     let (recv, send, body) = c.buffers();
-                    let message = recv.read_message(&message)?;
+
+                    let message = recv.last_message()?;
 
                     tracing::trace!(?message);
 
@@ -127,7 +129,7 @@ pub(crate) async fn setup<'a>(
                             };
 
                             tracing::trace!(?ret);
-                            send.write_message(&ret)?;
+                            send.write_message(ret)?;
 
                             if let Some(action) = action {
                                 match action {
