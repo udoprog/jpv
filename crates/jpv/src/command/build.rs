@@ -48,25 +48,24 @@ enum IndexKind {
 }
 
 pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result<()> {
-    let mut to_download = Vec::new();
-
-    to_download.push(ToDownload {
-        name: "jmdict",
-        url: JMDICT_URL,
-        url_name: "JMdict_e_examp.gz",
-        index_path: dirs.index_path("jmdict"),
-        path: build_args.jmdict_path.as_deref(),
-        kind: IndexKind::Jmdict,
-    });
-
-    to_download.push(ToDownload {
-        name: "kanjidic2",
-        url: KANJIDIC2_URL,
-        url_name: "kanjidic2.xml.gz",
-        index_path: dirs.index_path("kanjidic2"),
-        path: build_args.kanjidic2_path.as_deref(),
-        kind: IndexKind::Kanjidic2,
-    });
+    let to_download = vec![
+        ToDownload {
+            name: "jmdict",
+            url: JMDICT_URL,
+            url_name: "JMdict_e_examp.gz",
+            index_path: dirs.index_path("jmdict"),
+            path: build_args.jmdict_path.as_deref(),
+            kind: IndexKind::Jmdict,
+        },
+        ToDownload {
+            name: "kanjidic2",
+            url: KANJIDIC2_URL,
+            url_name: "kanjidic2.xml.gz",
+            index_path: dirs.index_path("kanjidic2"),
+            path: build_args.kanjidic2_path.as_deref(),
+            kind: IndexKind::Kanjidic2,
+        },
+    ];
 
     let mut futures: Vec<Pin<Box<dyn Future<Output = Result<()>>>>> = Vec::new();
 

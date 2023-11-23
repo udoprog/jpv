@@ -679,7 +679,7 @@ impl<'a> Database<'a> {
     /// Get all entries matching the given id.
     pub fn entry_at(&self, index: usize, id: Id) -> Result<Entry<'a>> {
         let i = self.indexes.get(index).context("missing index")?;
-        Ok(i.entry_at(id)?)
+        i.entry_at(id)
     }
 
     /// Get kanji by character.

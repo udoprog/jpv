@@ -278,7 +278,7 @@ async fn main() -> Result<()> {
             self::command::cli::run(&args, cli_args, &dirs).await?;
         }
         Some(Command::SendClipboard(send_clipboard_args)) => {
-            self::command::send_clipboard::run(&send_clipboard_args).await?;
+            self::command::send_clipboard::run(send_clipboard_args).await?;
         }
         #[cfg(feature = "build")]
         Some(Command::Build(build_args)) => {

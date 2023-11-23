@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use std::collections::{BTreeSet, HashSet};
 use std::fmt;
 use std::io::Write;
@@ -131,8 +133,8 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
             OutputFormat::Rich => print_rich(
                 &mut o,
                 &db,
-                &cli_args,
-                &current_lang,
+                cli_args,
+                current_lang,
                 &to_look_up,
                 i,
                 *index,
@@ -141,7 +143,7 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
             OutputFormat::Json | OutputFormat::JsonPretty => print_json(
                 &mut o,
                 &db,
-                &cli_args,
+                cli_args,
                 matches!(format, OutputFormat::JsonPretty),
                 i,
                 *index,
@@ -166,11 +168,8 @@ fn print_rich<O>(
 where
     O: ?Sized + Write,
 {
-    match id.source() {
-        IndexSource::Inflection { inflection, .. } => {
-            writeln!(o, "Found through inflection: {inflection:?}")?;
-        }
-        _ => {}
+    if let IndexSource::Inflection { inflection, .. } = id.source() {
+        writeln!(o, "Found through inflection: {inflection:?}")?;
     }
 
     match db.entry_at(index, *id)? {

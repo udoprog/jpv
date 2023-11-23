@@ -6,7 +6,7 @@ use axum::routing::get;
 use axum::Router;
 use rust_embed::RustEmbed;
 
-pub(crate) static BIND: &'static str = "127.0.0.1:0";
+pub(crate) static BIND: &str = "127.0.0.1:0";
 pub(crate) static PORT: Option<u16> = None;
 
 pub(crate) fn router() -> Router {

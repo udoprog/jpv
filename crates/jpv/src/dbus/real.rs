@@ -11,8 +11,8 @@ use crate::command::service::ServiceArgs;
 use crate::open_uri;
 use crate::system::{Event, SendClipboardData, Setup};
 
-const NAME: &'static str = "se.tedro.JapaneseDictionary";
-const PATH: &'static ObjectPath = ObjectPath::new_const(b"/se/tedro/JapaneseDictionary");
+const NAME: &str = "se.tedro.JapaneseDictionary";
+const PATH: &ObjectPath = ObjectPath::new_const(b"/se/tedro/JapaneseDictionary");
 
 pub(crate) async fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> {
     let mut c = Connection::session_bus().await?;
@@ -26,7 +26,7 @@ pub(crate) async fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> 
         .method_call(PATH, "SendClipboardData")
         .with_interface(NAME)
         .with_destination(NAME)
-        .with_body(&body)
+        .with_body(body)
         .with_flags(Flags::NO_REPLY_EXPECTED);
 
     send.write_message(m)?;
@@ -114,31 +114,27 @@ pub(crate) async fn setup<'a>(
 
                     tracing::trace!(?message);
 
-                    match message.kind() {
-                        MessageKind::MethodCall { path, member } => {
-                            let (ret, action) = match handle_method_call(&mut state, path, member, &message, body, send) {
-                                Ok((m, action)) => (m, action),
-                                Err(error) => {
-                                    tracing::error!("{}", error);
-                                    body.clear();
-                                    body.store(error.to_string())?;
-                                    let m = message.error("se.tedro.JapaneseDictionary.Error", send.next_serial()).with_body(body);
-                                    (m, None)
-                                }
-                            };
+                    if let MessageKind::MethodCall { path, member } = message.kind() {
+                        let (ret, action) = match handle_method_call(&mut state, path, member, &message, body, send) {
+                            Ok((m, action)) => (m, action),
+                            Err(error) => {
+                                tracing::error!("{}", error);
+                                body.clear();
+                                body.store(error.to_string())?;
+                                let m = message.error("se.tedro.JapaneseDictionary.Error", send.next_serial()).with_body(body);
+                                (m, None)
+                            }
+                        };
 
-                            tracing::trace!(?ret);
-                            send.write_message(ret)?;
+                        tracing::trace!(?ret);
+                        send.write_message(ret)?;
 
-                            if let Some(action) = action {
-                                match action {
-                                    Action::Shutdown => {
-                                        return Ok(());
-                                    }
+                        if let Some(action) = action {
+                            match action {
+                                Action::Shutdown => {
+                                    return Ok(());
                                 }
                             }
-                        }
-                        _ => {
                         }
                     }
                 }

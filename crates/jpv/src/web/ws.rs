@@ -79,7 +79,7 @@ fn trim_whitespace(input: &str) -> Cow<'_, str> {
     let mut c = input.char_indices();
 
     'ws: {
-        while let Some((n, c)) = c.next() {
+        for (n, c) in c.by_ref() {
             if c.is_whitespace() {
                 output.push_str(&input[..n]);
                 break 'ws;
@@ -263,7 +263,7 @@ async fn run(mut system_events: Receiver<system::Event>, socket: WebSocket) -> R
                             continue;
                         };
 
-                        if &expected.to_ne_bytes()[..] != &data[..] {
+                        if expected.to_ne_bytes()[..] != data[..] {
                             continue;
                         }
 
