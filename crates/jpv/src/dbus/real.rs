@@ -20,8 +20,7 @@ pub(crate) async fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> 
     let mimetype = ty.unwrap_or("text/plain");
 
     let (_, send, body) = c.buffers();
-    body.write(mimetype)?;
-    body.write_slice(data)?;
+    body.arguments((mimetype, data))?;
 
     let m = send
         .method_call(PATH, "SendClipboardData")
@@ -122,7 +121,7 @@ pub(crate) async fn setup<'a>(
                                 Err(error) => {
                                     tracing::error!("{}", error);
                                     body.clear();
-                                    body.write(error.to_string().as_str())?;
+                                    body.store(error.to_string())?;
                                     let m = message.error("se.tedro.JapaneseDictionary.Error", send.next_serial()).with_body(body);
                                     (m, None)
                                 }
