@@ -58,8 +58,8 @@ async fn get_port(c: &mut Connection) -> Result<u16> {
         .with_destination(NAME);
 
     c.write_message(m)?;
+    c.wait().await?;
 
-    c.process().await?;
     let message = c.last_message()?;
     Ok(message.body().load::<u16>()?)
 }
@@ -105,7 +105,7 @@ pub(crate) async fn setup<'a>(
 
         loop {
             tokio::select! {
-                result = c.process() => {
+                result = c.wait() => {
                     result?;
 
                     let (recv, send, body) = c.buffers();

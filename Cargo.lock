@@ -2617,9 +2617,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-dbus"
-version = "0.0.11"
+version = "0.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa755267da90ea075d3559c751e1faf6102f7e8cb791d626cadef8dbaf0d6c8e"
+checksum = "2d7bd49f12f0d5fbc5f7ef8528228c7844ea1f83299591e9d685192b197f21ca"
 dependencies = [
  "libc",
  "tokio",
