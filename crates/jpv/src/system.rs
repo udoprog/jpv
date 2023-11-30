@@ -3,9 +3,20 @@ use std::pin::Pin;
 
 use anyhow::Result;
 use tokio::sync::broadcast::Sender;
+use tokio::sync::futures::Notified;
 
-pub(crate) enum Setup<'a> {
-    Future(Option<Pin<Box<dyn Future<Output = Result<()>> + 'a>>>),
+/// Service startup.
+pub trait Start {
+    fn start<'a>(
+        &'a mut self,
+        port: u16,
+        shutdown: Notified<'a>,
+        broadcast: Sender<Event>,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>>;
+}
+
+pub(crate) enum Setup {
+    Start(Option<Box<dyn Start>>),
     #[allow(unused)]
     Port(u16),
     #[allow(unused)]

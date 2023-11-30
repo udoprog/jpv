@@ -1,4 +1,5 @@
-use std::pin::pin;
+use std::future::Future;
+use std::pin::{pin, Pin};
 
 use anyhow::{bail, Context, Result};
 use async_fuse::Fuse;
@@ -9,7 +10,7 @@ use tokio_dbus::{BodyBuf, Connection, Flags, Message, MessageKind, ObjectPath, S
 
 use crate::command::service::ServiceArgs;
 use crate::open_uri;
-use crate::system::{Event, SendClipboardData, Setup};
+use crate::system::{Event, SendClipboardData, Setup, Start};
 
 const NAME: &str = "se.tedro.JapaneseDictionary";
 const PATH: &ObjectPath = ObjectPath::new_const(b"/se/tedro/JapaneseDictionary");
@@ -64,14 +65,9 @@ async fn get_port(c: &mut Connection) -> Result<u16> {
     Ok(message.body().load::<u16>()?)
 }
 
-pub(crate) async fn setup<'a>(
-    service_args: &ServiceArgs,
-    port: u16,
-    shutdown: Notified<'a>,
-    broadcast: Sender<Event>,
-) -> Result<Setup<'a>> {
+pub(crate) async fn setup<'a>(service_args: &ServiceArgs) -> Result<Setup> {
     if service_args.dbus_disable {
-        return Ok(Setup::Future(None));
+        return Ok(Setup::Start(None));
     }
 
     let mut c = if service_args.dbus_system {
@@ -98,52 +94,66 @@ pub(crate) async fn setup<'a>(
         }
     }
 
-    Ok(Setup::Future(Some(Box::pin(async move {
-        let mut shutdown = pin!(Fuse::new(shutdown));
+    Ok(Setup::Start(Some(Box::new(DbusStart { c }))))
+}
 
-        let mut state = State { port, broadcast };
+struct DbusStart {
+    c: Connection,
+}
 
-        loop {
-            tokio::select! {
-                result = c.wait() => {
-                    result?;
+impl Start for DbusStart {
+    fn start<'a>(
+        &'a mut self,
+        port: u16,
+        shutdown: Notified<'a>,
+        broadcast: Sender<Event>,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>> {
+        Box::pin(async move {
+            let mut shutdown = pin!(Fuse::new(shutdown));
+            let mut state = State { port, broadcast };
 
-                    let (recv, send, body) = c.buffers();
+            loop {
+                tokio::select! {
+                    result = self.c.wait() => {
+                        result?;
 
-                    let message = recv.last_message()?;
+                        let (recv, send, body) = self.c.buffers();
 
-                    tracing::trace!(?message);
+                        let message = recv.last_message()?;
 
-                    if let MessageKind::MethodCall { path, member } = message.kind() {
-                        let (ret, action) = match handle_method_call(&mut state, path, member, &message, body, send) {
-                            Ok((m, action)) => (m, action),
-                            Err(error) => {
-                                tracing::error!("{}", error);
-                                body.clear();
-                                body.store(error.to_string())?;
-                                let m = message.error("se.tedro.JapaneseDictionary.Error", send.next_serial()).with_body(body);
-                                (m, None)
-                            }
-                        };
+                        tracing::trace!(?message);
 
-                        tracing::trace!(?ret);
-                        send.write_message(ret)?;
+                        if let MessageKind::MethodCall { path, member } = message.kind() {
+                            let (ret, action) = match handle_method_call(&mut state, path, member, &message, body, send) {
+                                Ok((m, action)) => (m, action),
+                                Err(error) => {
+                                    tracing::error!("{}", error);
+                                    body.clear();
+                                    body.store(error.to_string())?;
+                                    let m = message.error("se.tedro.JapaneseDictionary.Error", send.next_serial()).with_body(body);
+                                    (m, None)
+                                }
+                            };
 
-                        if let Some(action) = action {
-                            match action {
-                                Action::Shutdown => {
-                                    return Ok(());
+                            tracing::trace!(?ret);
+                            send.write_message(ret)?;
+
+                            if let Some(action) = action {
+                                match action {
+                                    Action::Shutdown => {
+                                        return Ok(());
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                _ = shutdown.as_mut() => {
-                    return Ok(());
-                }
-            };
-        }
-    }))))
+                    _ = shutdown.as_mut() => {
+                        return Ok(());
+                    }
+                };
+            }
+        })
+    }
 }
 
 struct State {

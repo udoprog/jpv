@@ -69,6 +69,7 @@ pub(crate) struct Entry {
 
 #[derive(Properties)]
 pub struct Props {
+    pub embed: bool,
     pub sources: BTreeSet<IndexSource>,
     pub entry_key: jmdict::EntryKey,
     pub entry: jmdict::OwnedEntry,
@@ -222,9 +223,13 @@ impl Component for Entry {
 
         let entry_key_style = "display: none;".to_string();
 
+        let sequence = (!ctx.props().embed).then(|| html! {
+            <div class="block block row entry-sequence"><a href={format!("/api/entry/{}", entry.sequence)} target="_api">{format!("#{}", entry.sequence)}</a></div>
+        });
+
         html! {
             <div class="block block-lg entry">
-                <div class="block block row entry-sequence"><a href={format!("/api/entry/{}", entry.sequence)}>{format!("#{}", entry.sequence)}</a></div>
+                {sequence}
                 <div class="block block row entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
                 {for extras}
                 {for reading}

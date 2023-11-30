@@ -11,7 +11,7 @@ pub(crate) struct Builder<'a> {
 }
 
 #[borrowme::borrowme]
-#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct Meaning<'a> {
     pub text: &'a str,

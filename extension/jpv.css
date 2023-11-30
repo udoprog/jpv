@@ -1,0 +1,13 @@
+.jpv-definitions {
+    position: fixed;
+    display: none;
+    width: 0;
+    height: 0;
+    top: 0;
+    left: 0;
+    z-index: 999999;
+}
+
+.jpv-definitions.active {
+    display: block;
+}

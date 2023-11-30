@@ -10,10 +10,13 @@ use tokio::signal::ctrl_c;
 use tokio::signal::windows::ctrl_shutdown;
 use tokio::sync::Notify;
 
+use crate::database;
+use crate::dbus;
 use crate::dirs::Dirs;
 use crate::open_uri;
+use crate::system;
+use crate::web;
 use crate::Args;
-use crate::{database, dbus, system, web};
 
 #[derive(Default, Parser)]
 pub(crate) struct ServiceArgs {
@@ -31,27 +34,28 @@ pub(crate) struct ServiceArgs {
     #[cfg(feature = "dbus")]
     #[arg(long)]
     pub(crate) dbus_system: bool,
+    /// Bind to the given address. Default is `127.0.0.1:44714`.
+    #[arg(long, value_name = "address")]
+    bind: Option<String>,
 }
 
 pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) -> Result<()> {
-    let addr: SocketAddr = args.bind.as_deref().unwrap_or(self::web::BIND).parse()?;
-    let listener = TcpListener::bind(addr)?;
-    let local_addr = listener.local_addr()?;
-    let local_port = web::PORT.unwrap_or(local_addr.port());
+    let addr: SocketAddr = service_args
+        .bind
+        .as_deref()
+        .unwrap_or(self::web::BIND)
+        .parse()?;
 
     let shutdown = Notify::new();
 
     let (sender, _) = tokio::sync::broadcast::channel(16);
     let system_events = system::SystemEvents(sender.clone());
 
-    let mut dbus = match dbus::setup(service_args, local_port, shutdown.notified(), sender)
+    let mut dbus = match dbus::setup(service_args)
         .await
         .context("Setting up D-Bus")?
     {
-        system::Setup::Future(dbus) => match dbus {
-            Some(dbus) => Fuse::new(dbus),
-            None => Fuse::empty(),
-        },
+        system::Setup::Start(dbus) => dbus,
         system::Setup::Port(port) => {
             tracing::info!("Listening on http://localhost:{port}");
 
@@ -65,6 +69,15 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
         system::Setup::Busy => {
             return Ok(());
         }
+    };
+
+    let listener = TcpListener::bind(addr)?;
+    let local_addr = listener.local_addr()?;
+    let local_port = web::PORT.unwrap_or(local_addr.port());
+
+    let mut dbus = match &mut dbus {
+        Some(dbus) => Fuse::new(dbus.start(local_port, shutdown.notified(), sender)),
+        None => Fuse::empty(),
     };
 
     // SAFETY: we know this is only initialized once here exclusively.

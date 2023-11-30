@@ -809,9 +809,9 @@ dependencies = [
 
 [[package]]
 name = "gimli"
-version = "0.28.0"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fb8d784f27acf97159b40fc4db5ecd8aa23b9ad5ef69cdd136d3bc80665f0c0"
+checksum = "4271d37baee1b8c7e4b708028c57d816cf9d2434acb33a549475f78c181f6253"
 
 [[package]]
 name = "gio"
@@ -2617,9 +2617,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-dbus"
-version = "0.0.12"
+version = "0.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d7bd49f12f0d5fbc5f7ef8528228c7844ea1f83299591e9d685192b197f21ca"
+checksum = "c01c6a415f9277c1bd193100f8ed5a9c313585f8844636c3d0a38f45d5c341f7"
 dependencies = [
  "libc",
  "tokio",

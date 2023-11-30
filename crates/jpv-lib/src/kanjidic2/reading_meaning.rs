@@ -26,7 +26,7 @@ pub(crate) struct Builder<'a> {
 }
 
 #[borrowme::borrowme]
-#[derive(Default, Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Default, Debug, PartialEq, Clone, Serialize, Deserialize, Encode, Decode)]
 #[musli(packed)]
 pub struct ReadingMeaning<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

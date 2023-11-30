@@ -1,0 +1,30 @@
+{
+    "manifest_version": 2,
+    "name": "jpv",
+    "version": "0.0.1",
+  
+    "description": "Adds the ability to analyze text using the Japanese Dictionary by John-John Tedro",
+  
+    "icons": {
+      "256": "icons/jpv-256.png"
+    },
+  
+    "content_scripts": [
+      {
+        "matches": [
+            "http://*/*",
+            "https://*/*",
+            "file://*/*"
+        ],
+        "js": ["jpv.js"],
+        "css": ["jpv.css"]
+      }
+    ],
+  
+    "browser_specific_settings": {
+      "gecko": {
+        "id": "jpv@tedro.se"
+      }
+    }    
+  }
+  
