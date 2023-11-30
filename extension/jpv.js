@@ -9,6 +9,8 @@ const MAX_X_OFFSET = 1024;
 let iframe = null;
 let loadListener = null;
 let currentText = null;
+let lastElement = null;
+let lastPoint = null;
 
 function isValidStart(el) {
     return el.localName !== "body";
@@ -74,44 +76,49 @@ function closeWindow() {
  * @param {Range} range The range to narrow, until it fits a natural text
  * boundary which is pointed to by the cursor.
  */
-function adjustRangeToBoundaries(range, x, y) {
-    let update = false;
+function adjustRangeToBoundaries(range, point) {
     let boundaries = walk(range);
 
-    if (boundaries.length > 0) {
-        let current = range.cloneRange();
-
-        let start = 0;
-        let end = boundaries.length - 1;
-
-        while (start <= end) {
-            let { node, index } = boundaries[start];
-            current.setStart(node, index);
-
-            if (!rectContainsAny(current.getClientRects(), x, y)) {
-                break;
-            }
-
-            range.setStart(node, index);
-            start += 1;
-        }
-
-        current.setStart(range.startContainer, range.startOffset);
-
-        while (start <= end) {
-            let { node, index } = boundaries[end];
-            current.setEnd(node, index);
-
-            if (!rectContainsAny(current.getClientRects(), x, y)) {
-                break;
-            }
-
-            range.setEnd(node, index);
-            end -= 1;
-        }
+    if (boundaries.length === 0) {
+        return true;
     }
 
-    return update;
+    let current = range.cloneRange();
+
+    if (!rectContainsAny(current.getClientRects(), point)) {
+        return false;
+    }
+
+    let start = 0;
+    let end = boundaries.length - 1;
+
+    while (start <= end) {
+        let { node, index } = boundaries[start];
+        current.setStart(node, index);
+
+        if (!rectContainsAny(current.getClientRects(), point)) {
+            break;
+        }
+
+        range.setStart(node, index);
+        start += 1;
+    }
+
+    current.setStart(range.startContainer, range.startOffset);
+
+    while (start <= end) {
+        let { node, index } = boundaries[end];
+        current.setEnd(node, index);
+
+        if (!rectContainsAny(current.getClientRects(), point)) {
+            break;
+        }
+
+        range.setEnd(node, index);
+        end -= 1;
+    }
+
+    return true;
 }
 
 /**
@@ -149,9 +156,9 @@ function walk(range) {
     return boundaries.output();
 }
 
-function rectContainsAny(rects, x, y) {
+function rectContainsAny(rects, point) {
     for (let rect of rects) {
-        if (rectContains(rect, x, y)) {
+        if (rectContains(rect, point)) {
             return true;
         }
     }
@@ -159,11 +166,11 @@ function rectContainsAny(rects, x, y) {
     return false;
 }
 
-function rectContains(rect, x, y) {
-    return rect.x <= x && rect.x + rect.width >= x && rect.y <= y && rect.y + rect.height >= y;
+function rectContains(rect, point) {
+    return rect.left <= point.x && rect.right >= point.x && rect.top <= point.y && rect.bottom >= point.y;
 }
 
-function windowPosition(rect, e) {
+function windowPosition(rect, point) {
     let popupHeight = HEIGHT;
     let popupWidth = WIDTH;
     let padding = PADDING;
@@ -172,7 +179,7 @@ function windowPosition(rect, e) {
     let windowHeight = window.innerHeight;
 
     if (!FOLLOWMOUSE) {
-        let maxX = e.clientX + MAX_X_OFFSET;
+        let maxX = point.x + MAX_X_OFFSET;
 
         let pos = {
             x: Math.min(rect.x + rect.width + padding, maxX),
@@ -193,7 +200,7 @@ function windowPosition(rect, e) {
         return pos;
     }
 
-    let pos = { x: e.clientX, y: e.clientY };
+    let pos = { x: point.x, y: point.y };
 
     let neededWidth = pos.x + popupWidth + padding * 2;
     let neededHeight = pos.y + popupHeight + padding * 2;
@@ -223,20 +230,31 @@ function windowPosition(rect, e) {
     return pos;
 }
 
-function openWindow(e) {
-    let element = getBoundingElement(e.target);
+function openWindow(element, point) {
+    if (!element || !point) {
+        return;
+    }
 
-    if (element == null) {
+    element = getBoundingElement(element);
+
+    if (!element) {
         return;
     }
 
     let textRange = document.createRange();
     textRange.selectNodeContents(element);
+    let rect = textRange.getBoundingClientRect();
 
-    adjustRangeToBoundaries(textRange, e.clientX, e.clientY);
+    if (!adjustRangeToBoundaries(textRange, point)) {
+        return;
+    }
 
-    let pos = windowPosition(element.getBoundingClientRect(), e);
-    let text = textRange.toString();
+    let pos = windowPosition(rect, point);
+    let text = textRange.toString().trim();
+
+    if (text === "") {
+        return;
+    }
 
     if (SELECT) {
         let s = window.getSelection();
@@ -276,6 +294,9 @@ function openWindow(e) {
 }
 
 function click(e) {
+    lastElement = e.target;
+    lastPoint = {x: e.clientX, y: e.clientY};
+
     if (!e.shiftKey) {
         if (closeWindow()) {
             e.preventDefault();
@@ -284,13 +305,23 @@ function click(e) {
         return;
     }
 
-    openWindow(e);
+    openWindow(e.target, {x: e.clientX, y: e.clientY});
     e.preventDefault();
 }
 
 function mouseMove(e) {
+    lastElement = e.target;
+    lastPoint = {x: e.clientX, y: e.clientY};
+
     if (e.shiftKey) {
-        openWindow(e);
+        openWindow(lastElement, lastPoint);
+        e.preventDefault();
+    }
+}
+
+function keyDown(e) {
+    if (e.key === "Shift") {
+        openWindow(lastElement, lastPoint);
         e.preventDefault();
     }
 }
@@ -305,6 +336,7 @@ if (document.body) {
 
     document.body.appendChild(iframe);
 
+    document.documentElement.addEventListener('keydown', keyDown);
     document.documentElement.addEventListener('click', click);
     document.documentElement.addEventListener('mousemove', mouseMove);
 }
