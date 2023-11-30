@@ -16,7 +16,10 @@
             "https://*/*",
             "file://*/*"
         ],
-        "js": ["jpv.js"],
+        "js": [
+          "jpv.js",
+          "js/boundaries.js"
+        ],
         "css": ["jpv.css"]
       }
     ],

@@ -76,24 +76,40 @@ function closeWindow() {
  */
 function adjustRangeToBoundaries(range, x, y) {
     let update = false;
+    let boundaries = walk(range);
 
-    update |= walk(range, x, y, {
-        direction: 'forward',
-        start: r => r.startContainer,
-        first: n => n.firstChild,
-        next: n => n.nextSibling,
-        iterate: bounds => bounds,
-        set: (r, n, i) => r.setStart(n, i),
-    });
+    if (boundaries.length > 0) {
+        let current = range.cloneRange();
 
-    update |= walk(range, x, y, {
-        direction: 'backward',
-        start: r => r.endContainer,
-        first: n => n.lastChild,
-        next: n => n.previousSibling,
-        iterate: bounds => bounds.reverse(),
-        set: (r, n, i) => r.setEnd(n, i),
-    });
+        let start = 0;
+        let end = boundaries.length - 1;
+
+        while (start <= end) {
+            let { node, index } = boundaries[start];
+            current.setStart(node, index);
+
+            if (!rectContainsAny(current.getClientRects(), x, y)) {
+                break;
+            }
+
+            range.setStart(node, index);
+            start += 1;
+        }
+
+        current.setStart(range.startContainer, range.startOffset);
+
+        while (start <= end) {
+            let { node, index } = boundaries[end];
+            current.setEnd(node, index);
+
+            if (!rectContainsAny(current.getClientRects(), x, y)) {
+                break;
+            }
+
+            range.setEnd(node, index);
+            end -= 1;
+        }
+    }
 
     return update;
 }
@@ -103,43 +119,34 @@ function adjustRangeToBoundaries(range, x, y) {
  * @param {Factory}
  * @returns {Range} The walked range range, or null if no valid range was found.
  */
-function walk(original, x, y, factory) {
-    let range = original.cloneRange();
-    let node = factory.start(range);
-    let update = false;
+function walk(range) {
+    let node = range.startContainer;
+    let boundaries = new Boundaries();
 
     outer:
     while (node) {
-        if (node.nodeType != Node.TEXT_NODE) {
-            let first = factory.first(node);
-
-            if (first !== null) {
-                node = factory.first(node);
+        if (node.nodeType === Node.TEXT_NODE) {
+            boundaries.populate(node);
+        } else {
+            if (node.firstChild !== null) {
+                node = node.firstChild;
                 continue;
             }
 
-            node = factory.next(node);
-            continue;
-        }
-
-        let boundaries = findBoundaries(node.textContent);
-
-        for (let i of factory.iterate(boundaries)) {
-            // Update the outer range.
-            factory.set(range, node, i + 1);
-
-            if (!rectContainsAny(range.getClientRects(), x, y)) {
-                break outer;
+            if (node.nextSibling !== null) {
+                node = node.nextSibling;
+                continue;
             }
-
-            factory.set(original, node, i + 1);
-            update = true;
         }
 
-        node = factory.next(node.parentNode);
+        if (node === range.endContainer || node.parentNode === range.endContainer) {
+            break;
+        }
+
+        node = node.parentNode.nextSibling;
     }
 
-    return update;
+    return boundaries.output();
 }
 
 function rectContainsAny(rects, x, y) {
@@ -156,47 +163,7 @@ function rectContains(rect, x, y) {
     return rect.x <= x && rect.x + rect.width >= x && rect.y <= y && rect.y + rect.height >= y;
 }
 
-/**
- * @param {string} content Content to scan.
- * @returns {number[]} Boundaries found.
- */
-function findBoundaries(content) {
-    let boundaries = [];
-    let whitespace = -1;
-    let leading = true;
-
-    for (let i = 0; i < content.length; i++) {
-        let c = content[i];
-
-        if (c === ' ' || c === '　' || c === '\n' || c === '\t') {
-            whitespace = i;
-            continue;
-        }
-
-        if (leading && i > 0) {
-            boundaries.push(i - 1);
-        }
-
-        leading = false;
-        whitespace = -1;
-
-        if (c === '.' || c === '。' || c === '!' || c === '！' || c === '?' || c === '？') {
-            boundaries.push(i);
-            leading = true;
-        }
-    }
-
-    if (whitespace !== -1) {
-        // NB: don't populate with only whitespace.
-        if (boundaries.length !== 0) {
-            boundaries.push(whitespace);
-        }
-    }
-
-    return boundaries;
-}
-
-function windowPosition(range, e) {
+function windowPosition(rect, e) {
     let popupHeight = HEIGHT;
     let popupWidth = WIDTH;
     let padding = PADDING;
@@ -205,8 +172,6 @@ function windowPosition(range, e) {
     let windowHeight = window.innerHeight;
 
     if (!FOLLOWMOUSE) {
-        var rect = range.getBoundingClientRect();
-
         let maxX = e.clientX + MAX_X_OFFSET;
 
         let pos = {
@@ -265,12 +230,12 @@ function openWindow(e) {
         return;
     }
 
-    let elementRange = document.createRange();
-    elementRange.selectNodeContents(element);
-    let textRange = elementRange.cloneRange();
+    let textRange = document.createRange();
+    textRange.selectNodeContents(element);
+
     adjustRangeToBoundaries(textRange, e.clientX, e.clientY);
 
-    let pos = windowPosition(elementRange, e);
+    let pos = windowPosition(element.getBoundingClientRect(), e);
     let text = textRange.toString();
 
     if (SELECT) {
