@@ -1,12 +1,11 @@
-import {Point, rectContainsAny} from './utils';
-import {Boundaries, Bound} from './boundaries';
+import { Point, rectContainsAny } from './utils';
+import { Boundaries, Bound } from './boundaries';
 
 const DEBUG = false;
 const WIDTH = 400;
 const HEIGHT = 600;
 const PADDING = 10;
 const SELECT = true;
-const FOLLOWMOUSE = false;
 const MAX_X_OFFSET = 1024;
 
 let iframe: HTMLIFrameElement | null = null;
@@ -101,7 +100,7 @@ function adjustRangeToBoundaries(range: Range, point: Point): AdjustResult {
     let lastCount = 0;
 
     if (bounds.length === 0) {
-        return  { found: true, pointOver };
+        return { found: true, pointOver };
     }
 
     let current = range.cloneRange();
@@ -191,6 +190,13 @@ function walk(range: Range, point: Point): WalkResult {
     return { bounds: boundaries.build(), pointOver: boundaries.getPointOver() };
 }
 
+/**
+ * Calculate the window position.
+ *
+ * @param rect The rectangle of the element in where we are placing the popup.
+ * @param point The position of the mouse.
+ * @returns 
+ */
 function windowPosition(rect: DOMRect, point: Point) {
     let popupHeight = HEIGHT;
     let popupWidth = WIDTH;
@@ -199,56 +205,31 @@ function windowPosition(rect: DOMRect, point: Point) {
     let windowWidth = window.innerWidth;
     let windowHeight = window.innerHeight;
 
-    if (!FOLLOWMOUSE) {
-        let maxX = point.x + MAX_X_OFFSET;
-
-        let pos = {
-            x: Math.min(rect.x + rect.width + padding, maxX),
-            y: rect.y,
+    // Place the window to the right of the element being examined.
+    if (rect.x + rect.width + popupWidth + padding * 2 < windowWidth) {
+        return {
+            x: rect.x + rect.width + padding,
+            y: Math.max(Math.min(rect.y, windowHeight - popupHeight - padding), 0),
         };
-
-        let neededHeight = pos.y + popupHeight + padding;
-        let neededWidth = pos.x + popupWidth + padding;
-
-        if (neededHeight > windowHeight) {
-            pos.y -= neededHeight - windowHeight;
-        }
-
-        if (neededWidth > windowWidth) {
-            pos.x -= neededWidth - windowWidth;
-        }
-
-        return pos;
     }
 
-    let pos = { x: point.x, y: point.y };
+    // Place the window aligned with the element, but shift to the left if it
+    // doesn't fit.
+    let x = Math.max(Math.min(rect.x, windowWidth - popupWidth - padding), 0);
 
-    let neededWidth = pos.x + popupWidth + padding * 2;
-    let neededHeight = pos.y + popupHeight + padding * 2;
-
-    if (DEBUG) {
-        console.debug({ windowWidth, windowHeight });
-        console.debug({ neededWidth, neededHeight });
-        console.debug(pos);
+    // Test if the window fits below the element.
+    if (rect.y + rect.height + popupHeight + padding * 2 < windowHeight) {
+        return {
+            x,
+            y: rect.y + rect.height + padding,
+        };
     }
 
-    if (neededWidth > windowWidth) {
-        pos.x -= popupWidth + padding;
-    } else {
-        pos.x += padding;
-    }
-
-    if (neededHeight > windowHeight) {
-        pos.y -= (neededHeight - windowHeight) - padding;
-    } else {
-        pos.y += padding;
-    }
-
-    if (pos.y < 0) {
-        pos.y = padding;
-    }
-
-    return pos;
+    // Force it to be above the element.
+    return {
+        x,
+        y: rect.y - popupHeight - padding,
+    };
 }
 
 function openWindow(element: Element | null, point: Point | null) {
@@ -333,7 +314,7 @@ function openWindow(element: Element | null, point: Point | null) {
 
 function click(e: MouseEvent) {
     lastElement = e.target as Element;
-    lastPoint = {x: e.clientX, y: e.clientY};
+    lastPoint = { x: e.clientX, y: e.clientY };
 
     if (!e.shiftKey) {
         if (closeWindow()) {
@@ -349,7 +330,7 @@ function click(e: MouseEvent) {
 
 function mouseMove(e: MouseEvent) {
     lastElement = e.target as Element;
-    lastPoint = {x: e.clientX, y: e.clientY};
+    lastPoint = { x: e.clientX, y: e.clientY };
     keyReady = true;
 
     if (e.shiftKey) {
