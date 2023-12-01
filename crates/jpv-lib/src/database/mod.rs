@@ -991,11 +991,11 @@ impl<'a> Database<'a> {
                 };
 
                 for id in values {
-                    let Entry::Phrase(e) = d.entry_at(*id)? else {
-                        continue;
+                    let key = match d.entry_at(*id)? {
+                        Entry::Phrase(e) => e.sort_key(it.as_str(), id.source().is_inflection()),
+                        Entry::Name(e) => e.sort_key(it.as_str()),
+                        Entry::Kanji(e) => e.sort_key(it.as_str()),
                     };
-
-                    let key = e.sort_key(it.as_str(), id.source().is_inflection());
 
                     match results.entry(it.as_str()) {
                         hash_map::Entry::Occupied(mut e) => {
