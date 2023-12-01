@@ -2617,13 +2617,20 @@ dependencies = [
 
 [[package]]
 name = "tokio-dbus"
-version = "0.0.13"
+version = "0.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c01c6a415f9277c1bd193100f8ed5a9c313585f8844636c3d0a38f45d5c341f7"
+checksum = "49aaef907e9809ab1be5b1ce9f3c5fb128ba59687f910dce27595849bd298b75"
 dependencies = [
  "libc",
  "tokio",
+ "tokio-dbus-core",
 ]
+
+[[package]]
+name = "tokio-dbus-core"
+version = "0.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b96016cd1da161adedd2fc585fa4eed00794a9a8d3501680a0cce9605d092eb9"
 
 [[package]]
 name = "tokio-macros"

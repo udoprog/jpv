@@ -6,7 +6,7 @@ use async_fuse::Fuse;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::futures::Notified;
 use tokio_dbus::org_freedesktop_dbus::{NameFlag, NameReply};
-use tokio_dbus::{BodyBuf, Connection, Flags, Message, MessageKind, ObjectPath, SendBuf};
+use tokio_dbus::{ty, BodyBuf, Connection, Flags, Message, MessageKind, ObjectPath, SendBuf};
 
 use crate::command::service::ServiceArgs;
 use crate::open_uri;
@@ -70,6 +70,8 @@ pub(crate) async fn setup<'a>(service_args: &ServiceArgs) -> Result<Setup> {
         return Ok(Setup::Start(None));
     }
 
+    tracing::trace!("Connecting to D-Bus");
+
     let mut c = if service_args.dbus_system {
         Connection::system_bus().await?
     } else {
@@ -80,6 +82,8 @@ pub(crate) async fn setup<'a>(service_args: &ServiceArgs) -> Result<Setup> {
     if service_args.background {
         return Ok(Setup::Port(get_port(&mut c).await?));
     }
+
+    tracing::trace!("Requesting name");
 
     let reply = c.request_name(NAME, NameFlag::DO_NOT_QUEUE).await?;
 
@@ -216,7 +220,19 @@ fn handle_method_call<'a>(
             ),
             method => bail!("Unknown method: {method}"),
         },
-        interface => bail!("Unknown interface: {}", interface),
+        "org.freedesktop.DBus.Properties" => match member {
+            "GetAll" => {
+                let _ = msg.body().read::<str>()?;
+                body.store_array::<(ty::Str, ty::Variant)>()?.finish();
+                (msg.method_return(send.next_serial()).with_body(body), None)
+            }
+            _ => {
+                bail!("Unsupported: {interface}.{member}")
+            }
+        },
+        _ => {
+            bail!("Unsupported: {interface}.{member}")
+        }
     };
 
     Ok(m)
