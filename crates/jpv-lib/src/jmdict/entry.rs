@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::jmdict::{kanji_element, reading_element, sense, text};
 use crate::jmdict::{KanjiElement, ReadingElement, Sense};
-use crate::{EntryKey, Weight};
+use crate::Weight;
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
@@ -26,7 +26,7 @@ pub struct Entry<'a> {
 
 impl Entry<'_> {
     /// Entry weight.
-    pub fn sort_key(&self, input: &str, conjugation: bool) -> EntryKey {
+    pub fn weight(&self, input: &str, conjugation: bool) -> Weight {
         // Boost based on exact query.
         let mut query = 1.0f32;
         // Store the priority which performs the maximum boost.
@@ -70,17 +70,7 @@ impl Entry<'_> {
             }
         }
 
-        EntryKey {
-            weight: Weight {
-                weight: query * priority * sense_count * conjugation * length,
-                query,
-                priority,
-                sense_count,
-                conjugation,
-                length,
-            },
-            sequence: self.sequence,
-        }
+        Weight::new(query * priority * sense_count * conjugation * length)
     }
 }
 

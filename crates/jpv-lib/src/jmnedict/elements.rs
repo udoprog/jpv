@@ -2,7 +2,7 @@ use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::entities::NameType;
-use crate::{EntryKey, Weight};
+use crate::Weight;
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
@@ -20,15 +20,9 @@ pub struct Entry<'a> {
 
 impl Entry<'_> {
     /// Entry weight.
-    pub fn sort_key(&self, input: &str) -> EntryKey {
+    pub fn weight(&self, input: &str) -> Weight {
         // Boost based on exact query.
         let mut query = 1.0f32;
-        // Store the priority which performs the maximum boost.
-        let priority = 1.0;
-        // Perform boost by number of senses, maximum boost at 10 senses.
-        let sense_count = 1.0;
-        // Conjugation boost.
-        let conjugation = 1.0;
         // Calculate length boost.
         let length = (input.chars().count().min(10) as f32 / 10.0) * 1.2;
 
@@ -44,17 +38,7 @@ impl Entry<'_> {
             }
         }
 
-        EntryKey {
-            weight: Weight {
-                weight: query * priority * sense_count * conjugation * length,
-                query,
-                priority,
-                sense_count,
-                conjugation,
-                length,
-            },
-            sequence: self.sequence,
-        }
+        Weight::new(query * length)
     }
 }
 

@@ -18,13 +18,12 @@ use musli_zerocopy::{slice, swiss, trie, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::inflection;
-use crate::inflection::Inflection;
+use crate::inflection::{self, Inflection};
 use crate::jmdict;
 use crate::jmnedict;
 use crate::kanjidic2;
 use crate::romaji::{self, is_hiragana, is_katakana, Segment};
-use crate::{EntryKey, PartOfSpeech};
+use crate::{PartOfSpeech, Weight};
 use crate::{DICTIONARY_MAGIC, DICTIONARY_VERSION};
 
 use self::string_indexer::StringIndexer;
@@ -108,9 +107,8 @@ pub struct IndexHeader {
 pub struct EntryResultKey {
     pub index: usize,
     pub offset: u32,
-    #[serde(flatten)]
-    pub key: EntryKey,
     pub sources: BTreeSet<IndexSource>,
+    pub weight: Weight,
 }
 
 #[derive(
@@ -250,31 +248,10 @@ pub enum Input<'a> {
     Jmnedict(&'a str),
 }
 
-/// The entry of a search result.
-#[borrowme::borrowme]
-#[derive(Deserialize, Serialize)]
-#[serde(tag = "type")]
-pub enum SearchEntry<'a> {
-    #[borrowed_attr(serde(borrow))]
-    #[serde(rename = "phrase")]
-    Phrase(jmdict::Entry<'a>),
-    #[borrowed_attr(serde(borrow))]
-    #[serde(rename = "name")]
-    Name(jmnedict::Entry<'a>),
-}
-
-impl SearchEntry<'_> {
-    fn sort_key(&self, input: &str, conjugation: bool) -> EntryKey {
-        match self {
-            SearchEntry::Phrase(e) => e.sort_key(input, conjugation),
-            SearchEntry::Name(e) => e.sort_key(input),
-        }
-    }
-}
-
 /// A search result.
 pub struct Search<'a> {
-    pub entries: Vec<(EntryResultKey, SearchEntry<'a>)>,
+    pub phrases: Vec<(EntryResultKey, jmdict::Entry<'a>)>,
+    pub names: Vec<(EntryResultKey, jmnedict::Entry<'a>)>,
     pub characters: Vec<kanjidic2::Character<'a>>,
 }
 
@@ -862,9 +839,11 @@ impl<'a> Database<'a> {
 
     /// Perform the given search.
     pub fn search(&self, input: &str) -> Result<Search<'a>> {
-        let mut entries = Vec::new();
+        let mut phrases = Vec::new();
+        let mut names = Vec::new();
         let mut characters = Vec::new();
-        let mut dedup = HashMap::new();
+        let mut dedup_phrases = HashMap::new();
+        let mut dedup_names = HashMap::new();
         let mut seen = HashSet::new();
 
         self.populate_kanji(input, &mut seen, &mut characters)?;
@@ -872,7 +851,7 @@ impl<'a> Database<'a> {
         for (index, id) in self.lookup(input)? {
             let entry = self.entry_at(index, id)?;
 
-            let entry = match entry {
+            match entry {
                 Entry::Kanji(kanji) => {
                     if seen.insert(kanji.literal) {
                         characters.push(kanji);
@@ -880,55 +859,74 @@ impl<'a> Database<'a> {
 
                     continue;
                 }
-                Entry::Phrase(entry) => SearchEntry::Phrase(entry),
-                Entry::Name(entry) => SearchEntry::Name(entry),
+                Entry::Phrase(entry) => {
+                    let Some(&i) = dedup_phrases.get(&(index, id.offset())) else {
+                        dedup_phrases.insert((index, id.offset()), phrases.len());
+
+                        let data = EntryResultKey {
+                            index,
+                            offset: id.offset(),
+                            sources: [id.source()].into_iter().collect(),
+                            weight: Weight::default(),
+                        };
+
+                        phrases.push((data, entry));
+                        continue;
+                    };
+
+                    let Some((data, _)) = phrases.get_mut(i) else {
+                        continue;
+                    };
+
+                    data.sources.insert(id.source());
+                }
+                Entry::Name(entry) => {
+                    let Some(&i) = dedup_names.get(&(index, id.offset())) else {
+                        dedup_names.insert((index, id.offset()), names.len());
+
+                        let data = EntryResultKey {
+                            index,
+                            offset: id.offset(),
+                            sources: [id.source()].into_iter().collect(),
+                            weight: Weight::default(),
+                        };
+
+                        names.push((data, entry));
+                        continue;
+                    };
+
+                    let Some((data, _)) = names.get_mut(i) else {
+                        continue;
+                    };
+
+                    data.sources.insert(id.source());
+                }
             };
-
-            let Some(&i) = dedup.get(&(index, id.offset())) else {
-                dedup.insert((index, id.offset()), entries.len());
-
-                let data = EntryResultKey {
-                    index,
-                    offset: id.offset(),
-                    sources: [id.source()].into_iter().collect(),
-                    key: EntryKey::default(),
-                };
-
-                entries.push((data, entry));
-                continue;
-            };
-
-            let Some((data, _)) = entries.get_mut(i) else {
-                continue;
-            };
-
-            data.sources.insert(id.source());
         }
 
-        for (data, e) in &mut entries {
+        for (data, e) in &mut phrases {
             let inflection = data.sources.iter().any(|index| index.is_inflection());
-            data.key = e.sort_key(input, inflection);
+            data.weight = e.weight(input, inflection);
         }
 
-        entries.sort_by(|a, b| a.0.key.cmp(&b.0.key));
+        names.sort_by(|a, b| a.0.weight.cmp(&b.0.weight));
+        phrases.sort_by(|a, b| a.0.weight.cmp(&b.0.weight));
 
-        for (_, entry) in &entries {
-            match entry {
-                SearchEntry::Phrase(entry) => {
-                    for kanji in &entry.kanji_elements {
-                        self.populate_kanji(kanji.text, &mut seen, &mut characters)?;
-                    }
-                }
-                SearchEntry::Name(entry) => {
-                    for kanji in &entry.kanji {
-                        self.populate_kanji(kanji, &mut seen, &mut characters)?;
-                    }
-                }
+        for (_, entry) in &phrases {
+            for kanji in &entry.kanji_elements {
+                self.populate_kanji(kanji.text, &mut seen, &mut characters)?;
+            }
+        }
+
+        for (_, entry) in &names {
+            for kanji in &entry.kanji {
+                self.populate_kanji(kanji, &mut seen, &mut characters)?;
             }
         }
 
         Ok(Search {
-            entries,
+            phrases,
+            names,
             characters,
         })
     }
@@ -975,12 +973,12 @@ impl<'a> Database<'a> {
 
     /// Analyze the given string, looking it up in the database and returning
     /// all prefix matching entries and their texts.
-    pub fn analyze(&self, q: &str, start: usize) -> Result<BTreeMap<EntryKey, String>> {
+    pub fn analyze<'q>(&self, q: &'q str, start: usize) -> Result<BTreeMap<Weight, &'q str>> {
         let Some(suffix) = q.get(start..) else {
             return Ok(BTreeMap::new());
         };
 
-        let mut results = HashMap::<_, EntryKey>::new();
+        let mut results = HashMap::<_, Weight>::new();
 
         let mut it = suffix.chars();
 
@@ -992,9 +990,9 @@ impl<'a> Database<'a> {
 
                 for id in values {
                     let key = match d.entry_at(*id)? {
-                        Entry::Phrase(e) => e.sort_key(it.as_str(), id.source().is_inflection()),
-                        Entry::Name(e) => e.sort_key(it.as_str()),
-                        Entry::Kanji(e) => e.sort_key(it.as_str()),
+                        Entry::Phrase(e) => e.weight(it.as_str(), id.source().is_inflection()),
+                        Entry::Name(e) => e.weight(it.as_str()).boost(0.5),
+                        Entry::Kanji(e) => e.weight(it.as_str()).boost(0.5),
                     };
 
                     match results.entry(it.as_str()) {
@@ -1014,7 +1012,7 @@ impl<'a> Database<'a> {
         let mut inputs = BTreeMap::new();
 
         for (string, key) in results {
-            inputs.insert(key, string.to_owned());
+            inputs.insert(key, string);
         }
 
         Ok(inputs)

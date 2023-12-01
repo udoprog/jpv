@@ -1,7 +1,6 @@
 use anyhow::Context;
-use lib::database::{EntryResultKey, OwnedSearchEntry};
-use lib::kanjidic2;
-use serde::{de::DeserializeOwned, Deserialize};
+use lib::api;
+use serde::de::DeserializeOwned;
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -10,21 +9,8 @@ use web_sys::{Request, RequestInit, RequestMode, Response};
 
 use crate::error::Error;
 
-#[derive(Deserialize)]
-pub struct SearchEntryWithKey {
-    pub key: EntryResultKey,
-    pub entry: OwnedSearchEntry,
-}
-
-#[derive(Deserialize)]
-pub struct SearchResponse {
-    pub entries: Vec<SearchEntryWithKey>,
-    pub characters: Vec<kanjidic2::OwnedCharacter>,
-    pub serial: u32,
-}
-
 /// Perform the given search.
-pub(crate) async fn search(q: &str, serial: u32) -> Result<SearchResponse, Error> {
+pub(crate) async fn search(q: &str, serial: u32) -> Result<api::OwnedSearchResponse, Error> {
     request(
         "search",
         [("q", q), ("serial", serial.to_string().as_str())],
@@ -32,20 +18,12 @@ pub(crate) async fn search(q: &str, serial: u32) -> Result<SearchResponse, Error
     .await
 }
 
-#[derive(Deserialize)]
-pub struct AnalyzeEntry {
-    pub key: lib::EntryKey,
-    pub string: String,
-}
-
-#[derive(Deserialize)]
-pub struct AnalyzeResponse {
-    pub data: Vec<AnalyzeEntry>,
-    pub serial: u32,
-}
-
 /// Perform the given analysis.
-pub(crate) async fn analyze(q: &str, start: usize, serial: u32) -> Result<AnalyzeResponse, Error> {
+pub(crate) async fn analyze(
+    q: &str,
+    start: usize,
+    serial: u32,
+) -> Result<api::OwnedAnalyzeResponse, Error> {
     request(
         "analyze",
         [

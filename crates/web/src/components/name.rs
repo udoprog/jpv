@@ -12,7 +12,6 @@ pub enum Msg {}
 pub struct Props {
     pub embed: bool,
     pub sources: BTreeSet<IndexSource>,
-    pub entry_key: lib::EntryKey,
     pub entry: jmnedict::OwnedEntry,
 }
 

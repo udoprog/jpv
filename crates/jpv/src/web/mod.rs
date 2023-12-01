@@ -22,10 +22,8 @@ use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Extension, Json, Router};
-use lib::database::{Database, EntryResultKey, SearchEntry};
-use lib::jmdict;
-use lib::kanjidic2;
-use serde::{Deserialize, Serialize};
+use lib::api;
+use lib::database::Database;
 use tower_http::cors::CorsLayer;
 
 use crate::system;
@@ -99,58 +97,11 @@ impl From<anyhow::Error> for RequestError {
     }
 }
 
-#[derive(Deserialize)]
-struct EntryQuery {
-    #[serde(default)]
-    serial: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct EntryResponse {
-    entry: jmdict::Entry<'static>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    serial: Option<u32>,
-}
-
-#[derive(Deserialize)]
-struct KanjiQuery {
-    #[serde(default)]
-    serial: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct KanjiResponse {
-    entry: kanjidic2::Character<'static>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    serial: Option<u32>,
-}
-
-#[derive(Deserialize)]
-struct SearchRequest {
-    q: Option<String>,
-    #[serde(default)]
-    serial: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct SearchEntryWithKey {
-    key: EntryResultKey,
-    entry: SearchEntry<'static>,
-}
-
-#[derive(Serialize)]
-struct SearchResponse {
-    entries: Vec<SearchEntryWithKey>,
-    characters: Vec<kanjidic2::Character<'static>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    serial: Option<u32>,
-}
-
 async fn entry(
     Path(sequence): Path<u32>,
-    Query(query): Query<EntryQuery>,
+    Query(query): Query<api::EntryQuery>,
     Extension(db): Extension<Database<'static>>,
-) -> RequestResult<Json<EntryResponse>> {
+) -> RequestResult<Json<api::EntryResponse>> {
     let Some(entry) = db.sequence_to_entry(sequence)? else {
         return Err(RequestError::not_found(format!(
             "Missing entry by id `{}`",
@@ -158,7 +109,7 @@ async fn entry(
         )));
     };
 
-    Ok(Json(EntryResponse {
+    Ok(Json(api::EntryResponse {
         entry,
         serial: query.serial,
     }))
@@ -166,79 +117,67 @@ async fn entry(
 
 async fn kanji(
     Path(literal): Path<String>,
-    Query(query): Query<KanjiQuery>,
+    Query(query): Query<api::KanjiQuery>,
     Extension(db): Extension<Database<'static>>,
-) -> RequestResult<Json<KanjiResponse>> {
+) -> RequestResult<Json<api::KanjiResponse>> {
     let Some(entry) = db.literal_to_kanji(&literal)? else {
         return Err(RequestError::not_found(format!(
             "Missing kanji by literal `{literal}`",
         )));
     };
 
-    Ok(Json(KanjiResponse {
+    Ok(Json(api::KanjiResponse {
         entry,
         serial: query.serial,
     }))
 }
 
 async fn search(
-    Query(request): Query<SearchRequest>,
+    Query(request): Query<api::OwnedSearchRequest>,
     Extension(db): Extension<Database<'static>>,
-) -> RequestResult<Json<SearchResponse>> {
+) -> RequestResult<Json<api::SearchResponse>> {
     let Some(q) = request.q.as_deref() else {
         return Err(Error::msg("Missing `q`").into());
     };
 
-    let mut entries = Vec::new();
-
     let search = db.search(q)?;
 
-    for (key, entry) in search.entries {
-        entries.push(SearchEntryWithKey { key, entry });
+    let mut phrases = Vec::new();
+    let mut names = Vec::new();
+
+    for (key, phrase) in search.phrases {
+        phrases.push(api::SearchPhrase { key, phrase });
     }
 
-    Ok(Json(SearchResponse {
-        entries,
+    for (key, name) in search.names {
+        names.push(api::SearchName { key, name });
+    }
+
+    Ok(Json(api::SearchResponse {
+        phrases,
+        names,
         characters: search.characters,
         serial: request.serial,
     }))
 }
 
-#[derive(Deserialize)]
-struct AnalyzeRequest {
-    q: String,
-    start: usize,
-    #[serde(default)]
-    serial: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct AnalyzeEntry {
-    key: lib::EntryKey,
-    string: String,
-}
-
-#[derive(Serialize)]
-struct AnalyzeResponse {
-    data: Vec<AnalyzeEntry>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    serial: Option<u32>,
-}
-
 async fn analyze(
-    Query(request): Query<AnalyzeRequest>,
+    Query(request): Query<api::OwnedAnalyzeRequest>,
     Extension(db): Extension<Database<'static>>,
-) -> RequestResult<Json<AnalyzeResponse>> {
-    let mut entries = Vec::new();
+) -> RequestResult<Json<api::OwnedAnalyzeResponse>> {
+    let mut data = Vec::new();
 
     for (key, string) in db.analyze(&request.q, request.start)? {
-        entries.push(AnalyzeEntry { key, string });
+        data.push(api::OwnedAnalyzeEntry {
+            key,
+            string: string.to_owned(),
+        });
     }
 
-    entries
-        .sort_by(|a, b| (Reverse(a.string.len()), &a.key).cmp(&(Reverse(b.string.len()), &b.key)));
-    Ok(Json(AnalyzeResponse {
-        data: entries,
+    data.sort_by(|a, b| (Reverse(a.string.len()), &a.key).cmp(&(Reverse(b.string.len()), &b.key)));
+
+    Ok(Json(api::OwnedAnalyzeResponse {
+        data,
         serial: request.serial,
     }))
 }

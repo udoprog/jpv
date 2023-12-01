@@ -70,7 +70,6 @@ pub(crate) struct Entry {
 pub struct Props {
     pub embed: bool,
     pub sources: BTreeSet<IndexSource>,
-    pub entry_key: lib::EntryKey,
     pub entry: jmdict::OwnedEntry,
     pub onchange: Callback<(String, Option<String>), ()>,
 }
@@ -78,9 +77,7 @@ pub struct Props {
 impl PartialEq for Props {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.sources == other.sources
-            && self.entry_key == other.entry_key
-            && self.entry.sequence == other.entry.sequence
+        self.sources == other.sources && self.entry.sequence == other.entry.sequence
     }
 }
 
@@ -151,7 +148,6 @@ impl Component for Entry {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         let sources = &ctx.props().sources;
-        let key = &ctx.props().entry_key;
         let entry = &ctx.props().entry;
 
         let inflections =
@@ -220,8 +216,6 @@ impl Component for Entry {
             |iter| html!(<ul class="block block-lg list-numerical">{for iter}</ul>),
         );
 
-        let entry_key_style = "display: none;".to_string();
-
         let sequence = (!ctx.props().embed).then(|| html! {
             <div class="block block row entry-sequence"><a href={format!("/api/entry/{}", entry.sequence)} target="_api">{format!("#{}", entry.sequence)}</a></div>
         });
@@ -229,7 +223,6 @@ impl Component for Entry {
         html! {
             <div class="block block-lg entry">
                 {sequence}
-                <div class="block block row entry-key" style={entry_key_style}>{format!("{:?}", key)}</div>
                 {for extras}
                 {for reading}
                 {for common}

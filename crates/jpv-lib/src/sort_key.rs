@@ -2,25 +2,32 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum Key {
+    Phrase(u64),
+    Name(u64),
+    Kanji(u32),
+}
+
 #[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct Weight {
-    pub weight: f32,
-    #[allow(unused)]
-    pub query: f32,
-    #[allow(unused)]
-    pub priority: f32,
-    #[allow(unused)]
-    pub sense_count: f32,
-    #[allow(unused)]
-    pub conjugation: f32,
-    #[allow(unused)]
-    pub length: f32,
+pub struct Weight(f32);
+
+impl Weight {
+    /// Construct a new weight.
+    pub fn new(weight: f32) -> Self {
+        Self(weight)
+    }
+
+    /// Boost the weight with the given factor.
+    pub fn boost(self, factor: f32) -> Self {
+        Self(self.0 * factor)
+    }
 }
 
 impl PartialEq for Weight {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.weight == other.weight
+        self.0 == other.0
     }
 }
 
@@ -36,15 +43,9 @@ impl PartialOrd for Weight {
 impl Ord for Weight {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        match self.weight.partial_cmp(&other.weight) {
+        match self.0.partial_cmp(&other.0) {
             None => Ordering::Equal,
             Some(ordering) => ordering.reverse(),
         }
     }
-}
-
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct EntryKey {
-    pub weight: Weight,
-    pub sequence: u64,
 }

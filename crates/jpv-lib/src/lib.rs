@@ -19,7 +19,7 @@ pub mod api;
 mod concat;
 pub use self::concat::Concat;
 
-pub use self::sort_key::{EntryKey, Weight};
+pub use self::sort_key::{Key, Weight};
 mod sort_key;
 
 pub mod jmdict;

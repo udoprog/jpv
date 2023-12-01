@@ -2,17 +2,14 @@ use std::borrow::Cow;
 use std::str::from_utf8;
 use std::sync::Arc;
 
-use lib::database::{EntryResultKey, OwnedSearchEntry};
-use lib::jmdict;
+use lib::api;
 use lib::kanjidic2;
 use lib::romaji;
-use lib::{api, jmnedict};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
 use crate::error::Error;
-use crate::fetch::SearchEntryWithKey;
 use crate::ws;
 use crate::{components as c, fetch};
 
@@ -37,8 +34,8 @@ pub(crate) enum Msg {
     Analyze(usize),
     AnalyzeCycle,
     HistoryChanged(Location),
-    SearchResponse(fetch::SearchResponse),
-    AnalyzeResponse(fetch::AnalyzeResponse, History),
+    SearchResponse(api::OwnedSearchResponse),
+    AnalyzeResponse(api::OwnedAnalyzeResponse, History),
     MoreEntries,
     MoreCharacters,
     WebSocket(ws::Msg),
@@ -216,8 +213,8 @@ impl Serials {
 
 pub(crate) struct Prompt {
     query: Query,
-    phrases: Vec<(EntryResultKey, jmdict::OwnedEntry)>,
-    names: Vec<(EntryResultKey, jmnedict::OwnedEntry)>,
+    phrases: Vec<api::OwnedSearchPhrase>,
+    names: Vec<api::OwnedSearchName>,
     limit_entries: usize,
     characters: Vec<kanjidic2::OwnedCharacter>,
     limit_characters: usize,
@@ -233,12 +230,21 @@ impl Prompt {
 
             ctx.link().send_message(match db.search(&input) {
                 Ok(search) => {
-                    let entries = search
-                        .entries
+                    let phrases = search
+                        .phrases
                         .into_iter()
-                        .map(|(key, e)| fetch::SearchEntryWithKey {
+                        .map(|(key, e)| api::OwnedSearchPhrase {
                             key,
-                            entry: borrowme::to_owned(e),
+                            phrase: borrowme::to_owned(e),
+                        })
+                        .collect();
+
+                    let names = search
+                        .names
+                        .into_iter()
+                        .map(|(key, e)| api::OwnedSearchName {
+                            key,
+                            name: borrowme::to_owned(e),
                         })
                         .collect();
 
@@ -250,10 +256,11 @@ impl Prompt {
 
                     let serial = self.serials.search();
 
-                    let response = fetch::SearchResponse {
-                        entries,
+                    let response = api::OwnedSearchResponse {
+                        phrases,
+                        names,
                         characters,
-                        serial,
+                        serial: Some(serial),
                     };
 
                     Msg::SearchResponse(response)
@@ -280,12 +287,15 @@ impl Prompt {
             ctx.link()
                 .send_message(match db.analyze(&self.query.q, start) {
                     Ok(data) => Msg::AnalyzeResponse(
-                        fetch::AnalyzeResponse {
+                        api::OwnedAnalyzeResponse {
                             data: data
                                 .into_iter()
-                                .map(|(key, string)| fetch::AnalyzeEntry { key, string })
+                                .map(|(key, string)| api::OwnedAnalyzeEntry {
+                                    key,
+                                    string: string.to_owned(),
+                                })
                                 .collect(),
-                            serial,
+                            serial: Some(serial),
                         },
                         history,
                     ),
@@ -436,39 +446,13 @@ impl Component for Prompt {
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-        fn build_search_entries(
-            entries: Vec<SearchEntryWithKey>,
-        ) -> (
-            Vec<(EntryResultKey, jmdict::OwnedEntry)>,
-            Vec<(EntryResultKey, jmnedict::OwnedEntry)>,
-        ) {
-            let mut phrases = Vec::new();
-            let mut names = Vec::new();
-
-            for entry in entries {
-                let key = entry.key;
-
-                match entry.entry {
-                    OwnedSearchEntry::Phrase(entry) => {
-                        phrases.push((key, entry));
-                    }
-                    OwnedSearchEntry::Name(entry) => {
-                        names.push((key, entry));
-                    }
-                }
-            }
-
-            (phrases, names)
-        }
-
         match msg {
             Msg::SearchResponse(response) => {
-                if response.serial == self.serials.search {
-                    let (phrases, names) = build_search_entries(response.entries);
-                    self.phrases = phrases;
-                    self.names = names;
-                    self.phrases.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
-                    self.names.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
+                if response.serial == Some(self.serials.search) {
+                    self.phrases = response.phrases;
+                    self.names = response.names;
+                    self.phrases.sort_by(|a, b| a.key.weight.cmp(&b.key.weight));
+                    self.names.sort_by(|a, b| a.key.weight.cmp(&b.key.weight));
                     self.characters = response.characters;
                     self.limit_entries = DEFAULT_LIMIT;
                     self.limit_characters = DEFAULT_LIMIT;
@@ -478,7 +462,7 @@ impl Component for Prompt {
                 }
             }
             Msg::AnalyzeResponse(response, history) => {
-                if response.serial == self.serials.analyze {
+                if response.serial == Some(self.serials.analyze) {
                     let analysis = response.data.into_iter().map(|d| d.string).collect();
                     self.handle_analysis(ctx, analysis, history);
                     true
@@ -716,18 +700,18 @@ impl Component for Prompt {
         });
 
         let entries = (!self.phrases.is_empty() || !self.names.is_empty()).then(|| {
-            let phrases = self.phrases.iter().take(self.limit_entries).map(|(data, entry)| {
-                let entry: jmdict::OwnedEntry = entry.clone();
+            let phrases = self.phrases.iter().take(self.limit_entries).map(|e| {
+                let entry = e.phrase.clone();
 
                 let change = ctx.link().callback(|(input, translation)| {
                     Msg::ForceChange(input, translation)
                 });
 
-                html!(<c::Entry embed={self.query.embed} sources={data.sources.clone()} entry_key={data.key} entry={entry} onchange={change} />)
+                html!(<c::Entry embed={self.query.embed} sources={e.key.sources.clone()} entry={entry} onchange={change} />)
             });
 
-            let names = seq(self.names.iter(), |(data, entry), not_last| {
-                let entry = html!(<c::Name embed={self.query.embed} sources={data.sources.clone()} entry_key={data.key} entry={entry.clone()} />);
+            let names = seq(self.names.iter(), |e, not_last| {
+                let entry = html!(<c::Name embed={self.query.embed} sources={e.key.sources.clone()} entry={e.name.clone()} />);
 
                 if not_last {
                     html!(<>{entry}{comma()}</>)
