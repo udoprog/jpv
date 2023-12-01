@@ -38,7 +38,7 @@ pub enum IndexOpenError {
     MagicMismatch,
     #[error("Outdated")]
     Outdated,
-    #[error("Error: {0}")]
+    #[error("{0}")]
     Error(
         #[from]
         #[source]
@@ -408,8 +408,8 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
                         Cow::Borrowed(reading.text),
                         Id::name(name_ref, KanjiReading::KunyomiFull),
                     ));
-                    let a = Id::kanji(name_ref, KanjiReading::KunyomiFullRomanize);
-                    let b = Id::kanji(name_ref, KanjiReading::KunyomiFullKatakana);
+                    let a = Id::name(name_ref, KanjiReading::KunyomiFullRomanize);
+                    let b = Id::name(name_ref, KanjiReading::KunyomiFullKatakana);
                     other_readings(&mut lookup, reading.text, a, b, |s| s.katakana());
                 }
             }
