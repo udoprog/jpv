@@ -76,8 +76,9 @@ pub(crate) enum Mode {
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub enum Tab {
     #[default]
-    Entries,
-    Characters,
+    Phrases,
+    Names,
+    Kanji,
 }
 
 #[derive(Default, Debug)]
@@ -128,8 +129,9 @@ impl Query {
                 }
                 "tab" => {
                     this.tab = match value.as_str() {
-                        "characters" => Tab::Characters,
-                        "entries" => Tab::Entries,
+                        "phrases" => Tab::Phrases,
+                        "names" => Tab::Names,
+                        "kanji" => Tab::Kanji,
                         _ => Tab::default(),
                     };
                 }
@@ -183,9 +185,12 @@ impl Query {
         }
 
         match self.tab {
-            Tab::Entries => {}
-            Tab::Characters => {
-                out.push(("tab", Cow::Borrowed("characters")));
+            Tab::Phrases => {}
+            Tab::Names => {
+                out.push(("tab", Cow::Borrowed("names")));
+            }
+            Tab::Kanji => {
+                out.push(("tab", Cow::Borrowed("kanji")));
             }
         }
 
@@ -699,7 +704,7 @@ impl Component for Prompt {
             }
         });
 
-        let entries = (!self.phrases.is_empty() || !self.names.is_empty()).then(|| {
+        let phrases = (!self.phrases.is_empty()).then(|| {
             let phrases = self.phrases.iter().take(self.limit_entries).map(|e| {
                 let entry = e.phrase.clone();
 
@@ -710,30 +715,7 @@ impl Component for Prompt {
                 html!(<c::Entry embed={self.query.embed} sources={e.key.sources.clone()} entry={entry} onchange={change} />)
             });
 
-            let names = seq(self.names.iter(), |e, not_last| {
-                let entry = html!(<c::Name embed={self.query.embed} sources={e.key.sources.clone()} entry={e.name.clone()} />);
-
-                if not_last {
-                    html!(<>{entry}{comma()}</>)
-                } else {
-                    entry
-                }
-            });
-
-            let names = (!self.names.is_empty()).then(|| {
-                let header = (!self.query.embed).then(|| {
-                    html!(<h5>{"Names"}</h5>)
-                });
-
-                html! {
-                    <>
-                    {header}
-                    <div class="block row">{for names}</div>
-                    </>
-                }
-            });
-
-            let entries = seq(phrases.chain(names), |entry, not_last| {
+            let phrases = seq(phrases, |entry, not_last| {
                 if not_last {
                     html!(<>{entry}<div class="entry-separator" /></>)
                 } else {
@@ -756,19 +738,42 @@ impl Component for Prompt {
             });
 
             let header = (!self.query.embed).then(|| {
-                html!(<h4>{"Entries"}</h4>)
+                html!(<h4>{"Phrases"}</h4>)
             });
 
             html! {
                 <div class="block block-lg">
                     {header}
-                    {for entries}
+                    {for phrases}
                     {for more}
                 </div>
             }
         });
 
-        let characters = (!self.characters.is_empty()).then(|| {
+        let names = (!self.names.is_empty()).then(|| {
+            let names = seq(self.names.iter(), |e, not_last| {
+                let entry = html!(<c::Name embed={self.query.embed} sources={e.key.sources.clone()} entry={e.name.clone()} />);
+
+                if not_last {
+                    html!(<>{entry}{comma()}</>)
+                } else {
+                    entry
+                }
+            });
+
+            let header = (!self.query.embed).then(|| {
+                html!(<h4>{"Names"}</h4>)
+            });
+
+            html! {
+                <>
+                {header}
+                <div class="block-lg row">{for names}</div>
+                </>
+            }
+        });
+
+        let kanjis = (!self.characters.is_empty()).then(|| {
             let iter = seq(self.characters.iter().take(self.limit_characters), |c, not_last| {
                 let separator = not_last.then(|| html!(<div class="character-separator" />));
 
@@ -797,7 +802,7 @@ impl Component for Prompt {
             let header = if self.query.embed {
                 None
             } else {
-                Some(html!(<h4>{"Characters"}</h4>))
+                Some(html!(<h4>{"Kanji"}</h4>))
             };
 
             html! {
@@ -832,19 +837,19 @@ impl Component for Prompt {
 
             let mut tabs = Vec::new();
 
-            tabs.push(tab(
-                "Entries",
-                self.phrases.len() + self.names.len(),
-                Tab::Entries,
-            ));
-            tabs.push(tab("Characters", self.characters.len(), Tab::Characters));
+            tabs.push(tab("Phrases", self.phrases.len(), Tab::Phrases));
+            tabs.push(tab("Names", self.names.len(), Tab::Names));
+            tabs.push(tab("Kanji", self.characters.len(), Tab::Kanji));
 
             let content = match self.query.tab {
-                Tab::Entries => {
-                    html!(<div class="block block-lg">{entries}</div>)
+                Tab::Phrases => {
+                    html!(<div class="block block-lg">{phrases}</div>)
                 }
-                Tab::Characters => {
-                    html!(<div class="block block-lg characters">{characters}</div>)
+                Tab::Names => {
+                    html!(<div class="block block-lg">{names}</div>)
+                }
+                Tab::Kanji => {
+                    html!(<div class="block block-lg kanjis">{kanjis}</div>)
                 }
             };
 
@@ -861,8 +866,8 @@ impl Component for Prompt {
         } else {
             html! {
                 <div class="columns">
-                    <div class="column">{entries}</div>
-                    <div class="column characters">{characters}</div>
+                    <div class="column">{phrases}{names}</div>
+                    <div class="column characters">{kanjis}</div>
                 </div>
             }
         };
