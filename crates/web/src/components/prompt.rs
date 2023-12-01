@@ -2,21 +2,23 @@ use std::borrow::Cow;
 use std::str::from_utf8;
 use std::sync::Arc;
 
-use lib::api;
-use lib::database::EntryResultKey;
+use lib::database::{EntryResultKey, OwnedSearchEntry};
 use lib::jmdict;
 use lib::kanjidic2;
 use lib::romaji;
+use lib::{api, jmnedict};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
-const DEFAULT_LIMIT: usize = 100;
-
-use crate::c::entry::seq;
 use crate::error::Error;
+use crate::fetch::SearchEntryWithKey;
 use crate::ws;
 use crate::{components as c, fetch};
+
+use super::{comma, seq, spacing};
+
+const DEFAULT_LIMIT: usize = 100;
 
 // How a history update is performed
 pub(crate) enum History {
@@ -214,7 +216,8 @@ impl Serials {
 
 pub(crate) struct Prompt {
     query: Query,
-    entries: Vec<(EntryResultKey, jmdict::OwnedEntry)>,
+    phrases: Vec<(EntryResultKey, jmdict::OwnedEntry)>,
+    names: Vec<(EntryResultKey, jmnedict::OwnedEntry)>,
     limit_entries: usize,
     characters: Vec<kanjidic2::OwnedCharacter>,
     limit_characters: usize,
@@ -233,7 +236,7 @@ impl Prompt {
                     let entries = search
                         .entries
                         .into_iter()
-                        .map(|(key, e)| fetch::SearchEntry {
+                        .map(|(key, e)| fetch::SearchEntryWithKey {
                             key,
                             entry: borrowme::to_owned(e),
                         })
@@ -407,7 +410,8 @@ impl Component for Prompt {
 
         let mut this = Self {
             query,
-            entries: Vec::default(),
+            phrases: Vec::default(),
+            names: Vec::default(),
             limit_entries: DEFAULT_LIMIT,
             characters: Vec::default(),
             limit_characters: DEFAULT_LIMIT,
@@ -432,15 +436,39 @@ impl Component for Prompt {
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+        fn build_search_entries(
+            entries: Vec<SearchEntryWithKey>,
+        ) -> (
+            Vec<(EntryResultKey, jmdict::OwnedEntry)>,
+            Vec<(EntryResultKey, jmnedict::OwnedEntry)>,
+        ) {
+            let mut phrases = Vec::new();
+            let mut names = Vec::new();
+
+            for entry in entries {
+                let key = entry.key;
+
+                match entry.entry {
+                    OwnedSearchEntry::Phrase(entry) => {
+                        phrases.push((key, entry));
+                    }
+                    OwnedSearchEntry::Name(entry) => {
+                        names.push((key, entry));
+                    }
+                }
+            }
+
+            (phrases, names)
+        }
+
         match msg {
             Msg::SearchResponse(response) => {
                 if response.serial == self.serials.search {
-                    self.entries = response
-                        .entries
-                        .into_iter()
-                        .map(|e| (e.key, e.entry))
-                        .collect();
-                    self.entries.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
+                    let (phrases, names) = build_search_entries(response.entries);
+                    self.phrases = phrases;
+                    self.names = names;
+                    self.phrases.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
+                    self.names.sort_by(|(a, _), (b, _)| a.key.cmp(&b.key));
                     self.characters = response.characters;
                     self.limit_entries = DEFAULT_LIMIT;
                     self.limit_characters = DEFAULT_LIMIT;
@@ -657,7 +685,7 @@ impl Component for Prompt {
                 html! {
                     <div class="block row hint">
                         <span>{"Hint:"}</span>
-                        {c::entry::spacing()}
+                        {spacing()}
                         <span>{"Click character for substring search"}</span>
                     </div>
                 }
@@ -681,22 +709,47 @@ impl Component for Prompt {
             html! {
                 <div class="block row" id="translation">
                     <span class="translation-title">{"Translation:"}</span>
-                    {c::entry::spacing()}
+                    {spacing()}
                     <span>{text}</span>
                 </div>
             }
         });
 
-        let entries = (!self.entries.is_empty()).then(|| {
-            let entries = seq(self.entries.iter().take(self.limit_entries), |(data, entry), not_last| {
+        let entries = (!self.phrases.is_empty() || !self.names.is_empty()).then(|| {
+            let phrases = self.phrases.iter().take(self.limit_entries).map(|(data, entry)| {
                 let entry: jmdict::OwnedEntry = entry.clone();
 
                 let change = ctx.link().callback(|(input, translation)| {
                     Msg::ForceChange(input, translation)
                 });
 
-                let entry = html!(<c::Entry embed={self.query.embed} sources={data.sources.clone()} entry_key={data.key} entry={entry} onchange={change} />);
+                html!(<c::Entry embed={self.query.embed} sources={data.sources.clone()} entry_key={data.key} entry={entry} onchange={change} />)
+            });
 
+            let names = seq(self.names.iter(), |(data, entry), not_last| {
+                let entry = html!(<c::Name embed={self.query.embed} sources={data.sources.clone()} entry_key={data.key} entry={entry.clone()} />);
+
+                if not_last {
+                    html!(<>{entry}{comma()}</>)
+                } else {
+                    entry
+                }
+            });
+
+            let names = (!self.names.is_empty()).then(|| {
+                let header = (!self.query.embed).then(|| {
+                    html!(<h5>{"Names"}</h5>)
+                });
+
+                html! {
+                    <>
+                    {header}
+                    <div class="block row">{for names}</div>
+                    </>
+                }
+            });
+
+            let entries = seq(phrases.chain(names), |entry, not_last| {
                 if not_last {
                     html!(<>{entry}<div class="entry-separator" /></>)
                 } else {
@@ -704,11 +757,11 @@ impl Component for Prompt {
                 }
             });
 
-            let more = (self.entries.len() > self.limit_entries).then(|| {
+            let more = (self.phrases.len() > self.limit_entries).then(|| {
                 html! {
                     <div class="block block-lg">
                         <div class="block row">
-                            {format!("Showing {} out of {} entries", self.limit_entries, self.entries.len())}
+                            {format!("Showing {} out of {} entries", self.limit_entries, self.phrases.len())}
                         </div>
 
                         <div class="block row">
@@ -718,15 +771,13 @@ impl Component for Prompt {
                 }
             });
 
-            let header = if self.query.embed {
-                None
-            } else {
-                Some(html!(<h4>{"Entries"}</h4>))
-            };
+            let header = (!self.query.embed).then(|| {
+                html!(<h4>{"Entries"}</h4>)
+            });
 
             html! {
                 <div class="block block-lg">
-                    {for header}
+                    {header}
                     {for entries}
                     {for more}
                 </div>
@@ -797,7 +848,7 @@ impl Component for Prompt {
 
             let mut tabs = Vec::new();
 
-            tabs.push(tab("Entries", self.entries.len(), Tab::Entries));
+            tabs.push(tab("Entries", self.phrases.len(), Tab::Entries));
             tabs.push(tab("Characters", self.characters.len(), Tab::Characters));
 
             let content = match self.query.tab {
@@ -844,21 +895,21 @@ impl Component for Prompt {
                     {"Default"}
                 </label>
 
-                {c::entry::spacing()}
+                {spacing()}
 
                 <label for="hiragana" title="Process input as Hiragana">
                     <input type="checkbox" id="hiragana"  checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
                     {"ひらがな"}
                 </label>
 
-                {c::entry::spacing()}
+                {spacing()}
 
                 <label for="katakana" title="Treat input as Katakana">
                     <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
                     {"カタカナ"}
                 </label>
 
-                {c::entry::spacing()}
+                {spacing()}
 
                 <label for="clipboard" title="Capture clipboard">
                     <input type="checkbox" id="clipboard" checked={self.query.capture_clipboard} onchange={oncaptureclipboard} />

@@ -51,7 +51,7 @@ mod parser;
 
 pub(crate) mod empty;
 
-pub use self::entry::{Entry, EntryKey, OwnedEntry};
+pub use self::entry::{Entry, OwnedEntry};
 pub(crate) mod entry;
 
 pub use self::example::{Example, OwnedExample};

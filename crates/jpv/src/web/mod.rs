@@ -22,7 +22,7 @@ use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Extension, Json, Router};
-use lib::database::{Database, EntryResultKey};
+use lib::database::{Database, EntryResultKey, SearchEntry};
 use lib::jmdict;
 use lib::kanjidic2;
 use serde::{Deserialize, Serialize};
@@ -133,14 +133,14 @@ struct SearchRequest {
 }
 
 #[derive(Serialize)]
-struct SearchEntry {
+struct SearchEntryWithKey {
     key: EntryResultKey,
-    entry: jmdict::Entry<'static>,
+    entry: SearchEntry<'static>,
 }
 
 #[derive(Serialize)]
 struct SearchResponse {
-    entries: Vec<SearchEntry>,
+    entries: Vec<SearchEntryWithKey>,
     characters: Vec<kanjidic2::Character<'static>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     serial: Option<u32>,
@@ -194,7 +194,7 @@ async fn search(
     let search = db.search(q)?;
 
     for (key, entry) in search.entries {
-        entries.push(SearchEntry { key, entry });
+        entries.push(SearchEntryWithKey { key, entry });
     }
 
     Ok(Json(SearchResponse {
@@ -214,7 +214,7 @@ struct AnalyzeRequest {
 
 #[derive(Serialize)]
 struct AnalyzeEntry {
-    key: jmdict::EntryKey,
+    key: lib::EntryKey,
     string: String,
 }
 

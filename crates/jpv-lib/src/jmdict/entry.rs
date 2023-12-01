@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::mem;
 
 use anyhow::{Context, Result};
@@ -7,53 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::jmdict::{kanji_element, reading_element, sense, text};
 use crate::jmdict::{KanjiElement, ReadingElement, Sense};
-
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
-struct Weight {
-    weight: f32,
-    #[allow(unused)]
-    query: f32,
-    #[allow(unused)]
-    priority: f32,
-    #[allow(unused)]
-    sense_count: f32,
-    #[allow(unused)]
-    conjugation: f32,
-    #[allow(unused)]
-    length: f32,
-}
-
-impl PartialEq for Weight {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.weight == other.weight
-    }
-}
-
-impl Eq for Weight {}
-
-impl PartialOrd for Weight {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Weight {
-    #[inline]
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.weight.partial_cmp(&other.weight) {
-            None => Ordering::Equal,
-            Some(ordering) => ordering.reverse(),
-        }
-    }
-}
-
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct EntryKey {
-    weight: Weight,
-    sequence: u64,
-}
+use crate::{EntryKey, Weight};
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]

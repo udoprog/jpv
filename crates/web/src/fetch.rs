@@ -1,6 +1,5 @@
 use anyhow::Context;
-use lib::database::EntryResultKey;
-use lib::jmdict;
+use lib::database::{EntryResultKey, OwnedSearchEntry};
 use lib::kanjidic2;
 use serde::{de::DeserializeOwned, Deserialize};
 use url::Url;
@@ -12,14 +11,14 @@ use web_sys::{Request, RequestInit, RequestMode, Response};
 use crate::error::Error;
 
 #[derive(Deserialize)]
-pub struct SearchEntry {
+pub struct SearchEntryWithKey {
     pub key: EntryResultKey,
-    pub entry: jmdict::OwnedEntry,
+    pub entry: OwnedSearchEntry,
 }
 
 #[derive(Deserialize)]
 pub struct SearchResponse {
-    pub entries: Vec<SearchEntry>,
+    pub entries: Vec<SearchEntryWithKey>,
     pub characters: Vec<kanjidic2::OwnedCharacter>,
     pub serial: u32,
 }
@@ -35,7 +34,7 @@ pub(crate) async fn search(q: &str, serial: u32) -> Result<SearchResponse, Error
 
 #[derive(Deserialize)]
 pub struct AnalyzeEntry {
-    pub key: jmdict::EntryKey,
+    pub key: lib::EntryKey,
     pub string: String,
 }
 

@@ -18,14 +18,19 @@ use musli_zerocopy::{slice, swiss, trie, Buf, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::inflection;
 use crate::inflection::Inflection;
-use crate::jmdict::{self, EntryKey};
+use crate::jmdict;
+use crate::jmnedict;
+use crate::kanjidic2;
 use crate::romaji::{self, is_hiragana, is_katakana, Segment};
-use crate::PartOfSpeech;
-use crate::{inflection, DICTIONARY_VERSION};
-use crate::{kanjidic2, DICTIONARY_MAGIC};
+use crate::{EntryKey, PartOfSpeech};
+use crate::{DICTIONARY_MAGIC, DICTIONARY_VERSION};
 
 use self::string_indexer::StringIndexer;
+
+/// Encoding used for storing database.
+const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 
 /// An error raised while interacting with the database.
 #[derive(Debug, Error)]
@@ -73,10 +78,12 @@ impl trie::Flavor for CompactTrie {
 #[derive(Serialize)]
 #[serde(tag = "type")]
 pub enum Entry<'a> {
-    #[serde(rename = "entry")]
+    #[serde(rename = "phrase")]
     Phrase(jmdict::Entry<'a>),
     #[serde(rename = "kanji")]
     Kanji(kanjidic2::Character<'a>),
+    #[serde(rename = "name")]
+    Name(jmnedict::Entry<'a>),
 }
 
 #[derive(ZeroCopy)]
@@ -96,9 +103,6 @@ pub struct IndexHeader {
     pub by_kanji_literal: swiss::MapRef<Ref<str>, u32>,
     pub by_sequence: swiss::MapRef<u32, u32>,
 }
-
-/// Encoding used for storing database.
-const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryResultKey {
@@ -175,6 +179,8 @@ pub enum IndexSource {
         reading: inflection::Reading,
         inflection: Inflection,
     },
+    #[serde(rename = "kanji")]
+    Name { reading: KanjiReading },
 }
 
 impl IndexSource {
@@ -199,6 +205,13 @@ impl Id {
         Self {
             offset,
             source: IndexSource::Phrase,
+        }
+    }
+
+    fn name(offset: u32, reading: KanjiReading) -> Self {
+        Self {
+            offset,
+            source: IndexSource::Name { reading },
         }
     }
 
@@ -234,11 +247,34 @@ impl Id {
 pub enum Input<'a> {
     Jmdict(&'a str),
     Kanjidic(&'a str),
+    Jmnedict(&'a str),
+}
+
+/// The entry of a search result.
+#[borrowme::borrowme]
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "type")]
+pub enum SearchEntry<'a> {
+    #[borrowed_attr(serde(borrow))]
+    #[serde(rename = "phrase")]
+    Phrase(jmdict::Entry<'a>),
+    #[borrowed_attr(serde(borrow))]
+    #[serde(rename = "name")]
+    Name(jmnedict::Entry<'a>),
+}
+
+impl SearchEntry<'_> {
+    fn sort_key(&self, input: &str, conjugation: bool) -> EntryKey {
+        match self {
+            SearchEntry::Phrase(e) => e.sort_key(input, conjugation),
+            SearchEntry::Name(e) => e.sort_key(input),
+        }
+    }
 }
 
 /// A search result.
 pub struct Search<'a> {
-    pub entries: Vec<(EntryResultKey, jmdict::Entry<'a>)>,
+    pub entries: Vec<(EntryResultKey, SearchEntry<'a>)>,
     pub characters: Vec<kanjidic2::Character<'a>>,
 }
 
@@ -370,6 +406,34 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
                 for meaning in &c.reading_meaning.meanings {
                     let id = Id::kanji(kanji_ref, KanjiReading::Meaning);
                     populate_analyzed(meaning.text, &mut lookup, id);
+                }
+            }
+        }
+        Input::Jmnedict(input) => {
+            tracing::info!("Parsing input jmnedict");
+            let mut jmnedict = jmnedict::Parser::new(input);
+
+            while let Some(entry) = jmnedict.next()? {
+                output.clear();
+                ENCODING.to_writer(&mut output, &entry)?;
+
+                let name_ref = buf.store_slice(&output).offset() as u32;
+
+                for kanji in entry.kanji.iter().copied() {
+                    lookup.push((
+                        Cow::Borrowed(kanji),
+                        Id::name(name_ref, KanjiReading::Literal),
+                    ));
+                }
+
+                for reading in entry.reading {
+                    lookup.push((
+                        Cow::Borrowed(reading.text),
+                        Id::name(name_ref, KanjiReading::KunyomiFull),
+                    ));
+                    let a = Id::kanji(name_ref, KanjiReading::KunyomiFullRomanize);
+                    let b = Id::kanji(name_ref, KanjiReading::KunyomiFullKatakana);
+                    other_readings(&mut lookup, reading.text, a, b, |s| s.katakana());
                 }
             }
         }
@@ -635,6 +699,7 @@ impl<'a> Index<'a> {
 
         Ok(match id.source {
             IndexSource::Kanji { .. } => Entry::Kanji(ENCODING.from_slice(bytes)?),
+            IndexSource::Name { .. } => Entry::Name(ENCODING.from_slice(bytes)?),
             _ => Entry::Phrase(ENCODING.from_slice(bytes)?),
         })
     }
@@ -815,7 +880,8 @@ impl<'a> Database<'a> {
 
                     continue;
                 }
-                Entry::Phrase(entry) => entry,
+                Entry::Phrase(entry) => SearchEntry::Phrase(entry),
+                Entry::Name(entry) => SearchEntry::Name(entry),
             };
 
             let Some(&i) = dedup.get(&(index, id.offset())) else {
@@ -847,8 +913,17 @@ impl<'a> Database<'a> {
         entries.sort_by(|a, b| a.0.key.cmp(&b.0.key));
 
         for (_, entry) in &entries {
-            for kanji in &entry.kanji_elements {
-                self.populate_kanji(kanji.text, &mut seen, &mut characters)?;
+            match entry {
+                SearchEntry::Phrase(entry) => {
+                    for kanji in &entry.kanji_elements {
+                        self.populate_kanji(kanji.text, &mut seen, &mut characters)?;
+                    }
+                }
+                SearchEntry::Name(entry) => {
+                    for kanji in &entry.kanji {
+                        self.populate_kanji(kanji, &mut seen, &mut characters)?;
+                    }
+                }
             }
         }
 

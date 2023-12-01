@@ -114,7 +114,7 @@ entity! {
         <Station "station" "railway station">
         <Surname "surname" "family or surname">
         <UsuallyKana "uk" "word usually written using kana alone">
-        <Unclass "unclass" "unclassified name">
+        <Unclassified "unclass" "unclassified name">
         <Vulgar "vulg" "vulgar expression or word">
         <Work "work" "work of art, literature, music, etc. name">
         <X "X" "rude or X-rated term (not displayed in educational software)">
@@ -349,5 +349,37 @@ entity! {
         <Tv "tv" "television">
         <Vidg "vidg" "video games">
         <Zool "zool" "zoology">
+    }
+}
+
+entity! {
+    #[derive(Encode, Decode, Serialize, Deserialize)]
+    pub enum NameType {
+        <Character "char" "character">
+        <Company "company" "company name">
+        <Creature "creat" "creature">
+        <Deity "dei" "deity">
+        <Document "doc" "document">
+        <Event "ev" "event">
+        <Feminine "fem" "female given name or forename">
+        <Fiction "fict" "fiction">
+        <Given "given" "given name or forename, gender not specified">
+        <Group "group" "group">
+        <Legend "leg" "legend">
+        <Masculine "masc" "male given name or forename">
+        <Mythology "myth" "mythology">
+        <Object "obj" "object">
+        <Organization "organization" "organization name">
+        <Other "oth" "other">
+        <Person "person" "full name of a particular person">
+        <Place "place" "place name">
+        <Product "product" "product name">
+        <Religion "relig" "religion">
+        <Service "serv" "service">
+        <Ship "ship" "ship name">
+        <Station "station" "railway station">
+        <Surname "surname" "family or surname">
+        <Unclassified "unclass" "unclassified name">
+        <Work "work" "work of art, literature, music, etc. name">
     }
 }

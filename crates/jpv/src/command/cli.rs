@@ -240,6 +240,15 @@ where
                 writeln!(o, "{}: {}", reading.ty, reading.text)?;
             }
         }
+        Entry::Name(entry) => {
+            for kanji in entry.kanji.iter() {
+                writeln!(o, "Kanji: {}", kanji)?;
+            }
+
+            for reading in entry.reading.iter() {
+                writeln!(o, "Reading: {}", reading.text)?;
+            }
+        }
     }
 
     o.flush()?;

@@ -19,6 +19,7 @@ use crate::Args;
 const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
 const JMDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMdict_e_examp.gz";
 const KANJIDIC2_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz";
+const JMNEDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMnedict.xml.gz";
 
 #[derive(Parser)]
 pub(crate) struct BuildArgs {
@@ -28,6 +29,9 @@ pub(crate) struct BuildArgs {
     /// Path to load kanjidic2 file from. By default this will be download into a local cache directory.
     #[arg(long, value_name = "path")]
     kanjidic2_path: Option<PathBuf>,
+    /// Path to load jmnedict file from. By default this will be download into a local cache directory.
+    #[arg(long, value_name = "path")]
+    jmnedict_path: Option<PathBuf>,
     /// Force a dictionary rebuild.
     #[arg(long, short = 'f')]
     force: bool,
@@ -45,6 +49,7 @@ struct ToDownload<'a> {
 enum IndexKind {
     Jmdict,
     Kanjidic2,
+    Jmnedict,
 }
 
 pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result<()> {
@@ -64,6 +69,14 @@ pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result
             index_path: dirs.index_path("kanjidic2"),
             path: build_args.kanjidic2_path.as_deref(),
             kind: IndexKind::Kanjidic2,
+        },
+        ToDownload {
+            name: "jmnedict",
+            url: JMNEDICT_URL,
+            url_name: "jmnedict.xml.gz",
+            index_path: dirs.index_path("jmnedict"),
+            path: build_args.jmnedict_path.as_deref(),
+            kind: IndexKind::Jmnedict,
         },
     ];
 
@@ -115,6 +128,7 @@ pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result
             let input = match download.kind {
                 IndexKind::Jmdict => Input::Jmdict(&data[..]),
                 IndexKind::Kanjidic2 => Input::Kanjidic(&data[..]),
+                IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
             };
 
             let start = Instant::now();

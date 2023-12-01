@@ -5,10 +5,10 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::match_like_matches_macro)]
 
-/// Dictionary magic.
-pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44; // "JPVD";
+/// Dictionary magic `JPVD`.
+pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44;
 /// Current database version in use.
-pub const DICTIONARY_VERSION: u32 = 1;
+pub const DICTIONARY_VERSION: u32 = 2;
 
 #[macro_use]
 pub mod inflection;
@@ -19,7 +19,11 @@ pub mod api;
 mod concat;
 pub use self::concat::Concat;
 
+pub use self::sort_key::{EntryKey, Weight};
+mod sort_key;
+
 pub mod jmdict;
+pub mod jmnedict;
 pub mod kanjidic2;
 
 pub mod entities;

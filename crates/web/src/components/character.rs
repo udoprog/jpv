@@ -1,7 +1,7 @@
 use lib::kanjidic2::OwnedCharacter;
 use yew::prelude::*;
 
-use crate::c::entry::{colon, comma, seq};
+use super::{colon, comma, seq};
 
 pub enum Msg {}
 

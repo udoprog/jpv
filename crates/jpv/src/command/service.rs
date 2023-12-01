@@ -116,6 +116,6 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
         }
     }
 
-    tracing::info!("Bye bye");
+    tracing::info!("Bye!");
     Ok(())
 }
