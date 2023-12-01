@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "module": "ES2022",
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "strictPropertyInitialization": true,
+        "outDir": "out",
+    },
+    "files": [
+        "src/jpv.ts",
+        "src/boundaries.ts"
+    ],
+}

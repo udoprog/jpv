@@ -1,3 +1,5 @@
+import Boundaries from './boundaries';
+
 const DEBUG = false;
 const WIDTH = 400;
 const HEIGHT = 600;
@@ -6,25 +8,34 @@ const SELECT = true;
 const FOLLOWMOUSE = false;
 const MAX_X_OFFSET = 1024;
 
-let iframe = null;
-let loadListener = null;
-let currentText = null;
-let lastElement = null;
-let lastPoint = null;
+interface Point {
+    x: number;
+    y: number;
+}
 
-function isValidStart(el) {
+let iframe: HTMLIFrameElement | null = null;
+let loadListener: (() => void) | null = null;
+let currentText: string | null = null;
+let lastElement: Element | null = null;
+let lastPoint: Point | null = null;
+
+function isValidStart(el: Element): boolean {
     return el.localName !== "body";
 }
 
-function isInlineElement(el) {
-    let style = window.getComputedStyle(el);
-    return style.display === "inline" || style.display === "inline-block";
+function isInlineElement(el: Node | null): boolean {
+    if (el instanceof Element) {
+        let style = window.getComputedStyle(el as Element);
+        return style.display === "inline" || style.display === "inline-block";
+    } else {
+        return false;
+    }
 }
 
 /**
  * @returns {Element | null} The bounding element or null if it contains no text.
  */
-function getBoundingElement(el) {
+function getBoundingElement(el: Element): Element | null {
     if (!el.textContent) {
         return null;
     }
@@ -37,11 +48,11 @@ function getBoundingElement(el) {
 
     if (isInlineElement(current)) {
         while (isInlineElement(current.parentNode)) {
-            current = current.parentNode;
+            current = current.parentNode as Element;
         }
 
         if (current.parentNode) {
-            current = current.parentNode;
+            current = current.parentNode as Element;
         }
     }
 
@@ -49,7 +60,7 @@ function getBoundingElement(el) {
 }
 
 function closeWindow() {
-    if (!loadListener) {
+    if (!loadListener || !iframe) {
         return false;
     }
 
@@ -76,7 +87,7 @@ function closeWindow() {
  * @param {Range} range The range to narrow, until it fits a natural text
  * boundary which is pointed to by the cursor.
  */
-function adjustRangeToBoundaries(range, point) {
+function adjustRangeToBoundaries(range: Range, point: Point) {
     let boundaries = walk(range);
 
     if (boundaries.length === 0) {
@@ -126,8 +137,8 @@ function adjustRangeToBoundaries(range, point) {
  * @param {Factory}
  * @returns {Range} The walked range range, or null if no valid range was found.
  */
-function walk(range) {
-    let node = range.startContainer;
+function walk(range: Range) {
+    let node: Node | null = range.startContainer;
     let boundaries = new Boundaries();
 
     outer:
@@ -150,15 +161,19 @@ function walk(range) {
             break;
         }
 
+        if (!node.parentNode) {
+            break;
+        }
+
         node = node.parentNode.nextSibling;
     }
 
-    return boundaries.output();
+    return boundaries.build();
 }
 
-function rectContainsAny(rects, point) {
-    for (let rect of rects) {
-        if (rectContains(rect, point)) {
+function rectContainsAny(rects: DOMRectList, point: Point) {
+    for (let i = 0; i < rects.length; i++) {
+        if (rectContains(rects[i], point)) {
             return true;
         }
     }
@@ -166,11 +181,11 @@ function rectContainsAny(rects, point) {
     return false;
 }
 
-function rectContains(rect, point) {
+function rectContains(rect: DOMRect, point: Point) {
     return rect.left <= point.x && rect.right >= point.x && rect.top <= point.y && rect.bottom >= point.y;
 }
 
-function windowPosition(rect, point) {
+function windowPosition(rect: DOMRect, point: Point) {
     let popupHeight = HEIGHT;
     let popupWidth = WIDTH;
     let padding = PADDING;
@@ -230,8 +245,8 @@ function windowPosition(rect, point) {
     return pos;
 }
 
-function openWindow(element, point) {
-    if (!element || !point) {
+function openWindow(element: Element | null, point: Point | null) {
+    if (!element || !point || !iframe) {
         return;
     }
 
@@ -259,16 +274,18 @@ function openWindow(element, point) {
     if (SELECT) {
         let s = window.getSelection();
 
-        if (s.rangeCount > 0) {
-            let existing = s.getRangeAt(0);
-            existing.setStart(textRange.startContainer, textRange.startOffset);
-            existing.setEnd(textRange.endContainer, textRange.endOffset);
+        if (s !== null) {
+            if (s.rangeCount > 0) {
+                let existing = s.getRangeAt(0);
+                existing.setStart(textRange.startContainer, textRange.startOffset);
+                existing.setEnd(textRange.endContainer, textRange.endOffset);
 
-            for (let i = 1; i < s.rangeCount; i++) {
-                s.removeRange(s.getRangeAt(i));
+                for (let i = 1; i < s.rangeCount; i++) {
+                    s.removeRange(s.getRangeAt(i));
+                }
+            } else {
+                s.addRange(textRange);
             }
-        } else {
-            s.addRange(textRange);
         }
     }
 
@@ -278,7 +295,8 @@ function openWindow(element, point) {
 
     if (currentText != text) {
         if (!loadListener) {
-            loadListener = () => iframe.classList.add('active');
+            let myIframe = iframe;
+            loadListener = () => myIframe.classList.add('active');
             iframe.addEventListener('load', loadListener);
         }
 
@@ -293,8 +311,8 @@ function openWindow(element, point) {
     return;
 }
 
-function click(e) {
-    lastElement = e.target;
+function click(e: MouseEvent) {
+    lastElement = e.target as Element;
     lastPoint = {x: e.clientX, y: e.clientY};
 
     if (!e.shiftKey) {
@@ -305,12 +323,12 @@ function click(e) {
         return;
     }
 
-    openWindow(e.target, {x: e.clientX, y: e.clientY});
+    openWindow(lastElement, lastPoint);
     e.preventDefault();
 }
 
-function mouseMove(e) {
-    lastElement = e.target;
+function mouseMove(e: MouseEvent) {
+    lastElement = e.target as Element;
     lastPoint = {x: e.clientX, y: e.clientY};
 
     if (e.shiftKey) {
@@ -319,7 +337,7 @@ function mouseMove(e) {
     }
 }
 
-function keyDown(e) {
+function keyDown(e: KeyboardEvent) {
     if (e.key === "Shift") {
         openWindow(lastElement, lastPoint);
         e.preventDefault();
