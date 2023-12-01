@@ -1,4 +1,4 @@
-import Boundaries from './boundaries';
+import {Boundaries, Point} from './boundaries';
 
 const DEBUG = false;
 const WIDTH = 400;
@@ -8,16 +8,18 @@ const SELECT = true;
 const FOLLOWMOUSE = false;
 const MAX_X_OFFSET = 1024;
 
-interface Point {
-    x: number;
-    y: number;
-}
-
 let iframe: HTMLIFrameElement | null = null;
 let loadListener: (() => void) | null = null;
 let currentText: string | null = null;
 let lastElement: Element | null = null;
 let lastPoint: Point | null = null;
+
+/**
+ * Whether we can just press shift to get the popup.
+ *
+ * We want to avoid triggering this event while the user is typing.
+ */
+let keyReady: boolean = false;
 
 function isValidStart(el: Element): boolean {
     return el.localName !== "body";
@@ -88,7 +90,7 @@ function closeWindow() {
  * boundary which is pointed to by the cursor.
  */
 function adjustRangeToBoundaries(range: Range, point: Point) {
-    let boundaries = walk(range);
+    let boundaries = walk(range, point);
 
     if (boundaries.length === 0) {
         return true;
@@ -137,14 +139,14 @@ function adjustRangeToBoundaries(range: Range, point: Point) {
  * @param {Factory}
  * @returns {Range} The walked range range, or null if no valid range was found.
  */
-function walk(range: Range) {
+function walk(range: Range, point: Point) {
     let node: Node | null = range.startContainer;
     let boundaries = new Boundaries();
 
     outer:
     while (node) {
         if (node.nodeType === Node.TEXT_NODE) {
-            boundaries.populate(node);
+            boundaries.populate(node, point);
         } else {
             if (node.firstChild !== null) {
                 node = node.firstChild;
@@ -246,7 +248,11 @@ function windowPosition(rect: DOMRect, point: Point) {
 }
 
 function openWindow(element: Element | null, point: Point | null) {
-    if (!element || !point || !iframe) {
+    if (!point || !iframe) {
+        return;
+    }
+
+    if (!element) {
         return;
     }
 
@@ -258,6 +264,7 @@ function openWindow(element: Element | null, point: Point | null) {
 
     let textRange = document.createRange();
     textRange.selectNodeContents(element);
+
     let rect = textRange.getBoundingClientRect();
 
     if (!adjustRangeToBoundaries(textRange, point)) {
@@ -330,6 +337,7 @@ function click(e: MouseEvent) {
 function mouseMove(e: MouseEvent) {
     lastElement = e.target as Element;
     lastPoint = {x: e.clientX, y: e.clientY};
+    keyReady = true;
 
     if (e.shiftKey) {
         openWindow(lastElement, lastPoint);
@@ -337,8 +345,12 @@ function mouseMove(e: MouseEvent) {
     }
 }
 
+function keyUp(e: KeyboardEvent) {
+    keyReady = false;
+}
+
 function keyDown(e: KeyboardEvent) {
-    if (e.key === "Shift") {
+    if (keyReady && e.key === "Shift") {
         openWindow(lastElement, lastPoint);
         e.preventDefault();
     }
@@ -355,6 +367,7 @@ if (document.body) {
     document.body.appendChild(iframe);
 
     document.documentElement.addEventListener('keydown', keyDown);
+    document.documentElement.addEventListener('keyup', keyUp);
     document.documentElement.addEventListener('click', click);
     document.documentElement.addEventListener('mousemove', mouseMove);
 }

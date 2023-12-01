@@ -5,9 +5,13 @@
         "strictNullChecks": true,
         "strictPropertyInitialization": true,
         "outDir": "out",
+        "lib": [
+            "es2022",
+            "dom"
+        ]
     },
     "files": [
         "src/jpv.ts",
         "src/boundaries.ts"
-    ],
+    ]
 }

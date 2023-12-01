@@ -3,109 +3,123 @@ interface Bound {
     index: number;
 }
 
-interface Quote extends Bound {
-    expected: string;
+export interface Point {
+    x: number;
+    y: number;
 }
-
 
 /**
  * Helper class to calculate boundaries.
  */
-export default class Boundaries {
-    quote: Quote | null;
-    count: number;
+export class Boundaries {
     output: Bound[];
-    whiteSpace: Bound | null;
-    leading: boolean;
+    generator: Generator<void, void, string> | null;
+    node: Node | null;
+    index: number;
 
     constructor() {
-        this.quote = null;
-        this.count = 0;
         this.output = [];
-        this.whiteSpace = null;
-        this.leading = true;
+        this.generator = null;
+        this.node = null;
+        this.index = 0;
+    }
+
+    snapshot(offset: number): Bound {
+        if (!this.node) {
+            throw new Error('no node in snapshot');
+        }
+
+        return { node: this.node, index: this.index + offset };
+    }
+
+    *buildGenerator(): Generator<void, void, string> {
+        function matching(c: string): string | null {
+            switch (c) {
+                case '「':
+                    return '」';
+                case '"':
+                    return '"';
+                case '“':
+                    return '”';
+                case '(':
+                    return ')';
+                case '[':
+                    return ']';
+                case '{':
+                    return '}';
+                case '<':
+                    return '>';
+                default:
+                    return null;
+            }
+        }
+
+        let leading = true;
+        let expected = null;
+
+        let c = yield;
+
+        while (true) {
+            if (isWhiteSpace(c)) {
+                while (isWhiteSpace(c)) {
+                    c = yield;
+                }
+
+                if (leading) {
+                    this.output.push(this.snapshot(0));
+                }
+            }
+
+            leading = false;
+
+            if (expected = matching(c)) {
+                let inner = this.snapshot(0);
+                while ((c = yield) !== expected) {}
+                this.output.push(inner);
+                this.output.push(this.snapshot(1));
+                c = yield;
+                continue;
+            }
+
+            if (isPunctuation(c)) {
+                while (isPunctuationOrNumerical(c)) {
+                    c = yield;
+                }
+
+                this.output.push(this.snapshot(0));
+                leading = true;
+                continue;
+            }
+
+            c = yield;
+        }
     }
 
     /**
-     * Populate boundaries from a node.
-     *
-     * @param {string} content Content to scan.
-     * @returns {number[]} Boundaries found.
+     * Populate boundaries from a `Node`.
      */
-    populate(node: Node) {
+    populate(node: Node, point: Point) {
+        if (!this.generator) {
+            this.generator = this.buildGenerator();
+            this.generator.next();
+        }
+
         let content = node.textContent;
+        this.node = node;
 
-        if (content === null) {
-            return;
-        }
-
-        for (let i = 0; i < content.length; i++) {
-            this.count += 1;
-            let c = content[i];
-
-            if (isWhiteSpace(c)) {
-                if (this.whiteSpace === null) {
-                    this.whiteSpace = { node, index: i };
-                }
-
-                continue;
-            }
-
-            if (this.quote !== null) {
-                if (this.quote.expected !== c) {
-                    continue;
-                }
-
-                this.output.push({ node: this.quote.node, index: this.quote.index });
-                this.output.push({ node, index: i + 1 });
-                this.quote = null;
-            }
-
-            if (c === '「') {
-                this.quote = { node, index: i, expected: '」' };
-                continue;
-            }
-
-            if (c === '\"') {
-                this.quote = { node, index: i, expected: '\"' };
-                continue;
-            }
-
-            if (this.leading && this.whiteSpace !== null) {
-                this.output.push({ node, index: i });
-            }
-
-            this.leading = false;
-            this.whiteSpace = null;
-
-            if (isPunct(c)) {
-                let u = i;
-
-                while (u < content.length && isPunctOrNumerical(content[u + 1])) {
-                    u += 1;
-                }
-
-                if (content.length == u || isWhiteSpace(content[u + 1])) {
-                    continue;
-                }
-
-                i = u;
-                this.output.push({ node, index: i + 1 });
+        if (content !== null) {
+            for (let i = 0; i < content.length; i++) {
+                this.index = i;
+                this.generator.next(content[i]);
             }
         }
+
+        this.node = null;
     }
 
     build(): Bound[] {
-        // Populate trailing whitespace.
-        if (this.whiteSpace !== null) {
-            // NB: don't populate with only whitespace.
-            if (this.output.length !== 0) {
-                this.output.push({ node: this.whiteSpace.node, index: this.whiteSpace.index });
-            }
-
-            this.whiteSpace = null;
-        }
-
+        // free the generator.
+        this.generator = null;
         return this.output;
     }
 };
@@ -114,7 +128,7 @@ function isWhiteSpace(c: string): boolean {
     return c === ' ' || c === '　' || c === '\n' || c === '\t';
 }
 
-function isPunct(c: string): boolean {
+function isPunctuation(c: string): boolean {
     return c === '.' || c === '。' || c === '!' || c === '！' || c === '?' || c === '？';
 }
 
@@ -122,6 +136,6 @@ function isNumerical(c: string): boolean {
     return c >= '0' && c <= '9';
 }
 
-function isPunctOrNumerical(c: string): boolean {
-    return isPunct(c) || isNumerical(c);
+function isPunctuationOrNumerical(c: string): boolean {
+    return isPunctuation(c) || isNumerical(c);
 }
