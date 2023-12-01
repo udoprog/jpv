@@ -18,6 +18,14 @@ use crate::error::Error;
 use crate::ws;
 use crate::{components as c, fetch};
 
+// How a history update is performed
+pub(crate) enum History {
+    /// History is pushed.
+    Push,
+    /// History is replaced.
+    Replace,
+}
+
 pub(crate) enum Msg {
     Mode(Mode),
     CaptureClipboard(bool),
@@ -28,7 +36,7 @@ pub(crate) enum Msg {
     AnalyzeCycle,
     HistoryChanged(Location),
     SearchResponse(fetch::SearchResponse),
-    AnalyzeResponse(fetch::AnalyzeResponse),
+    AnalyzeResponse(fetch::AnalyzeResponse, History),
     MoreEntries,
     MoreCharacters,
     WebSocket(ws::Msg),
@@ -86,8 +94,9 @@ struct Query {
 }
 
 impl Query {
-    fn deserialize(raw: Vec<(String, String)>) -> Self {
+    fn deserialize(raw: Vec<(String, String)>) -> (Self, Option<usize>) {
         let mut this = Self::default();
+        let mut analyze_at = None;
 
         for (key, value) in raw {
             match key.as_str() {
@@ -125,11 +134,16 @@ impl Query {
                         _ => Tab::default(),
                     };
                 }
+                "analyzeAt" => {
+                    if let Ok(i) = value.parse() {
+                        analyze_at = Some(i);
+                    }
+                }
                 _ => {}
             }
         }
 
-        this
+        (this, analyze_at)
     }
 
     fn serialize(&self) -> Vec<(&'static str, Cow<'_, str>)> {
@@ -256,19 +270,22 @@ impl Prompt {
         }
     }
 
-    fn analyze(&mut self, ctx: &Context<Self>, start: usize) {
+    fn analyze(&mut self, ctx: &Context<Self>, start: usize, history: History) {
         if let Some(db) = &*ctx.props().db {
             let serial = self.serials.analyze();
 
             ctx.link()
                 .send_message(match db.analyze(&self.query.q, start) {
-                    Ok(data) => Msg::AnalyzeResponse(fetch::AnalyzeResponse {
-                        data: data
-                            .into_iter()
-                            .map(|(key, string)| fetch::AnalyzeEntry { key, string })
-                            .collect(),
-                        serial,
-                    }),
+                    Ok(data) => Msg::AnalyzeResponse(
+                        fetch::AnalyzeResponse {
+                            data: data
+                                .into_iter()
+                                .map(|(key, string)| fetch::AnalyzeEntry { key, string })
+                                .collect(),
+                            serial,
+                        },
+                        history,
+                    ),
                     Err(error) => Msg::Error(error.into()),
                 });
         } else {
@@ -277,24 +294,23 @@ impl Prompt {
 
             ctx.link().send_future(async move {
                 match fetch::analyze(&input, start, serial).await {
-                    Ok(entries) => Msg::AnalyzeResponse(entries),
+                    Ok(entries) => Msg::AnalyzeResponse(entries, history),
                     Err(error) => Msg::Error(error),
                 }
             });
         }
     }
 
-    fn save_query(&mut self, ctx: &Context<Prompt>, push: bool) {
+    fn save_query(&mut self, ctx: &Context<Prompt>, history: History) {
         if let (Some(location), Some(navigator)) = (ctx.link().location(), ctx.link().navigator()) {
             let path = location.path();
             let path = AnyRoute::new(path);
 
             let query = self.query.serialize();
 
-            let result = if push {
-                navigator.push_with_query(&path, &query)
-            } else {
-                navigator.replace_with_query(&path, &query)
+            let result = match history {
+                History::Push => navigator.push_with_query(&path, &query),
+                History::Replace => navigator.replace_with_query(&path, &query),
             };
 
             if let Err(error) = result {
@@ -303,7 +319,7 @@ impl Prompt {
         }
     }
 
-    fn handle_analysis(&mut self, ctx: &Context<Prompt>, analysis: Vec<String>) {
+    fn handle_analysis(&mut self, ctx: &Context<Prompt>, analysis: Vec<String>, history: History) {
         if let Some(input) = analysis.get(0) {
             self.refresh(ctx, input);
         }
@@ -311,7 +327,7 @@ impl Prompt {
         if self.query.a != analysis || self.query.i != 0 {
             self.query.a = analysis;
             self.query.i = 0;
-            self.save_query(ctx, true);
+            self.save_query(ctx, history);
         }
     }
 
@@ -325,7 +341,7 @@ impl Prompt {
             self.query.q = json.primary.clone();
             self.query.a.clear();
             self.query.translation = json.secondary.as_ref().filter(|s| !s.is_empty()).cloned();
-            self.save_query(ctx, true);
+            self.save_query(ctx, History::Push);
             self.refresh(ctx, &json.primary);
         }
 
@@ -359,7 +375,7 @@ impl Prompt {
             self.query.q = data.to_owned();
             self.query.a.clear();
             self.query.translation = None;
-            self.save_query(ctx, true);
+            self.save_query(ctx, History::Push);
             self.refresh(ctx, data);
         }
 
@@ -387,7 +403,7 @@ impl Component for Prompt {
             .link()
             .add_location_listener(ctx.link().callback(Msg::HistoryChanged));
 
-        let (query, inputs) = decode_query(ctx.link().location());
+        let (query, input, analyze_at) = decode_query(ctx.link().location());
 
         let mut this = Self {
             query,
@@ -406,7 +422,12 @@ impl Component for Prompt {
             }
         }
 
-        this.refresh(ctx, &inputs);
+        if let Some(analyze_at) = analyze_at {
+            this.analyze(ctx, analyze_at, History::Replace);
+        } else {
+            this.refresh(ctx, &input);
+        }
+
         this
     }
 
@@ -428,10 +449,10 @@ impl Component for Prompt {
                     false
                 }
             }
-            Msg::AnalyzeResponse(response) => {
+            Msg::AnalyzeResponse(response, history) => {
                 if response.serial == self.serials.analyze {
                     let analysis = response.data.into_iter().map(|d| d.string).collect();
-                    self.handle_analysis(ctx, analysis);
+                    self.handle_analysis(ctx, analysis, history);
                     true
                 } else {
                     false
@@ -446,19 +467,24 @@ impl Component for Prompt {
                     Mode::Katakana => process_query(&self.query.q, romaji::Segment::katakana),
                 };
 
-                let is_changed = new_query != self.query.q;
+                let history = if new_query != self.query.q {
+                    History::Push
+                } else {
+                    History::Replace
+                };
+
                 self.query.q = new_query;
-                self.save_query(ctx, is_changed);
+                self.save_query(ctx, history);
                 true
             }
             Msg::CaptureClipboard(capture_clipboard) => {
                 self.query.capture_clipboard = capture_clipboard;
-                self.save_query(ctx, false);
+                self.save_query(ctx, History::Replace);
                 true
             }
             Msg::Tab(tab) => {
                 self.query.tab = tab;
-                self.save_query(ctx, false);
+                self.save_query(ctx, History::Replace);
                 true
             }
             Msg::Change(input) => {
@@ -474,7 +500,7 @@ impl Component for Prompt {
                     self.query.q = input;
                     self.query.a.clear();
                     self.query.translation = None;
-                    self.save_query(ctx, false);
+                    self.save_query(ctx, History::Replace);
                 }
 
                 true
@@ -491,18 +517,18 @@ impl Component for Prompt {
                 self.query.q = input;
                 self.query.translation = translation;
                 self.query.a.clear();
-                self.save_query(ctx, true);
+                self.save_query(ctx, History::Push);
                 true
             }
             Msg::Analyze(i) => {
-                self.analyze(ctx, i);
+                self.analyze(ctx, i, History::Push);
                 true
             }
             Msg::AnalyzeCycle => {
                 if let Some(input) = self.query.a.get(self.query.i).cloned() {
                     self.query.i += 1;
                     self.query.i %= self.query.a.len();
-                    self.save_query(ctx, true);
+                    self.save_query(ctx, History::Push);
                     self.refresh(ctx, &input);
                     true
                 } else {
@@ -511,9 +537,16 @@ impl Component for Prompt {
             }
             Msg::HistoryChanged(location) => {
                 log::info!("history change");
-                let (query, inputs) = decode_query(Some(location));
+
+                let (query, inputs, analyze_at) = decode_query(Some(location));
                 self.query = query;
-                self.refresh(ctx, &inputs);
+
+                if let Some(analyze_at) = analyze_at {
+                    self.analyze(ctx, analyze_at, History::Replace);
+                } else {
+                    self.refresh(ctx, &inputs);
+                }
+
                 true
             }
             Msg::MoreEntries => {
@@ -866,14 +899,14 @@ where
     out
 }
 
-fn decode_query(location: Option<Location>) -> (Query, String) {
+fn decode_query(location: Option<Location>) -> (Query, String, Option<usize>) {
     let query = match location {
         Some(location) => location.query().ok(),
         None => None,
     };
 
     let query = query.unwrap_or_default();
-    let query = Query::deserialize(query);
+    let (query, analyze_at) = Query::deserialize(query);
 
     let input = if query.a.is_empty() {
         query.q.clone()
@@ -883,7 +916,20 @@ fn decode_query(location: Option<Location>) -> (Query, String) {
         query.q.clone()
     };
 
-    (query, input)
+    let analyze_at = match analyze_at {
+        Some(analyze_at) => {
+            let mut len = 0;
+
+            for c in input.chars().take(analyze_at) {
+                len += c.len_utf8();
+            }
+
+            Some(len)
+        }
+        None => None,
+    };
+
+    (query, input, analyze_at)
 }
 
 fn copyright() -> Html {

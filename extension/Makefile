@@ -5,7 +5,7 @@ default: jpv-$(VERSION).xpi
 node_modules:
 	npm install
 
-jpv.js: node_modules
+jpv.js: node_modules src/*.ts
 	npm run build
 
 jpv-$(VERSION).xpi: jpv.js jpv.css manifest.json icons/*

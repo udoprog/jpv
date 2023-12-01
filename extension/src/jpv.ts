@@ -1,4 +1,5 @@
-import {Boundaries, Point} from './boundaries';
+import {Point, rectContainsAny} from './utils';
+import {Boundaries, Bound} from './boundaries';
 
 const DEBUG = false;
 const WIDTH = 400;
@@ -10,9 +11,10 @@ const MAX_X_OFFSET = 1024;
 
 let iframe: HTMLIFrameElement | null = null;
 let loadListener: (() => void) | null = null;
-let currentText: string | null = null;
 let lastElement: Element | null = null;
 let lastPoint: Point | null = null;
+let currentText: string | null = null;
+let currentPointOver: number | null = null;
 
 /**
  * Whether we can just press shift to get the popup.
@@ -74,6 +76,11 @@ function closeWindow() {
     return true;
 }
 
+interface AdjustResult {
+    found: boolean;
+    pointOver: number | null;
+}
+
 /**
  * Narrows the specified range until it fits a natural word boundary.
  *
@@ -89,24 +96,25 @@ function closeWindow() {
  * @param {Range} range The range to narrow, until it fits a natural text
  * boundary which is pointed to by the cursor.
  */
-function adjustRangeToBoundaries(range: Range, point: Point) {
-    let boundaries = walk(range, point);
+function adjustRangeToBoundaries(range: Range, point: Point): AdjustResult {
+    let { bounds, pointOver } = walk(range, point);
+    let lastCount = 0;
 
-    if (boundaries.length === 0) {
-        return true;
+    if (bounds.length === 0) {
+        return  { found: true, pointOver };
     }
 
     let current = range.cloneRange();
 
     if (!rectContainsAny(current.getClientRects(), point)) {
-        return false;
+        return { found: false, pointOver };
     }
 
     let start = 0;
-    let end = boundaries.length - 1;
+    let end = bounds.length - 1;
 
     while (start <= end) {
-        let { node, index } = boundaries[start];
+        let { node, index, count } = bounds[start];
         current.setStart(node, index);
 
         if (!rectContainsAny(current.getClientRects(), point)) {
@@ -114,13 +122,14 @@ function adjustRangeToBoundaries(range: Range, point: Point) {
         }
 
         range.setStart(node, index);
+        lastCount = count;
         start += 1;
     }
 
     current.setStart(range.startContainer, range.startOffset);
 
     while (start <= end) {
-        let { node, index } = boundaries[end];
+        let { node, index } = bounds[end];
         current.setEnd(node, index);
 
         if (!rectContainsAny(current.getClientRects(), point)) {
@@ -131,7 +140,16 @@ function adjustRangeToBoundaries(range: Range, point: Point) {
         end -= 1;
     }
 
-    return true;
+    if (pointOver !== null) {
+        return { found: true, pointOver: pointOver - lastCount };
+    } else {
+        return { found: true, pointOver: null };
+    }
+}
+
+interface WalkResult {
+    bounds: Bound[],
+    pointOver: number | null,
 }
 
 /**
@@ -139,7 +157,7 @@ function adjustRangeToBoundaries(range: Range, point: Point) {
  * @param {Factory}
  * @returns {Range} The walked range range, or null if no valid range was found.
  */
-function walk(range: Range, point: Point) {
+function walk(range: Range, point: Point): WalkResult {
     let node: Node | null = range.startContainer;
     let boundaries = new Boundaries();
 
@@ -170,21 +188,7 @@ function walk(range: Range, point: Point) {
         node = node.parentNode.nextSibling;
     }
 
-    return boundaries.build();
-}
-
-function rectContainsAny(rects: DOMRectList, point: Point) {
-    for (let i = 0; i < rects.length; i++) {
-        if (rectContains(rects[i], point)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function rectContains(rect: DOMRect, point: Point) {
-    return rect.left <= point.x && rect.right >= point.x && rect.top <= point.y && rect.bottom >= point.y;
+    return { bounds: boundaries.build(), pointOver: boundaries.getPointOver() };
 }
 
 function windowPosition(rect: DOMRect, point: Point) {
@@ -267,7 +271,9 @@ function openWindow(element: Element | null, point: Point | null) {
 
     let rect = textRange.getBoundingClientRect();
 
-    if (!adjustRangeToBoundaries(textRange, point)) {
+    let { found, pointOver } = adjustRangeToBoundaries(textRange, point);
+
+    if (!found) {
         return;
     }
 
@@ -300,15 +306,22 @@ function openWindow(element: Element | null, point: Point | null) {
         console.debug(pos);
     }
 
-    if (currentText != text) {
+    if (currentText != text || currentPointOver != pointOver) {
         if (!loadListener) {
             let myIframe = iframe;
             loadListener = () => myIframe.classList.add('active');
             iframe.addEventListener('load', loadListener);
         }
 
-        iframe.src = 'http://localhost:44714?embed=yes&q=' + encodeURIComponent(text);
+        let search = new URLSearchParams({ embed: "yes", q: text });
+
+        if (pointOver !== null) {
+            search.append("analyzeAt", pointOver.toString());
+        }
+
+        iframe.src = 'http://localhost:44714?' + search.toString();
         currentText = text;
+        currentPointOver = pointOver;
     }
 
     iframe.style.left = `${pos.x}px`;

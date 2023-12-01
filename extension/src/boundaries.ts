@@ -1,11 +1,9 @@
-interface Bound {
+import {Point, rectContainsAny} from './utils';
+
+export interface Bound {
     node: Node;
     index: number;
-}
-
-export interface Point {
-    x: number;
-    y: number;
+    count: number;
 }
 
 /**
@@ -16,12 +14,16 @@ export class Boundaries {
     generator: Generator<void, void, string> | null;
     node: Node | null;
     index: number;
+    pointOver: number | null;
+    count: number;
 
     constructor() {
         this.output = [];
         this.generator = null;
         this.node = null;
         this.index = 0;
+        this.pointOver = null;
+        this.count = 0;
     }
 
     snapshot(offset: number): Bound {
@@ -29,7 +31,7 @@ export class Boundaries {
             throw new Error('no node in snapshot');
         }
 
-        return { node: this.node, index: this.index + offset };
+        return { node: this.node, index: this.index + offset, count: this.count };
     }
 
     *buildGenerator(): Generator<void, void, string> {
@@ -104,13 +106,24 @@ export class Boundaries {
             this.generator.next();
         }
 
+        let range = document.createRange();
+        range.selectNodeContents(node);
+
         let content = node.textContent;
         this.node = node;
 
         if (content !== null) {
             for (let i = 0; i < content.length; i++) {
+                range.setStart(node, i);
+                range.setEnd(node, i + 1);
+
+                if (rectContainsAny(range.getClientRects(), point)) {
+                    this.pointOver = this.count;
+                }
+
                 this.index = i;
                 this.generator.next(content[i]);
+                this.count += 1;
             }
         }
 
@@ -121,6 +134,10 @@ export class Boundaries {
         // free the generator.
         this.generator = null;
         return this.output;
+    }
+
+    getPointOver(): number | null {
+        return this.pointOver;
     }
 };
 

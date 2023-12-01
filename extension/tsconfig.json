@@ -4,6 +4,7 @@
         "noImplicitAny": true,
         "strictNullChecks": true,
         "strictPropertyInitialization": true,
+        "noImplicitReturns": true,
         "outDir": "out",
         "lib": [
             "es2022",
@@ -12,6 +13,7 @@
     },
     "files": [
         "src/jpv.ts",
-        "src/boundaries.ts"
+        "src/boundaries.ts",
+        "src/utils.ts"
     ]
 }
