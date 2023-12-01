@@ -761,7 +761,7 @@ impl Component for Prompt {
                 html! {
                     <div class="block block-lg">
                         <div class="block row">
-                            {format!("Showing {} out of {} entries", self.limit_entries, self.phrases.len())}
+                            {format!("Showing {} out of {} phrases", self.limit_entries, self.phrases.len())}
                         </div>
 
                         <div class="block row">
@@ -848,7 +848,11 @@ impl Component for Prompt {
 
             let mut tabs = Vec::new();
 
-            tabs.push(tab("Entries", self.phrases.len(), Tab::Entries));
+            tabs.push(tab(
+                "Entries",
+                self.phrases.len() + self.names.len(),
+                Tab::Entries,
+            ));
             tabs.push(tab("Characters", self.characters.len(), Tab::Characters));
 
             let content = match self.query.tab {
