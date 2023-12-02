@@ -16,6 +16,7 @@ use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot;
 
 use crate::Args;
 
@@ -33,7 +34,7 @@ struct Inner {
 
 /// Events emitted by modifying the background service.
 pub enum BackgroundEvent {
-    SaveConfig(Config),
+    SaveConfig(Config, oneshot::Sender<()>),
 }
 
 #[derive(Clone)]
@@ -58,11 +59,19 @@ impl Background {
     }
 
     /// Update current configuration.
-    pub(crate) fn update_config(&self, config: Config) {
+    pub(crate) async fn update_config(&self, config: Config) -> bool {
+        let (sender, receiver) = oneshot::channel();
+
         let _ = self
             .channel
-            .send(BackgroundEvent::SaveConfig(config.clone()));
+            .send(BackgroundEvent::SaveConfig(config.clone(), sender));
+
+        if receiver.await.is_err() {
+            return false;
+        }
+
         self.inner.write().unwrap().config = config;
+        true
     }
 
     /// Access current configuration.
@@ -78,7 +87,7 @@ impl Background {
     /// Handle a background event.
     pub(crate) async fn handle_event(&self, event: BackgroundEvent, args: &Args) -> Result<()> {
         match event {
-            BackgroundEvent::SaveConfig(config) => {
+            BackgroundEvent::SaveConfig(config, callback) => {
                 let dirs = self.dirs.clone();
                 let path = dirs.config_path();
                 ensure_parent_dir(&path).await?;
@@ -100,6 +109,7 @@ impl Background {
                 let indexes = data::open_from_args(&args.index[..], &self.dirs)?;
                 let db = lib::database::Database::open(indexes, &new_config)?;
                 self.inner.write().unwrap().database = db;
+                let _ = callback.send(());
             }
         }
 

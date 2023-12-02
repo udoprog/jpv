@@ -87,6 +87,16 @@ impl RequestError {
             status: Some(StatusCode::NOT_FOUND),
         }
     }
+
+    fn internal<M>(msg: M) -> Self
+    where
+        M: fmt::Display + fmt::Debug + Send + Sync + 'static,
+    {
+        Self {
+            error: anyhow::Error::msg(msg),
+            status: Some(StatusCode::INTERNAL_SERVER_ERROR),
+        }
+    }
 }
 
 impl From<anyhow::Error> for RequestError {
@@ -184,7 +194,10 @@ async fn update_config(
     Extension(bg): Extension<Background>,
     Json(config): Json<Config>,
 ) -> RequestResult<Json<api::Empty>> {
-    bg.update_config(config);
+    if !bg.update_config(config).await {
+        return Err(RequestError::internal("Failed to update configuration"));
+    }
+
     Ok(Json(api::Empty))
 }
 

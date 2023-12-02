@@ -12,8 +12,13 @@
     --tab-active-background: #3c3c3c;
     --tab-disabled-color: #8f8f8f;
 
+    --primary-color: #000000;
+    --primary-bg: #35bba2;
+
     --destructive-color: #d6d6d6;
     --destructive-bg: #8b0b0b;
+
+    --button-border: #656565;
 
     --bullet-bg: #8abc83;
     --bullet-bg-disabled: #8393bc;
@@ -229,6 +234,10 @@ h5, h6 {
         &.row-spaced {
             gap: 0.5rem;
         }
+
+        .end {
+            margin-left: auto;
+        }
     }
 
     &.notice {
@@ -323,11 +332,24 @@ h5, h6 {
 }
 
 .btn {
+    cursor: pointer;
+    color: var(--primary-color);
     padding: 0.1rem 0.25rem;
+    border: 1px solid var(--button-border);
+    border-radius: 5px;
 
     &-lg {
         font-size: 1.1em;
         padding: 0.25rem 0.5rem;
+    }
+
+    &.primary {
+        color: var(--primary-color);
+        background-color: var(--primary-bg);
+    }
+
+    &:disabled {
+        opacity: 0.5;
     }
 }
 

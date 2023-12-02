@@ -10,6 +10,7 @@ use yew_router::{prelude::*, AnyRoute};
 
 use crate::error::Error;
 use crate::ws;
+use crate::Route;
 use crate::{components as c, fetch};
 
 use super::{comma, seq, spacing};
@@ -25,6 +26,7 @@ pub(crate) enum History {
 }
 
 pub(crate) enum Msg {
+    Navigate(Route),
     Mode(Mode),
     CaptureClipboard(bool),
     Tab(Tab),
@@ -377,6 +379,13 @@ impl Component for Prompt {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::Navigate(route) => {
+                if let Some(navigator) = ctx.link().navigator() {
+                    navigator.push(&route);
+                }
+
+                true
+            }
             Msg::SearchResponse(response) => {
                 if response.serial == Some(self.serials.search) {
                     self.phrases = response.phrases;
@@ -801,6 +810,11 @@ impl Component for Prompt {
             self.query.embed.then_some("embed"),
         };
 
+        let onclick = ctx.link().callback(|e: MouseEvent| {
+            e.prevent_default();
+            Msg::Navigate(Route::Config)
+        });
+
         let prompt = (!self.query.embed).then(|| html! {
             <>
             <div class="block block row" id="prompt">
@@ -816,7 +830,7 @@ impl Component for Prompt {
                 {spacing()}
 
                 <label for="hiragana" title="Process input as Hiragana">
-                    <input type="checkbox" id="hiragana"  checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
+                    <input type="checkbox" id="hiragana" checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
                     {"ひらがな"}
                 </label>
 
@@ -833,24 +847,24 @@ impl Component for Prompt {
                     <input type="checkbox" id="clipboard" checked={self.query.capture_clipboard} onchange={oncaptureclipboard} />
                     {"📋"}
                 </label>
+
+                <button class="btn btn-lg end" {onclick}>{"⚙️"}</button>
             </div>
             </>
         });
 
         html! {
-            <BrowserRouter>
-                <div id="container" {class}>
-                    <>{for prompt}</>
+            <div id="container" {class}>
+                <>{for prompt}</>
 
-                    <>
-                        {analyze}
-                        {for translation}
-                        {results}
-                    </>
+                <>
+                    {analyze}
+                    {for translation}
+                    {results}
+                </>
 
-                    <div class="block block-xl" id="copyright">{copyright()}</div>
-                </div>
-            </BrowserRouter>
+                <div class="block block-xl" id="copyright">{copyright()}</div>
+            </div>
         }
     }
 }

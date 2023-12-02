@@ -1,13 +1,13 @@
 use lib::api;
 use lib::config::IndexKind;
 use yew::prelude::*;
+use yew_router::prelude::*;
 
 use crate::error::Error;
 use crate::fetch;
 
-use super::spacing;
-
 pub enum Msg {
+    Back,
     Config(lib::config::Config),
     Toggle(IndexKind),
     Save,
@@ -48,6 +48,11 @@ impl Component for Config {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::Back => {
+                if let Some(navigator) = ctx.link().navigator() {
+                    navigator.back();
+                }
+            }
             Msg::Config(config) => {
                 self.state = Some(State {
                     remote: config.clone(),
@@ -90,42 +95,50 @@ impl Component for Config {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let config = self.state.as_ref().map(|state| {
-            let mut indexes = Vec::new();
-
-            for &index in IndexKind::ALL {
-                let onchange = ctx.link().callback(move |e: Event| {
-                    e.prevent_default();
-                    Msg::Toggle(index)
-                });
-
-                let class = classes!{
-                    "block",
-                    "row",
-                    "setting",
-                    state.local.is_enabled(index).then_some("enabled"),
-                };
-
-                indexes.push(html! {
-                    <>
-                        <div {class}>
-                            <input id={index.name()} type="checkbox" checked={state.local.is_enabled(index)} {onchange} />
-                            <label for={index.name()}>{index.description()}</label>
-                        </div>
-                    </>
-                });
-            }
-
-            html! {
-                {for indexes}
-            }
-        });
-
-        let cant_save = self.pending
+        let disabled = self.pending
             || match &self.state {
                 Some(state) => state.local == state.remote,
                 None => false,
             };
+
+        let mut indexes = Vec::new();
+
+        for &index in IndexKind::ALL {
+            let onchange = ctx.link().callback(move |e: Event| {
+                e.prevent_default();
+                Msg::Toggle(index)
+            });
+
+            let checked = match &self.state {
+                Some(state) => state.local.is_enabled(index),
+                None => false,
+            };
+
+            let class = classes! {
+                "block",
+                "row",
+                "setting",
+                checked.then_some("enabled"),
+            };
+
+            indexes.push(html! {
+                <>
+                    <div {class}>
+                        <input id={index.name()} type="checkbox" {checked} disabled={self.pending} {onchange} />
+                        <label for={index.name()}>{index.description()}</label>
+                    </div>
+                </>
+            });
+        }
+
+        let config = html! {
+            {for indexes}
+        };
+
+        let onback = ctx.link().callback(|e: MouseEvent| {
+            e.prevent_default();
+            Msg::Back
+        });
 
         let onsave = ctx.link().callback(|e: MouseEvent| {
             e.prevent_default();
@@ -141,7 +154,8 @@ impl Component for Config {
                 </div>
 
                 <div class="block block-lg row row-spaced">
-                    <button class="btn btn-lg" disabled={cant_save} onclick={onsave}>{"Save"}</button>
+                <button class="btn btn-lg" onclick={onback}>{"Back"}</button>
+                    <button class="btn btn-lg end primary" {disabled} onclick={onsave}>{"Save"}</button>
                     <button class="btn btn-lg">{"Rebuild database"}</button>
                 </div>
             </div>
