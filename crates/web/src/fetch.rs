@@ -9,9 +9,14 @@ use web_sys::{Request, RequestInit, RequestMode, Response};
 
 use crate::error::Error;
 
+/// Get service configuration.
+pub(crate) async fn config() -> Result<lib::config::Config, Error> {
+    get("config", []).await
+}
+
 /// Perform the given search.
 pub(crate) async fn search(q: &str, serial: u32) -> Result<api::OwnedSearchResponse, Error> {
-    request(
+    get(
         "search",
         [("q", q), ("serial", serial.to_string().as_str())],
     )
@@ -24,7 +29,7 @@ pub(crate) async fn analyze(
     start: usize,
     serial: u32,
 ) -> Result<api::OwnedAnalyzeResponse, Error> {
-    request(
+    get(
         "analyze",
         [
             ("q", q),
@@ -35,7 +40,7 @@ pub(crate) async fn analyze(
     .await
 }
 
-async fn request<T, const N: usize>(p: &str, pairs: [(&str, &str); N]) -> Result<T, Error>
+async fn get<T, const N: usize>(p: &str, pairs: [(&str, &str); N]) -> Result<T, Error>
 where
     T: DeserializeOwned,
 {

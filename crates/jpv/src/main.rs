@@ -196,8 +196,8 @@
 
 #![cfg_attr(all(not(feature = "cli"), windows), windows_subsystem = "windows")]
 
+mod background;
 mod command;
-mod config;
 mod dbus;
 mod open_uri;
 mod system;
@@ -208,7 +208,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Parser;
 use clap::Subcommand;
-use config::Config;
+use lib::config::Config;
 use lib::Dirs;
 #[cfg(windows)]
 use tokio::signal::windows::ctrl_shutdown;
@@ -263,24 +263,25 @@ async fn main() -> Result<()> {
 
     let dirs = Dirs::open()?;
 
+    let config = Config::load(&dirs)?;
+
     match &args.command {
         None => {
             let service_args = Default::default();
-            self::command::service::run(&args, &service_args, &dirs).await?;
+            self::command::service::run(&args, &service_args, dirs, config).await?;
         }
         Some(Command::Service(service_args)) => {
-            self::command::service::run(&args, service_args, &dirs).await?;
+            self::command::service::run(&args, service_args, dirs, config).await?;
         }
         Some(Command::Cli(cli_args)) => {
-            self::command::cli::run(&args, cli_args, &dirs).await?;
+            self::command::cli::run(&args, cli_args, &dirs, config).await?;
         }
         Some(Command::SendClipboard(send_clipboard_args)) => {
             self::command::send_clipboard::run(send_clipboard_args).await?;
         }
         #[cfg(feature = "build")]
         Some(Command::Build(build_args)) => {
-            let config = Config::load(&dirs)?;
-            self::command::build::run(&args, build_args, &dirs, &config).await?;
+            self::command::build::run(&args, build_args, &dirs, config).await?;
         }
     }
 

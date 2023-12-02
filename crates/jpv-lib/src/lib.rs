@@ -17,8 +17,13 @@ pub use ::borrowme::to_owned;
 pub use ::borrowme::borrow;
 
 #[macro_use]
+pub mod reporter;
+
+#[macro_use]
 pub mod inflection;
 pub use self::inflection::{Form, Inflection, Inflections, OwnedInflections};
+
+pub mod config;
 
 pub mod data;
 

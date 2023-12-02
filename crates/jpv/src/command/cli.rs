@@ -7,6 +7,7 @@ use std::mem;
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
+use lib::config::Config;
 use lib::data;
 use lib::database::{Database, Entry, Id, IndexSource};
 use lib::inflection;
@@ -61,7 +62,12 @@ enum OutputFormat {
     JsonPretty,
 }
 
-pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<()> {
+pub(crate) async fn run(
+    args: &Args,
+    cli_args: &CliArgs,
+    dirs: &Dirs,
+    config: Config,
+) -> Result<()> {
     let format = match cli_args.output_format.as_deref() {
         Some("rich") => OutputFormat::Rich,
         Some("json") | None => OutputFormat::Json,
@@ -81,8 +87,7 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
 
     // SAFETY: we know this is only initialized once here exclusively.
     let indexes = data::open_from_args(&args.index[..], dirs)?;
-
-    let db = Database::open(indexes)?;
+    let db = Database::open(indexes, &config)?;
 
     let mut to_look_up = BTreeSet::new();
 

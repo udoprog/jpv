@@ -5,6 +5,7 @@ use std::pin::pin;
 use anyhow::{Context, Result};
 use async_fuse::Fuse;
 use clap::Parser;
+use lib::config::Config;
 use lib::data;
 use lib::Dirs;
 use tokio::signal::ctrl_c;
@@ -12,6 +13,7 @@ use tokio::signal::ctrl_c;
 use tokio::signal::windows::ctrl_shutdown;
 use tokio::sync::Notify;
 
+use crate::background::Background;
 use crate::dbus;
 use crate::open_uri;
 use crate::system;
@@ -39,7 +41,12 @@ pub(crate) struct ServiceArgs {
     bind: Option<String>,
 }
 
-pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) -> Result<()> {
+pub(crate) async fn run(
+    args: &Args,
+    service_args: &ServiceArgs,
+    dirs: Dirs,
+    config: Config,
+) -> Result<()> {
     let addr: SocketAddr = service_args
         .bind
         .as_deref()
@@ -81,11 +88,11 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
     };
 
     // SAFETY: we know this is only initialized once here exclusively.
-    let indexes = data::open_from_args(&args.index[..], dirs)?;
+    let indexes = data::open_from_args(&args.index[..], &dirs)?;
+    let db = lib::database::Database::open(indexes, &config)?;
+    let background = Background::new(config, dirs, db);
 
-    let db = lib::database::Database::open(indexes)?;
-
-    let mut server = pin!(web::setup(local_port, listener, db, system_events)?);
+    let mut server = pin!(web::setup(local_port, listener, background, system_events)?);
     tracing::info!("Listening on http://{local_addr}");
 
     if !service_args.no_open {

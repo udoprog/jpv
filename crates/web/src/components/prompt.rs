@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::str::from_utf8;
-use std::sync::Arc;
 
 use lib::api;
 use lib::kanjidic2;
@@ -230,93 +229,27 @@ pub(crate) struct Prompt {
 
 impl Prompt {
     fn refresh(&mut self, ctx: &Context<Self>, input: &str) {
-        if let Some(db) = &*ctx.props().db {
-            let input = input.to_lowercase();
+        let input = input.to_lowercase();
+        let serial = self.serials.search();
 
-            ctx.link().send_message(match db.search(&input) {
-                Ok(search) => {
-                    let phrases = search
-                        .phrases
-                        .into_iter()
-                        .map(|(key, e)| api::OwnedSearchPhrase {
-                            key,
-                            phrase: borrowme::to_owned(e),
-                        })
-                        .collect();
-
-                    let names = search
-                        .names
-                        .into_iter()
-                        .map(|(key, e)| api::OwnedSearchName {
-                            key,
-                            name: borrowme::to_owned(e),
-                        })
-                        .collect();
-
-                    let characters = search
-                        .characters
-                        .into_iter()
-                        .map(borrowme::to_owned)
-                        .collect();
-
-                    let serial = self.serials.search();
-
-                    let response = api::OwnedSearchResponse {
-                        phrases,
-                        names,
-                        characters,
-                        serial: Some(serial),
-                    };
-
-                    Msg::SearchResponse(response)
-                }
-                Err(error) => Msg::Error(error.into()),
-            });
-        } else {
-            let input = input.to_lowercase();
-            let serial = self.serials.search();
-
-            ctx.link().send_future(async move {
-                match fetch::search(&input, serial).await {
-                    Ok(entries) => Msg::SearchResponse(entries),
-                    Err(error) => Msg::Error(error),
-                }
-            });
-        }
+        ctx.link().send_future(async move {
+            match fetch::search(&input, serial).await {
+                Ok(entries) => Msg::SearchResponse(entries),
+                Err(error) => Msg::Error(error),
+            }
+        });
     }
 
     fn analyze(&mut self, ctx: &Context<Self>, start: usize, history: History) {
-        if let Some(db) = &*ctx.props().db {
-            let serial = self.serials.analyze();
+        let input = self.query.q.clone();
+        let serial = self.serials.analyze();
 
-            ctx.link()
-                .send_message(match db.analyze(&self.query.q, start) {
-                    Ok(data) => Msg::AnalyzeResponse(
-                        api::OwnedAnalyzeResponse {
-                            data: data
-                                .into_iter()
-                                .map(|(key, string)| api::OwnedAnalyzeEntry {
-                                    key,
-                                    string: string.to_owned(),
-                                })
-                                .collect(),
-                            serial: Some(serial),
-                        },
-                        history,
-                    ),
-                    Err(error) => Msg::Error(error.into()),
-                });
-        } else {
-            let input = self.query.q.clone();
-            let serial = self.serials.analyze();
-
-            ctx.link().send_future(async move {
-                match fetch::analyze(&input, start, serial).await {
-                    Ok(entries) => Msg::AnalyzeResponse(entries, history),
-                    Err(error) => Msg::Error(error),
-                }
-            });
-        }
+        ctx.link().send_future(async move {
+            match fetch::analyze(&input, start, serial).await {
+                Ok(entries) => Msg::AnalyzeResponse(entries, history),
+                Err(error) => Msg::Error(error),
+            }
+        });
     }
 
     fn save_query(&mut self, ctx: &Context<Prompt>, history: History) {
@@ -401,16 +334,8 @@ impl Prompt {
     }
 }
 
-#[derive(Properties)]
-pub(crate) struct Props {
-    pub(crate) db: Arc<Option<lib::database::Database>>,
-}
-
-impl PartialEq for Props {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.db, &other.db)
-    }
-}
+#[derive(Properties, PartialEq)]
+pub(crate) struct Props;
 
 impl Component for Prompt {
     type Message = Msg;

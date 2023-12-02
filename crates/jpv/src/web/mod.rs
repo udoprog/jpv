@@ -23,15 +23,16 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Extension, Json, Router};
 use lib::api;
-use lib::database::Database;
+use lib::config::Config;
 use tower_http::cors::CorsLayer;
 
+use crate::background::Background;
 use crate::system;
 
 pub(crate) fn setup(
     local_port: u16,
     listener: TcpListener,
-    db: Database,
+    background: Background,
     system_events: system::SystemEvents,
 ) -> Result<impl Future<Output = Result<()>>> {
     let server = match axum::Server::from_tcp(listener) {
@@ -47,7 +48,7 @@ pub(crate) fn setup(
         .allow_methods([Method::GET]);
 
     let app = self::r#impl::router()
-        .layer(Extension(db))
+        .layer(Extension(background))
         .layer(Extension(system_events))
         .layer(cors);
 
@@ -61,6 +62,7 @@ pub(crate) fn setup(
 
 fn common_routes(router: Router) -> Router {
     router
+        .route("/api/config", get(config).post(update_config))
         .route("/api/analyze", get(analyze))
         .route("/api/search", get(search))
         .route("/api/entry/:sequence", get(entry))
@@ -100,8 +102,10 @@ impl From<anyhow::Error> for RequestError {
 async fn entry(
     Path(sequence): Path<u32>,
     Query(query): Query<api::EntryQuery>,
-    Extension(db): Extension<Database>,
+    Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedEntryResponse>> {
+    let db = bg.database();
+
     let Some(entry) = db.sequence_to_entry(sequence)? else {
         return Err(RequestError::not_found(format!(
             "Missing entry by id `{}`",
@@ -118,8 +122,10 @@ async fn entry(
 async fn kanji(
     Path(literal): Path<String>,
     Query(query): Query<api::KanjiQuery>,
-    Extension(db): Extension<Database>,
+    Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedKanjiResponse>> {
+    let db = bg.database();
+
     let Some(entry) = db.literal_to_kanji(&literal)? else {
         return Err(RequestError::not_found(format!(
             "Missing kanji by literal `{literal}`",
@@ -134,12 +140,13 @@ async fn kanji(
 
 async fn search(
     Query(request): Query<api::OwnedSearchRequest>,
-    Extension(db): Extension<Database>,
+    Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedSearchResponse>> {
     let Some(q) = request.q.as_deref() else {
         return Err(Error::msg("Missing `q`").into());
     };
 
+    let db = bg.database();
     let search = db.search(q)?;
 
     let mut phrases = Vec::new();
@@ -167,11 +174,28 @@ async fn search(
     }))
 }
 
+/// Read the current service configuration.
+async fn config(Extension(bg): Extension<Background>) -> RequestResult<Json<Config>> {
+    Ok(Json(bg.config()))
+}
+
+/// Read the current service configuration.
+async fn update_config(
+    Extension(bg): Extension<Background>,
+    Json(config): Json<Config>,
+) -> RequestResult<()> {
+    bg.update_config(config);
+    Ok(())
+}
+
+/// Perform text analysis.
 async fn analyze(
     Query(request): Query<api::OwnedAnalyzeRequest>,
-    Extension(db): Extension<Database>,
+    Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedAnalyzeResponse>> {
     let mut data = Vec::new();
+
+    let db = bg.database();
 
     for (key, string) in db.analyze(&request.q, request.start)? {
         data.push(api::OwnedAnalyzeEntry {

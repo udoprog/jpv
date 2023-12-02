@@ -1349,7 +1349,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-dbus",
- "toml",
  "tower-http",
  "tracing",
  "tracing-subscriber",
@@ -1373,6 +1372,7 @@ dependencies = [
  "relative-path",
  "serde",
  "thiserror",
+ "toml",
  "tracing",
  "xmlparser",
 ]

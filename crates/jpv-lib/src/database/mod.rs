@@ -19,11 +19,13 @@ use musli_zerocopy::{slice, swiss, trie, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::config::Config;
 use crate::data::Data;
 use crate::inflection::{self, Inflection};
 use crate::jmdict;
 use crate::jmnedict;
 use crate::kanjidic2;
+use crate::reporter::Reporter;
 use crate::romaji::{self, is_hiragana, is_katakana, Segment};
 use crate::{PartOfSpeech, Weight};
 use crate::{DICTIONARY_MAGIC, DICTIONARY_VERSION};
@@ -258,7 +260,7 @@ pub struct Search<'a> {
 }
 
 /// Build a dictionary from the given jmdict and kanjidic sources.
-pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
+pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<OwnedBuf> {
     let mut buf = OwnedBuf::new();
 
     let header = buf.store_uninit::<Header>();
@@ -275,7 +277,7 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
 
     match input {
         Input::Jmdict(input) => {
-            tracing::info!("Parsing input JMdict");
+            report_info!(reporter, "Parsing input JMdict");
             let mut jmdict = jmdict::Parser::new(input);
 
             while let Some(entry) = jmdict.parse()? {
@@ -334,7 +336,7 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
             }
         }
         Input::Kanjidic(input) => {
-            tracing::info!("Parsing input kanjidic");
+            report_info!(reporter, "Parsing input kanjidic");
             let mut kanjidic2 = kanjidic2::Parser::new(input);
 
             while let Some(c) = kanjidic2.parse()? {
@@ -389,7 +391,7 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
             }
         }
         Input::Jmnedict(input) => {
-            tracing::info!("Parsing input jmnedict");
+            report_info!(reporter, "Parsing input jmnedict");
             let mut jmnedict = jmnedict::Parser::new(input);
 
             while let Some(entry) = jmnedict.next()? {
@@ -419,7 +421,7 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
     }
 
     lookup.sort_by(|(a, _), (b, _)| b.as_ref().cmp(a.as_ref()));
-    tracing::info!("Inserting {} readings", lookup.len());
+    report_info!(reporter, "Inserting {} readings", lookup.len());
 
     let mut readings2 = Vec::with_capacity(lookup.len());
     let by_kanji_literal;
@@ -429,7 +431,7 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
 
         for (key, id) in &lookup {
             if indexer.total() % 100000 == 0 {
-                tracing::info!("Building strings: {}: {key:?}", indexer.total());
+                report_info!(reporter, "Building strings: {}: {key:?}", indexer.total());
             }
 
             let s = indexer.store(&mut buf, key.as_ref())?;
@@ -447,7 +449,8 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
             output
         };
 
-        tracing::info!(
+        report_info!(
+            reporter,
             "Reused {} string(s) (out of {})",
             indexer.reuse(),
             indexer.total()
@@ -461,7 +464,7 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
         lookup.insert(&buf, key, id)?;
     }
 
-    tracing::info!("Serializing to zerocopy structure");
+    report_info!(reporter, "Serializing to zerocopy structure");
 
     let lookup = lookup.build(&mut buf)?;
 
@@ -470,7 +473,7 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
 
         for (index, (key, set)) in by_pos.into_iter().enumerate() {
             if index % 10000 == 0 {
-                tracing::info!("{}", index);
+                report_info!(reporter, "{}", index);
             }
 
             let mut values = Vec::new();
@@ -484,17 +487,21 @@ pub fn build(name: &str, input: Input<'_>) -> Result<OwnedBuf> {
             entries.push((key, set));
         }
 
-        tracing::info!("Storing by_pos: {}...", entries.len());
+        report_info!(reporter, "Storing by_pos: {}...", entries.len());
         swiss::store_map(&mut buf, entries)?
     };
 
     let by_kanji_literal = {
-        tracing::info!("Storing by_kanji_literal: {}...", by_kanji_literal.len());
+        report_info!(
+            reporter,
+            "Storing by_kanji_literal: {}...",
+            by_kanji_literal.len()
+        );
         swiss::store_map(&mut buf, by_kanji_literal)?
     };
 
     let by_sequence = {
-        tracing::info!("Storing by_sequence: {}...", by_sequence.len());
+        report_info!(reporter, "Storing by_sequence: {}...", by_sequence.len());
         swiss::store_map(&mut buf, by_sequence)?
     };
 
@@ -670,6 +677,11 @@ impl Index {
         Ok(Self { header, data })
     }
 
+    /// Load the name of the index.
+    pub fn name(&self) -> Result<&str> {
+        Ok(self.data.as_buf().load(self.header.name)?)
+    }
+
     /// Get an entry from the database.
     pub fn entry_at(&self, id: Id) -> Result<Entry<'_>> {
         let Some(bytes) = self.data.as_buf().get(id.offset as usize..) else {
@@ -691,15 +703,21 @@ pub struct Database {
 
 impl Database {
     /// Open a sequence of indexes.
-    pub fn open<I>(iter: I) -> Result<Self>
+    pub fn open<I>(iter: I, config: &Config) -> Result<Self>
     where
         I: IntoIterator<Item = (Data, Location)>,
     {
         let mut indexes = Vec::new();
 
         for (data, location) in iter {
-            indexes
-                .push(Index::open(data).with_context(|| anyhow!("Loading index from {location}"))?);
+            let index =
+                Index::open(data).with_context(|| anyhow!("Loading index from {location}"))?;
+
+            if !config.is_enabled(index.name()?) {
+                continue;
+            }
+
+            indexes.push(index);
         }
 
         Ok(Self {

@@ -3,54 +3,62 @@ mod error;
 mod fetch;
 mod ws;
 
-use std::sync::Arc;
-
-use anyhow::Context as _;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
 use self::components as c;
 
+#[derive(Debug, Clone, Copy, PartialEq, Routable)]
+enum Route {
+    #[at("/")]
+    Prompt,
+    #[at("/config")]
+    Config,
+    #[not_found]
+    #[at("/404")]
+    NotFound,
+}
+
 enum Msg {}
-
-#[derive(Properties)]
-struct Props {
-    db: Arc<Option<lib::database::Database>>,
-}
-
-impl PartialEq for Props {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.db, &other.db)
-    }
-}
 
 struct App;
 
 impl Component for App {
     type Message = Msg;
-    type Properties = Props;
+    type Properties = ();
 
     fn create(_: &Context<Self>) -> Self {
         Self
     }
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
+    fn view(&self, _: &Context<Self>) -> Html {
         html! {
             <BrowserRouter>
-                <c::Prompt db={ctx.props().db.clone()} />
+                <Switch<Route> render={switch} />
             </BrowserRouter>
         }
     }
 }
 
-fn load_database() -> anyhow::Result<Option<lib::database::Database>> {
-    Ok(None)
+fn switch(routes: Route) -> Html {
+    match routes {
+        Route::Prompt => html! {
+            <c::Prompt />
+        },
+        Route::Config => html! {
+            <c::Config />
+        },
+        Route::NotFound => {
+            html! {
+                <div id="container">{"There is nothing here"}</div>
+            }
+        }
+    }
 }
 
 fn main() -> anyhow::Result<()> {
     wasm_logger::init(wasm_logger::Config::default());
-    let db = Arc::new(load_database().context("loading database")?);
     log::info!("Started up");
-    yew::Renderer::<App>::with_props(Props { db }).render();
+    yew::Renderer::<App>::new().render();
     Ok(())
 }
