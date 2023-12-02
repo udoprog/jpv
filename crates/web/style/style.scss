@@ -13,7 +13,12 @@
     --tab-disabled-color: #8f8f8f;
 
     --primary-color: #000000;
+
+    --default-bg: #e4e4e4;
+    --default-bg-darker: #a4a4a4;
+
     --primary-bg: #35bba2;
+    --primary-bg-darker: #2e9e89;
 
     --destructive-color: #d6d6d6;
     --destructive-bg: #8b0b0b;
@@ -93,10 +98,10 @@ body {
         font-size: 180%;
         white-space: pre;
         line-height: 1.2em;
-    }
 
-    &.empty {
-        font-style: italic;
+        &.empty {
+            font-style: italic;
+        }
     }
 }
 
@@ -332,24 +337,38 @@ h5, h6 {
 }
 
 .btn {
-    cursor: pointer;
     color: var(--primary-color);
+    background-color: var(--default-bg);
     padding: 0.1rem 0.25rem;
     border: 1px solid var(--button-border);
     border-radius: 5px;
 
-    &-lg {
-        font-size: 1.1em;
-        padding: 0.25rem 0.5rem;
+    cursor: pointer;
+
+    &:disabled {
+        cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+        background-color: var(--default-bg-darker);
     }
 
     &.primary {
         color: var(--primary-color);
         background-color: var(--primary-bg);
+
+        &:hover:not(:disabled) {
+            background-color: var(--primary-bg-darker);
+        }
     }
 
     &:disabled {
         opacity: 0.5;
+    }
+
+    &-lg {
+        font-size: 1.1em;
+        padding: 0.25rem 0.5rem;
     }
 }
 

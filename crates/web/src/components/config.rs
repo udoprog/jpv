@@ -12,11 +12,16 @@ pub enum Msg {
     Toggle(IndexKind),
     Save,
     Saved,
+    Rebuild,
+    Rebuilt,
     Error(Error),
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props;
+pub struct Props {
+    #[prop_or_default]
+    pub embed: bool,
+}
 
 struct State {
     remote: lib::config::Config,
@@ -85,6 +90,17 @@ impl Component for Config {
 
                 self.pending = false;
             }
+            Msg::Rebuild => {
+                ctx.link().send_future(async move {
+                    match fetch::rebuild().await {
+                        Ok(api::Empty) => Msg::Rebuilt,
+                        Err(error) => Msg::Error(error),
+                    }
+                });
+            }
+            Msg::Rebuilt => {
+                self.pending = false;
+            }
             Msg::Error(error) => {
                 log::error!("Error: {}", error);
                 self.pending = false;
@@ -135,18 +151,29 @@ impl Component for Config {
             {for indexes}
         };
 
-        let onback = ctx.link().callback(|e: MouseEvent| {
-            e.prevent_default();
-            Msg::Back
-        });
-
         let onsave = ctx.link().callback(|e: MouseEvent| {
             e.prevent_default();
             Msg::Save
         });
 
+        let onrebuild = ctx.link().callback(|e: MouseEvent| {
+            e.prevent_default();
+            Msg::Rebuild
+        });
+
+        let back = (!ctx.props().embed).then(|| {
+            let onback = ctx.link().callback(|e: MouseEvent| {
+                e.prevent_default();
+                Msg::Back
+            });
+
+            html! {
+                <button class="btn btn-lg" onclick={onback}>{"Back"}</button>
+            }
+        });
+
         html! {
-            <div id="container">
+            <>
                 <h5>{"Enabled sources"}</h5>
 
                 <div class="block block-lg">
@@ -154,11 +181,11 @@ impl Component for Config {
                 </div>
 
                 <div class="block block-lg row row-spaced">
-                <button class="btn btn-lg" onclick={onback}>{"Back"}</button>
+                    {back}
                     <button class="btn btn-lg end primary" {disabled} onclick={onsave}>{"Save"}</button>
-                    <button class="btn btn-lg">{"Rebuild database"}</button>
+                    <button class="btn btn-lg" onclick={onrebuild}>{"Rebuild database"}</button>
                 </div>
-            </div>
+            </>
         }
     }
 }

@@ -1,9 +1,11 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
 
 use lib::config::{Config, IndexKind};
+use lib::reporter::TracingReporter;
 use lib::Dirs;
 
 use crate::background::DownloadOverrides;
@@ -45,10 +47,10 @@ pub(crate) async fn run(
         overrides.insert(IndexKind::Jmnedict, path);
     }
 
-    let tracing_reporter = lib::reporter::TracingReporter;
+    let tracing_reporter = Arc::new(TracingReporter);
 
     let to_download = crate::background::config_to_download(&config, dirs, overrides);
-    crate::background::build(&tracing_reporter, dirs, to_download, build_args.force).await?;
+    crate::background::build(tracing_reporter, dirs, &to_download, build_args.force).await?;
     crate::dbus::shutdown().await?;
     Ok(())
 }

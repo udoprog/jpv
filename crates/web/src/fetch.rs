@@ -21,6 +21,11 @@ pub(crate) async fn update_config(config: Config) -> Result<api::Empty, Error> {
     post("config", config).await
 }
 
+/// Update service configuration..
+pub(crate) async fn rebuild() -> Result<api::Empty, Error> {
+    post("rebuild", api::Empty).await
+}
+
 /// Perform the given search.
 pub(crate) async fn search(q: &str, serial: u32) -> Result<api::OwnedSearchResponse, Error> {
     get(

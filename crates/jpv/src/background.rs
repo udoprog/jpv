@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -8,7 +9,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use flate2::read::GzDecoder;
 use lib::config::{Config, IndexKind};
 use lib::database::{self, Database, Input};
-use lib::reporter::Reporter;
+use lib::reporter::{Reporter, TracingReporter};
 use lib::{data, Dirs};
 use reqwest::Method;
 use tempfile::NamedTempFile;
@@ -34,13 +35,17 @@ struct Inner {
 
 /// Events emitted by modifying the background service.
 pub enum BackgroundEvent {
+    /// Save configuration file.
     SaveConfig(Config, oneshot::Sender<()>),
+    /// Force a database rebuild.
+    Rebuild(bool),
 }
 
 #[derive(Clone)]
 pub struct Background {
     dirs: Arc<Dirs>,
     channel: UnboundedSender<BackgroundEvent>,
+    rebuild: Arc<AtomicBool>,
     inner: Arc<RwLock<Inner>>,
 }
 
@@ -54,6 +59,7 @@ impl Background {
         Self {
             dirs: Arc::new(dirs),
             channel,
+            rebuild: Arc::new(AtomicBool::new(false)),
             inner: Arc::new(RwLock::new(Inner { config, database })),
         }
     }
@@ -72,6 +78,11 @@ impl Background {
 
         self.inner.write().unwrap().config = config;
         true
+    }
+
+    /// Trigger a rebuild.
+    pub(crate) async fn rebuild(&self) {
+        let _ = self.channel.send(BackgroundEvent::Rebuild(false));
     }
 
     /// Access current configuration.
@@ -110,6 +121,26 @@ impl Background {
                 let db = lib::database::Database::open(indexes, &new_config)?;
                 self.inner.write().unwrap().database = db;
                 let _ = callback.send(());
+            }
+            BackgroundEvent::Rebuild(force) => {
+                let building = self.rebuild.fetch_or(true, Ordering::SeqCst);
+
+                if building {
+                    return Ok(());
+                }
+
+                let config = self.config();
+                let dirs = self.dirs.clone();
+
+                let reporter = Arc::new(TracingReporter);
+                let rebuild = self.rebuild.clone();
+
+                tokio::spawn(async move {
+                    let to_download = config_to_download(&config, &dirs, Default::default());
+                    let result = build(reporter, &dirs, &to_download, force).await;
+                    rebuild.store(false, Ordering::SeqCst);
+                    result
+                });
             }
         }
 
@@ -190,12 +221,12 @@ pub fn config_to_download(
 
 /// Build the database in the background.
 pub(crate) async fn build(
-    reporter: &dyn Reporter,
+    reporter: Arc<dyn Reporter>,
     dirs: &Dirs,
-    to_download: Vec<ToDownload>,
+    to_download: &[ToDownload],
     force: bool,
 ) -> Result<()> {
-    for download in &to_download {
+    for download in to_download {
         ensure_parent_dir(&download.index_path).await?;
 
         // SAFETY: We are the only ones calling this function now.
@@ -235,7 +266,7 @@ pub(crate) async fn build(
 
         let future = async {
             let (path, data) = read_or_download(
-                reporter,
+                &*reporter,
                 download.path.as_deref(),
                 dirs,
                 &download.url_name,
@@ -251,14 +282,24 @@ pub(crate) async fn build(
                 path.display()
             );
 
-            let input = match download.kind {
-                IndexKind::Jmdict => Input::Jmdict(&data[..]),
-                IndexKind::Kanjidic2 => Input::Kanjidic(&data[..]),
-                IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
-            };
-
             let start = Instant::now();
-            let data = database::build(reporter, &download.name, input)?;
+            let kind = download.kind;
+            let name = download.name.clone();
+
+            let data = tokio::task::spawn_blocking({
+                let reporter = reporter.clone();
+                move || {
+                    let input = match kind {
+                        IndexKind::Jmdict => Input::Jmdict(&data[..]),
+                        IndexKind::Kanjidic2 => Input::Kanjidic(&data[..]),
+                        IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
+                    };
+
+                    database::build(&*reporter, &name, input)
+                }
+            })
+            .await??;
+
             let duration = Instant::now().duration_since(start);
 
             fs::write(&download.index_path, data.as_slice())

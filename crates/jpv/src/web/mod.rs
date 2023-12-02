@@ -20,7 +20,7 @@ use axum::body::{boxed, Body};
 use axum::extract::{Path, Query};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use lib::api;
 use lib::config::Config;
@@ -63,6 +63,7 @@ pub(crate) fn setup(
 fn common_routes(router: Router) -> Router {
     router
         .route("/api/config", get(config).post(update_config))
+        .route("/api/rebuild", post(rebuild))
         .route("/api/analyze", get(analyze))
         .route("/api/search", get(search))
         .route("/api/entry/:sequence", get(entry))
@@ -198,6 +199,12 @@ async fn update_config(
         return Err(RequestError::internal("Failed to update configuration"));
     }
 
+    Ok(Json(api::Empty))
+}
+
+/// Trigger a rebuild of the database.
+async fn rebuild(Extension(bg): Extension<Background>) -> RequestResult<Json<api::Empty>> {
+    bg.rebuild().await;
     Ok(Json(api::Empty))
 }
 

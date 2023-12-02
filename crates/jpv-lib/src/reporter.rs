@@ -1,25 +1,26 @@
 //! A custom reporter that can be plugged in for certain components.
 
 use std::fmt;
+use std::sync::Arc;
 
 #[macro_export]
 macro_rules! report_info {
     ($reporter:expr, $($arg:tt)*) => {
-        $crate::reporter::Reporter::info($reporter, &format_args!($($arg)*));
+        $crate::reporter::Reporter::info(&$reporter, &format_args!($($arg)*));
     }
 }
 
 #[macro_export]
 macro_rules! report_warn {
     ($reporter:expr, $($arg:tt)*) => {
-        $crate::reporter::Reporter::warn($reporter, &format_args!($($arg)*));
+        $crate::reporter::Reporter::warn(&$reporter, &format_args!($($arg)*));
     }
 }
 
 #[macro_export]
 macro_rules! report_error {
     ($reporter:expr, $($arg:tt)*) => {
-        $crate::reporter::Reporter::error($reporter, &format_args!($($arg)*));
+        $crate::reporter::Reporter::error(&$reporter, &format_args!($($arg)*));
     }
 }
 
@@ -29,7 +30,7 @@ pub enum Level {
     Warn,
 }
 
-pub trait Reporter {
+pub trait Reporter: Send + Sync {
     /// Perform info logging.
     fn info(&self, value: &dyn fmt::Display);
 
@@ -57,6 +58,26 @@ where
     #[inline]
     fn error(&self, value: &dyn fmt::Display) {
         (*self).error(value);
+    }
+}
+
+impl<T> Reporter for Arc<T>
+where
+    T: ?Sized + Reporter,
+{
+    #[inline]
+    fn info(&self, value: &dyn fmt::Display) {
+        (**self).info(value);
+    }
+
+    #[inline]
+    fn warn(&self, value: &dyn fmt::Display) {
+        (**self).warn(value);
+    }
+
+    #[inline]
+    fn error(&self, value: &dyn fmt::Display) {
+        (**self).error(value);
     }
 }
 

@@ -9,20 +9,20 @@ use crate::Dirs;
 #[serde(rename_all = "kebab-case")]
 pub enum IndexKind {
     Jmdict,
-    Kanjidic2,
     Jmnedict,
+    Kanjidic2,
 }
 
 impl IndexKind {
     pub const ALL: &'static [IndexKind] =
-        &[IndexKind::Jmdict, IndexKind::Kanjidic2, IndexKind::Jmnedict];
+        &[IndexKind::Jmdict, IndexKind::Jmnedict, IndexKind::Kanjidic2];
 
     /// Convert a string into an [`IndexKind`].
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "jmdict" => Some(IndexKind::Jmdict),
-            "kanjidic2" => Some(IndexKind::Kanjidic2),
             "jmnedict" => Some(IndexKind::Jmnedict),
+            "kanjidic2" => Some(IndexKind::Kanjidic2),
             _ => None,
         }
     }
@@ -31,8 +31,8 @@ impl IndexKind {
     pub fn name(&self) -> &'static str {
         match self {
             IndexKind::Jmdict => "jmdict",
-            IndexKind::Kanjidic2 => "kanjidic2",
             IndexKind::Jmnedict => "jmnedict",
+            IndexKind::Kanjidic2 => "kanjidic2",
         }
     }
 

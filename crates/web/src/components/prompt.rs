@@ -1,15 +1,16 @@
-use std::borrow::Cow;
 use std::str::from_utf8;
 
 use lib::api;
+use lib::api::ClientEvent;
 use lib::kanjidic2;
 use lib::romaji;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
+use crate::callbacks::Callbacks;
 use crate::error::Error;
-use crate::ws;
+use crate::query::{Mode, Query, Tab};
 use crate::Route;
 use crate::{components as c, fetch};
 
@@ -39,163 +40,14 @@ pub(crate) enum Msg {
     AnalyzeResponse(api::OwnedAnalyzeResponse, History),
     MoreEntries,
     MoreCharacters,
-    WebSocket(ws::Msg),
-    ClientEvent(api::ClientEvent),
+    ClientEvent(ClientEvent),
     Error(Error),
-}
-
-impl From<ws::Msg> for Msg {
-    #[inline]
-    fn from(msg: ws::Msg) -> Self {
-        Msg::WebSocket(msg)
-    }
-}
-
-impl From<api::ClientEvent> for Msg {
-    #[inline]
-    fn from(msg: api::ClientEvent) -> Self {
-        Msg::ClientEvent(msg)
-    }
 }
 
 impl From<Error> for Msg {
     #[inline]
     fn from(error: Error) -> Self {
         Msg::Error(error)
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Mode {
-    #[default]
-    Unfiltered,
-    Hiragana,
-    Katakana,
-}
-
-/// The current tab.
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
-pub enum Tab {
-    #[default]
-    Phrases,
-    Names,
-    Kanji,
-}
-
-#[derive(Default, Debug)]
-struct Query {
-    q: String,
-    translation: Option<String>,
-    a: Vec<String>,
-    i: usize,
-    mode: Mode,
-    capture_clipboard: bool,
-    embed: bool,
-    tab: Tab,
-}
-
-impl Query {
-    fn deserialize(raw: Vec<(String, String)>) -> (Self, Option<usize>) {
-        let mut this = Self::default();
-        let mut analyze_at = None;
-
-        for (key, value) in raw {
-            match key.as_str() {
-                "q" => {
-                    this.q = value;
-                }
-                "t" => {
-                    this.translation = Some(value);
-                }
-                "a" => {
-                    this.a.push(value);
-                }
-                "i" => {
-                    if let Ok(i) = value.parse() {
-                        this.i = i;
-                    }
-                }
-                "mode" => {
-                    this.mode = match value.as_str() {
-                        "hiragana" => Mode::Hiragana,
-                        "katakana" => Mode::Katakana,
-                        _ => Mode::Unfiltered,
-                    };
-                }
-                "cb" => {
-                    this.capture_clipboard = value == "yes";
-                }
-                "embed" => {
-                    this.embed = value == "yes";
-                }
-                "tab" => {
-                    this.tab = match value.as_str() {
-                        "phrases" => Tab::Phrases,
-                        "names" => Tab::Names,
-                        "kanji" => Tab::Kanji,
-                        _ => Tab::default(),
-                    };
-                }
-                "analyzeAt" => {
-                    if let Ok(i) = value.parse() {
-                        analyze_at = Some(i);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        (this, analyze_at)
-    }
-
-    fn serialize(&self) -> Vec<(&'static str, Cow<'_, str>)> {
-        let mut out = Vec::new();
-
-        if !self.q.is_empty() {
-            out.push(("q", Cow::Borrowed(self.q.as_str())));
-        }
-
-        if let Some(t) = &self.translation {
-            out.push(("t", Cow::Borrowed(t)));
-        }
-
-        for a in &self.a {
-            out.push(("a", Cow::Borrowed(a.as_str())));
-        }
-
-        if self.i != 0 {
-            out.push(("i", Cow::Owned(self.i.to_string())));
-        }
-
-        match self.mode {
-            Mode::Unfiltered => {}
-            Mode::Hiragana => {
-                out.push(("mode", Cow::Borrowed("hiragana")));
-            }
-            Mode::Katakana => {
-                out.push(("mode", Cow::Borrowed("katakana")));
-            }
-        }
-
-        if self.capture_clipboard {
-            out.push(("cb", Cow::Borrowed("yes")));
-        }
-
-        if self.embed {
-            out.push(("embed", Cow::Borrowed("yes")));
-        }
-
-        match self.tab {
-            Tab::Phrases => {}
-            Tab::Names => {
-                out.push(("tab", Cow::Borrowed("names")));
-            }
-            Tab::Kanji => {
-                out.push(("tab", Cow::Borrowed("kanji")));
-            }
-        }
-
-        out
     }
 }
 
@@ -225,7 +77,6 @@ pub(crate) struct Prompt {
     characters: Vec<kanjidic2::OwnedCharacter>,
     limit_characters: usize,
     serials: Serials,
-    ws: ws::Service<Self>,
     _handle: Option<LocationHandle>,
 }
 
@@ -337,7 +188,9 @@ impl Prompt {
 }
 
 #[derive(Properties, PartialEq)]
-pub(crate) struct Props;
+pub(crate) struct Props {
+    pub(crate) callbacks: Callbacks,
+}
 
 impl Component for Prompt {
     type Message = Msg;
@@ -358,14 +211,13 @@ impl Component for Prompt {
             characters: Vec::default(),
             limit_characters: DEFAULT_LIMIT,
             serials: Serials::default(),
-            ws: ws::Service::new(),
             _handle: handle,
         };
 
         if !this.query.embed {
-            if let Err(error) = this.ws.connect(ctx) {
-                ctx.link().send_message(error);
-            }
+            ctx.props()
+                .callbacks
+                .set_client_event(ctx.link().callback(Msg::ClientEvent));
         }
 
         if let Some(analyze_at) = analyze_at {
@@ -508,10 +360,6 @@ impl Component for Prompt {
                 self.limit_characters += DEFAULT_LIMIT;
                 true
             }
-            Msg::WebSocket(msg) => {
-                self.ws.update(ctx, msg);
-                false
-            }
             Msg::ClientEvent(event) => {
                 match event {
                     api::ClientEvent::SendClipboardData(clipboard) => {
@@ -532,6 +380,10 @@ impl Component for Prompt {
                 false
             }
         }
+    }
+
+    fn destroy(&mut self, ctx: &Context<Self>) {
+        ctx.props().callbacks.clear_client_event();
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
@@ -561,8 +413,14 @@ impl Component for Prompt {
         let mut rem = 0;
 
         let analyze = if self.query.q.is_empty() {
-            html! {
-                <div class="block row analyze-text empty">{"Type something in the prompt"}</div>
+            if self.query.embed {
+                html! {
+                    <div class="block row analyze-text empty">{"Nothing to analyze"}</div>
+                }
+            } else {
+                html! {
+                    <div class="block row analyze-text empty">{"Type something in the prompt"}</div>
+                }
             }
         } else {
             let query = self.query.q.char_indices().map(|(i, c)| {
@@ -749,31 +607,37 @@ impl Component for Prompt {
         });
 
         let results = if self.query.embed {
-            let tab = |title: &str, len: usize, tab: Tab| {
+            let tab = |title: &str, len: Option<usize>, tab: Tab| {
                 let is_tab = self.query.tab == tab;
                 let entries_classes = classes!(
                     "tab",
                     is_tab.then_some("active"),
-                    (len == 0).then_some("disabled")
+                    (len == Some(0)).then_some("disabled")
                 );
 
-                let onclick = (!is_tab && len > 0).then(|| {
+                let onclick = (!is_tab).then(|| {
                     ctx.link().callback(move |e: MouseEvent| {
                         e.prevent_default();
                         Msg::Tab(tab)
                     })
                 });
 
+                let text = match len {
+                    Some(len) => format!("{title} ({len})"),
+                    None => title.to_owned(),
+                };
+
                 html! {
-                    <a class={entries_classes} {onclick}>{format!("{title} ({len})")}</a>
+                    <a class={entries_classes} {onclick}>{text}</a>
                 }
             };
 
             let mut tabs = Vec::new();
 
-            tabs.push(tab("Phrases", self.phrases.len(), Tab::Phrases));
-            tabs.push(tab("Names", self.names.len(), Tab::Names));
-            tabs.push(tab("Kanji", self.characters.len(), Tab::Kanji));
+            tabs.push(tab("Phrases", Some(self.phrases.len()), Tab::Phrases));
+            tabs.push(tab("Names", Some(self.names.len()), Tab::Names));
+            tabs.push(tab("Kanji", Some(self.characters.len()), Tab::Kanji));
+            tabs.push(tab("⚙️", None, Tab::Settings));
 
             let content = match self.query.tab {
                 Tab::Phrases => {
@@ -784,6 +648,9 @@ impl Component for Prompt {
                 }
                 Tab::Kanji => {
                     html!(<div class="block block-lg kanjis">{kanjis}</div>)
+                }
+                Tab::Settings => {
+                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} /></div>)
                 }
             };
 
@@ -921,17 +788,22 @@ fn copyright() -> Html {
             <div class="block inline">
                 <span>{"Made with ❤️ by "}</span>
                 <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
-                <span>{" made freely available under the "}</span>
+                <span>{", freely available forever under the "}</span>
                 <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-MIT">{"MIT"}</a>
                 <span>{" or "}</span>
                 <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-APACHE">{"Apache 2.0 license"}</a>
             </div>
 
             <div class="block inline">
-                <span>{"This application uses the JMdict dictionary file. "}</span>
-                <span>{"This is the property of the "}</span>
-                <a href="https://www.edrdg.org">{"Electronic Dictionary Research and Development Group"}</a>
-                <span>{", and are used in conformance with the Group's "}</span>
+                <span>{"This application uses "}</span>
+                <a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">{"JMDICT"}</a>
+                <span>{", "}</span>
+                <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">{"KANJIDIC2"}</a>
+                <span>{", and "}</span>
+                <a href="http://edrdg.org/enamdict/enamdict_doc.html">{"ENAMDICT"}</a>
+                <span>{" which is the property of the "}</span>
+                <a href="https://www.edrdg.org">{"EDRDG"}</a>
+                <span>{" and is used in conformance with its "}</span>
                 <a href="https://www.edrdg.org/edrdg/licence.html">{"licence"}</a>
                 <span>{"."}</span>
             </div>
