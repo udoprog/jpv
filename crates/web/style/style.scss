@@ -469,10 +469,10 @@ a {
     }
 }
 
-.log-level {
-    padding: 0.25rem 0.5rem;
+.log-target {
+    background-color: var(--bg-highlight);
 }
 
-.log-text {
+.log-field {
     padding: 0.25rem 0.5rem;
 }

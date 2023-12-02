@@ -125,6 +125,8 @@ pub struct KanjiResponse<'a> {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogEntry {
+    /// The target being logged.
+    pub target: String,
     /// The level of the rebuild.
     pub level: String,
     /// The rext of the rebuild.

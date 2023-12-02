@@ -184,8 +184,9 @@ impl Component for Config {
 
                 html! {
                     <div {class}>
-                        <span class="log-level">{&entry.level}</span>
-                        <span class="log-text">{&entry.text}</span>
+                        <span class="log-field log-level">{&entry.level}</span>
+                        <span class="log-field log-target">{&entry.target}</span>
+                        <span class="log-field log-text">{&entry.text}</span>
                     </div>
                 }
             });

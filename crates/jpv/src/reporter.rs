@@ -11,25 +11,28 @@ pub(crate) struct EventsReporter {
 }
 
 impl Reporter for EventsReporter {
-    fn info(&self, value: &dyn fmt::Display) {
-        self.parent.info(value);
+    fn info(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        self.parent.info(module_path, value);
         let _ = self.system_events.0.send(Event::LogEntry(api::LogEntry {
+            target: module_path.into(),
             level: "info".into(),
             text: value.to_string(),
         }));
     }
 
-    fn warn(&self, value: &dyn fmt::Display) {
-        self.parent.warn(value);
+    fn warn(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        self.parent.warn(module_path, value);
         let _ = self.system_events.0.send(Event::LogEntry(api::LogEntry {
+            target: module_path.into(),
             level: "warn".into(),
             text: value.to_string(),
         }));
     }
 
-    fn error(&self, value: &dyn fmt::Display) {
-        self.parent.error(value);
+    fn error(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        self.parent.error(module_path, value);
         let _ = self.system_events.0.send(Event::LogEntry(api::LogEntry {
+            target: module_path.into(),
             level: "error".into(),
             text: value.to_string(),
         }));

@@ -6,21 +6,21 @@ use std::sync::Arc;
 #[macro_export]
 macro_rules! report_info {
     ($reporter:expr, $($arg:tt)*) => {
-        $crate::reporter::Reporter::info(&$reporter, &format_args!($($arg)*));
+        $crate::reporter::Reporter::info(&$reporter, module_path!(), &format_args!($($arg)*));
     }
 }
 
 #[macro_export]
 macro_rules! report_warn {
     ($reporter:expr, $($arg:tt)*) => {
-        $crate::reporter::Reporter::warn(&$reporter, &format_args!($($arg)*));
+        $crate::reporter::Reporter::warn(&$reporter, module_path!(), &format_args!($($arg)*));
     }
 }
 
 #[macro_export]
 macro_rules! report_error {
     ($reporter:expr, $($arg:tt)*) => {
-        $crate::reporter::Reporter::error(&$reporter, &format_args!($($arg)*));
+        $crate::reporter::Reporter::error(&$reporter, module_path!(), &format_args!($($arg)*));
     }
 }
 
@@ -32,13 +32,13 @@ pub enum Level {
 
 pub trait Reporter: Send + Sync {
     /// Perform info logging.
-    fn info(&self, value: &dyn fmt::Display);
+    fn info(&self, module_path: &'static str, value: &dyn fmt::Display);
 
     /// Perform warning logging.
-    fn warn(&self, value: &dyn fmt::Display);
+    fn warn(&self, module_path: &'static str, value: &dyn fmt::Display);
 
     /// Perform error logging.
-    fn error(&self, value: &dyn fmt::Display);
+    fn error(&self, module_path: &'static str, value: &dyn fmt::Display);
 }
 
 impl<T> Reporter for &T
@@ -46,18 +46,18 @@ where
     T: ?Sized + Reporter,
 {
     #[inline]
-    fn info(&self, value: &dyn fmt::Display) {
-        (*self).info(value);
+    fn info(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        (*self).info(module_path, value);
     }
 
     #[inline]
-    fn warn(&self, value: &dyn fmt::Display) {
-        (*self).warn(value);
+    fn warn(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        (*self).warn(module_path, value);
     }
 
     #[inline]
-    fn error(&self, value: &dyn fmt::Display) {
-        (*self).error(value);
+    fn error(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        (*self).error(module_path, value);
     }
 }
 
@@ -66,18 +66,18 @@ where
     T: ?Sized + Reporter,
 {
     #[inline]
-    fn info(&self, value: &dyn fmt::Display) {
-        (**self).info(value);
+    fn info(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        (**self).info(module_path, value);
     }
 
     #[inline]
-    fn warn(&self, value: &dyn fmt::Display) {
-        (**self).warn(value);
+    fn warn(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        (**self).warn(module_path, value);
     }
 
     #[inline]
-    fn error(&self, value: &dyn fmt::Display) {
-        (**self).error(value);
+    fn error(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        (**self).error(module_path, value);
     }
 }
 
@@ -85,17 +85,17 @@ pub struct TracingReporter;
 
 impl Reporter for TracingReporter {
     #[inline]
-    fn info(&self, value: &dyn fmt::Display) {
-        tracing::event!(tracing::Level::INFO, "{}", value);
+    fn info(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        tracing::event!(tracing::Level::INFO, "{module_path}: {}", value);
     }
 
     #[inline]
-    fn warn(&self, value: &dyn fmt::Display) {
-        tracing::event!(tracing::Level::WARN, "{}", value);
+    fn warn(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        tracing::event!(tracing::Level::WARN, "{module_path}: {}", value);
     }
 
     #[inline]
-    fn error(&self, value: &dyn fmt::Display) {
-        tracing::event!(tracing::Level::ERROR, "{}", value);
+    fn error(&self, module_path: &'static str, value: &dyn fmt::Display) {
+        tracing::event!(tracing::Level::ERROR, "{module_path}: {}", value);
     }
 }
