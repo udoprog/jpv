@@ -39,6 +39,15 @@ pub trait Reporter: Send + Sync {
 
     /// Perform error logging.
     fn error(&self, module_path: &'static str, value: &dyn fmt::Display);
+
+    /// Start instrumenting.
+    fn instrument_start(&self, what: &'static str, total: usize) -> u32;
+
+    /// Report instrumenting progress.
+    fn instrument_progress(&self, id: u32, current: usize);
+
+    /// Start instrumenting.
+    fn instrument_end(&self, id: u32);
 }
 
 impl<T> Reporter for &T
@@ -58,6 +67,21 @@ where
     #[inline]
     fn error(&self, module_path: &'static str, value: &dyn fmt::Display) {
         (*self).error(module_path, value);
+    }
+
+    #[inline]
+    fn instrument_start(&self, what: &'static str, total: usize) -> u32 {
+        (*self).instrument_start(what, total)
+    }
+
+    #[inline]
+    fn instrument_progress(&self, id: u32, current: usize) {
+        (*self).instrument_progress(id, current)
+    }
+
+    #[inline]
+    fn instrument_end(&self, id: u32) {
+        (*self).instrument_end(id)
     }
 }
 
@@ -79,6 +103,21 @@ where
     fn error(&self, module_path: &'static str, value: &dyn fmt::Display) {
         (**self).error(module_path, value);
     }
+
+    #[inline]
+    fn instrument_start(&self, what: &'static str, total: usize) -> u32 {
+        (**self).instrument_start(what, total)
+    }
+
+    #[inline]
+    fn instrument_progress(&self, id: u32, current: usize) {
+        (**self).instrument_progress(id, current)
+    }
+
+    #[inline]
+    fn instrument_end(&self, id: u32) {
+        (**self).instrument_end(id)
+    }
 }
 
 pub struct TracingReporter;
@@ -98,4 +137,15 @@ impl Reporter for TracingReporter {
     fn error(&self, module_path: &'static str, value: &dyn fmt::Display) {
         tracing::event!(tracing::Level::ERROR, "{module_path}: {}", value);
     }
+
+    #[inline]
+    fn instrument_start(&self, what: &'static str, total: usize) -> u32 {
+        0
+    }
+
+    #[inline]
+    fn instrument_progress(&self, id: u32, current: usize) {}
+
+    #[inline]
+    fn instrument_end(&self, id: u32) {}
 }

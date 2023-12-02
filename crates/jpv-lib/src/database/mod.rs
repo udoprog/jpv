@@ -429,14 +429,17 @@ pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<Ow
     {
         let mut indexer = StringIndexer::new();
 
-        for (key, id) in &lookup {
-            if indexer.total() % 100000 == 0 {
-                report_info!(reporter, "Building strings: {}: {key:?}", indexer.total());
-            }
+        report_info!(reporter, "Building {} lookup strings", lookup.len());
 
+        let instrument = reporter.instrument_start("lookup strings", lookup.len());
+
+        for (key, id) in &lookup {
+            reporter.instrument_progress(instrument, 1);
             let s = indexer.store(&mut buf, key.as_ref())?;
             readings2.push((s, *id));
         }
+
+        reporter.instrument_end(instrument);
 
         by_kanji_literal = {
             let mut output = HashMap::new();

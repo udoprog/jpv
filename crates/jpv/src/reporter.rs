@@ -37,4 +37,12 @@ impl Reporter for EventsReporter {
             text: value.to_string(),
         }));
     }
+
+    fn instrument_start(&self, what: &'static str, total: usize) -> u32 {
+        0
+    }
+
+    fn instrument_progress(&self, id: u32, current: usize) {}
+
+    fn instrument_end(&self, id: u32) {}
 }
