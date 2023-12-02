@@ -197,6 +197,7 @@
 #![cfg_attr(all(not(feature = "cli"), windows), windows_subsystem = "windows")]
 
 mod command;
+mod config;
 mod database;
 mod dbus;
 mod dirs;
@@ -209,6 +210,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Parser;
 use clap::Subcommand;
+use config::Config;
 use dirs::Dirs;
 #[cfg(windows)]
 use tokio::signal::windows::ctrl_shutdown;
@@ -279,7 +281,8 @@ async fn main() -> Result<()> {
         }
         #[cfg(feature = "build")]
         Some(Command::Build(build_args)) => {
-            self::command::build::run(&args, build_args, &dirs).await?;
+            let config = Config::load(&dirs)?;
+            self::command::build::run(&args, build_args, &dirs, &config).await?;
         }
     }
 

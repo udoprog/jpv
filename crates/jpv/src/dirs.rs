@@ -19,6 +19,11 @@ impl Dirs {
         })
     }
 
+    /// Get the path of the configuration file.
+    pub(crate) fn config_path(&self) -> PathBuf {
+        self.project_dirs.config_dir().join("config.toml")
+    }
+
     /// The path to an individual index.
     pub(crate) fn index_path(&self, name: &str) -> PathBuf {
         self.project_dirs.data_dir().join(format!("{name}.index"))

@@ -13,13 +13,11 @@ use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
+use crate::config::{Config, DownloadOverrides, IndexKind};
 use crate::dirs::Dirs;
 use crate::Args;
 
 const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
-const JMDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMdict_e_examp.gz";
-const KANJIDIC2_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz";
-const JMNEDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMnedict.xml.gz";
 
 #[derive(Parser)]
 pub(crate) struct BuildArgs {
@@ -37,48 +35,19 @@ pub(crate) struct BuildArgs {
     force: bool,
 }
 
-struct ToDownload<'a> {
-    name: &'a str,
-    url: &'a str,
-    url_name: &'a str,
-    index_path: PathBuf,
-    path: Option<&'a Path>,
-    kind: IndexKind,
-}
+pub(crate) async fn run(
+    _: &Args,
+    build_args: &BuildArgs,
+    dirs: &Dirs,
+    config: &Config,
+) -> Result<()> {
+    let overrides = DownloadOverrides {
+        jmdict_path: build_args.jmdict_path.as_deref(),
+        kanjidic2_path: build_args.kanjidic2_path.as_deref(),
+        jmnedict_path: build_args.jmnedict_path.as_deref(),
+    };
 
-enum IndexKind {
-    Jmdict,
-    Kanjidic2,
-    Jmnedict,
-}
-
-pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result<()> {
-    let to_download = vec![
-        ToDownload {
-            name: "jmdict",
-            url: JMDICT_URL,
-            url_name: "JMdict_e_examp.gz",
-            index_path: dirs.index_path("jmdict"),
-            path: build_args.jmdict_path.as_deref(),
-            kind: IndexKind::Jmdict,
-        },
-        ToDownload {
-            name: "kanjidic2",
-            url: KANJIDIC2_URL,
-            url_name: "kanjidic2.xml.gz",
-            index_path: dirs.index_path("kanjidic2"),
-            path: build_args.kanjidic2_path.as_deref(),
-            kind: IndexKind::Kanjidic2,
-        },
-        ToDownload {
-            name: "jmnedict",
-            url: JMNEDICT_URL,
-            url_name: "jmnedict.xml.gz",
-            index_path: dirs.index_path("jmnedict"),
-            path: build_args.jmnedict_path.as_deref(),
-            kind: IndexKind::Jmnedict,
-        },
-    ];
+    let to_download = config.to_download(dirs, overrides);
 
     let mut futures: Vec<Pin<Box<dyn Future<Output = Result<()>>>>> = Vec::new();
 
@@ -118,10 +87,14 @@ pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result
         }
 
         futures.push(Box::pin(async {
-            let (path, data) =
-                read_or_download(download.path, dirs, download.url_name, download.url)
-                    .await
-                    .context("loading JMDICT")?;
+            let (path, data) = read_or_download(
+                download.path.as_deref(),
+                dirs,
+                &download.url_name,
+                &download.url,
+            )
+            .await
+            .context("loading JMDICT")?;
 
             tracing::info!("Loading `{}` from {}", download.name, path.display());
 
@@ -132,7 +105,7 @@ pub(crate) async fn run(_: &Args, build_args: &BuildArgs, dirs: &Dirs) -> Result
             };
 
             let start = Instant::now();
-            let data = database::build(download.name, input)?;
+            let data = database::build(&download.name, input)?;
             let duration = Instant::now().duration_since(start);
 
             fs::write(&download.index_path, data.as_slice())
