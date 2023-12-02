@@ -121,7 +121,7 @@ pub(crate) async fn run(
                 break;
             }
             Some(event) = receiver.recv() => {
-                background.handle_event(event, &args, &system_events).await.context("Handling background event")?;
+                background.handle_event(event, args, &system_events).await.context("Handling background event")?;
             }
             _ = ctrl_c.as_mut() => {
                 tracing::info!("Shutting down...");

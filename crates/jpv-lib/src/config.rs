@@ -18,7 +18,7 @@ impl IndexKind {
         &[IndexKind::Jmdict, IndexKind::Jmnedict, IndexKind::Kanjidic2];
 
     /// Convert a string into an [`IndexKind`].
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "jmdict" => Some(IndexKind::Jmdict),
             "jmnedict" => Some(IndexKind::Jmnedict),
@@ -98,7 +98,7 @@ impl Config {
 
     /// Test if the given index is enabled.
     pub fn is_enabled_by_name(&self, name: &str) -> bool {
-        let Some(kind) = IndexKind::from_str(name) else {
+        let Some(kind) = IndexKind::parse(name) else {
             return false;
         };
 

@@ -334,7 +334,11 @@ pub(crate) async fn build(
         };
 
         if let Err(error) = future.await {
-            lib::report_error!(reporter, "Error building {}: {}", download.name, error);
+            lib::report_error!(reporter, "Error building `{}`", download.name);
+
+            for error in error.chain() {
+                lib::report_error!(reporter, "Caused by: {error}");
+            }
         }
     }
 

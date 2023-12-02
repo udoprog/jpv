@@ -23,7 +23,7 @@ use crate::dirs::Dirs;
 pub fn open_from_args(indexes: &[PathBuf], dirs: &Dirs) -> Result<Vec<(Data, Location)>> {
     let found;
 
-    let paths = match &indexes[..] {
+    let paths = match indexes {
         [] => {
             found = dirs.indexes()?;
             &found[..]

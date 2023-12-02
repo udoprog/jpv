@@ -634,12 +634,12 @@ impl Component for Prompt {
                 }
             };
 
-            let mut tabs = Vec::new();
-
-            tabs.push(tab("Phrases", Some(self.phrases.len()), Tab::Phrases));
-            tabs.push(tab("Names", Some(self.names.len()), Tab::Names));
-            tabs.push(tab("Kanji", Some(self.characters.len()), Tab::Kanji));
-            tabs.push(tab("⚙️", None, Tab::Settings));
+            let tabs = [
+                tab("Phrases", Some(self.phrases.len()), Tab::Phrases),
+                tab("Names", Some(self.names.len()), Tab::Names),
+                tab("Kanji", Some(self.characters.len()), Tab::Kanji),
+                tab("⚙️", None, Tab::Settings),
+            ];
 
             let content = match self.query.tab {
                 Tab::Phrases => {
@@ -656,17 +656,13 @@ impl Component for Prompt {
                 }
             };
 
-            if tabs.is_empty() {
-                content
-            } else {
-                html! {
-                    <>
-                        {analyze}
-                        {for translation}
-                        <div class="tabs">{for tabs}</div>
-                        {content}
-                    </>
-                }
+            html! {
+                <>
+                    {analyze}
+                    {for translation}
+                    <div class="tabs">{for tabs}</div>
+                    {content}
+                </>
             }
         } else {
             match self.query.tab {
