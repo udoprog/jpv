@@ -183,9 +183,9 @@ async fn config(Extension(bg): Extension<Background>) -> RequestResult<Json<Conf
 async fn update_config(
     Extension(bg): Extension<Background>,
     Json(config): Json<Config>,
-) -> RequestResult<()> {
+) -> RequestResult<Json<api::Empty>> {
     bg.update_config(config);
-    Ok(())
+    Ok(Json(api::Empty))
 }
 
 /// Perform text analysis.

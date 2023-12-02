@@ -7,6 +7,9 @@ use crate::kanjidic2;
 use crate::Weight;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct Empty;
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SendClipboard {
     pub ty: Option<String>,
     pub data: Vec<u8>,

@@ -1,9 +1,11 @@
+use std::collections::BTreeSet;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::Dirs;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum IndexKind {
     Jmdict,
@@ -15,8 +17,18 @@ impl IndexKind {
     pub const ALL: &'static [IndexKind] =
         &[IndexKind::Jmdict, IndexKind::Kanjidic2, IndexKind::Jmnedict];
 
+    /// Convert a string into an [`IndexKind`].
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "jmdict" => Some(IndexKind::Jmdict),
+            "kanjidic2" => Some(IndexKind::Kanjidic2),
+            "jmnedict" => Some(IndexKind::Jmnedict),
+            _ => None,
+        }
+    }
+
     /// Get the name of the index.
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &'static str {
         match self {
             IndexKind::Jmdict => "jmdict",
             IndexKind::Kanjidic2 => "kanjidic2",
@@ -25,7 +37,7 @@ impl IndexKind {
     }
 
     /// Get the name of the index.
-    pub fn description(&self) -> &str {
+    pub fn description(&self) -> &'static str {
         match self {
             IndexKind::Jmdict => "Phrases from JMDict",
             IndexKind::Kanjidic2 => "Kanji from Kanjidic2",
@@ -41,27 +53,17 @@ pub struct Index {
 }
 
 /// A configuration used for the application.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     /// Enabled indexes.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub indexes: Vec<Index>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub enabled: BTreeSet<IndexKind>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            indexes: vec![
-                Index {
-                    kind: IndexKind::Jmdict,
-                },
-                Index {
-                    kind: IndexKind::Kanjidic2,
-                },
-                Index {
-                    kind: IndexKind::Jmnedict,
-                },
-            ],
+            enabled: IndexKind::ALL.iter().copied().collect(),
         }
     }
 }
@@ -80,14 +82,26 @@ impl Config {
         Ok(config)
     }
 
-    /// Test if the given index is enabled.
-    pub fn is_enabled(&self, name: &str) -> bool {
-        for index in &self.indexes {
-            if name == index.kind.name() {
-                return true;
-            }
+    /// Toggle the specified index kind.
+    pub fn toggle(&mut self, kind: IndexKind) {
+        if self.enabled.contains(&kind) {
+            self.enabled.remove(&kind);
+        } else {
+            self.enabled.insert(kind);
         }
+    }
 
-        false
+    /// Test if the given index is enabled.
+    pub fn is_enabled(&self, kind: IndexKind) -> bool {
+        self.enabled.contains(&kind)
+    }
+
+    /// Test if the given index is enabled.
+    pub fn is_enabled_by_name(&self, name: &str) -> bool {
+        let Some(kind) = IndexKind::from_str(name) else {
+            return false;
+        };
+
+        self.is_enabled(kind)
     }
 }

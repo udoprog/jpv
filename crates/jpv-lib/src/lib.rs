@@ -16,6 +16,9 @@ pub use ::borrowme::to_owned;
 /// Helper to convert a type to its borrowed variant.
 pub use ::borrowme::borrow;
 
+/// Re-export toml support.
+pub use ::toml;
+
 #[macro_use]
 pub mod reporter;
 

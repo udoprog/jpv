@@ -90,9 +90,17 @@ pub(crate) async fn run(
     // SAFETY: we know this is only initialized once here exclusively.
     let indexes = data::open_from_args(&args.index[..], &dirs)?;
     let db = lib::database::Database::open(indexes, &config)?;
-    let background = Background::new(config, dirs, db);
 
-    let mut server = pin!(web::setup(local_port, listener, background, system_events)?);
+    let (channel, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+
+    let background = Background::new(dirs, channel, config, db);
+
+    let mut server = pin!(web::setup(
+        local_port,
+        listener,
+        background.clone(),
+        system_events
+    )?);
     tracing::info!("Listening on http://{local_addr}");
 
     if !service_args.no_open {
@@ -111,6 +119,9 @@ pub(crate) async fn run(
                 result?;
                 tracing::info!("D-Bus integration shut down");
                 break;
+            }
+            Some(event) = receiver.recv() => {
+                background.handle_event(event, &args).await.context("Handling background event")?;
             }
             _ = ctrl_c.as_mut() => {
                 tracing::info!("Shutting down...");

@@ -9,11 +9,15 @@ use flate2::read::GzDecoder;
 use lib::config::{Config, IndexKind};
 use lib::database::{self, Database, Input};
 use lib::reporter::Reporter;
-use lib::Dirs;
+use lib::{data, Dirs};
 use reqwest::Method;
+use tempfile::NamedTempFile;
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use tokio::sync::mpsc::UnboundedSender;
+
+use crate::Args;
 
 /// The user agent used by jpv.
 const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
@@ -27,22 +31,37 @@ struct Inner {
     database: Database,
 }
 
+/// Events emitted by modifying the background service.
+pub enum BackgroundEvent {
+    SaveConfig(Config),
+}
+
 #[derive(Clone)]
 pub struct Background {
     dirs: Arc<Dirs>,
+    channel: UnboundedSender<BackgroundEvent>,
     inner: Arc<RwLock<Inner>>,
 }
 
 impl Background {
-    pub(crate) fn new(config: Config, dirs: Dirs, database: Database) -> Self {
+    pub(crate) fn new(
+        dirs: Dirs,
+        channel: UnboundedSender<BackgroundEvent>,
+        config: Config,
+        database: Database,
+    ) -> Self {
         Self {
             dirs: Arc::new(dirs),
+            channel,
             inner: Arc::new(RwLock::new(Inner { config, database })),
         }
     }
 
     /// Update current configuration.
     pub(crate) fn update_config(&self, config: Config) {
+        let _ = self
+            .channel
+            .send(BackgroundEvent::SaveConfig(config.clone()));
         self.inner.write().unwrap().config = config;
     }
 
@@ -54,6 +73,37 @@ impl Background {
     /// Access the database currently in use.
     pub(crate) fn database(&self) -> Database {
         self.inner.read().unwrap().database.clone()
+    }
+
+    /// Handle a background event.
+    pub(crate) async fn handle_event(&self, event: BackgroundEvent, args: &Args) -> Result<()> {
+        match event {
+            BackgroundEvent::SaveConfig(config) => {
+                let dirs = self.dirs.clone();
+                let path = dirs.config_path();
+                ensure_parent_dir(&path).await?;
+
+                let new_config = config.clone();
+
+                let task = tokio::task::spawn_blocking(move || {
+                    let config = lib::toml::to_string_pretty(&config)?;
+
+                    let mut tempfile = NamedTempFile::new_in(dirs.config_dir())?;
+                    std::io::copy(&mut config.as_bytes(), &mut tempfile)?;
+                    tempfile.persist(&path)?;
+                    tracing::info!("Wrote new configuration to {}", path.display());
+                    Ok::<_, anyhow::Error>(())
+                });
+
+                task.await??;
+
+                let indexes = data::open_from_args(&args.index[..], &self.dirs)?;
+                let db = lib::database::Database::open(indexes, &new_config)?;
+                self.inner.write().unwrap().database = db;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -92,33 +142,33 @@ pub fn config_to_download(
 ) -> Vec<ToDownload> {
     let mut downloads = Vec::new();
 
-    for index in &config.indexes {
-        let path = overrides.get(index.kind).map(|p| p.into());
+    for &index in &config.enabled {
+        let path = overrides.get(index).map(|p| p.into());
 
-        let download = match index.kind {
+        let download = match index {
             IndexKind::Jmdict => ToDownload {
-                name: index.kind.name().into(),
+                name: index.name().into(),
                 url: JMDICT_URL.into(),
                 url_name: "JMdict_e_examp.gz".into(),
-                index_path: dirs.index_path(index.kind.name()).into(),
+                index_path: dirs.index_path(index.name()).into(),
                 path,
-                kind: index.kind,
+                kind: index,
             },
             IndexKind::Kanjidic2 => ToDownload {
-                name: index.kind.name().into(),
+                name: index.name().into(),
                 url: KANJIDIC2_URL.into(),
                 url_name: "kanjidic2.xml.gz".into(),
-                index_path: dirs.index_path(index.kind.name()).into(),
+                index_path: dirs.index_path(index.name()).into(),
                 path,
-                kind: index.kind,
+                kind: index,
             },
             IndexKind::Jmnedict => ToDownload {
-                name: index.kind.name().into(),
+                name: index.name().into(),
                 url: JMNEDICT_URL.into(),
                 url_name: "jmnedict.xml.gz".into(),
-                index_path: dirs.index_path(index.kind.name()).into(),
+                index_path: dirs.index_path(index.name()).into(),
                 path,
-                kind: index.kind,
+                kind: index,
             },
         };
 
@@ -136,7 +186,7 @@ pub(crate) async fn build(
     force: bool,
 ) -> Result<()> {
     for download in &to_download {
-        ensure_parent_dir(&download.index_path).await;
+        ensure_parent_dir(&download.index_path).await?;
 
         // SAFETY: We are the only ones calling this function now.
         let result = lib::data::open(&download.index_path);
@@ -257,7 +307,7 @@ async fn read_or_download(
 async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec<u8>> {
     lib::report_info!(reporter, "Downloading {url} to {}", path.display());
 
-    ensure_parent_dir(path).await;
+    ensure_parent_dir(path).await?;
 
     let client = reqwest::ClientBuilder::new().build()?;
 
@@ -279,16 +329,20 @@ async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec
     Ok(data)
 }
 
-async fn ensure_parent_dir(path: &Path) {
-    if let Some(parent) = path.parent() {
-        let is_dir = match fs::metadata(parent).await {
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
-            Ok(metadata) if !metadata.is_dir() => false,
-            _ => true,
-        };
+async fn ensure_parent_dir(path: &Path) -> Result<&Path> {
+    let Some(parent) = path.parent() else {
+        bail!("Missing parent directory for {}", path.display());
+    };
 
-        if !is_dir {
-            let _ = fs::create_dir_all(parent).await;
-        }
+    let is_dir = match fs::metadata(parent).await {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Ok(metadata) if !metadata.is_dir() => false,
+        _ => true,
+    };
+
+    if !is_dir {
+        fs::create_dir_all(parent).await?;
     }
+
+    Ok(parent)
 }

@@ -225,6 +225,10 @@ h5, h6 {
         & > * {
             align-self: center;
         }
+
+        &.row-spaced {
+            gap: 0.5rem;
+        }
     }
 
     &.notice {
@@ -392,4 +396,9 @@ a {
     &:hover {
         color: var(--link-hover);
     }
+}
+
+.setting {
+    background-color: var(--bg-highlight);
+    padding: var(--section-margin);
 }

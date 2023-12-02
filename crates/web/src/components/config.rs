@@ -1,3 +1,4 @@
+use lib::api;
 use lib::config::IndexKind;
 use yew::prelude::*;
 
@@ -8,14 +9,23 @@ use super::spacing;
 
 pub enum Msg {
     Config(lib::config::Config),
+    Toggle(IndexKind),
+    Save,
+    Saved,
     Error(Error),
 }
 
 #[derive(Properties, PartialEq)]
 pub struct Props;
 
+struct State {
+    remote: lib::config::Config,
+    local: lib::config::Config,
+}
+
 pub struct Config {
-    config: Option<lib::config::Config>,
+    pending: bool,
+    state: Option<State>,
 }
 
 impl Component for Config {
@@ -30,31 +40,76 @@ impl Component for Config {
             }
         });
 
-        Self { config: None }
+        Self {
+            pending: true,
+            state: None,
+        }
     }
 
-    fn update(&mut self, _: &Context<Self>, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Config(config) => {
-                self.config = Some(config);
+                self.state = Some(State {
+                    remote: config.clone(),
+                    local: config,
+                });
+
+                self.pending = false;
+            }
+            Msg::Toggle(index) => {
+                if let Some(state) = self.state.as_mut() {
+                    state.local.toggle(index);
+                }
+            }
+            Msg::Save => {
+                if let Some(state) = &self.state {
+                    let local = state.local.clone();
+
+                    ctx.link().send_future(async move {
+                        match fetch::update_config(local).await {
+                            Ok(api::Empty) => Msg::Saved,
+                            Err(error) => Msg::Error(error),
+                        }
+                    });
+                }
+            }
+            Msg::Saved => {
+                if let Some(state) = &mut self.state {
+                    state.remote = state.local.clone();
+                }
+
+                self.pending = false;
             }
             Msg::Error(error) => {
-                log::error!("{}", error);
+                log::error!("Error: {}", error);
+                self.pending = false;
             }
         }
 
         true
     }
 
-    fn view(&self, _: &Context<Self>) -> Html {
-        let config = self.config.as_ref().map(|c| {
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let config = self.state.as_ref().map(|state| {
             let mut indexes = Vec::new();
 
-            for index in IndexKind::ALL {
+            for &index in IndexKind::ALL {
+                let onchange = ctx.link().callback(move |e: Event| {
+                    e.prevent_default();
+                    Msg::Toggle(index)
+                });
+
+                let class = classes!{
+                    "block",
+                    "row",
+                    "setting",
+                    state.local.is_enabled(index).then_some("enabled"),
+                };
+
                 indexes.push(html! {
                     <>
-                        <div class="block row">
-                            <input id={index.name()} type="checkbox" checked={c.is_enabled(index.name())} />
+                        <div {class}>
+                            <input id={index.name()} type="checkbox" checked={state.local.is_enabled(index)} {onchange} />
                             <label for={index.name()}>{index.description()}</label>
                         </div>
                     </>
@@ -66,17 +121,28 @@ impl Component for Config {
             }
         });
 
+        let cant_save = self.pending
+            || match &self.state {
+                Some(state) => state.local == state.remote,
+                None => false,
+            };
+
+        let onsave = ctx.link().callback(|e: MouseEvent| {
+            e.prevent_default();
+            Msg::Save
+        });
+
         html! {
             <div id="container">
-                <div class="block">
-                    <h5>{"Enabled sources"}</h5>
+                <h5>{"Enabled sources"}</h5>
+
+                <div class="block block-lg">
                     {config}
                 </div>
 
-                <div class="block row">
-                    <button class="btn">{"Save"}</button>
-                    {spacing()}
-                    <button class="btn">{"Rebuild database"}</button>
+                <div class="block block-lg row row-spaced">
+                    <button class="btn btn-lg" disabled={cant_save} onclick={onsave}>{"Save"}</button>
+                    <button class="btn btn-lg">{"Rebuild database"}</button>
                 </div>
             </div>
         }

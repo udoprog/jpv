@@ -20,6 +20,11 @@ impl Dirs {
         })
     }
 
+    /// Get the configuration directory.
+    pub fn config_dir(&self) -> &Path {
+        self.project_dirs.config_dir()
+    }
+
     /// Get the path of the configuration file.
     pub fn config_path(&self) -> PathBuf {
         self.project_dirs.config_dir().join("config.toml")
