@@ -47,7 +47,6 @@ pub struct Parser<'a> {
     state: State<'a>,
     closed: bool,
     path: RelativePathBuf,
-    input: &'a str,
     tokenizer: Tokenizer<'a>,
 }
 
@@ -57,7 +56,6 @@ impl<'a> Parser<'a> {
             state: State::Initial,
             closed: false,
             path: RelativePathBuf::new(),
-            input,
             tokenizer: Tokenizer::from(input),
         }
     }
@@ -71,7 +69,7 @@ impl<'a> Parser<'a> {
                 ($element:pat) => {
                     if !matches!(output, Output::Open($element)) {
                         bail!(
-                            "expected {} element, but found {output:?}",
+                            "Expected {} element, but found {output:?}",
                             stringify!($element)
                         );
                     }
@@ -138,18 +136,15 @@ impl<'a> Parser<'a> {
 
             match token? {
                 Token::Text { text } if wants_text => {
-                    let text = &self.input[text.range()];
-                    return Ok(Output::Text(text));
+                    return Ok(Output::Text(text.as_str()));
                 }
                 Token::Cdata { text, .. } => {
-                    let text = &self.input[text.range()];
-                    return Ok(Output::Text(text));
+                    return Ok(Output::Text(text.as_str()));
                 }
                 Token::ElementStart { local, .. } => {
-                    let local = &self.input[local.range()];
-                    self.path.push(local);
+                    self.path.push(local.as_str());
                     tracing::trace!(path = self.path.as_str(), "enter");
-                    return Ok(Output::Open(local));
+                    return Ok(Output::Open(local.as_str()));
                 }
                 Token::ElementEnd { end, .. } => {
                     if let ElementEnd::Close { .. } | ElementEnd::Empty { .. } = end {
@@ -159,9 +154,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Token::Attribute { local, value, .. } => {
-                    let local = &self.input[local.range()];
-                    let value = &self.input[value.range()];
-                    return Ok(Output::Attribute(local, value));
+                    return Ok(Output::Attribute(local.as_str(), value.as_str()));
                 }
                 _ => {
                     // intentionally ignore unsupported data.

@@ -32,6 +32,7 @@ pub(crate) struct SendClipboardData {
 
 #[derive(Clone)]
 pub(crate) enum Event {
+    #[cfg_attr(not(dbus), allow(unused))]
     SendClipboardData(SendClipboardData),
     LogEntry(api::LogEntry),
 }

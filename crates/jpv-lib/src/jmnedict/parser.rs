@@ -77,7 +77,7 @@ impl<'a> Parser<'a> {
             macro_rules! set_option {
                 ($target:expr, $value:expr) => {
                     if $target.is_some() {
-                        bail!("{}: duplicate elements", self.path);
+                        bail!("{}: Duplicate elements", self.path);
                     }
 
                     *$target = $value;
