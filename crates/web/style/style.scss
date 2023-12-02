@@ -185,19 +185,20 @@ body {
 
     .tab {
         font-weight: bold;
+        font-size: 0.8em;
         padding: 0.5rem;
         background-color: var(--tab-background);
-    }
 
-    .tab.active {
-        cursor: default;
-        color: var(--tab-active-color);
-        background-color: var(--tab-active-background);
-    }
+        &.active {
+            cursor: default;
+            color: var(--tab-active-color);
+            background-color: var(--tab-active-background);
+        }
 
-    .tab.disabled {
-        cursor: default;
-        color: var(--tab-disabled-color);
+        &.disabled {
+            cursor: default;
+            color: var(--tab-disabled-color);
+        }
     }
 }
 
@@ -442,4 +443,36 @@ a {
 .setting {
     background-color: var(--bg-highlight);
     padding: var(--section-margin);
+}
+
+.log {
+    max-height: 40em;
+    overflow-y: scroll;
+}
+
+.log-entry {
+    font-family: monospace;
+    font-size: 0.8em;
+    margin: 0.5em 0;
+    white-space: pre;
+
+    &-info > .log-level {
+        background-color: rgb(16, 94, 80);
+    }
+
+    &-warn > .log-level {
+        background-color: rgb(153, 86, 19);
+    }
+
+    &-error > .log-level {
+        background-color: rgb(105, 16, 16);
+    }
+}
+
+.log-level {
+    padding: 0.25rem 0.5rem;
+}
+
+.log-text {
+    padding: 0.25rem 0.5rem;
 }

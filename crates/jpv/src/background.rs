@@ -19,6 +19,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
+use crate::reporter::EventsReporter;
+use crate::system::SystemEvents;
 use crate::Args;
 
 /// The user agent used by jpv.
@@ -96,7 +98,12 @@ impl Background {
     }
 
     /// Handle a background event.
-    pub(crate) async fn handle_event(&self, event: BackgroundEvent, args: &Args) -> Result<()> {
+    pub(crate) async fn handle_event(
+        &self,
+        event: BackgroundEvent,
+        args: &Args,
+        system_events: &SystemEvents,
+    ) -> Result<()> {
         match event {
             BackgroundEvent::SaveConfig(config, callback) => {
                 let dirs = self.dirs.clone();
@@ -131,15 +138,26 @@ impl Background {
 
                 let config = self.config();
                 let dirs = self.dirs.clone();
-
-                let reporter = Arc::new(TracingReporter);
                 let rebuild = self.rebuild.clone();
+                let inner = self.inner.clone();
+                let index = args.index.clone();
+
+                let reporter = Arc::new(EventsReporter {
+                    parent: TracingReporter,
+                    system_events: system_events.clone(),
+                });
 
                 tokio::spawn(async move {
                     let to_download = config_to_download(&config, &dirs, Default::default());
                     let result = build(reporter, &dirs, &to_download, force).await;
                     rebuild.store(false, Ordering::SeqCst);
-                    result
+                    result?;
+
+                    let mut inner = inner.write().unwrap();
+                    let indexes = data::open_from_args(&index[..], &dirs)?;
+                    let db = lib::database::Database::open(indexes, &inner.config)?;
+                    inner.database = db;
+                    Ok::<_, anyhow::Error>(())
                 });
             }
         }

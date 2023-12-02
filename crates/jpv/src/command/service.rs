@@ -99,7 +99,7 @@ pub(crate) async fn run(
         local_port,
         listener,
         background.clone(),
-        system_events
+        system_events.clone()
     )?);
     tracing::info!("Listening on http://{local_addr}");
 
@@ -121,7 +121,7 @@ pub(crate) async fn run(
                 break;
             }
             Some(event) = receiver.recv() => {
-                background.handle_event(event, &args).await.context("Handling background event")?;
+                background.handle_event(event, &args, &system_events).await.context("Handling background event")?;
             }
             _ = ctrl_c.as_mut() => {
                 tracing::info!("Shutting down...");

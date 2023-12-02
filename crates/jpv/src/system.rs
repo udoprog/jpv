@@ -2,6 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use anyhow::Result;
+use lib::api;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::futures::Notified;
 
@@ -31,8 +32,8 @@ pub(crate) struct SendClipboardData {
 
 #[derive(Clone)]
 pub(crate) enum Event {
-    #[allow(unused)]
     SendClipboardData(SendClipboardData),
+    LogEntry(api::LogEntry),
 }
 
 #[derive(Clone)]

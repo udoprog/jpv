@@ -11,7 +11,6 @@ use yew_router::{prelude::*, AnyRoute};
 use crate::callbacks::Callbacks;
 use crate::error::Error;
 use crate::query::{Mode, Query, Tab};
-use crate::Route;
 use crate::{components as c, fetch};
 
 use super::{comma, seq, spacing};
@@ -27,7 +26,7 @@ pub(crate) enum History {
 }
 
 pub(crate) enum Msg {
-    Navigate(Route),
+    OpenConfig,
     Mode(Mode),
     CaptureClipboard(bool),
     Tab(Tab),
@@ -77,6 +76,7 @@ pub(crate) struct Prompt {
     characters: Vec<kanjidic2::OwnedCharacter>,
     limit_characters: usize,
     serials: Serials,
+    log: Vec<api::LogEntry>,
     _handle: Option<LocationHandle>,
 }
 
@@ -211,14 +211,13 @@ impl Component for Prompt {
             characters: Vec::default(),
             limit_characters: DEFAULT_LIMIT,
             serials: Serials::default(),
+            log: Vec::new(),
             _handle: handle,
         };
 
-        if !this.query.embed {
-            ctx.props()
-                .callbacks
-                .set_client_event(ctx.link().callback(Msg::ClientEvent));
-        }
+        ctx.props()
+            .callbacks
+            .set_client_event(ctx.link().callback(Msg::ClientEvent));
 
         if let Some(analyze_at) = analyze_at {
             this.analyze(ctx, analyze_at, History::Replace);
@@ -231,11 +230,9 @@ impl Component for Prompt {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::Navigate(route) => {
-                if let Some(navigator) = ctx.link().navigator() {
-                    navigator.push(&route);
-                }
-
+            Msg::OpenConfig => {
+                self.query.tab = Tab::Settings;
+                self.save_query(ctx, History::Push);
                 true
             }
             Msg::SearchResponse(response) => {
@@ -371,6 +368,9 @@ impl Component for Prompt {
                             ctx.link().send_message(error);
                         }
                     }
+                    api::ClientEvent::LogEntry(entry) => {
+                        self.log.push(entry);
+                    }
                 }
 
                 true
@@ -482,8 +482,10 @@ impl Component for Prompt {
             }
         };
 
+        let class = classes!("block", (!self.query.embed).then_some("block-xl"));
+
         let analyze = html! {
-            <div class="block block-xl" id="analyze">{analyze}</div>
+            <div {class} id="analyze">{analyze}</div>
         };
 
         let translation = self.query.translation.as_ref().map(|text| {
@@ -606,7 +608,7 @@ impl Component for Prompt {
             }
         });
 
-        let results = if self.query.embed {
+        let page = if self.query.embed {
             let tab = |title: &str, len: Option<usize>, tab: Tab| {
                 let is_tab = self.query.tab == tab;
                 let entries_classes = classes!(
@@ -650,7 +652,7 @@ impl Component for Prompt {
                     html!(<div class="block block-lg kanjis">{kanjis}</div>)
                 }
                 Tab::Settings => {
-                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} /></div>)
+                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} /></div>)
                 }
             };
 
@@ -659,17 +661,84 @@ impl Component for Prompt {
             } else {
                 html! {
                     <>
+                        {analyze}
+                        {for translation}
                         <div class="tabs">{for tabs}</div>
                         {content}
                     </>
                 }
             }
         } else {
-            html! {
-                <div class="columns">
-                    <div class="column">{phrases}{names}</div>
-                    <div class="column characters">{kanjis}</div>
-                </div>
+            match self.query.tab {
+                Tab::Settings => {
+                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} /></div>)
+                }
+                _ => {
+                    let onclick = ctx.link().callback(|e: MouseEvent| {
+                        e.prevent_default();
+                        Msg::OpenConfig
+                    });
+
+                    let prompt = html! {
+                        <>
+                        <div class="block block row" id="prompt">
+                            <input value={self.query.q.clone()} type="text" oninput={oninput} />
+                        </div>
+
+                        <div class="block block-lg row">
+                            <label for="romanize" title="Do not process input at all">
+                                <input type="checkbox" id="romanize" checked={self.query.mode == Mode::Unfiltered} onchange={onromanize} />
+                                {"Default"}
+                            </label>
+
+                            {spacing()}
+
+                            <label for="hiragana" title="Process input as Hiragana">
+                                <input type="checkbox" id="hiragana" checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
+                                {"ひらがな"}
+                            </label>
+
+                            {spacing()}
+
+                            <label for="katakana" title="Treat input as Katakana">
+                                <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
+                                {"カタカナ"}
+                            </label>
+
+                            {spacing()}
+
+                            <label for="clipboard" title="Capture clipboard">
+                                <input type="checkbox" id="clipboard" checked={self.query.capture_clipboard} onchange={oncaptureclipboard} />
+                                {"📋"}
+                            </label>
+
+                            <button class="btn btn-lg end" {onclick}>{"⚙️"}</button>
+                        </div>
+                        </>
+                    };
+
+                    let kanjis = kanjis.map(|kanjis| {
+                        html! {
+                            <div class="column characters">{kanjis}</div>
+                        }
+                    });
+
+                    html! {
+                        <>
+                            <>{prompt}</>
+
+                            <>
+                                {analyze}
+                                {for translation}
+
+                                <div class="columns">
+                                    <div class="column">{phrases}{names}</div>
+                                    {for kanjis}
+                                </div>
+                            </>
+                        </>
+                    }
+                }
             }
         };
 
@@ -677,59 +746,9 @@ impl Component for Prompt {
             self.query.embed.then_some("embed"),
         };
 
-        let onclick = ctx.link().callback(|e: MouseEvent| {
-            e.prevent_default();
-            Msg::Navigate(Route::Config)
-        });
-
-        let prompt = (!self.query.embed).then(|| html! {
-            <>
-            <div class="block block row" id="prompt">
-                <input value={self.query.q.clone()} type="text" oninput={oninput} />
-            </div>
-
-            <div class="block block-lg row">
-                <label for="romanize" title="Do not process input at all">
-                    <input type="checkbox" id="romanize" checked={self.query.mode == Mode::Unfiltered} onchange={onromanize} />
-                    {"Default"}
-                </label>
-
-                {spacing()}
-
-                <label for="hiragana" title="Process input as Hiragana">
-                    <input type="checkbox" id="hiragana" checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
-                    {"ひらがな"}
-                </label>
-
-                {spacing()}
-
-                <label for="katakana" title="Treat input as Katakana">
-                    <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
-                    {"カタカナ"}
-                </label>
-
-                {spacing()}
-
-                <label for="clipboard" title="Capture clipboard">
-                    <input type="checkbox" id="clipboard" checked={self.query.capture_clipboard} onchange={oncaptureclipboard} />
-                    {"📋"}
-                </label>
-
-                <button class="btn btn-lg end" {onclick}>{"⚙️"}</button>
-            </div>
-            </>
-        });
-
         html! {
             <div id="container" {class}>
-                <>{for prompt}</>
-
-                <>
-                    {analyze}
-                    {for translation}
-                    {results}
-                </>
-
+                {page}
                 <div class="block block-xl" id="copyright">{copyright()}</div>
             </div>
         }

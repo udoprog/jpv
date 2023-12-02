@@ -21,6 +21,8 @@ pub enum Msg {
 pub struct Props {
     #[prop_or_default]
     pub embed: bool,
+    #[prop_or_default]
+    pub log: Vec<api::LogEntry>,
 }
 
 struct State {
@@ -172,6 +174,29 @@ impl Component for Config {
             }
         });
 
+        let log = (!ctx.props().log.is_empty()).then(|| {
+            let it = ctx.props().log.iter().rev().map(|entry| {
+                let class = classes! {
+                    "row",
+                    "log-entry",
+                    format!("log-entry-{}", entry.level),
+                };
+
+                html! {
+                    <div {class}>
+                        <span class="log-level">{&entry.level}</span>
+                        <span class="log-text">{&entry.text}</span>
+                    </div>
+                }
+            });
+
+            html! {
+                <div class="block block-lg log">
+                    {for it}
+                </div>
+            }
+        });
+
         html! {
             <>
                 <h5>{"Enabled sources"}</h5>
@@ -185,6 +210,8 @@ impl Component for Config {
                     <button class="btn btn-lg end primary" {disabled} onclick={onsave}>{"Save"}</button>
                     <button class="btn btn-lg" onclick={onrebuild}>{"Rebuild database"}</button>
                 </div>
+
+                {log}
             </>
         }
     }

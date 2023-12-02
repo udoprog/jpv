@@ -15,8 +15,6 @@ use self::components as c;
 enum Route {
     #[at("/")]
     Prompt,
-    #[at("/config")]
-    Config,
     #[not_found]
     #[at("/404")]
     NotFound,
@@ -103,9 +101,6 @@ fn switch(routes: Route, callbacks: &Callbacks) -> Html {
     match routes {
         Route::Prompt => html! {
             <c::Prompt callbacks={callbacks.clone()} />
-        },
-        Route::Config => html! {
-            <div id="container"><c::Config /></div>
         },
         Route::NotFound => {
             html! {

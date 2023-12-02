@@ -200,6 +200,7 @@ mod background;
 mod command;
 mod dbus;
 mod open_uri;
+mod reporter;
 mod system;
 mod web;
 

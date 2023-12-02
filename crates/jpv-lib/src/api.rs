@@ -24,9 +24,10 @@ pub struct SendClipboardJson {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum ClientEvent {
     SendClipboardData(SendClipboard),
+    LogEntry(LogEntry),
 }
 
 #[borrowme::borrowme]
@@ -120,4 +121,12 @@ pub struct KanjiResponse<'a> {
     pub entry: kanjidic2::Character<'a>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub serial: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LogEntry {
+    /// The level of the rebuild.
+    pub level: String,
+    /// The rext of the rebuild.
+    pub text: String,
 }
