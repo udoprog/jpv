@@ -1334,14 +1334,12 @@ dependencies = [
  "async-fuse",
  "axum",
  "clap",
- "directories",
  "flate2",
  "futures",
  "gio",
  "image",
  "jpv-lib",
  "jpv-tesseract",
- "memmap",
  "mime_guess",
  "musli-zerocopy",
  "rand",
@@ -1365,8 +1363,10 @@ dependencies = [
  "anyhow",
  "arrayvec",
  "borrowme",
+ "directories",
  "fixed-map",
  "log",
+ "memmap",
  "musli",
  "musli-storage",
  "musli-zerocopy",
@@ -1607,8 +1607,6 @@ dependencies = [
 [[package]]
 name = "musli-zerocopy"
 version = "0.0.91"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd020d6b207c9652584d964a92b03fd2ff670a54e171ae6abb7bc6a341963fa7"
 dependencies = [
  "musli-zerocopy-macros",
  "rand",
@@ -1617,8 +1615,6 @@ dependencies = [
 [[package]]
 name = "musli-zerocopy-macros"
 version = "0.0.91"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81f6d0597b0411071a7fcd34a1808194c3f62ee91892968ea1d9a39fd7f301b9"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -15,7 +15,7 @@ enum Msg {}
 
 #[derive(Properties)]
 struct Props {
-    db: Arc<Option<lib::database::Database<'static>>>,
+    db: Arc<Option<lib::database::Database>>,
 }
 
 impl PartialEq for Props {
@@ -43,7 +43,7 @@ impl Component for App {
     }
 }
 
-fn load_database() -> anyhow::Result<Option<lib::database::Database<'static>>> {
+fn load_database() -> anyhow::Result<Option<lib::database::Database>> {
     Ok(None)
 }
 

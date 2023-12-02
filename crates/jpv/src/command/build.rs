@@ -8,13 +8,13 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use flate2::read::GzDecoder;
 use lib::database::{self, Input};
+use lib::Dirs;
 use reqwest::Method;
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
 use crate::config::{Config, DownloadOverrides, IndexKind};
-use crate::dirs::Dirs;
 use crate::Args;
 
 const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
@@ -55,10 +55,10 @@ pub(crate) async fn run(
         ensure_parent_dir(&download.index_path).await;
 
         // SAFETY: We are the only ones calling this function now.
-        let result = unsafe { crate::database::open(&download.index_path) };
+        let result = lib::data::open(&download.index_path);
 
         match result {
-            Ok(data) => match database::Index::open(data.as_slice()) {
+            Ok(data) => match database::Index::open(data) {
                 Ok(..) => {
                     if !build_args.force {
                         tracing::info!(

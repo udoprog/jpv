@@ -31,7 +31,7 @@ use crate::system;
 pub(crate) fn setup(
     local_port: u16,
     listener: TcpListener,
-    db: Database<'static>,
+    db: Database,
     system_events: system::SystemEvents,
 ) -> Result<impl Future<Output = Result<()>>> {
     let server = match axum::Server::from_tcp(listener) {
@@ -100,8 +100,8 @@ impl From<anyhow::Error> for RequestError {
 async fn entry(
     Path(sequence): Path<u32>,
     Query(query): Query<api::EntryQuery>,
-    Extension(db): Extension<Database<'static>>,
-) -> RequestResult<Json<api::EntryResponse>> {
+    Extension(db): Extension<Database>,
+) -> RequestResult<Json<api::OwnedEntryResponse>> {
     let Some(entry) = db.sequence_to_entry(sequence)? else {
         return Err(RequestError::not_found(format!(
             "Missing entry by id `{}`",
@@ -109,8 +109,8 @@ async fn entry(
         )));
     };
 
-    Ok(Json(api::EntryResponse {
-        entry,
+    Ok(Json(api::OwnedEntryResponse {
+        entry: lib::to_owned(entry),
         serial: query.serial,
     }))
 }
@@ -118,24 +118,24 @@ async fn entry(
 async fn kanji(
     Path(literal): Path<String>,
     Query(query): Query<api::KanjiQuery>,
-    Extension(db): Extension<Database<'static>>,
-) -> RequestResult<Json<api::KanjiResponse>> {
+    Extension(db): Extension<Database>,
+) -> RequestResult<Json<api::OwnedKanjiResponse>> {
     let Some(entry) = db.literal_to_kanji(&literal)? else {
         return Err(RequestError::not_found(format!(
             "Missing kanji by literal `{literal}`",
         )));
     };
 
-    Ok(Json(api::KanjiResponse {
-        entry,
+    Ok(Json(api::OwnedKanjiResponse {
+        entry: lib::to_owned(entry),
         serial: query.serial,
     }))
 }
 
 async fn search(
     Query(request): Query<api::OwnedSearchRequest>,
-    Extension(db): Extension<Database<'static>>,
-) -> RequestResult<Json<api::SearchResponse>> {
+    Extension(db): Extension<Database>,
+) -> RequestResult<Json<api::OwnedSearchResponse>> {
     let Some(q) = request.q.as_deref() else {
         return Err(Error::msg("Missing `q`").into());
     };
@@ -146,24 +146,30 @@ async fn search(
     let mut names = Vec::new();
 
     for (key, phrase) in search.phrases {
-        phrases.push(api::SearchPhrase { key, phrase });
+        phrases.push(api::OwnedSearchPhrase {
+            key,
+            phrase: lib::to_owned(phrase),
+        });
     }
 
     for (key, name) in search.names {
-        names.push(api::SearchName { key, name });
+        names.push(api::OwnedSearchName {
+            key,
+            name: lib::to_owned(name),
+        });
     }
 
-    Ok(Json(api::SearchResponse {
+    Ok(Json(api::OwnedSearchResponse {
         phrases,
         names,
-        characters: search.characters,
+        characters: lib::to_owned(search.characters),
         serial: request.serial,
     }))
 }
 
 async fn analyze(
     Query(request): Query<api::OwnedAnalyzeRequest>,
-    Extension(db): Extension<Database<'static>>,
+    Extension(db): Extension<Database>,
 ) -> RequestResult<Json<api::OwnedAnalyzeResponse>> {
     let mut data = Vec::new();
 

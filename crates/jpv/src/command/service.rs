@@ -5,14 +5,14 @@ use std::pin::pin;
 use anyhow::{Context, Result};
 use async_fuse::Fuse;
 use clap::Parser;
+use lib::data;
+use lib::Dirs;
 use tokio::signal::ctrl_c;
 #[cfg(windows)]
 use tokio::signal::windows::ctrl_shutdown;
 use tokio::sync::Notify;
 
-use crate::database;
 use crate::dbus;
-use crate::dirs::Dirs;
 use crate::open_uri;
 use crate::system;
 use crate::web;
@@ -81,7 +81,7 @@ pub(crate) async fn run(args: &Args, service_args: &ServiceArgs, dirs: &Dirs) ->
     };
 
     // SAFETY: we know this is only initialized once here exclusively.
-    let indexes = unsafe { database::open_from_args(args, dirs)? };
+    let indexes = data::open_from_args(&args.index[..], dirs)?;
 
     let db = lib::database::Database::open(indexes)?;
 

@@ -198,9 +198,7 @@
 
 mod command;
 mod config;
-mod database;
 mod dbus;
-mod dirs;
 mod open_uri;
 mod system;
 mod web;
@@ -211,7 +209,7 @@ use anyhow::Result;
 use clap::Parser;
 use clap::Subcommand;
 use config::Config;
-use dirs::Dirs;
+use lib::Dirs;
 #[cfg(windows)]
 use tokio::signal::windows::ctrl_shutdown;
 use tracing_subscriber::util::SubscriberInitExt;

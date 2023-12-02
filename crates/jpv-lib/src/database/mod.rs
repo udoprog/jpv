@@ -7,6 +7,7 @@ use std::borrow::Cow;
 use std::collections::{hash_map, BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use musli::mode::DefaultMode;
@@ -14,10 +15,11 @@ use musli::{Decode, Encode};
 use musli_storage::int::Variable;
 use musli_storage::Encoding;
 use musli_zerocopy::endian::Little;
-use musli_zerocopy::{slice, swiss, trie, Buf, OwnedBuf, Ref, ZeroCopy};
+use musli_zerocopy::{slice, swiss, trie, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::data::Data;
 use crate::inflection::{self, Inflection};
 use crate::jmdict;
 use crate::jmnedict;
@@ -93,7 +95,7 @@ struct Header {
     index: Ref<IndexHeader, Little>,
 }
 
-#[derive(ZeroCopy)]
+#[derive(Clone, Copy, ZeroCopy)]
 #[repr(C)]
 pub struct IndexHeader {
     pub name: Ref<str>,
@@ -641,20 +643,20 @@ fn other_readings(
     output.push((Cow::Owned(other), b));
 }
 
-#[derive(Clone, Copy)]
-pub struct Index<'a> {
-    index: &'a IndexHeader,
-    data: &'a Buf,
+// A loaded index.
+pub struct Index {
+    header: IndexHeader,
+    data: Data,
 }
 
-impl<'a> Index<'a> {
+impl Index {
     /// Construct a new database wrapper.
     ///
     /// This returns `Ok(None)` if the database is incompatible with the current
     /// version.
-    pub fn open(data: &'a [u8]) -> Result<Self, IndexOpenError> {
-        let data = Buf::new(data);
-        let header = data.load(Ref::<Header>::zero())?;
+    pub fn open(data: Data) -> Result<Self, IndexOpenError> {
+        let buf = data.as_buf();
+        let header = buf.load(Ref::<Header>::zero())?;
 
         if header.magic != DICTIONARY_MAGIC {
             return Err(IndexOpenError::MagicMismatch);
@@ -664,13 +666,13 @@ impl<'a> Index<'a> {
             return Err(IndexOpenError::Outdated);
         }
 
-        let index = data.load(header.index)?;
-        Ok(Self { index, data })
+        let header = *buf.load(header.index)?;
+        Ok(Self { header, data })
     }
 
     /// Get an entry from the database.
-    pub fn entry_at(&self, id: Id) -> Result<Entry<'a>> {
-        let Some(bytes) = self.data.get(id.offset as usize..) else {
+    pub fn entry_at(&self, id: Id) -> Result<Entry<'_>> {
+        let Some(bytes) = self.data.as_buf().get(id.offset as usize..) else {
             return Err(anyhow!("Missing entry at {}", id.offset));
         };
 
@@ -683,15 +685,15 @@ impl<'a> Index<'a> {
 }
 
 #[derive(Clone)]
-pub struct Database<'a> {
-    indexes: Vec<Index<'a>>,
+pub struct Database {
+    indexes: Arc<[Index]>,
 }
 
-impl<'a> Database<'a> {
+impl Database {
     /// Open a sequence of indexes.
     pub fn open<I>(iter: I) -> Result<Self>
     where
-        I: IntoIterator<Item = (&'a [u8], Location)>,
+        I: IntoIterator<Item = (Data, Location)>,
     {
         let mut indexes = Vec::new();
 
@@ -700,7 +702,9 @@ impl<'a> Database<'a> {
                 .push(Index::open(data).with_context(|| anyhow!("Loading index from {location}"))?);
         }
 
-        Ok(Self { indexes })
+        Ok(Self {
+            indexes: indexes.into(),
+        })
     }
 
     /// Convert a sequence to Id.
@@ -708,7 +712,7 @@ impl<'a> Database<'a> {
         let mut output = Vec::new();
 
         for (index, d) in self.indexes.iter().enumerate() {
-            let Some(offset) = d.index.by_sequence.get(d.data, &sequence)? else {
+            let Some(offset) = d.header.by_sequence.get(d.data.as_buf(), &sequence)? else {
                 continue;
             };
 
@@ -719,19 +723,19 @@ impl<'a> Database<'a> {
     }
 
     /// Get all entries matching the given id.
-    pub fn entry_at(&self, index: usize, id: Id) -> Result<Entry<'a>> {
+    pub fn entry_at(&self, index: usize, id: Id) -> Result<Entry<'_>> {
         let i = self.indexes.get(index).context("missing index")?;
         i.entry_at(id)
     }
 
     /// Get kanji by character.
-    pub fn literal_to_kanji(&self, literal: &str) -> Result<Option<kanjidic2::Character<'a>>> {
+    pub fn literal_to_kanji(&self, literal: &str) -> Result<Option<kanjidic2::Character<'_>>> {
         for d in self.indexes.iter() {
-            let Some(index) = d.index.by_kanji_literal.get(d.data, literal)? else {
+            let Some(index) = d.header.by_kanji_literal.get(d.data.as_buf(), literal)? else {
                 continue;
             };
 
-            let Some(bytes) = d.data.get(*index as usize..) else {
+            let Some(bytes) = d.data.as_buf().get(*index as usize..) else {
                 return Err(anyhow!("Missing entry at {}", *index));
             };
 
@@ -742,13 +746,13 @@ impl<'a> Database<'a> {
     }
 
     /// Get identifier by sequence.
-    pub fn sequence_to_entry(&self, sequence: u32) -> Result<Option<jmdict::Entry<'a>>> {
+    pub fn sequence_to_entry(&self, sequence: u32) -> Result<Option<jmdict::Entry<'_>>> {
         for d in self.indexes.iter() {
-            let Some(index) = d.index.by_sequence.get(d.data, &sequence)? else {
+            let Some(index) = d.header.by_sequence.get(d.data.as_buf(), &sequence)? else {
                 continue;
             };
 
-            let Some(bytes) = d.data.get(*index as usize..) else {
+            let Some(bytes) = d.data.as_buf().get(*index as usize..) else {
                 return Err(anyhow!("Missing entry at {}", *index));
             };
 
@@ -764,10 +768,10 @@ impl<'a> Database<'a> {
         let mut output = Vec::new();
 
         for (index, d) in self.indexes.iter().enumerate() {
-            if let Some(by_pos) = d.index.by_pos.get(d.data, &pos)? {
+            if let Some(by_pos) = d.header.by_pos.get(d.data.as_buf(), &pos)? {
                 tracing::trace!(?by_pos);
 
-                for id in d.data.load(*by_pos)? {
+                for id in d.data.as_buf().load(*by_pos)? {
                     output.push((index, Id::phrase(*id)));
                 }
             }
@@ -783,7 +787,7 @@ impl<'a> Database<'a> {
         let mut output = Vec::new();
 
         for d in self.indexes.iter() {
-            for id in d.index.lookup.values_in(d.data, prefix) {
+            for id in d.header.lookup.values_in(d.data.as_buf(), prefix) {
                 output.push(*id?);
             }
         }
@@ -800,13 +804,13 @@ impl<'a> Database<'a> {
             Some((prefix, suffix)) if !prefix.is_empty() => {
                 if suffix.is_empty() {
                     for (n, i) in self.indexes.iter().enumerate() {
-                        for id in i.index.lookup.values_in(i.data, prefix) {
+                        for id in i.header.lookup.values_in(i.data.as_buf(), prefix) {
                             output.push((n, *id?));
                         }
                     }
                 } else {
                     for (n, i) in self.indexes.iter().enumerate() {
-                        for id in i.index.lookup.iter_in(i.data, prefix) {
+                        for id in i.header.lookup.iter_in(i.data.as_buf(), prefix) {
                             let (string, id) = id?;
 
                             let Some(s) = string.strip_prefix(prefix.as_bytes()) else {
@@ -824,7 +828,7 @@ impl<'a> Database<'a> {
             }
             _ => {
                 for (n, i) in self.indexes.iter().enumerate() {
-                    if let Some(lookup) = i.index.lookup.get(i.data, query)? {
+                    if let Some(lookup) = i.header.lookup.get(i.data.as_buf(), query)? {
                         for id in lookup {
                             output.push((n, *id));
                         }
@@ -838,7 +842,7 @@ impl<'a> Database<'a> {
     }
 
     /// Perform the given search.
-    pub fn search(&self, input: &str) -> Result<Search<'a>> {
+    pub fn search(&self, input: &str) -> Result<Search<'_>> {
         let mut phrases = Vec::new();
         let mut names = Vec::new();
         let mut characters = Vec::new();
@@ -931,11 +935,11 @@ impl<'a> Database<'a> {
         })
     }
 
-    fn populate_kanji(
-        &self,
+    fn populate_kanji<'this>(
+        &'this self,
         input: &str,
-        seen: &mut HashSet<&'a str>,
-        out: &mut Vec<kanjidic2::Character<'a>>,
+        seen: &mut HashSet<&'this str>,
+        out: &mut Vec<kanjidic2::Character<'this>>,
     ) -> Result<()> {
         for c in input.chars() {
             if is_katakana(c) || is_hiragana(c) || c.is_ascii_alphabetic() {
@@ -943,7 +947,11 @@ impl<'a> Database<'a> {
             }
 
             for d in self.indexes.iter() {
-                let Some(lookup) = d.index.lookup.get(d.data, c.encode_utf8(&mut [0; 4]))? else {
+                let Some(lookup) = d
+                    .header
+                    .lookup
+                    .get(d.data.as_buf(), c.encode_utf8(&mut [0; 4]))?
+                else {
                     continue;
                 };
 
@@ -984,7 +992,7 @@ impl<'a> Database<'a> {
 
         while !it.as_str().is_empty() {
             for d in self.indexes.iter() {
-                let Some(values) = d.index.lookup.get(d.data, it.as_str())? else {
+                let Some(values) = d.header.lookup.get(d.data.as_buf(), it.as_str())? else {
                     continue;
                 };
 

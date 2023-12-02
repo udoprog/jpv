@@ -1,3 +1,6 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
+
+[patch.crates-io]
+musli-zerocopy = { path = "../musli/crates/musli-zerocopy" }

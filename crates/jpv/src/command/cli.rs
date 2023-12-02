@@ -7,12 +7,12 @@ use std::mem;
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
+use lib::data;
 use lib::database::{Database, Entry, Id, IndexSource};
 use lib::inflection;
-use lib::{Form, Furigana, PartOfSpeech};
+use lib::{Dirs, Form, Furigana, PartOfSpeech};
 
-use crate::dirs::Dirs;
-use crate::{database, Args};
+use crate::Args;
 
 #[derive(Parser)]
 pub(crate) struct CliArgs {
@@ -80,7 +80,7 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
     }
 
     // SAFETY: we know this is only initialized once here exclusively.
-    let indexes = unsafe { database::open_from_args(args, dirs)? };
+    let indexes = data::open_from_args(&args.index[..], dirs)?;
 
     let db = Database::open(indexes)?;
 
@@ -157,7 +157,7 @@ pub(crate) async fn run(args: &Args, cli_args: &CliArgs, dirs: &Dirs) -> Result<
 
 fn print_rich<O>(
     o: &mut O,
-    db: &Database<'_>,
+    db: &Database,
     cli_args: &CliArgs,
     current_lang: &str,
     to_look_up: &BTreeSet<(usize, Id)>,

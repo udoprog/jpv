@@ -10,11 +10,22 @@ pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44;
 /// Current database version in use.
 pub const DICTIONARY_VERSION: u32 = 2;
 
+/// Helper to convert a type to its owned variant.
+pub use ::borrowme::to_owned;
+
+/// Helper to convert a type to its borrowed variant.
+pub use ::borrowme::borrow;
+
 #[macro_use]
 pub mod inflection;
 pub use self::inflection::{Form, Inflection, Inflections, OwnedInflections};
 
+pub mod data;
+
 pub mod api;
+
+pub use self::dirs::Dirs;
+mod dirs;
 
 mod concat;
 pub use self::concat::Concat;

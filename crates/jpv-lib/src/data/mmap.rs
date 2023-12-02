@@ -3,6 +3,7 @@ use std::io;
 use std::path::Path;
 
 use memmap::MmapOptions;
+use musli_zerocopy::Buf;
 
 pub struct Data {
     map: memmap::Mmap,
@@ -10,16 +11,17 @@ pub struct Data {
 
 impl Data {
     /// Get a slice to the underlying data.
-    pub fn as_slice(&self) -> &[u8] {
-        &self.map[..]
+    pub fn as_buf(&self) -> &Buf {
+        Buf::new(&self.map[..])
     }
 }
 
-pub(crate) unsafe fn open<P>(path: P) -> io::Result<Data>
+/// Open the given path as data.
+pub fn open<P>(path: P) -> io::Result<Data>
 where
     P: AsRef<Path>,
 {
     let f = File::open(path)?;
-    let mmap = MmapOptions::new().map(&f)?;
+    let mmap = unsafe { MmapOptions::new().map(&f)? };
     Ok(Data { map: mmap })
 }

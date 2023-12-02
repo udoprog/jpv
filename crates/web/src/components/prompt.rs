@@ -403,7 +403,7 @@ impl Prompt {
 
 #[derive(Properties)]
 pub(crate) struct Props {
-    pub(crate) db: Arc<Option<lib::database::Database<'static>>>,
+    pub(crate) db: Arc<Option<lib::database::Database>>,
 }
 
 impl PartialEq for Props {

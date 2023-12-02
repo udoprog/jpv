@@ -3,7 +3,7 @@ use std::io;
 use std::io::Read;
 use std::path::Path;
 
-use musli_zerocopy::OwnedBuf;
+use musli_zerocopy::{Buf, OwnedBuf};
 
 pub struct Data {
     buf: OwnedBuf,
@@ -11,12 +11,12 @@ pub struct Data {
 
 impl Data {
     /// Get a slice to the underlying data.
-    pub fn as_slice(&self) -> &[u8] {
-        &self.buf[..]
+    pub fn as_buf(&self) -> &Buf {
+        &self.buf
     }
 }
 
-pub(crate) unsafe fn read<P>(path: P) -> io::Result<Data>
+pub fn open<P>(path: P) -> io::Result<Data>
 where
     P: AsRef<Path>,
 {
