@@ -340,9 +340,10 @@ h5, h6 {
 .btn {
     color: var(--primary-color);
     background-color: var(--default-bg);
-    padding: 0.1rem 0.25rem;
     border: 1px solid var(--button-border);
     border-radius: 5px;
+    padding: 0.25rem;
+    font-size: 0.8em;
 
     cursor: pointer;
 
@@ -368,8 +369,7 @@ h5, h6 {
     }
 
     &-lg {
-        font-size: 1.1em;
-        padding: 0.25rem;
+        font-size: 1em;
     }
 }
 

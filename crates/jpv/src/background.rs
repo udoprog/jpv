@@ -195,7 +195,7 @@ impl Background {
                         return Ok(());
                     };
 
-                    self.start_task(&completion, 5);
+                    self.start_task(&completion, 6);
 
                     let dirs = self.dirs.clone();
                     let inner = self.inner.clone();
@@ -457,6 +457,8 @@ async fn read_or_download(
         }
     };
 
+    reporter.instrument_end(bytes.len());
+
     let mut input = GzDecoder::new(&bytes[..]);
     let mut string = String::new();
     input
@@ -479,12 +481,19 @@ async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec
 
     let mut response = client.execute(request).await?;
 
+    let total = response
+        .content_length()
+        .map(|n| usize::try_from(n).unwrap_or(usize::MAX));
+
     let mut f = File::create(path).await?;
     let mut data = Vec::new();
+
+    reporter.instrument_start(module_path!(), &format!("Downloading {}", url), total);
 
     while let Some(chunk) = response.chunk().await? {
         f.write_all(chunk.as_ref()).await?;
         data.extend_from_slice(chunk.as_ref());
+        reporter.instrument_progress(chunk.as_ref().len());
     }
 
     Ok(data)

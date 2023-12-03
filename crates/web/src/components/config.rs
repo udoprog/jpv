@@ -145,7 +145,7 @@ impl Component for Config {
 
         let back = (!ctx.props().embed).then(|| {
             html! {
-                <button class="btn btn-lg" onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
+                <button class="btn" onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
             }
         });
 
@@ -181,8 +181,8 @@ impl Component for Config {
 
                 <div class="block block-lg row row-spaced">
                     {back}
-                    <button class="btn btn-lg end primary" {disabled} onclick={onsave}>{"Save"}</button>
-                    <button class="btn btn-lg" onclick={onrebuild}>{"Rebuild database"}</button>
+                    <button class="btn end primary" {disabled} onclick={onsave}>{"Save"}</button>
+                    <button class="btn" onclick={onrebuild} title="Build the search index used by this dictionary">{"Rebuild"}</button>
                 </div>
 
                 {log}
