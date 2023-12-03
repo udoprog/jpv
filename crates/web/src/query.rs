@@ -24,12 +24,12 @@ pub enum Tab {
 pub(crate) struct Query {
     pub(crate) text: Rc<str>,
     pub(crate) translation: Option<String>,
-    pub(crate) a: Rc<[String]>,
-    pub(crate) i: usize,
     pub(crate) mode: Mode,
     pub(crate) capture_clipboard: bool,
     pub(crate) embed: bool,
     pub(crate) tab: Tab,
+    pub(crate) analyze_at: Option<usize>,
+    pub(crate) index: usize,
 }
 
 impl Query {
@@ -44,14 +44,14 @@ impl Query {
 
     pub(crate) fn deserialize(raw: Vec<(String, String)>) -> (Self, Option<usize>) {
         let mut analyze_at = None;
+        let mut analyze_at_char = None;
         let mut text = String::new();
         let mut translation = None;
-        let mut a = Vec::new();
-        let mut index = 0;
         let mut mode = Mode::default();
         let mut capture_clipboard = false;
         let mut embed = false;
         let mut tab = Tab::default();
+        let mut index = 0;
 
         for (key, value) in raw {
             match key.as_str() {
@@ -60,14 +60,6 @@ impl Query {
                 }
                 "t" => {
                     translation = Some(value);
-                }
-                "a" => {
-                    a.push(value);
-                }
-                "i" => {
-                    if let Ok(i) = value.parse() {
-                        index = i;
-                    }
                 }
                 "mode" => {
                     mode = match value.as_str() {
@@ -91,9 +83,19 @@ impl Query {
                         _ => Tab::default(),
                     };
                 }
-                "analyzeAt" => {
+                "at" => {
                     if let Ok(i) = value.parse() {
                         analyze_at = Some(i);
+                    }
+                }
+                "analyze_at_char" => {
+                    if let Ok(i) = value.parse() {
+                        analyze_at_char = Some(i);
+                    }
+                }
+                "index" => {
+                    if let Ok(i) = value.parse() {
+                        index = i;
                     }
                 }
                 _ => {}
@@ -103,15 +105,15 @@ impl Query {
         let this = Self {
             text: text.into(),
             translation,
-            a: a.into(),
-            i: index,
             mode,
             capture_clipboard,
             embed,
             tab,
+            analyze_at,
+            index,
         };
 
-        (this, analyze_at)
+        (this, analyze_at_char)
     }
 
     pub(crate) fn serialize(&self, no_embed: bool) -> Vec<(&'static str, Cow<'_, str>)> {
@@ -123,14 +125,6 @@ impl Query {
 
         if let Some(t) = &self.translation {
             out.push(("t", Cow::Borrowed(t)));
-        }
-
-        for a in self.a.iter() {
-            out.push(("a", Cow::Borrowed(a.as_str())));
-        }
-
-        if self.i != 0 {
-            out.push(("i", Cow::Owned(self.i.to_string())));
         }
 
         match self.mode {
@@ -151,6 +145,10 @@ impl Query {
             out.push(("embed", Cow::Borrowed("yes")));
         }
 
+        if let Some(analyze_at) = self.analyze_at {
+            out.push(("at", Cow::Owned(analyze_at.to_string())));
+        }
+
         match self.tab {
             Tab::Phrases => {}
             Tab::Names => {
@@ -162,6 +160,10 @@ impl Query {
             Tab::Settings => {
                 out.push(("tab", Cow::Borrowed("settings")));
             }
+        }
+
+        if self.index > 0 {
+            out.push(("index", Cow::Owned(self.index.to_string())));
         }
 
         out

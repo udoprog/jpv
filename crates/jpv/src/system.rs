@@ -52,6 +52,8 @@ pub(crate) enum Event {
     LogEntry(api::LogEntry),
     TaskProgress(TaskProgress),
     TaskCompleted(TaskCompleted),
+    /// Indicate that clients should refresh their state.
+    Refresh,
 }
 
 #[derive(Clone)]

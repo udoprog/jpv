@@ -7,8 +7,10 @@ use super::spacing;
 #[derive(Properties, PartialEq)]
 pub(crate) struct Props {
     pub(crate) query: Rc<str>,
-    pub(crate) analyzed: Rc<[String]>,
+    pub(crate) analyzed: Rc<[Rc<str>]>,
     pub(crate) index: usize,
+    #[prop_or_default]
+    pub(crate) analyze_at: Option<usize>,
     pub(crate) on_analyze: Callback<usize>,
     pub(crate) on_analyze_cycle: Callback<()>,
 }
@@ -26,11 +28,13 @@ impl Component for AnalyzeToggle {
     fn view(&self, ctx: &Context<Self>) -> Html {
         let mut rem = 0usize;
 
+        let string = ctx.props().analyzed.get(ctx.props().index);
+
         let query = ctx.props().query.char_indices().map(|(i, c)| {
             let sub = ctx.props().query.get(i..).unwrap_or_default();
 
-            let event = if let Some(string) = ctx.props().analyzed.get(ctx.props().index) {
-                if rem == 0 && sub.starts_with(string) {
+            let event = if let (Some(analyze_at), Some(string)) = (ctx.props().analyze_at, string) {
+                if i == analyze_at && rem == 0 && sub.starts_with(string.as_ref()) {
                     rem = string.chars().count();
                     None
                 } else {

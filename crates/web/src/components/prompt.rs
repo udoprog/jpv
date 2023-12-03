@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::str::from_utf8;
@@ -38,7 +39,7 @@ pub(crate) enum Msg {
     AnalyzeCycle,
     HistoryChanged(Location),
     SearchResponse(api::OwnedSearchResponse),
-    AnalyzeResponse(api::OwnedAnalyzeResponse, History),
+    AnalyzeResponse(api::OwnedAnalyzeResponse),
     MoreEntries,
     MoreCharacters,
     ClientEvent(ClientEvent),
@@ -80,11 +81,31 @@ pub(crate) struct Prompt {
     serials: Serials,
     log: Vec<api::LogEntry>,
     tasks: BTreeMap<String, api::TaskProgress>,
-    _handle: Option<LocationHandle>,
+    analysis: Rc<[Rc<str>]>,
+    _location_handle: Option<LocationHandle>,
 }
 
 impl Prompt {
-    fn refresh(&mut self, ctx: &Context<Self>, input: &str) {
+    fn reload(&mut self, ctx: &Context<Self>) {
+        log::trace!("Reload");
+
+        if let Some(analyze_at) = self.query.analyze_at {
+            self.analyze(ctx, analyze_at);
+            return;
+        }
+
+        let input = if let Some(input) = self.analysis.get(self.query.index) {
+            input.clone()
+        } else {
+            self.query.text.clone()
+        };
+
+        self.search(ctx, &input);
+    }
+
+    fn search(&mut self, ctx: &Context<Self>, input: &str) {
+        log::trace!("Search `{input}`");
+
         let input = input.to_lowercase();
         let serial = self.serials.search();
 
@@ -96,45 +117,40 @@ impl Prompt {
         });
     }
 
-    fn analyze(&mut self, ctx: &Context<Self>, start: usize, history: History) {
+    fn analyze(&mut self, ctx: &Context<Self>, start: usize) {
+        log::trace!("Analyze {start}");
+
         let input = self.query.text.clone();
         let serial = self.serials.analyze();
 
         ctx.link().send_future(async move {
             match fetch::analyze(&input, start, serial).await {
-                Ok(entries) => Msg::AnalyzeResponse(entries, history),
+                Ok(entries) => Msg::AnalyzeResponse(entries),
                 Err(error) => Msg::Error(error),
             }
         });
     }
 
     fn save_query(&mut self, ctx: &Context<Prompt>, history: History) {
-        if let (Some(location), Some(navigator)) = (ctx.link().location(), ctx.link().navigator()) {
-            let path = location.path();
-            let path = AnyRoute::new(path);
+        let (Some(location), Some(navigator)) = (ctx.link().location(), ctx.link().navigator())
+        else {
+            return;
+        };
 
-            let query = self.query.serialize(false);
+        let path = location.path();
+        let path = AnyRoute::new(path);
 
-            let result = match history {
-                History::Push => navigator.push_with_query(&path, &query),
-                History::Replace => navigator.replace_with_query(&path, &query),
-            };
+        let query = self.query.serialize(false);
 
-            if let Err(error) = result {
-                log::error!("Failed to set route: {error}");
+        let result = match history {
+            History::Push => navigator.push_with_query_and_state(&path, &query, IsInternal::new()),
+            History::Replace => {
+                navigator.replace_with_query_and_state(&path, &query, IsInternal::new())
             }
-        }
-    }
+        };
 
-    fn handle_analysis(&mut self, ctx: &Context<Prompt>, analysis: Rc<[String]>, history: History) {
-        if let Some(input) = analysis.get(0) {
-            self.refresh(ctx, input);
-        }
-
-        if self.query.a != analysis || self.query.i != 0 {
-            self.query.a = analysis;
-            self.query.i = 0;
-            self.save_query(ctx, history);
+        if let Err(error) = result {
+            log::error!("Failed to set route: {error}");
         }
     }
 
@@ -146,10 +162,11 @@ impl Prompt {
     ) -> Result<(), Error> {
         if self.query.capture_clipboard && self.query.text.as_ref() != json.primary.as_str() {
             self.query.text = json.primary.clone().into();
-            self.query.a = Rc::from([]);
+            self.analysis = Rc::from([]);
+            self.query.index = 0;
             self.query.translation = json.secondary.as_ref().filter(|s| !s.is_empty()).cloned();
             self.save_query(ctx, History::Push);
-            self.refresh(ctx, &json.primary);
+            self.search(ctx, &json.primary);
         }
 
         Ok(())
@@ -180,10 +197,11 @@ impl Prompt {
 
         if self.query.capture_clipboard && self.query.text.as_ref() != data {
             self.query.text = data.into();
-            self.query.a = Rc::from([]);
+            self.analysis = Rc::from([]);
+            self.query.index = 0;
             self.query.translation = None;
             self.save_query(ctx, History::Push);
-            self.refresh(ctx, data);
+            self.search(ctx, data);
         }
 
         Ok(())
@@ -200,11 +218,11 @@ impl Component for Prompt {
     type Properties = Props;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let handle = ctx
+        let location_handle = ctx
             .link()
             .add_location_listener(ctx.link().callback(Msg::HistoryChanged));
 
-        let (query, input, analyze_at) = decode_query(ctx.link().location());
+        let query = decode_query(ctx.link().location());
 
         let mut this = Self {
             query,
@@ -216,19 +234,15 @@ impl Component for Prompt {
             serials: Serials::default(),
             log: Vec::new(),
             tasks: BTreeMap::new(),
-            _handle: handle,
+            analysis: Rc::from([]),
+            _location_handle: location_handle,
         };
 
         ctx.props()
             .callbacks
             .set_client_event(ctx.link().callback(Msg::ClientEvent));
 
-        if let Some(analyze_at) = analyze_at {
-            this.analyze(ctx, analyze_at, History::Replace);
-        } else {
-            this.refresh(ctx, &input);
-        }
-
+        this.reload(ctx);
         this
     }
 
@@ -253,10 +267,14 @@ impl Component for Prompt {
                     false
                 }
             }
-            Msg::AnalyzeResponse(response, history) => {
+            Msg::AnalyzeResponse(response) => {
                 if response.serial == Some(self.serials.analyze) {
-                    let analysis = response.data.into_iter().map(|d| d.string).collect();
-                    self.handle_analysis(ctx, analysis, history);
+                    self.analysis = response.data.into_iter().map(|d| d.string.into()).collect();
+
+                    if let Some(input) = self.analysis.get(self.query.index).cloned() {
+                        self.search(ctx, &input);
+                    }
+
                     true
                 } else {
                     false
@@ -298,11 +316,12 @@ impl Component for Prompt {
                     Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
 
-                self.refresh(ctx, &input);
+                self.search(ctx, &input);
 
-                if self.query.text != input || !self.query.a.is_empty() {
+                if self.query.text != input || !self.analysis.is_empty() {
                     self.query.text = input;
-                    self.query.a = Rc::from([]);
+                    self.analysis = Rc::from([]);
+                    self.query.index = 0;
                     self.query.translation = None;
                     self.save_query(ctx, History::Replace);
                 }
@@ -316,41 +335,57 @@ impl Component for Prompt {
                     Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
 
-                self.refresh(ctx, &input);
+                self.search(ctx, &input);
 
                 self.query.text = input;
                 self.query.translation = translation;
-                self.query.a = Rc::from([]);
+                self.analysis = Rc::from([]);
+                self.query.index = 0;
                 self.save_query(ctx, History::Push);
                 true
             }
             Msg::Analyze(i) => {
-                self.analyze(ctx, i, History::Push);
+                if self.query.analyze_at != Some(i) {
+                    self.query.index = 0;
+                }
+
+                self.query.analyze_at = Some(i);
+                self.save_query(ctx, History::Push);
+                self.analyze(ctx, i);
                 true
             }
             Msg::AnalyzeCycle => {
-                if let Some(input) = self.query.a.get(self.query.i).cloned() {
-                    self.query.i += 1;
-                    self.query.i %= self.query.a.len();
+                if !self.analysis.is_empty() {
+                    self.query.index += 1;
+                    self.query.index %= self.analysis.len();
+                }
+
+                if let Some(input) = self.analysis.get(self.query.index).cloned() {
                     self.save_query(ctx, History::Push);
-                    self.refresh(ctx, &input);
+                    self.search(ctx, &input);
                     true
                 } else {
                     false
                 }
             }
             Msg::HistoryChanged(location) => {
-                log::info!("history change");
-
-                let (query, inputs, analyze_at) = decode_query(Some(location));
-                self.query = query;
-
-                if let Some(analyze_at) = analyze_at {
-                    self.analyze(ctx, analyze_at, History::Replace);
-                } else {
-                    self.refresh(ctx, &inputs);
+                // Prevents internal history changes from firing.
+                if location.state::<IsInternal>().filter(|s| s.set()).is_some() {
+                    return false;
                 }
 
+                log::trace!("History change");
+                let query = decode_query(Some(location));
+
+                if self.query.analyze_at != query.analyze_at || self.query.text != query.text {
+                    self.reload(ctx);
+                } else if self.query.index != query.index {
+                    if let Some(input) = self.analysis.get(self.query.index).cloned() {
+                        self.search(ctx, &input);
+                    }
+                }
+
+                self.query = query;
                 true
             }
             Msg::MoreEntries => {
@@ -383,6 +418,9 @@ impl Component for Prompt {
                     }
                     ClientEvent::TaskCompleted(task) => {
                         self.tasks.remove(&task.name);
+                    }
+                    ClientEvent::Refresh(..) => {
+                        self.reload(ctx);
                     }
                 }
 
@@ -434,7 +472,7 @@ impl Component for Prompt {
         } else {
             let on_analyze = ctx.link().callback(Msg::Analyze);
             let on_analyze_cycle = ctx.link().callback(|_| Msg::AnalyzeCycle);
-            html!(<c::AnalyzeToggle query={self.query.text.clone()} analyzed={self.query.a.clone()} index={self.query.i} {on_analyze} {on_analyze_cycle} />)
+            html!(<c::AnalyzeToggle query={self.query.text.clone()} analyzed={self.analysis.clone()} index={self.query.index} analyze_at={self.query.analyze_at} {on_analyze} {on_analyze_cycle} />)
         };
 
         let translation = self.query.translation.as_ref().map(|text| {
@@ -771,35 +809,26 @@ where
     Rc::from(out)
 }
 
-fn decode_query(location: Option<Location>) -> (Query, Rc<str>, Option<usize>) {
+fn decode_query(location: Option<Location>) -> Query {
     let query = match location {
         Some(location) => location.query().ok(),
         None => None,
     };
 
     let query = query.unwrap_or_default();
-    let (query, analyze_at) = Query::deserialize(query);
+    let (mut query, analyze_at_char) = Query::deserialize(query);
 
-    let input = if let Some(input) = query.a.get(query.i) {
-        Rc::from(input.as_str())
-    } else {
-        query.text.clone()
-    };
+    if let Some(analyze_at_char) = analyze_at_char {
+        let mut len = 0;
 
-    let analyze_at = match analyze_at {
-        Some(analyze_at) => {
-            let mut len = 0;
-
-            for c in input.chars().take(analyze_at) {
-                len += c.len_utf8();
-            }
-
-            Some(len)
+        for c in query.text.chars().take(analyze_at_char) {
+            len += c.len_utf8();
         }
-        None => None,
+
+        query.analyze_at = Some(len);
     };
 
-    (query, input, analyze_at)
+    query
 }
 
 fn copyright() -> Html {
@@ -828,5 +857,23 @@ fn copyright() -> Html {
                 <span>{"."}</span>
             </div>
         </>
+    }
+}
+
+/// Internal state for the history API, so it can be read by the listener and
+/// avoid double-querying.
+struct IsInternal(Cell<bool>);
+
+impl IsInternal {
+    #[inline]
+    fn new() -> Self {
+        Self(Cell::new(true))
+    }
+
+    #[inline]
+    fn set(&self) -> bool {
+        let old = self.0.get();
+        self.0.set(false);
+        old
     }
 }

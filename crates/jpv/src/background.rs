@@ -50,6 +50,7 @@ pub enum BackgroundEvent {
 pub struct Background {
     dirs: Arc<Dirs>,
     channel: UnboundedSender<BackgroundEvent>,
+    system_events: SystemEvents,
     inner: Arc<RwLock<BackgroundInner>>,
 }
 
@@ -59,10 +60,12 @@ impl Background {
         channel: UnboundedSender<BackgroundEvent>,
         config: Config,
         database: Database,
+        system_events: SystemEvents,
     ) -> Self {
         Self {
             dirs: Arc::new(dirs),
             channel,
+            system_events,
             inner: Arc::new(RwLock::new(BackgroundInner {
                 config,
                 database,
@@ -90,6 +93,7 @@ impl Background {
         }
 
         self.inner.write().unwrap().config = config;
+        self.system_events.send(system::Event::Refresh);
         true
     }
 
@@ -130,7 +134,7 @@ impl Background {
     }
 
     /// Mark the given task as completed.
-    pub(crate) fn complete_task(&self, completed: CompletedTask, system_events: &SystemEvents) {
+    pub(crate) fn complete_task(&self, completed: CompletedTask) {
         let Some(name) = completed.name() else {
             return;
         };
@@ -141,9 +145,10 @@ impl Background {
             return;
         };
 
-        system_events.send(system::Event::TaskCompleted(system::TaskCompleted {
-            name: task.name,
-        }));
+        self.system_events
+            .send(system::Event::TaskCompleted(system::TaskCompleted {
+                name: task.name,
+            }));
     }
 
     /// Handle a background event.
@@ -152,7 +157,6 @@ impl Background {
         event: BackgroundEvent,
         args: &Args,
         tasks: &mut Tasks,
-        system_events: &SystemEvents,
     ) -> Result<()> {
         match event {
             BackgroundEvent::SaveConfig(config, callback) => {
@@ -200,24 +204,34 @@ impl Background {
                     let reporter = Arc::new(EventsReporter {
                         parent: TracingReporter,
                         inner: inner.clone(),
-                        system_events: system_events.clone(),
+                        system_events: self.system_events.clone(),
                         name: completion.name().map(Box::from),
                     });
 
-                    tokio::spawn(async move {
-                        // Capture the completion handler so that it is dropped with the task.
-                        let _completion = completion;
-                        let result = build(reporter, shutdown, &dirs, &to_download, force).await;
+                    tokio::spawn({
+                        let system_events = self.system_events.clone();
 
-                        if !result? {
-                            return Ok(());
+                        async move {
+                            // Capture the completion handler so that it is dropped with the task.
+                            let _completion = completion;
+                            let result =
+                                build(reporter, shutdown, &dirs, &to_download, force).await;
+
+                            if !result? {
+                                return Ok(());
+                            }
+
+                            let indexes = data::open_from_args(&index[..], &dirs)?;
+
+                            {
+                                let mut inner = inner.write().unwrap();
+                                let db = lib::database::Database::open(indexes, &inner.config)?;
+                                inner.database = db;
+                            }
+
+                            system_events.send(system::Event::Refresh);
+                            Ok::<_, anyhow::Error>(())
                         }
-
-                        let mut inner = inner.write().unwrap();
-                        let indexes = data::open_from_args(&index[..], &dirs)?;
-                        let db = lib::database::Database::open(indexes, &inner.config)?;
-                        inner.database = db;
-                        Ok::<_, anyhow::Error>(())
                     });
                 }
             }

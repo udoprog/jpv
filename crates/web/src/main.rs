@@ -112,7 +112,7 @@ fn switch(routes: Route, callbacks: &Callbacks) -> Html {
 
 fn main() -> anyhow::Result<()> {
     wasm_logger::init(wasm_logger::Config::default());
-    log::info!("Started up");
+    log::trace!("Started up");
     yew::Renderer::<App>::new().render();
     Ok(())
 }

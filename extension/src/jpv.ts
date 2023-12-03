@@ -297,7 +297,7 @@ function openWindow(element: Element | null, point: Point | null) {
         let search = new URLSearchParams({ embed: "yes", q: text });
 
         if (pointOver !== null) {
-            search.append("analyzeAt", pointOver.toString());
+            search.append("analyze_at_char", pointOver.toString());
         }
 
         iframe.src = 'http://localhost:44714?' + search.toString();

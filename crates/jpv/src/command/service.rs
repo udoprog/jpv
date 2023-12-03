@@ -93,7 +93,7 @@ pub(crate) async fn run(
 
     let (channel, mut receiver) = tokio::sync::mpsc::unbounded_channel();
 
-    let background = Background::new(dirs, channel, config, db);
+    let background = Background::new(dirs, channel, config, db, system_events.clone());
 
     let mut server = pin!(web::setup(
         local_port,
@@ -123,11 +123,11 @@ pub(crate) async fn run(
                 break;
             }
             Some(event) = receiver.recv() => {
-                background.handle_event(event, args, &mut tasks, &system_events).await.context("Handling background event")?;
+                background.handle_event(event, args, &mut tasks).await.context("Handling background event")?;
             }
             result = tasks.wait() => {
                 let completed = result?;
-                background.complete_task(completed, &system_events);
+                background.complete_task(completed);
             }
             _ = ctrl_c.as_mut() => {
                 tracing::info!("Shutting down...");

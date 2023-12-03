@@ -181,6 +181,10 @@ async fn system_event(
 
             sink.send(Message::Binary(json)).await?;
         }
+        system::Event::Refresh => {
+            let json = serde_json::to_vec(&api::ClientEvent::Refresh(api::Refresh {}))?;
+            sink.send(Message::Binary(json)).await?;
+        }
     }
 
     Ok(())

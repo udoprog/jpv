@@ -36,6 +36,7 @@ pub enum ClientEvent {
     LogEntry(LogEntry),
     TaskProgress(TaskProgress),
     TaskCompleted(TaskCompleted),
+    Refresh(Refresh),
 }
 
 #[borrowme::borrowme]
@@ -157,3 +158,7 @@ pub struct TaskProgress {
 pub struct TaskCompleted {
     pub name: String,
 }
+
+/// A refresh event.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Refresh {}

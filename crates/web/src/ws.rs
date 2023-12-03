@@ -56,10 +56,10 @@ where
                 }
             }
             Msg::Open => {
-                log::info!("open");
+                log::trace!("open");
             }
             Msg::Close(e) => {
-                log::info!("close: {:?}", e);
+                log::trace!("close: {:?}", e);
 
                 if let Err(error) = self.reconnect(ctx) {
                     ctx.link().send_message(error);
@@ -77,12 +77,12 @@ where
                         ctx.link().send_message(event);
                     }
                     Err(error) => {
-                        log::info!("error: {:?}", error);
+                        log::trace!("error: {:?}", error);
                     }
                 }
             }
             Msg::Error(e) => {
-                log::info!("error: {:?}", e);
+                log::trace!("error: {:?}", e);
 
                 if let Err(error) = self.reconnect(ctx) {
                     ctx.link().send_message(error);
