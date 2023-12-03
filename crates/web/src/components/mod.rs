@@ -16,3 +16,6 @@ pub(crate) use self::prompt::Prompt;
 
 pub(crate) mod config;
 pub(crate) use self::config::Config;
+
+pub(crate) use self::analyze_toggle::AnalyzeToggle;
+mod analyze_toggle;

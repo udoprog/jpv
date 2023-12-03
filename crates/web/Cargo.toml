@@ -22,6 +22,7 @@ url = "2.4.1"
 thiserror = "1.0.49"
 wasm-bindgen = { version = "0.2.87", features = ["std"] }
 borrowme = "0.0.14"
+serde_urlencoded = "0.7.1"
 
 [dependencies.web-sys]
 version = "0.3.64"

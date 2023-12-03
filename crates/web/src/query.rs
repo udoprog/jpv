@@ -1,4 +1,6 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, rc::Rc};
+
+use web_sys::{window, Url};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -18,11 +20,11 @@ pub enum Tab {
     Settings,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub(crate) struct Query {
-    pub(crate) q: String,
+    pub(crate) text: Rc<str>,
     pub(crate) translation: Option<String>,
-    pub(crate) a: Vec<String>,
+    pub(crate) a: Rc<[String]>,
     pub(crate) i: usize,
     pub(crate) mode: Mode,
     pub(crate) capture_clipboard: bool,
@@ -31,41 +33,57 @@ pub(crate) struct Query {
 }
 
 impl Query {
+    pub(crate) fn to_href(&self, no_embed: bool) -> Option<String> {
+        let href = window()?.location().href().ok()?;
+        let query = self.serialize(no_embed);
+        let query = serde_urlencoded::to_string(&query).ok()?;
+        let url = Url::new_with_base("/", &href).ok()?;
+        url.set_search(&query);
+        Some(url.href())
+    }
+
     pub(crate) fn deserialize(raw: Vec<(String, String)>) -> (Self, Option<usize>) {
-        let mut this = Self::default();
         let mut analyze_at = None;
+        let mut text = String::new();
+        let mut translation = None;
+        let mut a = Vec::new();
+        let mut index = 0;
+        let mut mode = Mode::default();
+        let mut capture_clipboard = false;
+        let mut embed = false;
+        let mut tab = Tab::default();
 
         for (key, value) in raw {
             match key.as_str() {
                 "q" => {
-                    this.q = value;
+                    text = value;
                 }
                 "t" => {
-                    this.translation = Some(value);
+                    translation = Some(value);
                 }
                 "a" => {
-                    this.a.push(value);
+                    a.push(value);
                 }
                 "i" => {
                     if let Ok(i) = value.parse() {
-                        this.i = i;
+                        index = i;
                     }
                 }
                 "mode" => {
-                    this.mode = match value.as_str() {
+                    mode = match value.as_str() {
                         "hiragana" => Mode::Hiragana,
                         "katakana" => Mode::Katakana,
                         _ => Mode::Unfiltered,
                     };
                 }
                 "cb" => {
-                    this.capture_clipboard = value == "yes";
+                    capture_clipboard = value == "yes";
                 }
                 "embed" => {
-                    this.embed = value == "yes";
+                    embed = value == "yes";
                 }
                 "tab" => {
-                    this.tab = match value.as_str() {
+                    tab = match value.as_str() {
                         "phrases" => Tab::Phrases,
                         "names" => Tab::Names,
                         "kanji" => Tab::Kanji,
@@ -82,21 +100,32 @@ impl Query {
             }
         }
 
+        let this = Self {
+            text: text.into(),
+            translation,
+            a: a.into(),
+            i: index,
+            mode,
+            capture_clipboard,
+            embed,
+            tab,
+        };
+
         (this, analyze_at)
     }
 
-    pub(crate) fn serialize(&self) -> Vec<(&'static str, Cow<'_, str>)> {
+    pub(crate) fn serialize(&self, no_embed: bool) -> Vec<(&'static str, Cow<'_, str>)> {
         let mut out = Vec::new();
 
-        if !self.q.is_empty() {
-            out.push(("q", Cow::Borrowed(self.q.as_str())));
+        if !self.text.is_empty() {
+            out.push(("q", Cow::Borrowed(self.text.as_ref())));
         }
 
         if let Some(t) = &self.translation {
             out.push(("t", Cow::Borrowed(t)));
         }
 
-        for a in &self.a {
+        for a in self.a.iter() {
             out.push(("a", Cow::Borrowed(a.as_str())));
         }
 
@@ -118,7 +147,7 @@ impl Query {
             out.push(("cb", Cow::Borrowed("yes")));
         }
 
-        if self.embed {
+        if !no_embed && self.embed {
             out.push(("embed", Cow::Borrowed("yes")));
         }
 

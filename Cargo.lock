@@ -3067,6 +3067,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "thiserror",
  "url",
  "wasm-bindgen",

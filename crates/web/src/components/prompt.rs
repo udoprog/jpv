@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::str::from_utf8;
 
 use lib::api;
@@ -96,7 +97,7 @@ impl Prompt {
     }
 
     fn analyze(&mut self, ctx: &Context<Self>, start: usize, history: History) {
-        let input = self.query.q.clone();
+        let input = self.query.text.clone();
         let serial = self.serials.analyze();
 
         ctx.link().send_future(async move {
@@ -112,7 +113,7 @@ impl Prompt {
             let path = location.path();
             let path = AnyRoute::new(path);
 
-            let query = self.query.serialize();
+            let query = self.query.serialize(false);
 
             let result = match history {
                 History::Push => navigator.push_with_query(&path, &query),
@@ -125,7 +126,7 @@ impl Prompt {
         }
     }
 
-    fn handle_analysis(&mut self, ctx: &Context<Prompt>, analysis: Vec<String>, history: History) {
+    fn handle_analysis(&mut self, ctx: &Context<Prompt>, analysis: Rc<[String]>, history: History) {
         if let Some(input) = analysis.get(0) {
             self.refresh(ctx, input);
         }
@@ -143,9 +144,9 @@ impl Prompt {
         ctx: &Context<Self>,
         json: &lib::api::SendClipboardJson,
     ) -> Result<(), Error> {
-        if self.query.capture_clipboard && self.query.q != json.primary {
-            self.query.q = json.primary.clone();
-            self.query.a.clear();
+        if self.query.capture_clipboard && self.query.text.as_ref() != json.primary.as_str() {
+            self.query.text = json.primary.clone().into();
+            self.query.a = Rc::from([]);
             self.query.translation = json.secondary.as_ref().filter(|s| !s.is_empty()).cloned();
             self.save_query(ctx, History::Push);
             self.refresh(ctx, &json.primary);
@@ -177,9 +178,9 @@ impl Prompt {
 
         let data = from_utf8(data)?;
 
-        if self.query.capture_clipboard && self.query.q != data {
-            self.query.q = data.to_owned();
-            self.query.a.clear();
+        if self.query.capture_clipboard && self.query.text.as_ref() != data {
+            self.query.text = data.into();
+            self.query.a = Rc::from([]);
             self.query.translation = None;
             self.save_query(ctx, History::Push);
             self.refresh(ctx, data);
@@ -265,18 +266,18 @@ impl Component for Prompt {
                 self.query.mode = mode;
 
                 let new_query = match self.query.mode {
-                    Mode::Unfiltered => self.query.q.clone(),
-                    Mode::Hiragana => process_query(&self.query.q, romaji::Segment::hiragana),
-                    Mode::Katakana => process_query(&self.query.q, romaji::Segment::katakana),
+                    Mode::Unfiltered => self.query.text.clone(),
+                    Mode::Hiragana => process_query(&self.query.text, romaji::Segment::hiragana),
+                    Mode::Katakana => process_query(&self.query.text, romaji::Segment::katakana),
                 };
 
-                let history = if new_query != self.query.q {
+                let history = if new_query != self.query.text {
                     History::Push
                 } else {
                     History::Replace
                 };
 
-                self.query.q = new_query;
+                self.query.text = new_query;
                 self.save_query(ctx, history);
                 true
             }
@@ -292,16 +293,16 @@ impl Component for Prompt {
             }
             Msg::Change(input) => {
                 let input = match self.query.mode {
-                    Mode::Unfiltered => input,
+                    Mode::Unfiltered => Rc::from(input),
                     Mode::Hiragana => process_query(&input, romaji::Segment::hiragana),
                     Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
 
                 self.refresh(ctx, &input);
 
-                if self.query.q != input || !self.query.a.is_empty() {
-                    self.query.q = input;
-                    self.query.a.clear();
+                if self.query.text != input || !self.query.a.is_empty() {
+                    self.query.text = input;
+                    self.query.a = Rc::from([]);
                     self.query.translation = None;
                     self.save_query(ctx, History::Replace);
                 }
@@ -310,16 +311,16 @@ impl Component for Prompt {
             }
             Msg::ForceChange(input, translation) => {
                 let input = match self.query.mode {
-                    Mode::Unfiltered => input,
+                    Mode::Unfiltered => Rc::from(input),
                     Mode::Hiragana => process_query(&input, romaji::Segment::hiragana),
                     Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
 
                 self.refresh(ctx, &input);
 
-                self.query.q = input;
+                self.query.text = input;
                 self.query.translation = translation;
-                self.query.a.clear();
+                self.query.a = Rc::from([]);
                 self.save_query(ctx, History::Push);
                 true
             }
@@ -422,82 +423,18 @@ impl Component for Prompt {
             move |_: Event| Some(Msg::CaptureClipboard(!capture_clipboard))
         });
 
-        let mut rem = 0;
-
-        let analyze = if self.query.q.is_empty() {
-            if self.query.embed {
-                html! {
-                    <div class="block row analyze-text empty">{"Nothing to analyze"}</div>
-                }
+        let analyze = if self.query.text.is_empty() {
+            let text = if self.query.embed {
+                "Nothing to analyze"
             } else {
-                html! {
-                    <div class="block row analyze-text empty">{"Type something in the prompt"}</div>
-                }
-            }
-        } else {
-            let query = self.query.q.char_indices().map(|(i, c)| {
-                let sub = self.query.q.get(i..).unwrap_or_default();
-
-                let event = if let Some(string) = self.query.a.get(self.query.i) {
-                    if rem == 0 && sub.starts_with(string) {
-                        rem = string.chars().count();
-                        None
-                    } else {
-                        Some(i)
-                    }
-                } else {
-                    Some(i)
-                };
-
-                let onclick = ctx.link().callback(move |_| match event {
-                    Some(i) => Msg::Analyze(i),
-                    None => Msg::AnalyzeCycle,
-                });
-
-                let class = classes! {
-                    (rem > 0).then_some("active"),
-                    (!(event.is_none() && self.query.a.len() <= 1)).then_some("clickable"),
-                    "analyze-span"
-                };
-
-                rem = rem.saturating_sub(1);
-                html!(<span {class} {onclick}>{c}</span>)
-            });
-
-            let analyze_hint = if self.query.a.len() > 1 {
-                html! {
-                    <div class="block row hint">
-                        {format!("{} / {} (click character to cycle)", self.query.i + 1, self.query.a.len())}
-                    </div>
-                }
-            } else if self.query.a.is_empty() {
-                html! {
-                    <div class="block row hint">
-                        <span>{"Hint:"}</span>
-                        {spacing()}
-                        <span>{"Click character for substring search"}</span>
-                    </div>
-                }
-            } else {
-                html!()
+                "Type something in the prompt"
             };
 
-            html! {
-                <>
-                    <div class="block row analyze-text">{for query}</div>
-                    {analyze_hint}
-                </>
-            }
-        };
-
-        let class = classes!(
-            "block",
-            self.query.embed.then_some("block-lg"),
-            (!self.query.embed).then_some("block-xl")
-        );
-
-        let analyze = html! {
-            <div {class} id="analyze">{analyze}</div>
+            html!(<div id="analyze" class="block row analyze-text empty">{text}</div>)
+        } else {
+            let on_analyze = ctx.link().callback(Msg::Analyze);
+            let on_analyze_cycle = ctx.link().callback(|_| Msg::AnalyzeCycle);
+            html!(<c::AnalyzeToggle query={self.query.text.clone()} analyzed={self.query.a.clone()} index={self.query.i} {on_analyze} {on_analyze_cycle} />)
         };
 
         let translation = self.query.translation.as_ref().map(|text| {
@@ -605,15 +542,13 @@ impl Component for Prompt {
                 }
             });
 
-            let header = if self.query.embed {
-                None
-            } else {
-                Some(html!(<h4>{"Kanji"}</h4>))
-            };
+            let header = (!self.query.embed).then(|| {
+                html!(<h4>{"Kanji"}</h4>)
+            });
 
             html! {
                 <div class="block block-lg">
-                    {for header}
+                    {header}
                     {for iter}
                     {for more}
                 </div>
@@ -621,20 +556,17 @@ impl Component for Prompt {
         });
 
         let page = if self.query.embed {
-            let tab = |title: &str, len: Option<usize>, tab: Tab| {
+            let tab = |title: &str, len: usize, tab: Tab| {
                 let is_tab = self.query.tab == tab;
                 let entries_classes = classes!(
                     "tab",
                     is_tab.then_some("active"),
-                    (len == Some(0)).then_some("disabled")
+                    (len == 0).then_some("disabled")
                 );
 
                 let onclick = (!is_tab).then(|| ctx.link().callback(move |_| Msg::Tab(tab)));
 
-                let text = match len {
-                    Some(len) => format!("{title} ({len})"),
-                    None => title.to_owned(),
-                };
+                let text = format!("{title} ({len})");
 
                 html! {
                     <a class={entries_classes} {onclick}>{text}</a>
@@ -642,10 +574,9 @@ impl Component for Prompt {
             };
 
             let tabs = [
-                tab("Phrases", Some(self.phrases.len()), Tab::Phrases),
-                tab("Names", Some(self.names.len()), Tab::Names),
-                tab("Kanji", Some(self.characters.len()), Tab::Kanji),
-                tab("⚙️", None, Tab::Settings),
+                tab("Phrases", self.phrases.len(), Tab::Phrases),
+                tab("Names", self.names.len(), Tab::Names),
+                tab("Kanji", self.characters.len(), Tab::Kanji),
             ];
 
             let content = match self.query.tab {
@@ -666,7 +597,7 @@ impl Component for Prompt {
 
             html! {
                 <>
-                    {analyze}
+                    <div class="block block-lg">{analyze}</div>
                     {for translation}
                     <div class="tabs">{for tabs}</div>
                     {content}
@@ -684,7 +615,7 @@ impl Component for Prompt {
                     let prompt = html! {
                         <>
                         <div class="block block row" id="prompt">
-                            <input value={self.query.q.clone()} type="text" oninput={oninput} />
+                            <input value={self.query.text.clone()} type="text" oninput={oninput} />
                         </div>
 
                         <div class="block block-lg row row-spaced">
@@ -708,7 +639,7 @@ impl Component for Prompt {
                                 {"📋"}
                             </label>
 
-                            <button class="btn btn-lg end" {onclick}>{"⚙️"}</button>
+                            <span class="end clickable" {onclick}>{"⚙ Config"}</span>
                         </div>
                         </>
                     };
@@ -724,7 +655,7 @@ impl Component for Prompt {
                             <>{prompt}</>
 
                             <>
-                                {analyze}
+                                <div class="block block-xl">{analyze}</div>
                                 {for translation}
 
                                 <div class="columns">
@@ -769,11 +700,9 @@ impl Component for Prompt {
 
                 let progress_text = format!("{} ...", task.text);
 
-                let text = if !self.query.embed {
-                    Some(html!(<div class="task-field task-text">{progress_text.clone()}</div>))
-                } else {
-                    None
-                };
+                let text = (!self.query.embed).then(|| {
+                    html!(<div class="task-field task-text">{progress_text.clone()}</div>)
+                });
 
                 html! {
                     <div {class} title={progress_text}>
@@ -793,17 +722,43 @@ impl Component for Prompt {
             }
         });
 
+        let window_top = self.query.embed.then(|| {
+            let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
+
+            let config = html! {
+                <a class="config clickable" {onclick}>{"⚙"}</a>
+            };
+
+            let maximize = self.query.to_href(true).map(|href| {
+                html! {
+                    <a class="maximize clickable" {href} target="_window">{"🗖"}</a>
+                }
+            });
+
+            html! {
+                <div id="window-top">
+                    <div class="window-title">{"jpv"}</div>
+                    {config}
+                    {maximize}
+                </div>
+            }
+        });
+
         html! {
-            <div id="container" {class}>
-                {tasks}
-                {page}
-                <div class="block block-xl" id="copyright">{copyright()}</div>
-            </div>
+            <>
+                {window_top}
+
+                <div id="container" {class}>
+                    {tasks}
+                    {page}
+                    <div class="block block-xl" id="copyright">{copyright()}</div>
+                </div>
+            </>
         }
     }
 }
 
-fn process_query<'a, F>(input: &'a str, segment: F) -> String
+fn process_query<'a, F>(input: &'a str, segment: F) -> Rc<str>
 where
     F: Copy + FnOnce(&romaji::Segment<'a>) -> &'a str,
 {
@@ -813,10 +768,10 @@ where
         out.push_str(segment(&s));
     }
 
-    out
+    Rc::from(out)
 }
 
-fn decode_query(location: Option<Location>) -> (Query, String, Option<usize>) {
+fn decode_query(location: Option<Location>) -> (Query, Rc<str>, Option<usize>) {
     let query = match location {
         Some(location) => location.query().ok(),
         None => None,
@@ -825,12 +780,10 @@ fn decode_query(location: Option<Location>) -> (Query, String, Option<usize>) {
     let query = query.unwrap_or_default();
     let (query, analyze_at) = Query::deserialize(query);
 
-    let input = if query.a.is_empty() {
-        query.q.clone()
-    } else if let Some(input) = query.a.get(query.i) {
-        input.clone()
+    let input = if let Some(input) = query.a.get(query.i) {
+        Rc::from(input.as_str())
     } else {
-        query.q.clone()
+        query.text.clone()
     };
 
     let analyze_at = match analyze_at {

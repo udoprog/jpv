@@ -527,3 +527,17 @@ a {
         }
     }
 }
+
+#window-top {
+    padding: 0.5rem;
+    display: grid;
+    grid-template-columns: auto min-content min-content;
+    background-color: var(--bg-highlight);
+    border-bottom: 1px solid var(--separator-color);
+
+    .maximize {
+        font-size: 1.2em;
+        align-self: stretch !important;
+        margin-left: 0.5rem;
+    }
+}
