@@ -74,7 +74,6 @@ function closeWindow() {
 
     visible = false;
     iframe.classList.remove('active');
-    iframe.src = '';
     currentText = null;
     return true;
 }
