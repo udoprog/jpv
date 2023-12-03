@@ -763,10 +763,19 @@ impl Component for Prompt {
                     done.then_some("done"),
                 };
 
+                let progress_text = format!("{} ...", task.text);
+
+                let text = if !self.query.embed {
+                    Some(html!(<div class="task-field task-text">{progress_text.clone()}</div>))
+                } else {
+                    None
+                };
+
                 html! {
-                    <div {class}>
+                    <div {class} title={progress_text}>
                         <div class="task-field task-name">{&task.name}</div>
-                        <div class="task-field task-text">{format!("{} ...", task.text)}</div>
+                        <div class="task-field task-step">{format!("{}/{}", task.step, task.steps)}</div>
+                        {text}
                         <div class="task-field task-progress">{progress}</div>
                         {value}
                     </div>

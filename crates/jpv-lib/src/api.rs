@@ -141,16 +141,14 @@ pub struct LogEntry {
     pub text: String,
 }
 
-/// The progress value of the task.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TaskProgressValue {}
-
 /// A message indicating task progress.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TaskProgress {
     pub name: String,
     pub value: usize,
     pub total: Option<usize>,
+    pub step: usize,
+    pub steps: usize,
     pub text: String,
 }
 

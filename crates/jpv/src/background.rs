@@ -110,7 +110,7 @@ impl Background {
     }
 
     /// Mark the given task as completed.
-    pub(crate) fn start_task(&self, completed: &TaskCompletion) {
+    pub(crate) fn start_task(&self, completed: &TaskCompletion, steps: usize) {
         let Some(name) = completed.name() else {
             return;
         };
@@ -124,6 +124,8 @@ impl Background {
                 value: 0,
                 total: None,
                 text: String::new(),
+                step: 0,
+                steps,
             },
         );
     }
@@ -183,7 +185,7 @@ impl Background {
                     return Ok(());
                 };
 
-                self.start_task(&completion);
+                self.start_task(&completion, 5);
 
                 let config = self.config();
                 let dirs = self.dirs.clone();

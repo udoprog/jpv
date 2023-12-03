@@ -110,6 +110,7 @@ impl Reporter for EventsReporter {
 
             progress.value = total;
             progress.total = Some(total);
+            progress.step += 1;
             progress.clone()
         };
 

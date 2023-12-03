@@ -35,6 +35,8 @@ pub(crate) struct TaskProgress {
     pub(crate) name: &'static str,
     pub(crate) value: usize,
     pub(crate) total: Option<usize>,
+    pub(crate) step: usize,
+    pub(crate) steps: usize,
     pub(crate) text: String,
 }
 

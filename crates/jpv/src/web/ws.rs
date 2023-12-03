@@ -167,6 +167,8 @@ async fn system_event(
                 name: task.name.to_owned(),
                 value: task.value,
                 total: task.total,
+                step: task.step,
+                steps: task.steps,
                 text: task.text,
             }))?;
 
