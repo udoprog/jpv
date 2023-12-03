@@ -490,3 +490,33 @@ a {
         margin-right: 0;
     }
 }
+
+#tasks {
+    .task {
+        font-family: monospace;
+        font-size: 0.8em;
+        margin-bottom: 0.25rem;
+        white-space: pre;
+
+        &-field {
+            display: inline-block;
+            padding: 0.25rem;
+
+            &:last-child {
+                margin-right: 0;
+            }
+        }
+
+        &-name {
+            background-color: rgb(16, 94, 80);
+        }
+
+        &-progress {
+            flex: 1;
+
+            progress {
+                width: 100%;
+            }
+        }
+    }
+}

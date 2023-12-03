@@ -21,8 +21,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
 use crate::reporter::EventsReporter;
-use crate::system::SystemEvents;
-use crate::tasks::Tasks;
+use crate::system::{self, SystemEvents};
+use crate::tasks::{CompletedTask, TaskCompletion, Tasks};
 use crate::Args;
 
 /// The user agent used by jpv.
@@ -36,6 +36,7 @@ pub(crate) struct BackgroundInner {
     config: Config,
     database: Database,
     pub(crate) log: Vec<api::LogEntry>,
+    pub(crate) tasks: HashMap<&'static str, system::TaskProgress>,
 }
 
 /// Events emitted by modifying the background service.
@@ -67,6 +68,7 @@ impl Background {
                 config,
                 database,
                 log: Vec::new(),
+                tasks: HashMap::new(),
             })),
         }
     }
@@ -107,6 +109,42 @@ impl Background {
         self.inner.read().unwrap().database.clone()
     }
 
+    /// Mark the given task as completed.
+    pub(crate) fn start_task(&self, completed: &TaskCompletion) {
+        let Some(name) = completed.name() else {
+            return;
+        };
+
+        let mut inner = self.inner.write().unwrap();
+
+        inner.tasks.insert(
+            name,
+            system::TaskProgress {
+                name,
+                value: 0,
+                total: None,
+                text: String::new(),
+            },
+        );
+    }
+
+    /// Mark the given task as completed.
+    pub(crate) fn complete_task(&self, completed: CompletedTask, system_events: &SystemEvents) {
+        let Some(name) = completed.name() else {
+            return;
+        };
+
+        let mut inner = self.inner.write().unwrap();
+
+        let Some(task) = inner.tasks.remove(name) else {
+            return;
+        };
+
+        system_events.send(system::Event::TaskCompleted(system::TaskCompleted {
+            name: task.name,
+        }));
+    }
+
     /// Handle a background event.
     pub(crate) async fn handle_event(
         &self,
@@ -141,6 +179,12 @@ impl Background {
                 let _ = callback.send(());
             }
             BackgroundEvent::Rebuild(force) => {
+                let Some((shutdown, completion)) = tasks.unique_task("Building index") else {
+                    return Ok(());
+                };
+
+                self.start_task(&completion);
+
                 let config = self.config();
                 let dirs = self.dirs.clone();
                 let inner = self.inner.clone();
@@ -150,11 +194,8 @@ impl Background {
                     parent: TracingReporter,
                     inner: inner.clone(),
                     system_events: system_events.clone(),
+                    name: completion.name(),
                 });
-
-                let Some((shutdown, completion)) = tasks.unique_task("rebuild database") else {
-                    return Ok(());
-                };
 
                 tokio::spawn(async move {
                     // Capture the completion handler so that it is dropped with the task.
@@ -332,13 +373,19 @@ pub(crate) async fn build(
                     move || {
                         let input = match kind {
                             IndexKind::Jmdict => Input::Jmdict(&data[..]),
-                            IndexKind::Kanjidic2 => Input::Kanjidic(&data[..]),
+                            IndexKind::Kanjidic2 => Input::Kanjidic2(&data[..]),
                             IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
                         };
 
                         database::build(&*reporter, &shutdown_token, &name, input)
                     }
                 });
+
+                reporter.instrument_start(
+                    module_path!(),
+                    &format_args!("Saving to {}", download.index_path.display()),
+                    None,
+                );
 
                 let data = data.await??;
 
@@ -354,6 +401,7 @@ pub(crate) async fn build(
                     download.index_path.display()
                 );
 
+                reporter.instrument_end(0);
                 Ok::<_, anyhow::Error>(())
             };
 

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::str::from_utf8;
 
 use lib::api;
@@ -77,6 +78,7 @@ pub(crate) struct Prompt {
     limit_characters: usize,
     serials: Serials,
     log: Vec<api::LogEntry>,
+    tasks: BTreeMap<String, api::TaskProgress>,
     _handle: Option<LocationHandle>,
 }
 
@@ -212,6 +214,7 @@ impl Component for Prompt {
             limit_characters: DEFAULT_LIMIT,
             serials: Serials::default(),
             log: Vec::new(),
+            tasks: BTreeMap::new(),
             _handle: handle,
         };
 
@@ -373,6 +376,12 @@ impl Component for Prompt {
                     }
                     api::ClientEvent::LogEntry(entry) => {
                         self.log.push(entry);
+                    }
+                    ClientEvent::TaskProgress(task) => {
+                        self.tasks.insert(task.name.clone(), task);
+                    }
+                    ClientEvent::TaskCompleted(task) => {
+                        self.tasks.remove(&task.name);
                     }
                 }
 
@@ -729,8 +738,51 @@ impl Component for Prompt {
             self.query.embed.then_some("embed"),
         };
 
+        let tasks = (!self.tasks.is_empty()).then(|| {
+            let tasks = self.tasks.values().map(|task| {
+                let (progress, done, value) = match task.total {
+                    Some(total) => {
+                        let progress = html! {
+                            <progress max={total.to_string()} value={task.value.to_string()} />
+                        };
+
+                        (progress, task.value == total, None)
+                    }
+                    None => {
+                        let progress = html!(<progress />);
+                        let value = html!(<div class="task-field task-value">{task.value.to_string()}</div>);
+                        (progress, false, Some(value))
+                    }
+                };
+
+                let class = classes! {
+                    "block",
+                    "row",
+                    "row-spaced",
+                    "task",
+                    done.then_some("done"),
+                };
+
+                html! {
+                    <div {class}>
+                        <div class="task-field task-name">{&task.name}</div>
+                        <div class="task-field task-text">{format!("{} ...", task.text)}</div>
+                        <div class="task-field task-progress">{progress}</div>
+                        {value}
+                    </div>
+                }
+            });
+
+            html! {
+                <div class="block block-lg" id="tasks">
+                    {for tasks}
+                </div>
+            }
+        });
+
         html! {
             <div id="container" {class}>
+                {tasks}
                 {page}
                 <div class="block block-xl" id="copyright">{copyright()}</div>
             </div>

@@ -34,6 +34,8 @@ pub enum ClientEvent {
     SendClipboardData(SendClipboard),
     LogBackFill(LogBackFill),
     LogEntry(LogEntry),
+    TaskProgress(TaskProgress),
+    TaskCompleted(TaskCompleted),
 }
 
 #[borrowme::borrowme]
@@ -137,4 +139,23 @@ pub struct LogEntry {
     pub level: String,
     /// The rext of the rebuild.
     pub text: String,
+}
+
+/// The progress value of the task.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskProgressValue {}
+
+/// A message indicating task progress.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskProgress {
+    pub name: String,
+    pub value: usize,
+    pub total: Option<usize>,
+    pub text: String,
+}
+
+/// Indicates that a task has been completed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskCompleted {
+    pub name: String,
 }

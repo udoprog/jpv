@@ -249,8 +249,18 @@ impl Id {
 /// Input to build the database.
 pub enum Input<'a> {
     Jmdict(&'a str),
-    Kanjidic(&'a str),
+    Kanjidic2(&'a str),
     Jmnedict(&'a str),
+}
+
+impl Input<'_> {
+    fn name(&self) -> &'static str {
+        match self {
+            Input::Jmdict(..) => "JMdict",
+            Input::Kanjidic2(..) => "Kanjidic2",
+            Input::Jmnedict(..) => "JMnedict",
+        }
+    }
 }
 
 /// A search result.
@@ -281,13 +291,26 @@ pub fn build(
     let mut by_pos = HashMap::<_, HashSet<_>>::new();
     let mut kanji_literals = HashMap::new();
 
+    reporter.instrument_start(
+        module_path!(),
+        &format_args!("Processing dictionary `{}`", input.name()),
+        None,
+    );
+
+    let mut count = 0;
+
     match input {
         Input::Jmdict(input) => {
-            report_info!(reporter, "Parsing input JMdict");
             let mut jmdict = jmdict::Parser::new(input);
 
             while let Some(entry) = jmdict.parse()? {
                 ensure!(!shutdown.is_set(), "Task shut down");
+
+                if count % 1000 == 0 {
+                    reporter.instrument_progress(1000);
+                }
+
+                count += 1;
 
                 output.clear();
                 ENCODING.to_writer(&mut output, &entry)?;
@@ -343,12 +366,17 @@ pub fn build(
                 }
             }
         }
-        Input::Kanjidic(input) => {
-            report_info!(reporter, "Parsing input kanjidic");
+        Input::Kanjidic2(input) => {
             let mut kanjidic2 = kanjidic2::Parser::new(input);
 
             while let Some(c) = kanjidic2.parse()? {
                 ensure!(!shutdown.is_set(), "Task shut down");
+
+                if count % 1000 == 0 {
+                    reporter.instrument_progress(1000);
+                }
+
+                count += 1;
 
                 output.clear();
                 ENCODING.to_writer(&mut output, &c)?;
@@ -401,11 +429,16 @@ pub fn build(
             }
         }
         Input::Jmnedict(input) => {
-            report_info!(reporter, "Parsing input jmnedict");
             let mut jmnedict = jmnedict::Parser::new(input);
 
             while let Some(entry) = jmnedict.next()? {
                 ensure!(!shutdown.is_set(), "Task shut down");
+
+                if count % 1000 == 0 {
+                    reporter.instrument_progress(1000);
+                }
+
+                count += 1;
 
                 output.clear();
                 ENCODING.to_writer(&mut output, &entry)?;
@@ -432,6 +465,8 @@ pub fn build(
         }
     }
 
+    reporter.instrument_end(count);
+
     lookup.sort_by(|(a, _), (b, _)| b.as_ref().cmp(a.as_ref()));
     report_info!(reporter, "Inserting {} readings", lookup.len());
 
@@ -441,18 +476,20 @@ pub fn build(
     {
         let mut indexer = StringIndexer::new();
 
-        report_info!(reporter, "Building {} lookup strings", lookup.len());
+        reporter.instrument_start(module_path!(), &"Inserting strings", Some(lookup.len()));
 
-        let instrument = reporter.instrument_start("lookup strings", lookup.len());
-
-        for (key, id) in &lookup {
+        for (index, (key, id)) in lookup.iter().enumerate() {
             ensure!(!shutdown.is_set(), "Task shut down");
-            reporter.instrument_progress(instrument, 1);
+
+            if index % 100_000 == 0 {
+                reporter.instrument_progress(100_000);
+            }
+
             let s = indexer.store(&mut buf, key.as_ref())?;
             readings2.push((s, *id));
         }
 
-        reporter.instrument_end(instrument);
+        reporter.instrument_end(lookup.len());
 
         by_kanji_literal = {
             let mut output = HashMap::new();
@@ -474,14 +511,25 @@ pub fn build(
     }
 
     drop(lookup);
+
+    let step_len = readings2.len();
+
+    reporter.instrument_start(module_path!(), &"Building lookup table", Some(step_len));
+
     let mut lookup = trie::Builder::with_flavor();
 
-    for (key, id) in readings2.into_iter().rev() {
+    for (index, (key, id)) in readings2.into_iter().rev().enumerate() {
+        if index % 100000 == 0 {
+            reporter.instrument_progress(100000);
+        }
+
         ensure!(!shutdown.is_set(), "Task shut down");
         lookup.insert(&buf, key, id)?;
     }
 
-    report_info!(reporter, "Serializing to zerocopy structure");
+    reporter.instrument_end(step_len);
+
+    reporter.instrument_start(module_path!(), &"Saving index", None);
 
     let lookup = lookup.build(&mut buf)?;
 
@@ -534,6 +582,7 @@ pub fn build(
         index: index.assume_init(),
     });
 
+    reporter.instrument_end(0);
     Ok(buf)
 }
 

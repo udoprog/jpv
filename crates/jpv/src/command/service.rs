@@ -56,8 +56,7 @@ pub(crate) async fn run(
 
     let shutdown = Notify::new();
 
-    let (sender, _) = tokio::sync::broadcast::channel(16);
-    let system_events = system::SystemEvents(sender.clone());
+    let system_events = system::SystemEvents::new();
 
     let mut dbus = match dbus::setup(service_args)
         .await
@@ -84,7 +83,7 @@ pub(crate) async fn run(
     let local_port = web::PORT.unwrap_or(local_addr.port());
 
     let mut dbus = match &mut dbus {
-        Some(dbus) => Fuse::new(dbus.start(local_port, shutdown.notified(), sender)),
+        Some(dbus) => Fuse::new(dbus.start(local_port, shutdown.notified(), &system_events)),
         None => Fuse::empty(),
     };
 
@@ -126,8 +125,9 @@ pub(crate) async fn run(
             Some(event) = receiver.recv() => {
                 background.handle_event(event, args, &mut tasks, &system_events).await.context("Handling background event")?;
             }
-            _ = tasks.wait() => {
-                tracing::info!("Background task manager shut down");
+            result = tasks.wait() => {
+                let completed = result?;
+                background.complete_task(completed, &system_events);
             }
             _ = ctrl_c.as_mut() => {
                 tracing::info!("Shutting down...");

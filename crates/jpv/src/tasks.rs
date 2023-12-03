@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use anyhow::{Context, Result};
 use slab::Slab;
 use tokio::sync::{mpsc, oneshot};
 
@@ -57,13 +58,21 @@ impl Tasks {
     }
 
     /// Drive task completion in general.
-    pub(crate) async fn wait(&mut self) {
-        while let Some((index, name)) = self.completion.recv().await {
+    pub(crate) async fn wait(&mut self) -> Result<CompletedTask> {
+        loop {
+            let (index, name) = self
+                .completion
+                .recv()
+                .await
+                .context("Unexpected task queue end")?;
+
             self.tasks.remove(index);
 
             if let Some(name) = name {
                 self.unique.remove(name);
             }
+
+            return Ok(CompletedTask { name });
         }
     }
 
@@ -100,9 +109,26 @@ pub(crate) struct TaskCompletion {
     name: Option<&'static str>,
 }
 
+impl TaskCompletion {
+    /// Get the name of the task.
+    pub(crate) fn name(&self) -> Option<&'static str> {
+        self.name
+    }
+}
+
 impl Drop for TaskCompletion {
     fn drop(&mut self) {
         tracing::trace!("Marking task {} as completed", self.index);
         let _ = self.sender.send((self.index, self.name));
+    }
+}
+
+pub(crate) struct CompletedTask {
+    name: Option<&'static str>,
+}
+
+impl CompletedTask {
+    pub(crate) fn name(&self) -> Option<&'static str> {
+        self.name
     }
 }

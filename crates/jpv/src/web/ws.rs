@@ -26,7 +26,7 @@ pub(super) async fn entry(
     ConnectInfo(remote): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
     let log = bg.log();
-    let receiver = system_events.0.subscribe();
+    let receiver = system_events.subscribe();
 
     ws.on_upgrade(move |socket| async move {
         let span = tracing::span!(Level::INFO, "websocket", ?remote);
@@ -160,6 +160,23 @@ async fn system_event(
         },
         system::Event::LogEntry(event) => {
             let json = serde_json::to_vec(&api::ClientEvent::LogEntry(event))?;
+            sink.send(Message::Binary(json)).await?;
+        }
+        system::Event::TaskProgress(task) => {
+            let json = serde_json::to_vec(&api::ClientEvent::TaskProgress(api::TaskProgress {
+                name: task.name.to_owned(),
+                value: task.value,
+                total: task.total,
+                text: task.text,
+            }))?;
+
+            sink.send(Message::Binary(json)).await?;
+        }
+        system::Event::TaskCompleted(task) => {
+            let json = serde_json::to_vec(&api::ClientEvent::TaskCompleted(api::TaskCompleted {
+                name: task.name.to_owned(),
+            }))?;
+
             sink.send(Message::Binary(json)).await?;
         }
     }

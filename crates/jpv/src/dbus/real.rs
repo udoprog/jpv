@@ -3,14 +3,13 @@ use std::pin::{pin, Pin};
 
 use anyhow::{bail, Context, Result};
 use async_fuse::Fuse;
-use tokio::sync::broadcast::Sender;
 use tokio::sync::futures::Notified;
 use tokio_dbus::org_freedesktop_dbus::{NameFlag, NameReply};
 use tokio_dbus::{ty, BodyBuf, Connection, Flags, Message, MessageKind, ObjectPath, SendBuf};
 
 use crate::command::service::ServiceArgs;
 use crate::open_uri;
-use crate::system::{Event, SendClipboardData, Setup, Start};
+use crate::system::{Event, SendClipboardData, Setup, Start, SystemEvents};
 
 const NAME: &str = "se.tedro.JapaneseDictionary";
 const PATH: &ObjectPath = ObjectPath::new_const(b"/se/tedro/JapaneseDictionary");
@@ -110,11 +109,14 @@ impl Start for DbusStart {
         &'a mut self,
         port: u16,
         shutdown: Notified<'a>,
-        broadcast: Sender<Event>,
+        system_events: &'a SystemEvents,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>> {
         Box::pin(async move {
             let mut shutdown = pin!(Fuse::new(shutdown));
-            let mut state = State { port, broadcast };
+            let mut state = State {
+                port,
+                system_events,
+            };
 
             loop {
                 tokio::select! {
@@ -160,9 +162,9 @@ impl Start for DbusStart {
     }
 }
 
-struct State {
+struct State<'a> {
     port: u16,
-    broadcast: Sender<Event>,
+    system_events: &'a SystemEvents,
 }
 
 enum Action {
@@ -206,7 +208,7 @@ fn handle_method_call<'a>(
                 tracing::trace!(?mimetype, len = data.len());
 
                 let _ = state
-                    .broadcast
+                    .system_events
                     .send(Event::SendClipboardData(SendClipboardData {
                         mimetype: mimetype.to_owned(),
                         data: data.to_vec(),
