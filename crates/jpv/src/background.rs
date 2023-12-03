@@ -214,23 +214,30 @@ impl Background {
                         async move {
                             // Capture the completion handler so that it is dropped with the task.
                             let _completion = completion;
-                            let result =
-                                build(reporter, shutdown, &dirs, &to_download, force).await;
 
-                            if !result? {
-                                return Ok(());
-                            }
+                            let future = async {
+                                if !build(reporter.clone(), shutdown, &dirs, &to_download, force)
+                                    .await?
+                                {
+                                    return Ok(());
+                                }
 
-                            let indexes = data::open_from_args(&index[..], &dirs)?;
-
-                            {
+                                let indexes = data::open_from_args(&index[..], &dirs)?;
                                 let mut inner = inner.write().unwrap();
                                 let db = lib::database::Database::open(indexes, &inner.config)?;
                                 inner.database = db;
+                                Ok::<_, anyhow::Error>(())
+                            };
+
+                            if let Err(error) = future.await {
+                                lib::report_error!(reporter, "Failed to build index");
+
+                                for error in error.chain() {
+                                    lib::report_error!(reporter, "Caused by: {}", error);
+                                }
                             }
 
                             system_events.send(system::Event::Refresh);
-                            Ok::<_, anyhow::Error>(())
                         }
                     });
                 }

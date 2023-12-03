@@ -344,6 +344,7 @@ entity! {
         <Stat "stat" "statistics">
         <Stockm "stockm" "stock market">
         <Sumo "sumo" "sumo">
+        <Surgery "surg" "surgery">
         <Telec "telec" "telecommunications">
         <Tradem "tradem" "trademark">
         <Tv "tv" "television">
