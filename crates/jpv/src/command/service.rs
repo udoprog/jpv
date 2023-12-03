@@ -17,6 +17,7 @@ use crate::background::Background;
 use crate::dbus;
 use crate::open_uri;
 use crate::system;
+use crate::tasks::Tasks;
 use crate::web;
 use crate::Args;
 
@@ -108,6 +109,8 @@ pub(crate) async fn run(
         open_uri::open(&address);
     }
 
+    let mut tasks = Tasks::new();
+
     let mut ctrl_c = pin!(Fuse::new(ctrl_c()));
 
     loop {
@@ -121,7 +124,10 @@ pub(crate) async fn run(
                 break;
             }
             Some(event) = receiver.recv() => {
-                background.handle_event(event, args, &system_events).await.context("Handling background event")?;
+                background.handle_event(event, args, &mut tasks, &system_events).await.context("Handling background event")?;
+            }
+            _ = tasks.wait() => {
+                tracing::info!("Background task manager shut down");
             }
             _ = ctrl_c.as_mut() => {
                 tracing::info!("Shutting down...");
@@ -134,6 +140,8 @@ pub(crate) async fn run(
         }
     }
 
+    // Causes any background processes to shut down.
+    tasks.finish().await;
     tracing::info!("Bye!");
     Ok(())
 }

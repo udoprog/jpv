@@ -7,6 +7,7 @@ use clap::Parser;
 use lib::config::{Config, IndexKind};
 use lib::reporter::TracingReporter;
 use lib::Dirs;
+use tokio::sync::oneshot;
 
 use crate::background::DownloadOverrides;
 use crate::Args;
@@ -50,7 +51,16 @@ pub(crate) async fn run(
     let tracing_reporter = Arc::new(TracingReporter);
 
     let to_download = crate::background::config_to_download(&config, dirs, overrides);
-    crate::background::build(tracing_reporter, dirs, &to_download, build_args.force).await?;
+
+    let (_sender, shutdown) = oneshot::channel();
+    crate::background::build(
+        tracing_reporter,
+        shutdown,
+        dirs,
+        &to_download,
+        build_args.force,
+    )
+    .await?;
     crate::dbus::shutdown().await?;
     Ok(())
 }

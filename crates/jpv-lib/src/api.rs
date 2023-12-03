@@ -24,9 +24,15 @@ pub struct SendClipboardJson {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct LogBackFill {
+    pub log: Vec<LogEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum ClientEvent {
     SendClipboardData(SendClipboard),
+    LogBackFill(LogBackFill),
     LogEntry(LogEntry),
 }
 

@@ -22,6 +22,8 @@ pub use ::toml;
 #[macro_use]
 pub mod reporter;
 
+pub mod token;
+
 #[macro_use]
 pub mod inflection;
 pub use self::inflection::{Form, Inflection, Inflections, OwnedInflections};

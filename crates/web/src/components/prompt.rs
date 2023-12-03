@@ -368,6 +368,9 @@ impl Component for Prompt {
                             ctx.link().send_message(error);
                         }
                     }
+                    api::ClientEvent::LogBackFill(log) => {
+                        self.log.extend(log.log);
+                    }
                     api::ClientEvent::LogEntry(entry) => {
                         self.log.push(entry);
                     }
@@ -437,13 +440,9 @@ impl Component for Prompt {
                     Some(i)
                 };
 
-                let onclick = ctx.link().callback(move |e: MouseEvent| {
-                    e.prevent_default();
-
-                    match event {
-                        Some(i) => Msg::Analyze(i),
-                        None => Msg::AnalyzeCycle,
-                    }
+                let onclick = ctx.link().callback(move |_| match event {
+                    Some(i) => Msg::Analyze(i),
+                    None => Msg::AnalyzeCycle,
                 });
 
                 let class = classes! {
@@ -617,12 +616,7 @@ impl Component for Prompt {
                     (len == Some(0)).then_some("disabled")
                 );
 
-                let onclick = (!is_tab).then(|| {
-                    ctx.link().callback(move |e: MouseEvent| {
-                        e.prevent_default();
-                        Msg::Tab(tab)
-                    })
-                });
+                let onclick = (!is_tab).then(|| ctx.link().callback(move |_| Msg::Tab(tab)));
 
                 let text = match len {
                     Some(len) => format!("{title} ({len})"),
@@ -652,7 +646,8 @@ impl Component for Prompt {
                     html!(<div class="block block-lg kanjis">{kanjis}</div>)
                 }
                 Tab::Settings => {
-                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} /></div>)
+                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} {onback} /></div>)
                 }
             };
 
@@ -667,13 +662,11 @@ impl Component for Prompt {
         } else {
             match self.query.tab {
                 Tab::Settings => {
-                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} /></div>)
+                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} {onback} /></div>)
                 }
                 _ => {
-                    let onclick = ctx.link().callback(|e: MouseEvent| {
-                        e.prevent_default();
-                        Msg::OpenConfig
-                    });
+                    let onclick = ctx.link().callback(|_| Msg::OpenConfig);
 
                     let prompt = html! {
                         <>
@@ -681,27 +674,21 @@ impl Component for Prompt {
                             <input value={self.query.q.clone()} type="text" oninput={oninput} />
                         </div>
 
-                        <div class="block block-lg row">
+                        <div class="block block-lg row row-spaced">
                             <label for="romanize" title="Do not process input at all">
                                 <input type="checkbox" id="romanize" checked={self.query.mode == Mode::Unfiltered} onchange={onromanize} />
                                 {"Default"}
                             </label>
-
-                            {spacing()}
 
                             <label for="hiragana" title="Process input as Hiragana">
                                 <input type="checkbox" id="hiragana" checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
                                 {"ひらがな"}
                             </label>
 
-                            {spacing()}
-
                             <label for="katakana" title="Treat input as Katakana">
                                 <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
                                 {"カタカナ"}
                             </label>
-
-                            {spacing()}
 
                             <label for="clipboard" title="Capture clipboard">
                                 <input type="checkbox" id="clipboard" checked={self.query.capture_clipboard} onchange={oncaptureclipboard} />

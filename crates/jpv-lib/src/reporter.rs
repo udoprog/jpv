@@ -139,13 +139,13 @@ impl Reporter for TracingReporter {
     }
 
     #[inline]
-    fn instrument_start(&self, what: &'static str, total: usize) -> u32 {
+    fn instrument_start(&self, _: &'static str, _: usize) -> u32 {
         0
     }
 
     #[inline]
-    fn instrument_progress(&self, id: u32, current: usize) {}
+    fn instrument_progress(&self, _: u32, _: usize) {}
 
     #[inline]
-    fn instrument_end(&self, id: u32) {}
+    fn instrument_end(&self, _: u32) {}
 }

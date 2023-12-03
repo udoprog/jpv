@@ -16,19 +16,22 @@ use tokio::sync::broadcast::Receiver;
 use tokio::time::Duration;
 use tracing::{Instrument, Level};
 
+use crate::background::Background;
 use crate::system;
 
 pub(super) async fn entry(
     ws: WebSocketUpgrade,
+    Extension(bg): Extension<Background>,
     Extension(system_events): Extension<system::SystemEvents>,
     ConnectInfo(remote): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
+    let log = bg.log();
     let receiver = system_events.0.subscribe();
 
     ws.on_upgrade(move |socket| async move {
         let span = tracing::span!(Level::INFO, "websocket", ?remote);
 
-        if let Err(error) = run(receiver, socket).instrument(span).await {
+        if let Err(error) = run(receiver, socket, log).instrument(span).await {
             tracing::error!(?error);
         }
     })
@@ -96,6 +99,16 @@ fn trim_whitespace(input: &str) -> Cow<'_, str> {
     }
 
     Cow::Owned(output)
+}
+
+async fn log_backfill(
+    sink: &mut SplitSink<WebSocket, Message>,
+    log: Vec<api::LogEntry>,
+) -> Result<()> {
+    let event = api::ClientEvent::LogBackFill(api::LogBackFill { log });
+    let json = serde_json::to_vec(&event)?;
+    sink.send(Message::Binary(json)).await?;
+    Ok(())
 }
 
 async fn system_event(
@@ -208,7 +221,11 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::C
     )))
 }
 
-async fn run(mut system_events: Receiver<system::Event>, socket: WebSocket) -> Result<()> {
+async fn run(
+    mut system_events: Receiver<system::Event>,
+    socket: WebSocket,
+    log: Vec<api::LogEntry>,
+) -> Result<()> {
     tracing::info!("Accepted");
 
     const CLOSE_NORMAL: u16 = 1000;
@@ -225,6 +242,8 @@ async fn run(mut system_events: Receiver<system::Event>, socket: WebSocket) -> R
 
     let mut ping_interval = tokio::time::interval(PING_TIMEOUT);
     ping_interval.reset();
+
+    log_backfill(&mut sender, log).await?;
 
     let close_here = loop {
         tokio::select! {

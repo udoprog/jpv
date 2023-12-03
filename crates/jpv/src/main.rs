@@ -202,6 +202,7 @@ mod dbus;
 mod open_uri;
 mod reporter;
 mod system;
+mod tasks;
 mod web;
 
 use std::path::PathBuf;

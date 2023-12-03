@@ -1347,6 +1347,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
+ "slab",
  "tempfile",
  "tokio",
  "tokio-dbus",

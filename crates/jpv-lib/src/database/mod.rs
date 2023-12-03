@@ -9,7 +9,7 @@ use std::fmt;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::Variable;
@@ -27,6 +27,7 @@ use crate::jmnedict;
 use crate::kanjidic2;
 use crate::reporter::Reporter;
 use crate::romaji::{self, is_hiragana, is_katakana, Segment};
+use crate::token::Token;
 use crate::{PartOfSpeech, Weight};
 use crate::{DICTIONARY_MAGIC, DICTIONARY_VERSION};
 
@@ -260,7 +261,12 @@ pub struct Search<'a> {
 }
 
 /// Build a dictionary from the given jmdict and kanjidic sources.
-pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<OwnedBuf> {
+pub fn build(
+    reporter: &dyn Reporter,
+    shutdown: &Token,
+    name: &str,
+    input: Input<'_>,
+) -> Result<OwnedBuf> {
     let mut buf = OwnedBuf::new();
 
     let header = buf.store_uninit::<Header>();
@@ -281,6 +287,8 @@ pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<Ow
             let mut jmdict = jmdict::Parser::new(input);
 
             while let Some(entry) = jmdict.parse()? {
+                ensure!(!shutdown.is_set(), "Task shut down");
+
                 output.clear();
                 ENCODING.to_writer(&mut output, &entry)?;
 
@@ -340,6 +348,8 @@ pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<Ow
             let mut kanjidic2 = kanjidic2::Parser::new(input);
 
             while let Some(c) = kanjidic2.parse()? {
+                ensure!(!shutdown.is_set(), "Task shut down");
+
                 output.clear();
                 ENCODING.to_writer(&mut output, &c)?;
 
@@ -395,6 +405,8 @@ pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<Ow
             let mut jmnedict = jmnedict::Parser::new(input);
 
             while let Some(entry) = jmnedict.next()? {
+                ensure!(!shutdown.is_set(), "Task shut down");
+
                 output.clear();
                 ENCODING.to_writer(&mut output, &entry)?;
 
@@ -434,6 +446,7 @@ pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<Ow
         let instrument = reporter.instrument_start("lookup strings", lookup.len());
 
         for (key, id) in &lookup {
+            ensure!(!shutdown.is_set(), "Task shut down");
             reporter.instrument_progress(instrument, 1);
             let s = indexer.store(&mut buf, key.as_ref())?;
             readings2.push((s, *id));
@@ -464,6 +477,7 @@ pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<Ow
     let mut lookup = trie::Builder::with_flavor();
 
     for (key, id) in readings2.into_iter().rev() {
+        ensure!(!shutdown.is_set(), "Task shut down");
         lookup.insert(&buf, key, id)?;
     }
 
@@ -474,10 +488,8 @@ pub fn build(reporter: &dyn Reporter, name: &str, input: Input<'_>) -> Result<Ow
     let by_pos = {
         let mut entries = Vec::new();
 
-        for (index, (key, set)) in by_pos.into_iter().enumerate() {
-            if index % 10000 == 0 {
-                report_info!(reporter, "{}", index);
-            }
+        for (key, set) in by_pos.into_iter() {
+            ensure!(!shutdown.is_set(), "Task shut down");
 
             let mut values = Vec::new();
 

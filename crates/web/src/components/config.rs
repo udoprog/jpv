@@ -1,13 +1,11 @@
 use lib::api;
 use lib::config::IndexKind;
 use yew::prelude::*;
-use yew_router::prelude::*;
 
 use crate::error::Error;
 use crate::fetch;
 
 pub enum Msg {
-    Back,
     Config(lib::config::Config),
     Toggle(IndexKind),
     Save,
@@ -19,10 +17,14 @@ pub enum Msg {
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
+    /// Whether the component is embedded or not.
     #[prop_or_default]
     pub embed: bool,
+    /// The current log state.
     #[prop_or_default]
     pub log: Vec<api::LogEntry>,
+    ///  What to do when the back button has been pressed.
+    pub onback: Callback<()>,
 }
 
 struct State {
@@ -55,11 +57,6 @@ impl Component for Config {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::Back => {
-                if let Some(navigator) = ctx.link().navigator() {
-                    navigator.back();
-                }
-            }
             Msg::Config(config) => {
                 self.state = Some(State {
                     remote: config.clone(),
@@ -76,6 +73,7 @@ impl Component for Config {
             Msg::Save => {
                 if let Some(state) = &self.state {
                     let local = state.local.clone();
+                    self.pending = true;
 
                     ctx.link().send_future(async move {
                         match fetch::update_config(local).await {
@@ -113,19 +111,10 @@ impl Component for Config {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let disabled = self.pending
-            || match &self.state {
-                Some(state) => state.local == state.remote,
-                None => false,
-            };
-
         let mut indexes = Vec::new();
 
         for &index in IndexKind::ALL {
-            let onchange = ctx.link().callback(move |e: Event| {
-                e.prevent_default();
-                Msg::Toggle(index)
-            });
+            let onchange = ctx.link().callback(move |_| Msg::Toggle(index));
 
             let checked = match &self.state {
                 Some(state) => state.local.is_enabled(index),
@@ -140,12 +129,10 @@ impl Component for Config {
             };
 
             indexes.push(html! {
-                <>
-                    <div {class}>
-                        <input id={index.name()} type="checkbox" {checked} disabled={self.pending} {onchange} />
-                        <label for={index.name()}>{index.description()}</label>
-                    </div>
-                </>
+                <div {class}>
+                    <input id={index.name()} type="checkbox" {checked} disabled={self.pending} {onchange} />
+                    <label for={index.name()}>{index.description()}</label>
+                </div>
             });
         }
 
@@ -153,24 +140,12 @@ impl Component for Config {
             {for indexes}
         };
 
-        let onsave = ctx.link().callback(|e: MouseEvent| {
-            e.prevent_default();
-            Msg::Save
-        });
-
-        let onrebuild = ctx.link().callback(|e: MouseEvent| {
-            e.prevent_default();
-            Msg::Rebuild
-        });
+        let onsave = ctx.link().callback(|_| Msg::Save);
+        let onrebuild = ctx.link().callback(|_| Msg::Rebuild);
 
         let back = (!ctx.props().embed).then(|| {
-            let onback = ctx.link().callback(|e: MouseEvent| {
-                e.prevent_default();
-                Msg::Back
-            });
-
             html! {
-                <button class="btn btn-lg" onclick={onback}>{"Back"}</button>
+                <button class="btn btn-lg" onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
             }
         });
 
@@ -192,19 +167,17 @@ impl Component for Config {
             });
 
             html! {
-                <div class="block block-lg log">
-                    {for it}
-                </div>
+                <div class="block block-lg log">{for it}</div>
             }
         });
+
+        let disabled = self.pending || matches!(&self.state, Some(s) if s.local == s.remote);
 
         html! {
             <>
                 <h5>{"Enabled sources"}</h5>
 
-                <div class="block block-lg">
-                    {config}
-                </div>
+                <div class="block block-lg">{config}</div>
 
                 <div class="block block-lg row row-spaced">
                     {back}

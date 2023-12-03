@@ -453,8 +453,12 @@ a {
 .log-entry {
     font-family: monospace;
     font-size: 0.8em;
-    margin: 0.5em 0;
+    margin-bottom: 0.25rem;
     white-space: pre;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
 
     &-info > .log-level {
         background-color: rgb(16, 94, 80);
@@ -469,10 +473,20 @@ a {
     }
 }
 
+.log-level {
+    width: 5em;
+}
+
 .log-target {
     background-color: var(--bg-highlight);
 }
 
 .log-field {
+    display: inline-block;
     padding: 0.25rem 0.5rem;
+    margin-right: 0.25rem;
+
+    &:last-child {
+        margin-right: 0;
+    }
 }

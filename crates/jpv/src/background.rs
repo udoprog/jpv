@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::pin::pin;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -10,7 +10,8 @@ use flate2::read::GzDecoder;
 use lib::config::{Config, IndexKind};
 use lib::database::{self, Database, Input};
 use lib::reporter::{Reporter, TracingReporter};
-use lib::{data, Dirs};
+use lib::token::Token;
+use lib::{api, data, Dirs};
 use reqwest::Method;
 use tempfile::NamedTempFile;
 use tokio::fs;
@@ -21,6 +22,7 @@ use tokio::sync::oneshot;
 
 use crate::reporter::EventsReporter;
 use crate::system::SystemEvents;
+use crate::tasks::Tasks;
 use crate::Args;
 
 /// The user agent used by jpv.
@@ -30,9 +32,10 @@ const JMDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMdict_e_examp.gz";
 const KANJIDIC2_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz";
 const JMNEDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMnedict.xml.gz";
 
-struct Inner {
+pub(crate) struct BackgroundInner {
     config: Config,
     database: Database,
+    pub(crate) log: Vec<api::LogEntry>,
 }
 
 /// Events emitted by modifying the background service.
@@ -47,8 +50,7 @@ pub enum BackgroundEvent {
 pub struct Background {
     dirs: Arc<Dirs>,
     channel: UnboundedSender<BackgroundEvent>,
-    rebuild: Arc<AtomicBool>,
-    inner: Arc<RwLock<Inner>>,
+    inner: Arc<RwLock<BackgroundInner>>,
 }
 
 impl Background {
@@ -61,9 +63,17 @@ impl Background {
         Self {
             dirs: Arc::new(dirs),
             channel,
-            rebuild: Arc::new(AtomicBool::new(false)),
-            inner: Arc::new(RwLock::new(Inner { config, database })),
+            inner: Arc::new(RwLock::new(BackgroundInner {
+                config,
+                database,
+                log: Vec::new(),
+            })),
         }
+    }
+
+    /// Get the current log backfill.
+    pub(crate) fn log(&self) -> Vec<api::LogEntry> {
+        self.inner.read().unwrap().log.clone()
     }
 
     /// Update current configuration.
@@ -102,6 +112,7 @@ impl Background {
         &self,
         event: BackgroundEvent,
         args: &Args,
+        tasks: &mut Tasks,
         system_events: &SystemEvents,
     ) -> Result<()> {
         match event {
@@ -130,28 +141,30 @@ impl Background {
                 let _ = callback.send(());
             }
             BackgroundEvent::Rebuild(force) => {
-                let building = self.rebuild.fetch_or(true, Ordering::SeqCst);
-
-                if building {
-                    return Ok(());
-                }
-
                 let config = self.config();
                 let dirs = self.dirs.clone();
-                let rebuild = self.rebuild.clone();
                 let inner = self.inner.clone();
                 let index = args.index.clone();
 
                 let reporter = Arc::new(EventsReporter {
                     parent: TracingReporter,
+                    inner: inner.clone(),
                     system_events: system_events.clone(),
                 });
 
+                let Some((shutdown, completion)) = tasks.unique_task("rebuild database") else {
+                    return Ok(());
+                };
+
                 tokio::spawn(async move {
+                    // Capture the completion handler so that it is dropped with the task.
+                    let _completion = completion;
                     let to_download = config_to_download(&config, &dirs, Default::default());
-                    let result = build(reporter, &dirs, &to_download, force).await;
-                    rebuild.store(false, Ordering::SeqCst);
-                    result?;
+                    let result = build(reporter, shutdown, &dirs, &to_download, force).await;
+
+                    if !result? {
+                        return Ok(());
+                    }
 
                     let mut inner = inner.write().unwrap();
                     let indexes = data::open_from_args(&index[..], &dirs)?;
@@ -238,111 +251,137 @@ pub fn config_to_download(
 }
 
 /// Build the database in the background.
+#[must_use = "Must check that the build completed before proceeding"]
 pub(crate) async fn build(
     reporter: Arc<dyn Reporter>,
+    shutdown: oneshot::Receiver<()>,
     dirs: &Dirs,
     to_download: &[ToDownload],
     force: bool,
-) -> Result<()> {
-    for download in to_download {
-        ensure_parent_dir(&download.index_path).await?;
+) -> Result<bool> {
+    let shutdown_token = Token::new();
 
-        // SAFETY: We are the only ones calling this function now.
-        let result = lib::data::open(&download.index_path);
+    let future = async {
+        for download in to_download {
+            if shutdown_token.is_set() {
+                return Ok(false);
+            }
 
-        match result {
-            Ok(data) => match database::Index::open(data) {
-                Ok(..) => {
-                    if !force {
-                        lib::report_info!(
+            ensure_parent_dir(&download.index_path).await?;
+
+            // SAFETY: We are the only ones calling this function now.
+            let result = lib::data::open(&download.index_path);
+
+            match result {
+                Ok(data) => match database::Index::open(data) {
+                    Ok(..) => {
+                        if !force {
+                            lib::report_info!(
+                                reporter,
+                                "Dictionary already exists at {}",
+                                download.index_path.display()
+                            );
+                            continue;
+                        } else {
+                            lib::report_info!(
+                                reporter,
+                                "Dictionary already exists at {} (forcing rebuild)",
+                                download.index_path.display()
+                            );
+                        }
+                    }
+                    Err(error) => {
+                        lib::report_warn!(
                             reporter,
-                            "Dictionary already exists at {}",
-                            download.index_path.display()
-                        );
-                        continue;
-                    } else {
-                        lib::report_info!(
-                            reporter,
-                            "Dictionary already exists at {} (forcing rebuild)",
+                            "Rebuilding since exists, but could not open: {error}: {}",
                             download.index_path.display()
                         );
                     }
+                },
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    bail!(e)
                 }
-                Err(error) => {
-                    lib::report_warn!(
-                        reporter,
-                        "Rebuilding since exists, but could not open: {error}: {}",
-                        download.index_path.display()
-                    );
-                }
-            },
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => {
-                bail!(e)
             }
-        }
 
-        let future = async {
-            let (path, data) = read_or_download(
-                &*reporter,
-                download.path.as_deref(),
-                dirs,
-                &download.url_name,
-                &download.url,
-            )
-            .await
-            .context("loading JMDICT")?;
-
-            lib::report_info!(
-                reporter,
-                "Loading `{}` from {}",
-                download.name,
-                path.display()
-            );
-
-            let start = Instant::now();
-            let kind = download.kind;
-            let name = download.name.clone();
-
-            let data = tokio::task::spawn_blocking({
-                let reporter = reporter.clone();
-                move || {
-                    let input = match kind {
-                        IndexKind::Jmdict => Input::Jmdict(&data[..]),
-                        IndexKind::Kanjidic2 => Input::Kanjidic(&data[..]),
-                        IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
-                    };
-
-                    database::build(&*reporter, &name, input)
-                }
-            })
-            .await??;
-
-            let duration = Instant::now().duration_since(start);
-
-            fs::write(&download.index_path, data.as_slice())
+            let future = async {
+                let (path, data) = read_or_download(
+                    &*reporter,
+                    download.path.as_deref(),
+                    dirs,
+                    &download.url_name,
+                    &download.url,
+                )
                 .await
-                .with_context(|| anyhow!("{}", download.index_path.display()))?;
+                .context("loading JMDICT")?;
 
-            lib::report_info!(
-                reporter,
-                "Took {duration:?} to build index at {}",
-                download.index_path.display()
-            );
+                lib::report_info!(
+                    reporter,
+                    "Loading `{}` from {}",
+                    download.name,
+                    path.display()
+                );
 
-            Ok::<_, anyhow::Error>(())
-        };
+                let start = Instant::now();
+                let kind = download.kind;
+                let name = download.name.clone();
 
-        if let Err(error) = future.await {
-            lib::report_error!(reporter, "Error building `{}`", download.name);
+                let data = tokio::task::spawn_blocking({
+                    let reporter = reporter.clone();
+                    let shutdown_token = shutdown_token.clone();
+                    move || {
+                        let input = match kind {
+                            IndexKind::Jmdict => Input::Jmdict(&data[..]),
+                            IndexKind::Kanjidic2 => Input::Kanjidic(&data[..]),
+                            IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
+                        };
 
-            for error in error.chain() {
-                lib::report_error!(reporter, "Caused by: {error}");
+                        database::build(&*reporter, &shutdown_token, &name, input)
+                    }
+                });
+
+                let data = data.await??;
+
+                let duration = Instant::now().duration_since(start);
+
+                fs::write(&download.index_path, data.as_slice())
+                    .await
+                    .with_context(|| anyhow!("{}", download.index_path.display()))?;
+
+                lib::report_info!(
+                    reporter,
+                    "Took {duration:?} to build index at {}",
+                    download.index_path.display()
+                );
+
+                Ok::<_, anyhow::Error>(())
+            };
+
+            if let Err(error) = future.await {
+                lib::report_error!(reporter, "Error building `{}`", download.name);
+
+                for error in error.chain() {
+                    lib::report_error!(reporter, "Caused by: {error}");
+                }
             }
         }
-    }
 
-    Ok(())
+        Ok(true)
+    };
+
+    let mut future = pin!(future);
+
+    let completed = tokio::select! {
+        result = future.as_mut() => {
+            result?
+        }
+        _ = shutdown => {
+            shutdown_token.set();
+            future.await?
+        }
+    };
+
+    Ok(completed)
 }
 
 async fn read_or_download(
