@@ -3,7 +3,6 @@
 set -e
 
 trunk build --release
-cargo build --release --features bundle,gnome
+cargo build --release --features gnome,bundle -p jpv
 cargo generate-rpm -p crates/jpv
-sudo dnf remove --assumeyes jpv
-sudo dnf install --assumeyes target/generate-rpm/jpv-0.0.0-1.x86_64.rpm
+sudo dnf reinstall --assumeyes target/generate-rpm/jpv-0.0.0-1.x86_64.rpm

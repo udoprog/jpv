@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - release
+
+jobs:
+  build-fedora:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:39
+    steps:
+    - run: cat /etc/fedora-release
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@1.74.0
+    - run: dnf install --assumeyes gcc glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel
+    - run: cargo install cargo-generate-rpm
+    - uses: udoprog/trunk-action@v1
+      with:
+        args: build --release
+        binaryen-version: version_114
+    - run: cargo build --release --features gnome,bundle -p jpv
+    - run: cargo generate-rpm -p crates/jpv
+    - run: mkdir dist
+    - run: mv target/generate-rpm/*.rpm dist/
+    - uses: actions/upload-artifact@v3
+      with:
+        name: dist-fedora
+        path: dist
+
+  publish:
+    needs: build-fedora
+    runs-on: ubuntu-latest
+    steps:
+    - uses: udoprog/github-release@tag
+      id: release
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
+      with: {name: dist-fedora, path: dist}
+    - uses: udoprog/github-release@v1
+      with:
+        files: "dist/*"
+        name: ${{steps.release.outputs.tag}}
+        token: ${{secrets.GITHUB_TOKEN}}
+        prerelease: ${{steps.release.outputs.prerelease}}

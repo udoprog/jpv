@@ -49,7 +49,7 @@ effort on it that I think it might be useful for others.
 Install dependencies for the platform you intend to build for:
 
 * For the `ocr` feature:
-  * `Fedora` - `sudo dnf install tesseract-devel`
+  * `Fedora` - `sudo dnf install gcc glib2-devel openssl-devel tesseract-devel leptonica-devel`
 
 Install [`trunk`] and the `wasm32` toolchain to build the UI:
 
