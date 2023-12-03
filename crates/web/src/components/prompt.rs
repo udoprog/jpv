@@ -261,7 +261,7 @@ impl Component for Prompt {
                     self.search(ctx);
                 }
 
-                false
+                true
             }
             Msg::MoreEntries => {
                 self.limit_entries += DEFAULT_LIMIT;
