@@ -9,11 +9,16 @@ const SELECT = true;
 const MAX_X_OFFSET = 1024;
 
 let iframe: HTMLIFrameElement | null = null;
-let loadListener: (() => void) | null = null;
+let visible: boolean = false;
 let lastElement: Element | null = null;
 let lastPoint: Point | null = null;
 let currentText: string | null = null;
 let currentPointOver: number | null = null;
+
+interface UpdateMessage {
+    text: string;
+    analyze_at_char?: number;
+}
 
 /**
  * Whether we can just press shift to get the popup.
@@ -63,12 +68,11 @@ function getBoundingElement(el: Element): Element | null {
 }
 
 function closeWindow() {
-    if (!loadListener || !iframe) {
+    if (!visible || !iframe) {
         return false;
     }
 
-    iframe.removeEventListener('load', loadListener);
-    loadListener = null;
+    visible = false;
     iframe.classList.remove('active');
     iframe.src = '';
     currentText = null;
@@ -286,21 +290,23 @@ function openWindow(element: Element | null, point: Point | null) {
     if (DEBUG) {
         console.debug(pos);
     }
+    
+    if (!visible) {
+        iframe.classList.add('active');
+        visible = true;
+    }
 
     if (currentText != text || currentPointOver != pointOver) {
-        if (!loadListener) {
-            let myIframe = iframe;
-            loadListener = () => myIframe.classList.add('active');
-            iframe.addEventListener('load', loadListener);
-        }
-
-        let search = new URLSearchParams({ embed: "yes", q: text });
+        let message = { text } as UpdateMessage;
 
         if (pointOver !== null) {
-            search.append("analyze_at_char", pointOver.toString());
+            message.analyze_at_char = pointOver;
         }
 
-        iframe.src = 'http://localhost:44714?' + search.toString();
+        if (!!iframe.contentWindow) {
+            iframe.contentWindow.postMessage(message, '*');
+        }
+
         currentText = text;
         currentPointOver = pointOver;
     }
@@ -356,7 +362,7 @@ if (document.body) {
 
     // set the position to the
     iframe.classList.add('jpv-definitions');
-    iframe.src = 'http://localhost:37719';
+    iframe.src = 'http://localhost:44714?embed=yes';
 
     document.body.appendChild(iframe);
 

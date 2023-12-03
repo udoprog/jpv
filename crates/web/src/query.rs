@@ -50,6 +50,17 @@ impl Query {
         Some(url.href())
     }
 
+    /// Update analyze at character.
+    pub(crate) fn update_analyze_at_char(&mut self, index: usize) {
+        let mut len = 0;
+
+        for c in self.text.chars().take(index) {
+            len += c.len_utf8();
+        }
+
+        self.analyze_at = Some(len);
+    }
+
     pub(crate) fn deserialize(raw: Vec<(String, String)>) -> (Self, Option<usize>) {
         let mut analyze_at = None;
         let mut analyze_at_char = None;

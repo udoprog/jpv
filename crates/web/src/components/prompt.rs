@@ -4,11 +4,16 @@ use std::mem::replace;
 use std::rc::Rc;
 use std::str::from_utf8;
 
+use gloo::utils::format::JsValueSerdeExt;
 use lib::api;
 use lib::api::ClientEvent;
 use lib::kanjidic2;
 use lib::romaji;
-use web_sys::HtmlInputElement;
+use serde::Deserialize;
+use wasm_bindgen::closure::Closure;
+use wasm_bindgen::JsCast;
+use web_sys::window;
+use web_sys::{HtmlInputElement, MessageEvent};
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
@@ -44,6 +49,7 @@ pub(crate) enum Msg {
     MoreEntries,
     MoreCharacters,
     ClientEvent(ClientEvent),
+    UpdateMessage(UpdateMessage),
     Error(Error),
 }
 
@@ -51,24 +57,6 @@ impl From<Error> for Msg {
     #[inline]
     fn from(error: Error) -> Self {
         Msg::Error(error)
-    }
-}
-
-#[derive(Default)]
-struct Serials {
-    search: u32,
-    analyze: u32,
-}
-
-impl Serials {
-    fn search(&mut self) -> u32 {
-        self.search = self.search.wrapping_add(1);
-        self.search
-    }
-
-    fn analyze(&mut self) -> u32 {
-        self.analyze = self.analyze.wrapping_add(1);
-        self.analyze
     }
 }
 
@@ -83,134 +71,8 @@ pub(crate) struct Prompt {
     log: Vec<api::LogEntry>,
     tasks: BTreeMap<String, api::TaskProgress>,
     analysis: Rc<[Rc<str>]>,
+    _callback: Closure<dyn FnMut(MessageEvent)>,
     _location_handle: Option<LocationHandle>,
-}
-
-impl Prompt {
-    fn reload(&mut self, ctx: &Context<Self>) {
-        log::debug!("Reload");
-
-        if self.analyze(ctx) {
-            return;
-        }
-
-        self.search(ctx);
-    }
-
-    fn search(&mut self, ctx: &Context<Self>) {
-        let input = if let Some(input) = self.analysis.get(self.query.index) {
-            input.clone()
-        } else {
-            self.query.text.clone()
-        };
-
-        log::debug!("Search `{input}`");
-
-        let input = input.to_lowercase();
-        let serial = self.serials.search();
-
-        ctx.link().send_future(async move {
-            match fetch::search(&input, serial).await {
-                Ok(entries) => Msg::SearchResponse(entries),
-                Err(error) => Msg::Error(error),
-            }
-        });
-    }
-
-    fn analyze(&mut self, ctx: &Context<Self>) -> bool {
-        let Some(analyze) = self.query.analyze_at else {
-            return false;
-        };
-
-        log::debug!("Analyze {analyze}");
-
-        let input = self.query.text.clone();
-        let serial = self.serials.analyze();
-
-        ctx.link().send_future(async move {
-            match fetch::analyze(&input, analyze, serial).await {
-                Ok(entries) => Msg::AnalyzeResponse(entries),
-                Err(error) => Msg::Error(error),
-            }
-        });
-
-        true
-    }
-
-    fn save_query(&mut self, ctx: &Context<Prompt>, history: History) {
-        let (Some(location), Some(navigator)) = (ctx.link().location(), ctx.link().navigator())
-        else {
-            return;
-        };
-
-        let path = location.path();
-        let path = AnyRoute::new(path);
-
-        let query = self.query.serialize(false);
-
-        let result = match history {
-            History::Push => navigator.push_with_query_and_state(&path, &query, IsInternal::new()),
-            History::Replace => {
-                navigator.replace_with_query_and_state(&path, &query, IsInternal::new())
-            }
-        };
-
-        if let Err(error) = result {
-            log::error!("Failed to set route: {error}");
-        }
-    }
-
-    /// Update from what looks like JSON in a clipboard.
-    fn update_from_clipboard_json(
-        &mut self,
-        ctx: &Context<Self>,
-        json: &lib::api::SendClipboardJson,
-    ) -> Result<(), Error> {
-        if self.query.capture_clipboard && self.query.text.as_ref() != json.primary.as_str() {
-            self.query.set(
-                json.primary.clone().into(),
-                json.secondary.as_ref().filter(|s| !s.is_empty()).cloned(),
-            );
-            self.analysis = Rc::from([]);
-            self.save_query(ctx, History::Push);
-            self.search(ctx);
-        }
-
-        Ok(())
-    }
-
-    /// Update from clipboard.
-    fn update_from_clipboard(
-        &mut self,
-        ctx: &Context<Self>,
-        ty: Option<&str>,
-        data: &[u8],
-    ) -> Result<(), Error> {
-        if matches!(ty, Some("application/json")) {
-            let json = serde_json::from_slice::<lib::api::SendClipboardJson>(data)?;
-            self.update_from_clipboard_json(ctx, &json)?;
-            return Ok(());
-        }
-
-        // Heuristics.
-        if data.starts_with(&[b'{']) {
-            if let Ok(json) = serde_json::from_slice::<lib::api::SendClipboardJson>(data) {
-                self.update_from_clipboard_json(ctx, &json)?;
-                return Ok(());
-            }
-        }
-
-        let data = from_utf8(data)?;
-
-        if self.query.capture_clipboard && self.query.text.as_ref() != data {
-            self.query.set(data.into(), None);
-            self.analysis = Rc::from([]);
-            self.save_query(ctx, History::Push);
-            self.search(ctx);
-        }
-
-        Ok(())
-    }
 }
 
 #[derive(Properties, PartialEq)]
@@ -223,6 +85,20 @@ impl Component for Prompt {
     type Properties = Props;
 
     fn create(ctx: &Context<Self>) -> Self {
+        let callback = Closure::wrap({
+            let link = ctx.link().clone();
+
+            Box::new(move |value: MessageEvent| {
+                if let Ok(message) = value.data().into_serde::<UpdateMessage>() {
+                    link.send_message(Msg::UpdateMessage(message))
+                }
+            }) as Box<dyn FnMut(MessageEvent)>
+        });
+
+        if let Some(window) = window() {
+            window.set_onmessage(Some(&callback.as_ref().unchecked_ref()));
+        }
+
         let location_handle = ctx
             .link()
             .add_location_listener(ctx.link().callback(Msg::HistoryChanged));
@@ -240,6 +116,7 @@ impl Component for Prompt {
             log: Vec::new(),
             tasks: BTreeMap::new(),
             analysis: Rc::from([]),
+            _callback: callback,
             _location_handle: location_handle,
         };
 
@@ -393,6 +270,18 @@ impl Component for Prompt {
             Msg::MoreCharacters => {
                 self.limit_characters += DEFAULT_LIMIT;
                 true
+            }
+            Msg::UpdateMessage(message) => {
+                self.query.set(message.text.into(), None);
+
+                if let Some(analyze_at_char) = message.analyze_at_char {
+                    self.query.update_analyze_at_char(analyze_at_char);
+                }
+
+                self.analysis = Rc::from([]);
+                self.save_query(ctx, History::Push);
+                self.analyze(ctx);
+                false
             }
             Msg::ClientEvent(event) => {
                 match event {
@@ -817,14 +706,8 @@ fn decode_query(location: Option<Location>) -> Query {
     let (mut query, analyze_at_char) = Query::deserialize(query);
 
     if let Some(analyze_at_char) = analyze_at_char {
-        let mut len = 0;
-
-        for c in query.text.chars().take(analyze_at_char) {
-            len += c.len_utf8();
-        }
-
-        query.analyze_at = Some(len);
-    };
+        query.update_analyze_at_char(analyze_at_char);
+    }
 
     query
 }
@@ -858,6 +741,151 @@ fn copyright() -> Html {
     }
 }
 
+#[derive(Default)]
+struct Serials {
+    search: u32,
+    analyze: u32,
+}
+
+impl Serials {
+    fn search(&mut self) -> u32 {
+        self.search = self.search.wrapping_add(1);
+        self.search
+    }
+
+    fn analyze(&mut self) -> u32 {
+        self.analyze = self.analyze.wrapping_add(1);
+        self.analyze
+    }
+}
+
+impl Prompt {
+    fn reload(&mut self, ctx: &Context<Self>) {
+        log::debug!("Reload");
+
+        if self.analyze(ctx) {
+            return;
+        }
+
+        self.search(ctx);
+    }
+
+    fn search(&mut self, ctx: &Context<Self>) {
+        let input = if let Some(input) = self.analysis.get(self.query.index) {
+            input.clone()
+        } else {
+            self.query.text.clone()
+        };
+
+        log::debug!("Search `{input}`");
+
+        let input = input.to_lowercase();
+        let serial = self.serials.search();
+
+        ctx.link().send_future(async move {
+            match fetch::search(&input, serial).await {
+                Ok(entries) => Msg::SearchResponse(entries),
+                Err(error) => Msg::Error(error),
+            }
+        });
+    }
+
+    fn analyze(&mut self, ctx: &Context<Self>) -> bool {
+        let Some(analyze) = self.query.analyze_at else {
+            return false;
+        };
+
+        log::debug!("Analyze {analyze}");
+
+        let input = self.query.text.clone();
+        let serial = self.serials.analyze();
+
+        ctx.link().send_future(async move {
+            match fetch::analyze(&input, analyze, serial).await {
+                Ok(entries) => Msg::AnalyzeResponse(entries),
+                Err(error) => Msg::Error(error),
+            }
+        });
+
+        true
+    }
+
+    fn save_query(&mut self, ctx: &Context<Prompt>, history: History) {
+        let (Some(location), Some(navigator)) = (ctx.link().location(), ctx.link().navigator())
+        else {
+            return;
+        };
+
+        let path = location.path();
+        let path = AnyRoute::new(path);
+
+        let query = self.query.serialize(false);
+
+        let result = match history {
+            History::Push => navigator.push_with_query_and_state(&path, &query, IsInternal::new()),
+            History::Replace => {
+                navigator.replace_with_query_and_state(&path, &query, IsInternal::new())
+            }
+        };
+
+        if let Err(error) = result {
+            log::error!("Failed to set route: {error}");
+        }
+    }
+
+    /// Update from what looks like JSON in a clipboard.
+    fn update_from_clipboard_json(
+        &mut self,
+        ctx: &Context<Self>,
+        json: &lib::api::SendClipboardJson,
+    ) -> Result<(), Error> {
+        if self.query.capture_clipboard && self.query.text.as_ref() != json.primary.as_str() {
+            self.query.set(
+                json.primary.clone().into(),
+                json.secondary.as_ref().filter(|s| !s.is_empty()).cloned(),
+            );
+            self.analysis = Rc::from([]);
+            self.save_query(ctx, History::Push);
+            self.search(ctx);
+        }
+
+        Ok(())
+    }
+
+    /// Update from clipboard.
+    fn update_from_clipboard(
+        &mut self,
+        ctx: &Context<Self>,
+        ty: Option<&str>,
+        data: &[u8],
+    ) -> Result<(), Error> {
+        if matches!(ty, Some("application/json")) {
+            let json = serde_json::from_slice::<lib::api::SendClipboardJson>(data)?;
+            self.update_from_clipboard_json(ctx, &json)?;
+            return Ok(());
+        }
+
+        // Heuristics.
+        if data.starts_with(&[b'{']) {
+            if let Ok(json) = serde_json::from_slice::<lib::api::SendClipboardJson>(data) {
+                self.update_from_clipboard_json(ctx, &json)?;
+                return Ok(());
+            }
+        }
+
+        let data = from_utf8(data)?;
+
+        if self.query.capture_clipboard && self.query.text.as_ref() != data {
+            self.query.set(data.into(), None);
+            self.analysis = Rc::from([]);
+            self.save_query(ctx, History::Push);
+            self.search(ctx);
+        }
+
+        Ok(())
+    }
+}
+
 /// Internal state for the history API, so it can be read by the listener and
 /// avoid double-querying.
 struct IsInternal(Cell<bool>);
@@ -874,4 +902,10 @@ impl IsInternal {
         self.0.set(false);
         old
     }
+}
+
+#[derive(Deserialize)]
+pub struct UpdateMessage {
+    text: String,
+    analyze_at_char: Option<usize>,
 }
