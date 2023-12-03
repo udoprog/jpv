@@ -24,15 +24,23 @@ pub enum Tab {
 pub(crate) struct Query {
     pub(crate) text: Rc<str>,
     pub(crate) translation: Option<String>,
+    pub(crate) analyze_at: Option<usize>,
+    pub(crate) index: usize,
     pub(crate) mode: Mode,
     pub(crate) capture_clipboard: bool,
     pub(crate) embed: bool,
     pub(crate) tab: Tab,
-    pub(crate) analyze_at: Option<usize>,
-    pub(crate) index: usize,
 }
 
 impl Query {
+    /// Update query in the most common way.
+    pub(crate) fn set(&mut self, text: Rc<str>, translation: Option<String>) {
+        self.text = text;
+        self.translation = translation;
+        self.analyze_at = None;
+        self.index = 0;
+    }
+
     pub(crate) fn to_href(&self, no_embed: bool) -> Option<String> {
         let href = window()?.location().href().ok()?;
         let query = self.serialize(no_embed);

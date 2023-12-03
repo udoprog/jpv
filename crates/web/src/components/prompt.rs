@@ -1,5 +1,6 @@
 use std::cell::Cell;
 use std::collections::BTreeMap;
+use std::mem::replace;
 use std::rc::Rc;
 use std::str::from_utf8;
 
@@ -87,24 +88,23 @@ pub(crate) struct Prompt {
 
 impl Prompt {
     fn reload(&mut self, ctx: &Context<Self>) {
-        log::trace!("Reload");
+        log::debug!("Reload");
 
-        if let Some(analyze_at) = self.query.analyze_at {
-            self.analyze(ctx, analyze_at);
+        if self.analyze(ctx) {
             return;
         }
 
+        self.search(ctx);
+    }
+
+    fn search(&mut self, ctx: &Context<Self>) {
         let input = if let Some(input) = self.analysis.get(self.query.index) {
             input.clone()
         } else {
             self.query.text.clone()
         };
 
-        self.search(ctx, &input);
-    }
-
-    fn search(&mut self, ctx: &Context<Self>, input: &str) {
-        log::trace!("Search `{input}`");
+        log::debug!("Search `{input}`");
 
         let input = input.to_lowercase();
         let serial = self.serials.search();
@@ -117,18 +117,24 @@ impl Prompt {
         });
     }
 
-    fn analyze(&mut self, ctx: &Context<Self>, start: usize) {
-        log::trace!("Analyze {start}");
+    fn analyze(&mut self, ctx: &Context<Self>) -> bool {
+        let Some(analyze) = self.query.analyze_at else {
+            return false;
+        };
+
+        log::debug!("Analyze {analyze}");
 
         let input = self.query.text.clone();
         let serial = self.serials.analyze();
 
         ctx.link().send_future(async move {
-            match fetch::analyze(&input, start, serial).await {
+            match fetch::analyze(&input, analyze, serial).await {
                 Ok(entries) => Msg::AnalyzeResponse(entries),
                 Err(error) => Msg::Error(error),
             }
         });
+
+        true
     }
 
     fn save_query(&mut self, ctx: &Context<Prompt>, history: History) {
@@ -161,12 +167,13 @@ impl Prompt {
         json: &lib::api::SendClipboardJson,
     ) -> Result<(), Error> {
         if self.query.capture_clipboard && self.query.text.as_ref() != json.primary.as_str() {
-            self.query.text = json.primary.clone().into();
+            self.query.set(
+                json.primary.clone().into(),
+                json.secondary.as_ref().filter(|s| !s.is_empty()).cloned(),
+            );
             self.analysis = Rc::from([]);
-            self.query.index = 0;
-            self.query.translation = json.secondary.as_ref().filter(|s| !s.is_empty()).cloned();
             self.save_query(ctx, History::Push);
-            self.search(ctx, &json.primary);
+            self.search(ctx);
         }
 
         Ok(())
@@ -196,12 +203,10 @@ impl Prompt {
         let data = from_utf8(data)?;
 
         if self.query.capture_clipboard && self.query.text.as_ref() != data {
-            self.query.text = data.into();
+            self.query.set(data.into(), None);
             self.analysis = Rc::from([]);
-            self.query.index = 0;
-            self.query.translation = None;
             self.save_query(ctx, History::Push);
-            self.search(ctx, data);
+            self.search(ctx);
         }
 
         Ok(())
@@ -268,17 +273,15 @@ impl Component for Prompt {
                 }
             }
             Msg::AnalyzeResponse(response) => {
-                if response.serial == Some(self.serials.analyze) {
-                    self.analysis = response.data.into_iter().map(|d| d.string.into()).collect();
-
-                    if let Some(input) = self.analysis.get(self.query.index).cloned() {
-                        self.search(ctx, &input);
-                    }
-
-                    true
-                } else {
-                    false
+                if response.serial != Some(self.serials.analyze) {
+                    return false;
                 }
+
+                log::debug!("Analyze response");
+
+                self.analysis = response.data.into_iter().map(|d| d.string.into()).collect();
+                self.search(ctx);
+                false
             }
             Msg::Mode(mode) => {
                 self.query.mode = mode;
@@ -310,20 +313,19 @@ impl Component for Prompt {
                 true
             }
             Msg::Change(input) => {
+                log::info!("{:?}", input);
+
                 let input = match self.query.mode {
                     Mode::Unfiltered => Rc::from(input),
                     Mode::Hiragana => process_query(&input, romaji::Segment::hiragana),
                     Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
 
-                self.search(ctx, &input);
-
-                if self.query.text != input || !self.analysis.is_empty() {
-                    self.query.text = input;
+                if self.query.text != input {
+                    self.query.set(input, None);
                     self.analysis = Rc::from([]);
-                    self.query.index = 0;
-                    self.query.translation = None;
                     self.save_query(ctx, History::Replace);
+                    self.search(ctx);
                 }
 
                 true
@@ -335,13 +337,10 @@ impl Component for Prompt {
                     Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
 
-                self.search(ctx, &input);
-
-                self.query.text = input;
-                self.query.translation = translation;
+                self.query.set(input, translation);
                 self.analysis = Rc::from([]);
-                self.query.index = 0;
                 self.save_query(ctx, History::Push);
+                self.search(ctx);
                 true
             }
             Msg::Analyze(i) => {
@@ -351,18 +350,15 @@ impl Component for Prompt {
 
                 self.query.analyze_at = Some(i);
                 self.save_query(ctx, History::Push);
-                self.analyze(ctx, i);
+                self.analyze(ctx);
                 true
             }
             Msg::AnalyzeCycle => {
                 if !self.analysis.is_empty() {
                     self.query.index += 1;
                     self.query.index %= self.analysis.len();
-                }
-
-                if let Some(input) = self.analysis.get(self.query.index).cloned() {
                     self.save_query(ctx, History::Push);
-                    self.search(ctx, &input);
+                    self.search(ctx);
                     true
                 } else {
                     false
@@ -374,19 +370,21 @@ impl Component for Prompt {
                     return false;
                 }
 
-                log::trace!("History change");
                 let query = decode_query(Some(location));
+                let old = replace(&mut self.query, query);
 
-                if self.query.analyze_at != query.analyze_at || self.query.text != query.text {
+                log::debug!("History change");
+                log::debug!("From: {:?}", old);
+                log::debug!("To: {:?}", self.query);
+
+                if self.query.analyze_at != old.analyze_at || self.query.text != old.text {
+                    self.analysis = Rc::from([]);
                     self.reload(ctx);
-                } else if self.query.index != query.index {
-                    if let Some(input) = self.analysis.get(self.query.index).cloned() {
-                        self.search(ctx, &input);
-                    }
+                } else if self.query.index != old.index {
+                    self.search(ctx);
                 }
 
-                self.query = query;
-                true
+                false
             }
             Msg::MoreEntries => {
                 self.limit_entries += DEFAULT_LIMIT;
