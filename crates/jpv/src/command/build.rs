@@ -48,19 +48,22 @@ pub(crate) async fn run(
         overrides.insert(IndexKind::Jmnedict, path);
     }
 
-    let tracing_reporter = Arc::new(TracingReporter);
-
     let to_download = crate::background::config_to_download(&config, dirs, overrides);
 
-    let (_sender, shutdown) = oneshot::channel();
-    crate::background::build(
-        tracing_reporter,
-        shutdown,
-        dirs,
-        &to_download,
-        build_args.force,
-    )
-    .await?;
+    for to_download in to_download {
+        let tracing_reporter = Arc::new(TracingReporter);
+        let (_sender, shutdown) = oneshot::channel();
+
+        crate::background::build(
+            tracing_reporter,
+            shutdown,
+            dirs,
+            &to_download,
+            build_args.force,
+        )
+        .await?;
+    }
+
     crate::dbus::shutdown().await?;
     Ok(())
 }

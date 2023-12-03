@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::pin::pin;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -36,7 +35,7 @@ pub(crate) struct BackgroundInner {
     config: Config,
     database: Database,
     pub(crate) log: Vec<api::LogEntry>,
-    pub(crate) tasks: HashMap<&'static str, system::TaskProgress>,
+    pub(crate) tasks: HashMap<Box<str>, system::TaskProgress>,
 }
 
 /// Events emitted by modifying the background service.
@@ -118,9 +117,9 @@ impl Background {
         let mut inner = self.inner.write().unwrap();
 
         inner.tasks.insert(
-            name,
+            name.into(),
             system::TaskProgress {
-                name,
+                name: name.into(),
                 value: 0,
                 total: None,
                 text: String::new(),
@@ -181,40 +180,46 @@ impl Background {
                 let _ = callback.send(());
             }
             BackgroundEvent::Rebuild(force) => {
-                let Some((shutdown, completion)) = tasks.unique_task("Building index") else {
-                    return Ok(());
-                };
-
-                self.start_task(&completion, 5);
-
                 let config = self.config();
                 let dirs = self.dirs.clone();
-                let inner = self.inner.clone();
-                let index = args.index.clone();
+                let to_download = config_to_download(&config, &dirs, Default::default());
 
-                let reporter = Arc::new(EventsReporter {
-                    parent: TracingReporter,
-                    inner: inner.clone(),
-                    system_events: system_events.clone(),
-                    name: completion.name(),
-                });
-
-                tokio::spawn(async move {
-                    // Capture the completion handler so that it is dropped with the task.
-                    let _completion = completion;
-                    let to_download = config_to_download(&config, &dirs, Default::default());
-                    let result = build(reporter, shutdown, &dirs, &to_download, force).await;
-
-                    if !result? {
+                for to_download in to_download {
+                    let Some((shutdown, completion)) =
+                        tasks.unique_task(format!("Building {}", to_download.name))
+                    else {
                         return Ok(());
-                    }
+                    };
 
-                    let mut inner = inner.write().unwrap();
-                    let indexes = data::open_from_args(&index[..], &dirs)?;
-                    let db = lib::database::Database::open(indexes, &inner.config)?;
-                    inner.database = db;
-                    Ok::<_, anyhow::Error>(())
-                });
+                    self.start_task(&completion, 5);
+
+                    let dirs = self.dirs.clone();
+                    let inner = self.inner.clone();
+                    let index = args.index.clone();
+
+                    let reporter = Arc::new(EventsReporter {
+                        parent: TracingReporter,
+                        inner: inner.clone(),
+                        system_events: system_events.clone(),
+                        name: completion.name().map(Box::from),
+                    });
+
+                    tokio::spawn(async move {
+                        // Capture the completion handler so that it is dropped with the task.
+                        let _completion = completion;
+                        let result = build(reporter, shutdown, &dirs, &to_download, force).await;
+
+                        if !result? {
+                            return Ok(());
+                        }
+
+                        let mut inner = inner.write().unwrap();
+                        let indexes = data::open_from_args(&index[..], &dirs)?;
+                        let db = lib::database::Database::open(indexes, &inner.config)?;
+                        inner.database = db;
+                        Ok::<_, anyhow::Error>(())
+                    });
+                }
             }
         }
 
@@ -299,139 +304,112 @@ pub(crate) async fn build(
     reporter: Arc<dyn Reporter>,
     shutdown: oneshot::Receiver<()>,
     dirs: &Dirs,
-    to_download: &[ToDownload],
+    download: &ToDownload,
     force: bool,
 ) -> Result<bool> {
     let shutdown_token = Token::new();
+    ensure_parent_dir(&download.index_path).await?;
 
-    let future = async {
-        for download in to_download {
-            if shutdown_token.is_set() {
-                return Ok(false);
-            }
+    // SAFETY: We are the only ones calling this function now.
+    let result = lib::data::open(&download.index_path);
 
-            ensure_parent_dir(&download.index_path).await?;
-
-            // SAFETY: We are the only ones calling this function now.
-            let result = lib::data::open(&download.index_path);
-
-            match result {
-                Ok(data) => match database::Index::open(data) {
-                    Ok(..) => {
-                        if !force {
-                            lib::report_info!(
-                                reporter,
-                                "Dictionary already exists at {}",
-                                download.index_path.display()
-                            );
-                            continue;
-                        } else {
-                            lib::report_info!(
-                                reporter,
-                                "Dictionary already exists at {} (forcing rebuild)",
-                                download.index_path.display()
-                            );
-                        }
-                    }
-                    Err(error) => {
-                        lib::report_warn!(
-                            reporter,
-                            "Rebuilding since exists, but could not open: {error}: {}",
-                            download.index_path.display()
-                        );
-                    }
-                },
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => {
-                    bail!(e)
+    match result {
+        Ok(data) => match database::Index::open(data) {
+            Ok(..) => {
+                if !force {
+                    lib::report_info!(
+                        reporter,
+                        "Dictionary already exists at {}",
+                        download.index_path.display()
+                    );
+                    return Ok(false);
+                } else {
+                    lib::report_info!(
+                        reporter,
+                        "Dictionary already exists at {} (forcing rebuild)",
+                        download.index_path.display()
+                    );
                 }
             }
-
-            let future = async {
-                let (path, data) = read_or_download(
-                    &*reporter,
-                    download.path.as_deref(),
-                    dirs,
-                    &download.url_name,
-                    &download.url,
-                )
-                .await
-                .context("loading JMDICT")?;
-
-                lib::report_info!(
+            Err(error) => {
+                lib::report_warn!(
                     reporter,
-                    "Loading `{}` from {}",
-                    download.name,
-                    path.display()
-                );
-
-                let start = Instant::now();
-                let kind = download.kind;
-                let name = download.name.clone();
-
-                let data = tokio::task::spawn_blocking({
-                    let reporter = reporter.clone();
-                    let shutdown_token = shutdown_token.clone();
-                    move || {
-                        let input = match kind {
-                            IndexKind::Jmdict => Input::Jmdict(&data[..]),
-                            IndexKind::Kanjidic2 => Input::Kanjidic2(&data[..]),
-                            IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
-                        };
-
-                        database::build(&*reporter, &shutdown_token, &name, input)
-                    }
-                });
-
-                reporter.instrument_start(
-                    module_path!(),
-                    &format_args!("Saving to {}", download.index_path.display()),
-                    None,
-                );
-
-                let data = data.await??;
-
-                let duration = Instant::now().duration_since(start);
-
-                fs::write(&download.index_path, data.as_slice())
-                    .await
-                    .with_context(|| anyhow!("{}", download.index_path.display()))?;
-
-                lib::report_info!(
-                    reporter,
-                    "Took {duration:?} to build index at {}",
+                    "Rebuilding since exists, but could not open: {error}: {}",
                     download.index_path.display()
                 );
+            }
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => {
+            bail!(e)
+        }
+    }
 
-                reporter.instrument_end(0);
-                Ok::<_, anyhow::Error>(())
+    let (path, data) = read_or_download(
+        &*reporter,
+        download.path.as_deref(),
+        dirs,
+        &download.url_name,
+        &download.url,
+    )
+    .await
+    .context("Reading dictionary")?;
+
+    lib::report_info!(
+        reporter,
+        "Loading `{}` from {}",
+        download.name,
+        path.display()
+    );
+
+    let start = Instant::now();
+    let kind = download.kind;
+    let name = download.name.clone();
+
+    let mut task = tokio::task::spawn_blocking({
+        let reporter = reporter.clone();
+        let shutdown_token = shutdown_token.clone();
+        move || {
+            let input = match kind {
+                IndexKind::Jmdict => Input::Jmdict(&data[..]),
+                IndexKind::Kanjidic2 => Input::Kanjidic2(&data[..]),
+                IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
             };
 
-            if let Err(error) = future.await {
-                lib::report_error!(reporter, "Error building `{}`", download.name);
-
-                for error in error.chain() {
-                    lib::report_error!(reporter, "Caused by: {error}");
-                }
-            }
+            database::build(&*reporter, &shutdown_token, &name, input)
         }
+    });
 
-        Ok(true)
-    };
-
-    let mut future = pin!(future);
-
-    let completed = tokio::select! {
-        result = future.as_mut() => {
-            result?
+    let buf = tokio::select! {
+        result = &mut task => {
+            result??
         }
         _ = shutdown => {
             shutdown_token.set();
-            future.await?
+            task.await??
         }
     };
 
-    Ok(completed)
+    let duration = Instant::now().duration_since(start);
+
+    reporter.instrument_start(
+        module_path!(),
+        &format_args!("Saving to {}", download.index_path.display()),
+        None,
+    );
+
+    fs::write(&download.index_path, buf.as_slice())
+        .await
+        .with_context(|| anyhow!("{}", download.index_path.display()))?;
+
+    lib::report_info!(
+        reporter,
+        "Took {duration:?} to build index at {}",
+        download.index_path.display()
+    );
+
+    reporter.instrument_end(0);
+    Ok(true)
 }
 
 async fn read_or_download(

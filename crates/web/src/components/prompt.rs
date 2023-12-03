@@ -490,7 +490,11 @@ impl Component for Prompt {
             }
         };
 
-        let class = classes!("block", (!self.query.embed).then_some("block-xl"));
+        let class = classes!(
+            "block",
+            self.query.embed.then_some("block-lg"),
+            (!self.query.embed).then_some("block-xl")
+        );
 
         let analyze = html! {
             <div {class} id="analyze">{analyze}</div>

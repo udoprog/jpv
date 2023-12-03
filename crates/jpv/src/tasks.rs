@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 use anyhow::{Context, Result};
 use slab::Slab;
@@ -6,9 +7,9 @@ use tokio::sync::{mpsc, oneshot};
 
 pub(crate) struct Tasks {
     tasks: Slab<oneshot::Sender<()>>,
-    completion: mpsc::UnboundedReceiver<(usize, Option<&'static str>)>,
-    sender: mpsc::UnboundedSender<(usize, Option<&'static str>)>,
-    unique: HashMap<&'static str, usize>,
+    completion: mpsc::UnboundedReceiver<(usize, Option<Box<str>>)>,
+    sender: mpsc::UnboundedSender<(usize, Option<Box<str>>)>,
+    unique: HashMap<Box<str>, usize>,
 }
 
 impl Tasks {
@@ -27,24 +28,26 @@ impl Tasks {
     /// This returns a tuple of a oneshot that will be signalled if the task
     /// needs to be cancelled, or a completion handler that must be dropped once
     /// the task has completed.
-    pub(crate) fn unique_task(
+    pub(crate) fn unique_task<N>(
         &mut self,
-        name: &'static str,
-    ) -> Option<(oneshot::Receiver<()>, TaskCompletion)> {
-        if self.unique.get(name).is_some() {
+        name: N,
+    ) -> Option<(oneshot::Receiver<()>, TaskCompletion)>
+    where
+        N: fmt::Display,
+    {
+        let name = Box::from(name.to_string());
+
+        if self.unique.get(&name).is_some() {
             return None;
         }
 
         let index = self.tasks.vacant_key();
-        self.unique.insert(name, index);
+        self.unique.insert(name.clone(), index);
         Some(self.task_inner(Some(name)))
     }
 
     /// Spawn a new task and set up a oneshot receiver.
-    fn task_inner(
-        &mut self,
-        name: Option<&'static str>,
-    ) -> (oneshot::Receiver<()>, TaskCompletion) {
+    fn task_inner(&mut self, name: Option<Box<str>>) -> (oneshot::Receiver<()>, TaskCompletion) {
         let (sender, receiver) = oneshot::channel();
         let index = self.tasks.insert(sender);
 
@@ -68,7 +71,7 @@ impl Tasks {
 
             self.tasks.remove(index);
 
-            if let Some(name) = name {
+            if let Some(name) = &name {
                 self.unique.remove(name);
             }
 
@@ -94,7 +97,7 @@ impl Tasks {
 
             expect.remove(&index);
 
-            if let Some(name) = name {
+            if let Some(name) = &name {
                 self.unique.remove(name);
             }
         }
@@ -104,31 +107,31 @@ impl Tasks {
 }
 
 pub(crate) struct TaskCompletion {
-    sender: mpsc::UnboundedSender<(usize, Option<&'static str>)>,
+    sender: mpsc::UnboundedSender<(usize, Option<Box<str>>)>,
     index: usize,
-    name: Option<&'static str>,
+    name: Option<Box<str>>,
 }
 
 impl TaskCompletion {
     /// Get the name of the task.
-    pub(crate) fn name(&self) -> Option<&'static str> {
-        self.name
+    pub(crate) fn name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 }
 
 impl Drop for TaskCompletion {
     fn drop(&mut self) {
         tracing::trace!("Marking task {} as completed", self.index);
-        let _ = self.sender.send((self.index, self.name));
+        let _ = self.sender.send((self.index, self.name.clone()));
     }
 }
 
 pub(crate) struct CompletedTask {
-    name: Option<&'static str>,
+    name: Option<Box<str>>,
 }
 
 impl CompletedTask {
-    pub(crate) fn name(&self) -> Option<&'static str> {
-        self.name
+    pub(crate) fn name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 }

@@ -11,7 +11,7 @@ pub(crate) struct EventsReporter {
     pub(crate) parent: TracingReporter,
     pub(crate) inner: Arc<RwLock<BackgroundInner>>,
     pub(crate) system_events: SystemEvents,
-    pub(crate) name: Option<&'static str>,
+    pub(crate) name: Option<Box<str>>,
 }
 
 impl EventsReporter {
@@ -56,7 +56,7 @@ impl Reporter for EventsReporter {
     fn instrument_start(&self, _: &'static str, text: &dyn fmt::Display, total: Option<usize>) {
         use std::fmt::Write;
 
-        let Some(name) = self.name else {
+        let Some(name) = self.name.as_deref() else {
             return;
         };
 
@@ -78,7 +78,7 @@ impl Reporter for EventsReporter {
     }
 
     fn instrument_progress(&self, stride: usize) {
-        let Some(name) = self.name else {
+        let Some(name) = self.name.as_deref() else {
             return;
         };
 
@@ -97,7 +97,7 @@ impl Reporter for EventsReporter {
     }
 
     fn instrument_end(&self, total: usize) {
-        let Some(name) = self.name else {
+        let Some(name) = self.name.as_deref() else {
             return;
         };
 

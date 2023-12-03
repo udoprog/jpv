@@ -164,7 +164,7 @@ async fn system_event(
         }
         system::Event::TaskProgress(task) => {
             let json = serde_json::to_vec(&api::ClientEvent::TaskProgress(api::TaskProgress {
-                name: task.name.to_owned(),
+                name: task.name.into(),
                 value: task.value,
                 total: task.total,
                 step: task.step,
@@ -176,7 +176,7 @@ async fn system_event(
         }
         system::Event::TaskCompleted(task) => {
             let json = serde_json::to_vec(&api::ClientEvent::TaskCompleted(api::TaskCompleted {
-                name: task.name.to_owned(),
+                name: task.name.into(),
             }))?;
 
             sink.send(Message::Binary(json)).await?;

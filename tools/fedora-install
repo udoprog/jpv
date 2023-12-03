@@ -7,6 +7,3 @@ cargo build --release --features bundle,gnome
 cargo generate-rpm -p crates/jpv
 sudo dnf remove --assumeyes jpv
 sudo dnf install --assumeyes target/generate-rpm/jpv-0.0.0-1.x86_64.rpm
-
-echo "Building database"
-jpv build
