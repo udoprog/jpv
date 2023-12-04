@@ -26,32 +26,6 @@ pub(crate) async fn rebuild() -> Result<api::Empty, Error> {
     post("rebuild", api::Empty).await
 }
 
-/// Perform the given search.
-pub(crate) async fn search(q: &str, serial: u32) -> Result<api::OwnedSearchResponse, Error> {
-    get(
-        "search",
-        [("q", q), ("serial", serial.to_string().as_str())],
-    )
-    .await
-}
-
-/// Perform the given analysis.
-pub(crate) async fn analyze(
-    q: &str,
-    start: usize,
-    serial: u32,
-) -> Result<api::OwnedAnalyzeResponse, Error> {
-    get(
-        "analyze",
-        [
-            ("q", q),
-            ("start", start.to_string().as_str()),
-            ("serial", serial.to_string().as_str()),
-        ],
-    )
-    .await
-}
-
 async fn get<T, const N: usize>(p: &str, pairs: [(&str, &str); N]) -> Result<T, Error>
 where
     T: DeserializeOwned,

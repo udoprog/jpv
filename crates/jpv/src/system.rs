@@ -49,7 +49,7 @@ pub(crate) struct TaskCompleted {
 pub(crate) enum Event {
     #[cfg_attr(not(dbus), allow(unused))]
     SendClipboardData(SendClipboardData),
-    LogEntry(api::LogEntry),
+    LogEntry(api::OwnedLogEntry),
     TaskProgress(TaskProgress),
     TaskCompleted(TaskCompleted),
     /// Indicate that clients should refresh their state.

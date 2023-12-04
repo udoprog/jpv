@@ -144,7 +144,7 @@ impl Component for EditIndex {
 
         let oncancel = ctx.props().oncancel.reform(|_| ());
 
-        let onsave = ctx.link().callback({ move |_| Msg::Save });
+        let onsave = ctx.link().callback(move |_| Msg::Save);
 
         let class = classes! {
             "block",

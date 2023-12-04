@@ -6,7 +6,6 @@ use std::str::from_utf8;
 
 use gloo::utils::format::JsValueSerdeExt;
 use lib::api;
-use lib::api::ClientEvent;
 use lib::kanjidic2;
 use lib::romaji;
 use serde::Deserialize;
@@ -17,10 +16,10 @@ use web_sys::{HtmlInputElement, MessageEvent};
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
-use crate::callbacks::Callbacks;
+use crate::c;
 use crate::error::Error;
 use crate::query::{Mode, Query, Tab};
-use crate::{components as c, fetch};
+use crate::ws;
 
 use super::{comma, seq, spacing};
 
@@ -48,9 +47,24 @@ pub(crate) enum Msg {
     AnalyzeResponse(api::OwnedAnalyzeResponse),
     MoreEntries,
     MoreCharacters,
-    ClientEvent(ClientEvent),
     UpdateMessage(UpdateMessage),
+    Broadcast(api::OwnedBroadcastKind),
+    ClientResponse(api::OwnedClientResponseKind),
     Error(Error),
+}
+
+impl From<api::OwnedBroadcastKind> for Msg {
+    #[inline]
+    fn from(broadcast: api::OwnedBroadcastKind) -> Self {
+        Msg::Broadcast(broadcast)
+    }
+}
+
+impl From<api::OwnedClientResponseKind> for Msg {
+    #[inline]
+    fn from(response: api::OwnedClientResponseKind) -> Self {
+        Msg::ClientResponse(response)
+    }
 }
 
 impl From<Error> for Msg {
@@ -68,16 +82,18 @@ pub(crate) struct Prompt {
     characters: Vec<kanjidic2::OwnedCharacter>,
     limit_characters: usize,
     serials: Serials,
-    log: Vec<api::LogEntry>,
-    tasks: BTreeMap<String, api::TaskProgress>,
+    pending_search: Option<ws::Request>,
+    log: Vec<api::OwnedLogEntry>,
+    tasks: BTreeMap<String, api::OwnedTaskProgress>,
     analysis: Rc<[Rc<str>]>,
     _callback: Closure<dyn FnMut(MessageEvent)>,
     _location_handle: Option<LocationHandle>,
+    _listener: ws::Listener,
 }
 
 #[derive(Properties, PartialEq)]
 pub(crate) struct Props {
-    pub(crate) callbacks: Callbacks,
+    pub(crate) ws: ws::Handle,
 }
 
 impl Component for Prompt {
@@ -105,6 +121,8 @@ impl Component for Prompt {
 
         let query = decode_query(ctx.link().location());
 
+        let listener = ctx.props().ws.listen(ctx);
+
         let mut this = Self {
             query,
             phrases: Vec::default(),
@@ -113,16 +131,14 @@ impl Component for Prompt {
             characters: Vec::default(),
             limit_characters: DEFAULT_LIMIT,
             serials: Serials::default(),
+            pending_search: None,
             log: Vec::new(),
             tasks: BTreeMap::new(),
             analysis: Rc::from([]),
             _callback: callback,
             _location_handle: location_handle,
+            _listener: listener,
         };
-
-        ctx.props()
-            .callbacks
-            .set_client_event(ctx.link().callback(Msg::ClientEvent));
 
         this.reload(ctx);
         this
@@ -283,9 +299,9 @@ impl Component for Prompt {
                 self.analyze(ctx);
                 false
             }
-            Msg::ClientEvent(event) => {
+            Msg::Broadcast(event) => {
                 match event {
-                    api::ClientEvent::SendClipboardData(clipboard) => {
+                    api::OwnedBroadcastKind::SendClipboardData(clipboard) => {
                         if let Err(error) = self.update_from_clipboard(
                             ctx,
                             clipboard.ty.as_deref(),
@@ -294,34 +310,44 @@ impl Component for Prompt {
                             ctx.link().send_message(error);
                         }
                     }
-                    api::ClientEvent::LogBackFill(log) => {
+                    api::OwnedBroadcastKind::LogBackFill(log) => {
                         self.log.extend(log.log);
                     }
-                    api::ClientEvent::LogEntry(entry) => {
+                    api::OwnedBroadcastKind::LogEntry(entry) => {
                         self.log.push(entry);
                     }
-                    ClientEvent::TaskProgress(task) => {
+                    api::OwnedBroadcastKind::TaskProgress(task) => {
                         self.tasks.insert(task.name.clone(), task);
                     }
-                    ClientEvent::TaskCompleted(task) => {
+                    api::OwnedBroadcastKind::TaskCompleted(task) => {
                         self.tasks.remove(&task.name);
                     }
-                    ClientEvent::Refresh(..) => {
+                    api::OwnedBroadcastKind::Refresh => {
                         self.reload(ctx);
                     }
                 }
 
                 true
             }
+            Msg::ClientResponse(response) => {
+                self.pending_search.take();
+
+                match response {
+                    api::OwnedClientResponseKind::Search(response) => {
+                        ctx.link().send_message(Msg::SearchResponse(response));
+                    }
+                    api::OwnedClientResponseKind::Analyze(response) => {
+                        ctx.link().send_message(Msg::AnalyzeResponse(response));
+                    }
+                }
+
+                false
+            }
             Msg::Error(error) => {
-                log::error!("Failed to fetch: {error}");
+                log::error!("{error}");
                 false
             }
         }
-    }
-
-    fn destroy(&mut self, ctx: &Context<Self>) {
-        ctx.props().callbacks.clear_client_event();
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
@@ -797,23 +823,24 @@ impl Prompt {
     }
 
     fn search(&mut self, ctx: &Context<Self>) {
-        let input = if let Some(input) = self.analysis.get(self.query.index) {
+        let text = if let Some(input) = self.analysis.get(self.query.index) {
             input.clone()
         } else {
             self.query.text.clone()
         };
 
-        log::debug!("Search `{input}`");
+        log::debug!("Search `{text}`");
 
-        let input = input.to_lowercase();
+        let text = text.to_lowercase();
         let serial = self.serials.search();
 
-        ctx.link().send_future(async move {
-            match fetch::search(&input, serial).await {
-                Ok(entries) => Msg::SearchResponse(entries),
-                Err(error) => Msg::Error(error),
-            }
-        });
+        self.pending_search = Some(ctx.props().ws.request(
+            ctx,
+            api::ClientRequestKind::Search(api::OwnedSearchRequest {
+                q: text,
+                serial: Some(serial),
+            }),
+        ));
     }
 
     fn analyze(&mut self, ctx: &Context<Self>) -> bool {
@@ -823,15 +850,17 @@ impl Prompt {
 
         log::debug!("Analyze {analyze}");
 
-        let input = self.query.text.clone();
+        let input = self.query.text.as_ref().to_owned();
         let serial = self.serials.analyze();
 
-        ctx.link().send_future(async move {
-            match fetch::analyze(&input, analyze, serial).await {
-                Ok(entries) => Msg::AnalyzeResponse(entries),
-                Err(error) => Msg::Error(error),
-            }
-        });
+        self.pending_search = Some(ctx.props().ws.request(
+            ctx,
+            api::ClientRequestKind::Analyze(api::OwnedAnalyzeRequest {
+                q: input,
+                start: analyze,
+                serial: Some(serial),
+            }),
+        ));
 
         true
     }

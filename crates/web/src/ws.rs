@@ -1,14 +1,22 @@
+use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
+use std::mem::take;
+use std::rc::Rc;
 
+use anyhow::anyhow;
 use gloo::timers::callback::Timeout;
 use lib::api;
+use slab::Slab;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::js_sys::{ArrayBuffer, Uint8Array};
 use web_sys::{window, BinaryType, CloseEvent, ErrorEvent, MessageEvent, WebSocket};
-use yew::{Component, Context};
+use yew::{Callback, Component, Context};
 
 use crate::error::{Error, Result};
+
+const INITIAL_TIMEOUT: u32 = 250;
+const MAX_TIMEOUT: u32 = 16000;
 
 pub enum Msg {
     Reconnect,
@@ -16,15 +24,24 @@ pub enum Msg {
     Close(CloseEvent),
     Message(MessageEvent),
     Error(ErrorEvent),
+    ClientRequest(api::ClientRequest),
 }
 
-#[derive(Default)]
+#[derive(Debug, Clone, Copy)]
+struct Opened {
+    at: Option<f64>,
+}
+
 pub struct Service<C> {
+    shared: Rc<Shared>,
     socket: Option<WebSocket>,
-    _on_open: Option<Closure<dyn Fn()>>,
-    _on_close: Option<Closure<dyn Fn(CloseEvent)>>,
-    _on_message: Option<Closure<dyn Fn(MessageEvent)>>,
-    _on_error: Option<Closure<dyn Fn(ErrorEvent)>>,
+    opened: Option<Opened>,
+    buffer: Vec<api::ClientRequest>,
+    timeout: u32,
+    on_open: Closure<dyn Fn()>,
+    on_close: Closure<dyn Fn(CloseEvent)>,
+    on_message: Closure<dyn Fn(MessageEvent)>,
+    on_error: Closure<dyn Fn(ErrorEvent)>,
     _timeout: Option<Timeout>,
     _ping_timeout: Option<Timeout>,
     _marker: PhantomData<C>,
@@ -33,101 +50,15 @@ pub struct Service<C> {
 impl<C> Service<C>
 where
     C: Component,
-    C::Message: From<Msg> + From<Error> + From<api::ClientEvent>,
+    C::Message: From<Msg> + From<Error>,
 {
-    pub(crate) fn new() -> Self {
-        Self {
-            socket: None,
-            _on_open: None,
-            _on_close: None,
-            _on_message: None,
-            _on_error: None,
-            _timeout: None,
-            _ping_timeout: None,
-            _marker: PhantomData,
-        }
-    }
-
-    pub(crate) fn update(&mut self, ctx: &Context<C>, message: Msg) {
-        match message {
-            Msg::Reconnect => {
-                if let Err(error) = self.connect(ctx) {
-                    ctx.link().send_message(error);
-                }
-            }
-            Msg::Open => {
-                log::trace!("open");
-            }
-            Msg::Close(e) => {
-                log::trace!("close: {:?}", e);
-
-                if let Err(error) = self.reconnect(ctx) {
-                    ctx.link().send_message(error);
-                }
-            }
-            Msg::Message(e) => {
-                let Ok(array_buffer) = e.data().dyn_into::<ArrayBuffer>() else {
-                    return;
-                };
-
-                let array_buffer = Uint8Array::new(&array_buffer).to_vec();
-
-                match serde_json::from_slice::<api::ClientEvent>(&array_buffer) {
-                    Ok(event) => {
-                        ctx.link().send_message(event);
-                    }
-                    Err(error) => {
-                        log::trace!("error: {:?}", error);
-                    }
-                }
-            }
-            Msg::Error(e) => {
-                log::trace!("error: {:?}", e);
-
-                if let Err(error) = self.reconnect(ctx) {
-                    ctx.link().send_message(error);
-                }
-            }
-        }
-    }
-
-    pub(crate) fn reconnect(&mut self, ctx: &Context<C>) -> Result<()> {
-        if let Some(old) = self.socket.take() {
-            old.close()?;
-        }
-
-        self._on_open = None;
-        self._on_close = None;
-        self._on_message = None;
-        self._on_error = None;
-
-        let link = ctx.link().clone();
-
-        self._timeout = Some(Timeout::new(1000, move || {
-            link.send_message(Msg::Reconnect);
-        }));
-
-        Ok(())
-    }
-
-    /// Attempt to establish a connection.
-    pub(crate) fn connect(&mut self, ctx: &Context<C>) -> Result<()> {
-        let window = window().ok_or("no window")?;
-        let port = window.location().port()?;
-        let url = format!("ws://localhost:{port}/ws");
-
-        let ws = match WebSocket::new(&url) {
-            Ok(ws) => ws,
-            Err(error) => {
-                let link = ctx.link().clone();
-
-                self._timeout = Some(Timeout::new(1000, move || {
-                    link.send_message(Msg::Reconnect);
-                }));
-
-                return Err(error.into());
-            }
-        };
+    pub(crate) fn new(ctx: &Context<C>) -> (Self, Handle) {
+        let shared = Rc::new(Shared {
+            serial: Cell::new(0),
+            onmessage: ctx.link().callback(Msg::ClientRequest),
+            requests: RefCell::new(Slab::new()),
+            broadcasts: RefCell::new(Slab::new()),
+        });
 
         let on_open = {
             let link = ctx.link().clone();
@@ -169,20 +100,316 @@ where
             Closure::wrap(cb)
         };
 
+        let this = Self {
+            shared: shared.clone(),
+            socket: None,
+            opened: None,
+            buffer: Vec::new(),
+            timeout: INITIAL_TIMEOUT,
+            on_open,
+            on_close,
+            on_message,
+            on_error,
+            _timeout: None,
+            _ping_timeout: None,
+            _marker: PhantomData,
+        };
+
+        let handle = Handle { shared };
+
+        (this, handle)
+    }
+
+    /// Send a client message.
+    fn send_message(&mut self, message: api::ClientRequest) -> Result<(), Error> {
+        let Some(socket) = &self.socket else {
+            return Err(anyhow!("Socket is not connected").into());
+        };
+
+        let array_buffer = serde_json::to_vec(&message)?;
+        socket.send_with_u8_array(&array_buffer)?;
+        Ok(())
+    }
+
+    fn set_open(&mut self) {
+        log::debug!("Set open");
+
+        self.opened = Some(Opened { at: now() });
+    }
+
+    fn is_open_for_a_while(&self) -> bool {
+        let Some(opened) = self.opened else {
+            return false;
+        };
+
+        let Some(at) = opened.at else {
+            return false;
+        };
+
+        let Some(now) = now() else {
+            return false;
+        };
+
+        (now - at) >= 250.0
+    }
+
+    fn set_closed(&mut self, ctx: &Context<C>)
+    where
+        C::Message: From<Error>,
+    {
+        log::debug!(
+            "Set closed timeout={}, opened={:?}",
+            self.timeout,
+            self.opened
+        );
+
+        if !self.is_open_for_a_while() {
+            if self.timeout < MAX_TIMEOUT {
+                self.timeout *= 2;
+            }
+        } else {
+            self.timeout = INITIAL_TIMEOUT;
+        }
+
+        self.opened = None;
+        self.reconnect(ctx);
+    }
+
+    pub(crate) fn update(&mut self, ctx: &Context<C>, message: Msg) {
+        match message {
+            Msg::Reconnect => {
+                if let Err(error) = self.connect(ctx) {
+                    ctx.link().send_message(error);
+                }
+            }
+            Msg::Open => {
+                log::trace!("Open");
+                self.set_open();
+
+                let buffer = take(&mut self.buffer);
+
+                for message in buffer {
+                    if let Err(error) = self.send_message(message) {
+                        ctx.link().send_message(error);
+                    }
+                }
+            }
+            Msg::Close(e) => {
+                log::trace!("Close: {} ({})", e.code(), e.reason());
+                self.set_closed(ctx);
+            }
+            Msg::Message(e) => {
+                let Ok(array_buffer) = e.data().dyn_into::<ArrayBuffer>() else {
+                    return;
+                };
+
+                let array_buffer = Uint8Array::new(&array_buffer).to_vec();
+
+                let event = match serde_json::from_slice::<api::OwnedClientEvent>(&array_buffer) {
+                    Ok(event) => event,
+                    Err(error) => {
+                        log::error!("{}", error);
+                        return;
+                    }
+                };
+
+                match event {
+                    api::OwnedClientEvent::Broadcast(event) => {
+                        let broadcasts = self.shared.broadcasts.borrow();
+
+                        let mut it = broadcasts.iter();
+
+                        let last = it.next_back();
+
+                        for (_, callback) in it {
+                            callback.emit(event.kind.clone());
+                        }
+
+                        if let Some((_, callback)) = last {
+                            callback.emit(event.kind);
+                        }
+                    }
+                    api::OwnedClientEvent::ClientResponse(response) => {
+                        log::debug!(
+                            "Got response: index={}, serial={}",
+                            response.index,
+                            response.serial
+                        );
+
+                        let requests = self.shared.requests.borrow();
+
+                        let Some(pending) = requests.get(response.index) else {
+                            return;
+                        };
+
+                        if pending.serial == response.serial {
+                            pending.callback.emit(response.kind);
+                            return;
+                        }
+                    }
+                }
+            }
+            Msg::Error(e) => {
+                log::error!("{}", e.message());
+                self.set_closed(ctx);
+            }
+            Msg::ClientRequest(request) => {
+                if self.opened.is_none() {
+                    self.buffer.push(request);
+                    return;
+                }
+
+                if let Err(error) = self.send_message(request) {
+                    ctx.link().send_message(error);
+                }
+            }
+        }
+    }
+
+    pub(crate) fn reconnect(&mut self, ctx: &Context<C>)
+    where
+        C::Message: From<Error>,
+    {
+        if let Some(old) = self.socket.take() {
+            if let Err(error) = old.close() {
+                ctx.link().send_message(Error::from(error));
+            }
+        }
+
+        let link = ctx.link().clone();
+
+        self._timeout = Some(Timeout::new(self.timeout, move || {
+            link.send_message(Msg::Reconnect);
+        }));
+    }
+
+    /// Attempt to establish a connection.
+    pub(crate) fn connect(&mut self, ctx: &Context<C>) -> Result<()> {
+        let window = window().ok_or("no window")?;
+        let port = window.location().port()?;
+        let url = format!("ws://localhost:{port}/ws");
+
+        let ws = match WebSocket::new(&url) {
+            Ok(ws) => ws,
+            Err(error) => {
+                let link = ctx.link().clone();
+
+                self._timeout = Some(Timeout::new(1000, move || {
+                    link.send_message(Msg::Reconnect);
+                }));
+
+                return Err(error.into());
+            }
+        };
+
         ws.set_binary_type(BinaryType::Arraybuffer);
-        ws.set_onopen(Some(on_open.as_ref().unchecked_ref()));
-        ws.set_onclose(Some(on_close.as_ref().unchecked_ref()));
-        ws.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
-        ws.set_onerror(Some(on_error.as_ref().unchecked_ref()));
+        ws.set_onopen(Some(self.on_open.as_ref().unchecked_ref()));
+        ws.set_onclose(Some(self.on_close.as_ref().unchecked_ref()));
+        ws.set_onmessage(Some(self.on_message.as_ref().unchecked_ref()));
+        ws.set_onerror(Some(self.on_error.as_ref().unchecked_ref()));
 
         if let Some(old) = self.socket.replace(ws) {
             old.close()?;
         }
 
-        self._on_open = Some(on_open);
-        self._on_close = Some(on_close);
-        self._on_message = Some(on_message);
-        self._on_error = Some(on_error);
         Ok(())
+    }
+}
+
+fn now() -> Option<f64> {
+    Some(window()?.performance()?.now())
+}
+
+/// The handle for a pending request. Dropping this handle cancels the request.
+pub struct Request {
+    index: usize,
+    shared: Rc<Shared>,
+}
+
+impl Drop for Request {
+    #[inline]
+    fn drop(&mut self) {
+        self.shared.requests.borrow_mut().try_remove(self.index);
+    }
+}
+
+/// The handle for a pending request. Dropping this handle cancels the request.
+pub struct Listener {
+    index: usize,
+    shared: Rc<Shared>,
+}
+
+impl Drop for Listener {
+    #[inline]
+    fn drop(&mut self) {
+        self.shared.broadcasts.borrow_mut().try_remove(self.index);
+    }
+}
+
+struct Pending {
+    serial: u32,
+    callback: Callback<api::OwnedClientResponseKind>,
+}
+
+struct Shared {
+    serial: Cell<u32>,
+    onmessage: Callback<api::ClientRequest>,
+    requests: RefCell<Slab<Pending>>,
+    broadcasts: RefCell<Slab<Callback<api::OwnedBroadcastKind>>>,
+}
+
+#[derive(Clone)]
+pub(crate) struct Handle {
+    shared: Rc<Shared>,
+}
+
+impl Handle {
+    pub(crate) fn request<C>(&self, ctx: &Context<C>, kind: api::ClientRequestKind) -> Request
+    where
+        C: Component,
+        C::Message: From<api::OwnedClientResponseKind>,
+    {
+        let mut requests = self.shared.requests.borrow_mut();
+        let serial = self.shared.serial.get();
+        self.shared.serial.set(serial.wrapping_add(1));
+
+        let pending = Pending {
+            serial,
+            callback: ctx.link().callback(C::Message::from),
+        };
+
+        let index = requests.insert(pending);
+
+        self.shared.onmessage.emit(api::ClientRequest {
+            index,
+            serial,
+            kind,
+        });
+
+        Request {
+            index,
+            shared: self.shared.clone(),
+        }
+    }
+
+    pub(crate) fn listen<C>(&self, ctx: &Context<C>) -> Listener
+    where
+        C: Component,
+        C::Message: From<api::OwnedBroadcastKind>,
+    {
+        let mut broadcasts = self.shared.broadcasts.borrow_mut();
+        let index = broadcasts.insert(ctx.link().callback(C::Message::from));
+
+        Listener {
+            index,
+            shared: self.shared.clone(),
+        }
+    }
+}
+
+impl PartialEq for Handle {
+    #[inline]
+    fn eq(&self, _: &Self) -> bool {
+        true
     }
 }

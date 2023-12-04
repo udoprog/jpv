@@ -30,7 +30,7 @@ pub struct Props {
     pub embed: bool,
     /// The current log state.
     #[prop_or_default]
-    pub log: Vec<api::LogEntry>,
+    pub log: Vec<api::OwnedLogEntry>,
     ///  What to do when the back button has been pressed.
     pub onback: Callback<()>,
 }
@@ -211,11 +211,11 @@ impl Component for Config {
         }
 
         let add = if self.index_add {
-            let oncancel = ctx.link().callback({ move |_| Msg::IndexAddCancel });
+            let oncancel = ctx.link().callback(move |_| Msg::IndexAddCancel);
 
             let onsave = ctx
                 .link()
-                .batch_callback({ move |(id, index)| Some(Msg::IndexAddSave(id?, index)) });
+                .batch_callback(move |(id, index)| Some(Msg::IndexAddSave(id?, index)));
 
             html! {
                 <c::EditIndex pending={self.pending} {oncancel} {onsave} />

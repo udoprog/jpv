@@ -1,11 +1,9 @@
-mod callbacks;
 mod components;
 mod error;
 mod fetch;
 mod query;
 mod ws;
 
-use callbacks::Callbacks;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -22,7 +20,6 @@ enum Route {
 
 enum Msg {
     WebSocket(ws::Msg),
-    ClientEvent(lib::api::ClientEvent),
     Error(error::Error),
 }
 
@@ -30,13 +27,6 @@ impl From<ws::Msg> for Msg {
     #[inline]
     fn from(msg: ws::Msg) -> Self {
         Msg::WebSocket(msg)
-    }
-}
-
-impl From<lib::api::ClientEvent> for Msg {
-    #[inline]
-    fn from(msg: lib::api::ClientEvent) -> Self {
-        Msg::ClientEvent(msg)
     }
 }
 
@@ -49,7 +39,7 @@ impl From<error::Error> for Msg {
 
 struct App {
     ws: ws::Service<Self>,
-    callbacks: Callbacks,
+    handle: ws::Handle,
 }
 
 impl Component for App {
@@ -57,10 +47,9 @@ impl Component for App {
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
-        let mut this = Self {
-            ws: ws::Service::new(),
-            callbacks: Callbacks::default(),
-        };
+        let (ws, handle) = ws::Service::new(ctx);
+
+        let mut this = Self { ws, handle };
 
         if let Err(error) = this.ws.connect(ctx) {
             ctx.link().send_message(error);
@@ -75,10 +64,6 @@ impl Component for App {
                 self.ws.update(ctx, msg);
                 false
             }
-            Msg::ClientEvent(event) => {
-                self.callbacks.emit_client_event(event);
-                true
-            }
             Msg::Error(error) => {
                 log::error!("Failed to fetch: {error}");
                 false
@@ -87,20 +72,20 @@ impl Component for App {
     }
 
     fn view(&self, _: &Context<Self>) -> Html {
-        let callbacks = self.callbacks.clone();
+        let ws = self.handle.clone();
 
         html! {
             <BrowserRouter>
-                <Switch<Route> render={move |route| switch(route, &callbacks)} />
+                <Switch<Route> render={move |route| switch(route, &ws)} />
             </BrowserRouter>
         }
     }
 }
 
-fn switch(routes: Route, callbacks: &Callbacks) -> Html {
+fn switch(routes: Route, ws: &ws::Handle) -> Html {
     match routes {
         Route::Prompt => html! {
-            <c::Prompt callbacks={callbacks.clone()} />
+            <c::Prompt ws={ws.clone()} />
         },
         Route::NotFound => {
             html! {

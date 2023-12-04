@@ -15,7 +15,7 @@ use std::fmt;
 use std::future::Future;
 use std::net::{SocketAddr, TcpListener};
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use axum::body::{boxed, Body};
 use axum::extract::{Path, Query};
 use axum::http::{HeaderValue, Method, StatusCode};
@@ -153,12 +153,15 @@ async fn search(
     Query(request): Query<api::OwnedSearchRequest>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedSearchResponse>> {
-    let Some(q) = request.q.as_deref() else {
-        return Err(Error::msg("Missing `q`").into());
-    };
+    Ok(Json(handle_search_request(&bg, request)?))
+}
 
+fn handle_search_request(
+    bg: &Background,
+    request: api::OwnedSearchRequest,
+) -> Result<api::OwnedSearchResponse> {
     let db = bg.database();
-    let search = db.search(q)?;
+    let search = db.search(&request.q)?;
 
     let mut phrases = Vec::new();
     let mut names = Vec::new();
@@ -177,12 +180,12 @@ async fn search(
         });
     }
 
-    Ok(Json(api::OwnedSearchResponse {
+    Ok(api::OwnedSearchResponse {
         phrases,
         names,
         characters: lib::to_owned(search.characters),
         serial: request.serial,
-    }))
+    })
 }
 
 /// Read the current service configuration.
@@ -213,6 +216,13 @@ async fn analyze(
     Query(request): Query<api::OwnedAnalyzeRequest>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedAnalyzeResponse>> {
+    Ok(Json(handle_analyze_request(&bg, request)?))
+}
+
+fn handle_analyze_request(
+    bg: &Background,
+    request: api::OwnedAnalyzeRequest,
+) -> Result<api::OwnedAnalyzeResponse> {
     let mut data = Vec::new();
 
     let db = bg.database();
@@ -226,10 +236,10 @@ async fn analyze(
 
     data.sort_by(|a, b| (Reverse(a.string.len()), &a.key).cmp(&(Reverse(b.string.len()), &b.key)));
 
-    Ok(Json(api::OwnedAnalyzeResponse {
+    Ok(api::OwnedAnalyzeResponse {
         data,
         serial: request.serial,
-    }))
+    })
 }
 
 impl IntoResponse for RequestError {

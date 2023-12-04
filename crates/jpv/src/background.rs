@@ -30,7 +30,7 @@ const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
 pub(crate) struct BackgroundInner {
     config: Config,
     database: Database,
-    pub(crate) log: Vec<api::LogEntry>,
+    pub(crate) log: Vec<api::OwnedLogEntry>,
     pub(crate) tasks: HashMap<Box<str>, system::TaskProgress>,
 }
 
@@ -72,7 +72,7 @@ impl Background {
     }
 
     /// Get the current log backfill.
-    pub(crate) fn log(&self) -> Vec<api::LogEntry> {
+    pub(crate) fn log(&self) -> Vec<api::OwnedLogEntry> {
         self.inner.read().unwrap().log.clone()
     }
 

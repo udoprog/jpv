@@ -9,10 +9,13 @@ use crate::Weight;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Empty;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SendClipboard {
-    pub ty: Option<String>,
-    pub data: Vec<u8>,
+#[borrowme::borrowme]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendClipboard<'a> {
+    #[borrowed_attr(serde(borrow))]
+    pub ty: Option<&'a str>,
+    #[borrowme(owned = Box<[u8]>, to_owned_with = Box::from)]
+    pub data: &'a [u8],
 }
 
 /// Json payload when sending the clipboard.
@@ -23,20 +26,78 @@ pub struct SendClipboardJson {
     pub secondary: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LogBackFill {
-    pub log: Vec<LogEntry>,
+#[borrowme::borrowme]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogBackFill<'a> {
+    #[borrowed_attr(serde(borrow))]
+    pub log: Vec<LogEntry<'a>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
-pub enum ClientEvent {
-    SendClipboardData(SendClipboard),
-    LogBackFill(LogBackFill),
-    LogEntry(LogEntry),
-    TaskProgress(TaskProgress),
-    TaskCompleted(TaskCompleted),
-    Refresh(Refresh),
+pub enum ClientRequestKind {
+    Search(OwnedSearchRequest),
+    Analyze(OwnedAnalyzeRequest),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClientRequest {
+    pub index: usize,
+    pub serial: u32,
+    pub kind: ClientRequestKind,
+}
+
+#[borrowme::borrowme]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum BroadcastKind<'a> {
+    #[borrowed_attr(serde(borrow))]
+    SendClipboardData(SendClipboard<'a>),
+    #[borrowed_attr(serde(borrow))]
+    LogBackFill(LogBackFill<'a>),
+    #[borrowed_attr(serde(borrow))]
+    LogEntry(LogEntry<'a>),
+    #[borrowed_attr(serde(borrow))]
+    TaskProgress(TaskProgress<'a>),
+    #[borrowed_attr(serde(borrow))]
+    TaskCompleted(TaskCompleted<'a>),
+    Refresh,
+}
+
+#[borrowme::borrowme]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Broadcast<'a> {
+    #[borrowed_attr(serde(borrow))]
+    pub kind: BroadcastKind<'a>,
+}
+
+#[borrowme::borrowme]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum ClientResponseKind<'a> {
+    #[borrowed_attr(serde(borrow))]
+    Search(SearchResponse<'a>),
+    #[borrowed_attr(serde(borrow))]
+    Analyze(AnalyzeResponse<'a>),
+}
+
+#[borrowme::borrowme]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClientResponse<'a> {
+    pub index: usize,
+    pub serial: u32,
+    #[borrowed_attr(serde(borrow))]
+    pub kind: ClientResponseKind<'a>,
+}
+
+#[borrowme::borrowme]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum ClientEvent<'a> {
+    #[borrowed_attr(serde(borrow))]
+    Broadcast(Broadcast<'a>),
+    #[borrowed_attr(serde(borrow))]
+    ClientResponse(ClientResponse<'a>),
 }
 
 #[borrowme::borrowme]
@@ -59,7 +120,7 @@ pub struct SearchName<'a> {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchRequest<'a> {
     #[borrowed_attr(serde(borrow))]
-    pub q: Option<&'a str>,
+    pub q: &'a str,
     #[serde(default)]
     pub serial: Option<u32>,
 }
@@ -132,33 +193,32 @@ pub struct KanjiResponse<'a> {
     pub serial: Option<u32>,
 }
 
+#[borrowme::borrowme]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LogEntry {
+pub struct LogEntry<'a> {
     /// The target being logged.
-    pub target: String,
+    pub target: &'a str,
     /// The level of the rebuild.
-    pub level: String,
+    pub level: &'a str,
     /// The rext of the rebuild.
-    pub text: String,
+    pub text: &'a str,
 }
 
 /// A message indicating task progress.
+#[borrowme::borrowme]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TaskProgress {
-    pub name: String,
+pub struct TaskProgress<'a> {
+    pub name: &'a str,
     pub value: usize,
     pub total: Option<usize>,
     pub step: usize,
     pub steps: usize,
-    pub text: String,
+    pub text: &'a str,
 }
 
 /// Indicates that a task has been completed.
+#[borrowme::borrowme]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TaskCompleted {
-    pub name: String,
+pub struct TaskCompleted<'a> {
+    pub name: &'a str,
 }
-
-/// A refresh event.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Refresh {}

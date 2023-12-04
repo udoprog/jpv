@@ -25,13 +25,12 @@ pub(super) async fn entry(
     Extension(system_events): Extension<system::SystemEvents>,
     ConnectInfo(remote): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
-    let log = bg.log();
     let receiver = system_events.subscribe();
 
     ws.on_upgrade(move |socket| async move {
         let span = tracing::span!(Level::INFO, "websocket", ?remote);
 
-        if let Err(error) = run(receiver, socket, log).instrument(span).await {
+        if let Err(error) = run(receiver, socket, &bg).instrument(span).await {
             tracing::error!(?error);
         }
     })
@@ -103,9 +102,12 @@ fn trim_whitespace(input: &str) -> Cow<'_, str> {
 
 async fn log_backfill(
     sink: &mut SplitSink<WebSocket, Message>,
-    log: Vec<api::LogEntry>,
+    log: Vec<api::OwnedLogEntry>,
 ) -> Result<()> {
-    let event = api::ClientEvent::LogBackFill(api::LogBackFill { log });
+    let event = api::OwnedClientEvent::Broadcast(api::OwnedBroadcast {
+        kind: api::OwnedBroadcastKind::LogBackFill(api::OwnedLogBackFill { log }),
+    });
+
     let json = serde_json::to_vec(&event)?;
     sink.send(Message::Binary(json)).await?;
     Ok(())
@@ -118,9 +120,11 @@ async fn system_event(
     match event {
         system::Event::SendClipboardData(clipboard) => match clipboard.mimetype.as_str() {
             "UTF8_STRING" | "text/plain;charset=utf-8" => {
-                let event = api::ClientEvent::SendClipboardData(api::SendClipboard {
-                    ty: Some("text/plain".to_owned()),
-                    data: clipboard.data,
+                let event = api::ClientEvent::Broadcast(api::Broadcast {
+                    kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
+                        ty: Some("text/plain"),
+                        data: &clipboard.data,
+                    }),
                 });
 
                 let json = serde_json::to_vec(&event)?;
@@ -132,18 +136,22 @@ async fn system_event(
                     return Ok(());
                 };
 
-                let event = api::ClientEvent::SendClipboardData(api::SendClipboard {
-                    ty: Some("text/plain".to_owned()),
-                    data: data.into_bytes(),
+                let event = api::ClientEvent::Broadcast(api::Broadcast {
+                    kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
+                        ty: Some("text/plain"),
+                        data: data.as_bytes(),
+                    }),
                 });
 
                 let json = serde_json::to_vec(&event)?;
                 sink.send(Message::Binary(json)).await?;
             }
             ty @ "application/json" => {
-                let event = api::ClientEvent::SendClipboardData(api::SendClipboard {
-                    ty: Some(ty.to_owned()),
-                    data: clipboard.data,
+                let event = api::ClientEvent::Broadcast(api::Broadcast {
+                    kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
+                        ty: Some(ty),
+                        data: &clipboard.data,
+                    }),
                 });
 
                 let json = serde_json::to_vec(&event)?;
@@ -159,30 +167,43 @@ async fn system_event(
             }
         },
         system::Event::LogEntry(event) => {
-            let json = serde_json::to_vec(&api::ClientEvent::LogEntry(event))?;
+            let event = api::OwnedClientEvent::Broadcast(api::OwnedBroadcast {
+                kind: api::OwnedBroadcastKind::LogEntry(event),
+            });
+
+            let json = serde_json::to_vec(&event)?;
             sink.send(Message::Binary(json)).await?;
         }
         system::Event::TaskProgress(task) => {
-            let json = serde_json::to_vec(&api::ClientEvent::TaskProgress(api::TaskProgress {
-                name: task.name.into(),
-                value: task.value,
-                total: task.total,
-                step: task.step,
-                steps: task.steps,
-                text: task.text,
-            }))?;
+            let event = api::ClientEvent::Broadcast(api::Broadcast {
+                kind: api::BroadcastKind::TaskProgress(api::TaskProgress {
+                    name: &task.name,
+                    value: task.value,
+                    total: task.total,
+                    step: task.step,
+                    steps: task.steps,
+                    text: &task.text,
+                }),
+            });
 
+            let json = serde_json::to_vec(&event)?;
             sink.send(Message::Binary(json)).await?;
         }
         system::Event::TaskCompleted(task) => {
-            let json = serde_json::to_vec(&api::ClientEvent::TaskCompleted(api::TaskCompleted {
-                name: task.name.into(),
-            }))?;
+            let event = api::ClientEvent::Broadcast(api::Broadcast {
+                kind: api::BroadcastKind::TaskCompleted(api::TaskCompleted { name: &task.name }),
+            });
+
+            let json = serde_json::to_vec(&event)?;
 
             sink.send(Message::Binary(json)).await?;
         }
         system::Event::Refresh => {
-            let json = serde_json::to_vec(&api::ClientEvent::Refresh(api::Refresh {}))?;
+            let event = api::ClientEvent::Broadcast(api::Broadcast {
+                kind: api::BroadcastKind::Refresh,
+            });
+
+            let json = serde_json::to_vec(&event)?;
             sink.send(Message::Binary(json)).await?;
         }
     }
@@ -196,7 +217,7 @@ fn handle_image(_: &str, _: &system::SendClipboardData) -> Result<Option<api::Cl
 }
 
 #[cfg(feature = "tesseract")]
-fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::ClientEvent>> {
+fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::OwnedClientEvent>> {
     use image::ImageFormat;
 
     let format = match ty {
@@ -236,10 +257,12 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::C
 
     tracing::info!(text = &text[..], ?trimmed, "Recognized");
 
-    Ok(Some(api::ClientEvent::SendClipboardData(
-        api::SendClipboard {
-            ty: Some("text/plain".to_owned()),
-            data: trimmed.into_owned().into_bytes(),
+    Ok(Some(api::OwnedClientEvent::Broadcast(
+        api::OwnedBroadcast {
+            kind: api::OwnedBroadcastKind::SendClipboardData(api::OwnedSendClipboard {
+                ty: Some("text/plain".to_owned()),
+                data: trimmed.into_owned().into_bytes().into(),
+            }),
         },
     )))
 }
@@ -247,7 +270,7 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::C
 async fn run(
     mut system_events: Receiver<system::Event>,
     socket: WebSocket,
-    log: Vec<api::LogEntry>,
+    bg: &Background,
 ) -> Result<()> {
     tracing::info!("Accepted");
 
@@ -265,6 +288,8 @@ async fn run(
 
     let mut ping_interval = tokio::time::interval(PING_TIMEOUT);
     ping_interval.reset();
+
+    let log = bg.log();
 
     log_backfill(&mut sender, log).await?;
 
@@ -297,7 +322,36 @@ async fn run(
 
                 match message? {
                     Message::Text(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
-                    Message::Binary(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
+                    Message::Binary(bytes) => {
+                        let request = match serde_json::from_slice::<api::ClientRequest>(&bytes[..]) {
+                            Ok(event) => event,
+                            Err(error) => {
+                                tracing::warn!(?error, "Failed to decode message");
+                                continue;
+                            }
+                        };
+
+                        tracing::info!("Got request: {:?}", request);
+
+                        let kind = match request.kind {
+                            api::ClientRequestKind::Search(request) => {
+                                let response = super::handle_search_request(bg, request)?;
+                                api::OwnedClientResponseKind::Search(response)
+                            },
+                            api::ClientRequestKind::Analyze(request) => {
+                                let response = super::handle_analyze_request(bg, request)?;
+                                api::OwnedClientResponseKind::Analyze(response)
+                            },
+                        };
+
+                        let payload = serde_json::to_vec(&api::OwnedClientEvent::ClientResponse(api::OwnedClientResponse {
+                            index: request.index,
+                            serial: request.serial,
+                            kind,
+                        }))?;
+
+                        sender.send(Message::Binary(payload)).await?;
+                    },
                     Message::Ping(payload) => {
                         sender.send(Message::Pong(payload)).await?;
                         continue;
