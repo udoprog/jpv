@@ -1,10 +1,9 @@
 name: Release
 
 on:
-  pull_request: {}
   push:
-    branches:
-      - release
+    tags:
+    - '*'
 
 jobs:
   build-fedora:
@@ -31,6 +30,7 @@ jobs:
         path: dist
 
   publish:
+    permissions: write-all
     needs: build-fedora
     runs-on: ubuntu-latest
     steps:
