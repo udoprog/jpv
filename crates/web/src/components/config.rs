@@ -205,7 +205,7 @@ impl Component for Config {
                     });
 
                     let help = index.help.as_ref().map(|help| html! {
-                        <a class="index-url" title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"Help"}</a>
+                        <a class="index-url" title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"About"}</a>
                     });
 
                     let not_installed = (!self.installed.contains(id)).then(|| {

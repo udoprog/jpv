@@ -470,7 +470,7 @@ fn render_inflection<'a>(
         .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
     let reset = (!filter.is_empty())
-        .then(|| html!(<span class="inflection destructive" {onclick}>{"Reset"}</span>));
+        .then(|| html!(<span class="inflection danger" {onclick}>{"Reset"}</span>));
 
     form.chain(reset)
 }

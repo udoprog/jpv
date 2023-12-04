@@ -3,33 +3,35 @@
 
 :root {
     --text-color: #d9d9d9;
+    --heading-color: #eee;
     --link-color: #b3d9ec;
     --link-hover: #eee;
     --analyzed-color: #e55555;
-    --heading-color: #eee;
 
     --tab-background: #3c3c3c;
     --tab-active-color: #eee;
     --tab-active-background: #3c3c3c;
     --tab-disabled-color: #8f8f8f;
 
-    --default-bg: #e4e4e4;
-    --default-bg-darker: #a4a4a4;
+    --btn-color: #2a2a2a;
+    --btn-bg: #e4e4e4;
+    --btn-bg-darker: #a4a4a4;
+    --btn-border: #656565;
 
-    --primary-color: #000000;
-    --primary-bg: #35bba2;
-    --primary-bg-darker: #2e9e89;
-    --primary-border: #1c6457;
+    --primary-color: #2a2a2a;
+    --primary-bg: #b3d9ec;
+    --primary-bg-darker: #92afbd;
+    --primary-border: #c2ebff;
 
-    --danger-color: #000000;
-    --danger-bg: #e44c4c;
-    --danger-bg-darker: #a93a3a;
-    --danger-border: #662222;
+    --warn-color: #d9d9d9;
+    --warn-bg: #995613;
+    --warn-bg-darker: #864b11;
+    --warn-border: #6e3e0f;
 
-    --destructive-color: #d6d6d6;
-    --destructive-bg: #8b0b0b;
-
-    --button-border: #656565;
+    --danger-color: #d9d9d9;
+    --danger-bg: #861a1a;
+    --danger-bg-darker: #af2828;
+    --danger-border: #a02020;
 
     --bullet-bg: #8abc83;
     --bullet-bg-disabled: #8393bc;
@@ -65,9 +67,9 @@
     border: 1px solid var(--bullet-color);
     border-radius: 3px;
 
-    &.destructive {
-        color: var(--destructive-color);
-        background-color: var(--destructive-bg);
+    &.danger {
+        color: var(--danger-color);
+        background-color: var(--danger-bg);
     }
 }
 
@@ -256,12 +258,12 @@ h5, h6 {
     }
 
     &.danger {
-        font-size: var(--notice-font-size);
-        padding: 0.5rem;
-        border-radius: 5px;
         color: var(--danger-color);
         background-color: var(--danger-bg);
         border-color: var(--danger-border);
+        font-size: var(--notice-font-size);
+        padding: 0.5rem;
+        border-radius: 5px;
     }
 
     &-sm {
@@ -364,9 +366,9 @@ h5, h6 {
 }
 
 .btn {
-    color: var(--primary-color);
-    background-color: var(--default-bg);
-    border: 1px solid var(--button-border);
+    color: var(--btn-color);
+    background-color: var(--btn-bg);
+    border: 1px solid var(--btn-border);
     border-radius: 5px;
     padding: 0.25rem;
     font-size: 0.8em;
@@ -378,7 +380,7 @@ h5, h6 {
     }
 
     &:hover:not(:disabled) {
-        background-color: var(--default-bg-darker);
+        background-color: var(--btn-bg-darker);
     }
 
     &.primary {
@@ -512,15 +514,17 @@ a {
     }
 
     &-info > .log-level {
-        background-color: rgb(16, 94, 80);
+        color: var(--primary-color);
+        background-color: var(--primary-bg);
     }
 
     &-warn > .log-level {
-        background-color: rgb(153, 86, 19);
+        background-color: var(--warn-bg);
     }
 
     &-error > .log-level {
-        background-color: rgb(105, 16, 16);
+        color: var(--danger-color);
+        background-color: var(--danger-bg);
     }
 }
 
@@ -560,7 +564,8 @@ a {
         }
 
         &-name {
-            background-color: rgb(16, 94, 80);
+            color: var(--primary-color);
+            background-color: var(--primary-bg);
         }
 
         &-progress {
