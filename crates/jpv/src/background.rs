@@ -39,7 +39,7 @@ pub enum BackgroundEvent {
     /// Save configuration file.
     SaveConfig(Config, oneshot::Sender<()>),
     /// Force a database rebuild.
-    Rebuild(bool),
+    InstallAll(bool),
 }
 
 #[derive(Clone)]
@@ -95,7 +95,7 @@ impl Background {
 
     /// Trigger a rebuild.
     pub(crate) async fn rebuild(&self) {
-        let _ = self.channel.send(BackgroundEvent::Rebuild(false));
+        let _ = self.channel.send(BackgroundEvent::InstallAll(false));
     }
 
     /// Access current configuration.
@@ -179,7 +179,7 @@ impl Background {
                 self.inner.write().unwrap().database = db;
                 let _ = callback.send(());
             }
-            BackgroundEvent::Rebuild(force) => {
+            BackgroundEvent::InstallAll(force) => {
                 let config = self.config();
                 let dirs = self.dirs.clone();
                 let to_download = config_to_download(&config, &dirs, Default::default());

@@ -43,6 +43,7 @@
     --inflection-hover: #282828;
 
     --notice-title-size: 0.8em;
+    --notice-font-size: 0.8em;
 
     --bullet-color: #282828;
     --bullet-margin: 0.1rem;
@@ -61,8 +62,8 @@
 @mixin button-body {
     margin: var(--bullet-margin);
     padding: 0.2rem 0.4rem;
+    border: 1px solid var(--bullet-color);
     border-radius: 3px;
-    cursor: pointer;
 
     &.destructive {
         color: var(--destructive-color);
@@ -239,34 +240,28 @@ h5, h6 {
         display: block;
     }
 
-    &.row {
-        flex-flow: row wrap;
-
-        & > * {
-            align-self: center;
-        }
-
-        &.row-spaced {
-            gap: 0.5rem;
-        }
-
-        .end {
-            margin-left: auto;
-        }
-    }
-
     .centered {
         margin-left: auto;
         margin-right: auto;
     }
 
+    .title {
+        font-weight: bold;
+    }
+
     &.notice {
+        font-size: var(--notice-font-size);
         background-color: var(--bg-highlight);
         padding: var(--section-margin);
+    }
 
-        .title {
-            font-size: var(--notice-title-size);
-        }
+    &.danger {
+        font-size: var(--notice-font-size);
+        padding: 0.5rem;
+        border-radius: 5px;
+        color: var(--danger-color);
+        background-color: var(--danger-bg);
+        border-color: var(--danger-border);
     }
 
     &-sm {
@@ -283,6 +278,23 @@ h5, h6 {
 
     &-xl {
         @include block-margin(var(--section-xl-margin));
+    }
+}
+
+.row {
+    display: flex;
+    flex-flow: row wrap;
+
+    & > * {
+        align-self: center;
+    }
+
+    &.row-spaced {
+        gap: 0.5rem;
+    }
+
+    .end {
+        margin-left: auto;
     }
 }
 
@@ -436,6 +448,12 @@ h5, h6 {
 
     &.sm {
         font-size: var(--bullet-sm-size);
+    }
+
+    &.danger {
+        color: var(--danger-color);
+        background-color: var(--danger-bg);
+        border-color: var(--danger-border)
     }
 }
 

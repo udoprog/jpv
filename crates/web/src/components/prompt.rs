@@ -1,5 +1,6 @@
 use std::cell::Cell;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::mem::replace;
 use std::rc::Rc;
 use std::str::from_utf8;
@@ -43,6 +44,7 @@ pub(crate) enum Msg {
     Analyze(usize),
     AnalyzeCycle,
     HistoryChanged(Location),
+    GetConfig(api::GetConfigResult),
     SearchResponse(api::OwnedSearchResponse),
     AnalyzeResponse(api::OwnedAnalyzeResponse),
     MoreEntries,
@@ -77,6 +79,8 @@ pub(crate) struct Prompt {
     log: Vec<api::OwnedLogEntry>,
     tasks: BTreeMap<String, api::OwnedTaskProgress>,
     analysis: Rc<[Rc<str>]>,
+    missing: BTreeSet<String>,
+    get_config: Option<ws::Request>,
     _callback: Closure<dyn FnMut(MessageEvent)>,
     _location_handle: Option<LocationHandle>,
     _listener: ws::Listener,
@@ -125,11 +129,14 @@ impl Component for Prompt {
             log: Vec::new(),
             tasks: BTreeMap::new(),
             analysis: Rc::from([]),
+            missing: BTreeSet::new(),
+            get_config: None,
             _callback: callback,
             _location_handle: location_handle,
             _listener: listener,
         };
 
+        this.get_config(ctx);
         this.reload(ctx);
         this
     }
@@ -140,6 +147,27 @@ impl Component for Prompt {
                 self.query.tab = Tab::Settings;
                 self.save_query(ctx, History::Push);
                 true
+            }
+            Msg::GetConfig(state) => {
+                log::debug!("{:?}", state);
+                let mut missing = state
+                    .config
+                    .indexes
+                    .into_iter()
+                    .filter(|(_, index)| index.enabled)
+                    .map(|(key, _)| key)
+                    .collect::<BTreeSet<_>>();
+
+                for id in state.installed {
+                    missing.remove(&id);
+                }
+
+                if missing != self.missing {
+                    self.missing = missing;
+                    true
+                } else {
+                    false
+                }
             }
             Msg::SearchResponse(response) => {
                 self.phrases = response.phrases;
@@ -304,6 +332,7 @@ impl Component for Prompt {
                         self.tasks.remove(&task.name);
                     }
                     api::OwnedBroadcastKind::Refresh => {
+                        self.get_config(ctx);
                         self.reload(ctx);
                     }
                 }
@@ -412,14 +441,8 @@ impl Component for Prompt {
         });
 
         let names = (!self.names.is_empty()).then(|| {
-            let names = seq(self.names.iter(), |e, not_last| {
-                let entry = html!(<c::Name embed={self.query.embed} sources={e.key.sources.clone()} entry={e.name.clone()} />);
-
-                if not_last {
-                    html!(<>{entry}{comma()}</>)
-                } else {
-                    entry
-                }
+            let names = self.names.iter().map(|e| {
+                html!(<c::Name embed={self.query.embed} sources={e.key.sources.clone()} entry={e.name.clone()} />)
             });
 
             let header = (!self.query.embed).then(|| {
@@ -429,7 +452,7 @@ impl Component for Prompt {
             html! {
                 <>
                 {header}
-                <div class="block-lg row">{for names}</div>
+                <div class="block block-lg row row-spaced">{for names}</div>
                 </>
             }
         });
@@ -636,6 +659,29 @@ impl Component for Prompt {
             }
         });
 
+        let missing = (self.query.tab != Tab::Settings && !self.missing.is_empty()).then(|| {
+            let missing = seq(self.missing.iter(), |id, not_last| {
+                html! {
+                    <>
+                        <span>{id}</span>
+                        {not_last.then(comma)}
+                    </>
+                }
+            });
+
+            let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
+
+            html! {
+                <div class="block block-lg danger">
+                    <div class="block block-sm row row-spaced">
+                        <span class="title">{"Dictionaries missing:"}</span>
+                        <span>{for missing}</span>
+                        <button class="end btn btn-lg" {onclick}>{"⚙ Fix in Settings"}</button>
+                    </div>
+                </div>
+            }
+        });
+
         let window_top = {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
 
@@ -693,6 +739,7 @@ impl Component for Prompt {
                 {window_top}
 
                 <div id="content" {class}>
+                    {missing}
                     {tasks}
                     {page}
                     <div class="block block-xl" id="copyright">{copyright()}</div>
@@ -761,6 +808,16 @@ fn copyright() -> Html {
 }
 
 impl Prompt {
+    fn get_config(&mut self, ctx: &Context<Self>) {
+        self.get_config = Some(ctx.props().ws.request(
+            api::GetConfig,
+            ctx.link().callback(|result| match result {
+                Ok(state) => Msg::GetConfig(state),
+                Err(error) => Msg::Error(error),
+            }),
+        ));
+    }
+
     fn reload(&mut self, ctx: &Context<Self>) {
         log::debug!("Reload");
 

@@ -60,10 +60,10 @@ impl Component for Name {
         let bullets = bullets!(entry.name_types, "sm");
 
         html! {
-            <>
+            <span class="row">
                 {entries}
                 {for bullets}
-            </>
+            </span>
         }
     }
 }

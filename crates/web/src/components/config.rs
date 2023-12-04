@@ -8,7 +8,7 @@ use crate::error::Error;
 use crate::{c, ws};
 
 pub(crate) enum Msg {
-    Config(lib::config::Config),
+    GetConfig(api::GetConfigResult),
     Toggle(String),
     IndexAdd,
     IndexAddSave(String, ConfigIndex),
@@ -18,7 +18,7 @@ pub(crate) enum Msg {
     IndexSave(String, ConfigIndex),
     Save,
     Saved,
-    Rebuild,
+    InstallAll,
     Error(Error),
 }
 
@@ -43,6 +43,7 @@ struct State {
 pub(crate) struct Config {
     pending: bool,
     state: Option<State>,
+    installed: HashSet<String>,
     edit_index: HashSet<String>,
     index_add: bool,
     _get_config: Option<ws::Request>,
@@ -54,9 +55,9 @@ impl Component for Config {
 
     fn create(ctx: &Context<Self>) -> Self {
         let get_config = ctx.props().ws.request(
-            api::GetConfigRequest,
+            api::GetConfig,
             ctx.link().callback(|result| match result {
-                Ok(config) => Msg::Config(config),
+                Ok(config) => Msg::GetConfig(config),
                 Err(error) => Msg::Error(error),
             }),
         );
@@ -64,6 +65,7 @@ impl Component for Config {
         Self {
             pending: true,
             state: None,
+            installed: HashSet::new(),
             edit_index: HashSet::new(),
             index_add: false,
             _get_config: Some(get_config),
@@ -72,12 +74,13 @@ impl Component for Config {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::Config(config) => {
+            Msg::GetConfig(result) => {
                 self.state = Some(State {
-                    remote: config.clone(),
-                    local: config,
+                    remote: result.config.clone(),
+                    local: result.config,
                 });
 
+                self.installed = result.installed;
                 self.pending = false;
             }
             Msg::Toggle(id) => {
@@ -139,13 +142,13 @@ impl Component for Config {
 
                 self.pending = false;
             }
-            Msg::Rebuild => {
+            Msg::InstallAll => {
                 ctx.props()
                     .ws
                     .request(
-                        api::RebuildRequest,
+                        api::InstallAllRequest,
                         ctx.link().callback(|result| match result {
-                            Ok(api::Empty) => Msg::Rebuild,
+                            Ok(api::Empty) => Msg::InstallAll,
                             Err(error) => Msg::Error(error),
                         }),
                     )
@@ -205,11 +208,18 @@ impl Component for Config {
                         <a class="index-url" title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"Help"}</a>
                     });
 
+                    let not_installed = (!self.installed.contains(id)).then(|| {
+                        html! {
+                            <span class="bullet danger">{"not installed"}</span>
+                        }
+                    });
+
                     indexes.push(html! {
                         <div {class}>
                             <input id={id.to_owned()} type="checkbox" {checked} disabled={self.pending} {onchange} />
                             <label for={id.to_owned()} class="index-id">{id.to_owned()}</label>
                             <label for={id.to_owned()}>{index.description.clone()}</label>
+                            {not_installed}
                             <div class="end index-edit clickable" {onclick} title={"Change this dictionary"}>{"Edit"}</div>
                             {help}
                         </div>
@@ -246,7 +256,7 @@ impl Component for Config {
         };
 
         let onsave = ctx.link().callback(|_| Msg::Save);
-        let onrebuild = ctx.link().callback(|_| Msg::Rebuild);
+        let onrebuild = ctx.link().callback(|_| Msg::InstallAll);
 
         let back = (!ctx.props().embed).then(|| {
             html! {
@@ -287,7 +297,7 @@ impl Component for Config {
                 <div class="block block-lg row row-spaced">
                     {back}
                     <button class="btn end primary" {disabled} onclick={onsave}>{"Save"}</button>
-                    <button class="btn" onclick={onrebuild} title="Build the search index used by this dictionary">{"Rebuild"}</button>
+                    <button class="btn" onclick={onrebuild} title="Install all dictionary">{"Install all"}</button>
                 </div>
 
                 {log}

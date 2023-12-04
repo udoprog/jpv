@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -38,19 +40,41 @@ impl Request for SearchRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RebuildRequest;
+pub struct InstallAllRequest;
 
-impl Request for RebuildRequest {
+impl Request for InstallAllRequest {
     const KIND: &'static str = "rebuild";
     type Response = Empty;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct GetConfigRequest;
+pub struct GetState;
 
-impl Request for GetConfigRequest {
+impl Request for GetState {
     const KIND: &'static str = "get-config";
-    type Response = Config;
+    type Response = GetStateResult;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetStateResult {
+    /// Installed dictionaries.
+    pub installed: HashSet<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetConfig;
+
+impl Request for GetConfig {
+    const KIND: &'static str = "get-config";
+    type Response = GetConfigResult;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetConfigResult {
+    /// System configuration.
+    pub config: Config,
+    /// Installed dictionaries.
+    pub installed: HashSet<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

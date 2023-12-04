@@ -789,6 +789,17 @@ impl Database {
         })
     }
 
+    /// Get the identifiers of all installed indexes.
+    pub fn installed(&self) -> Result<HashSet<String>> {
+        let mut output = HashSet::with_capacity(self.indexes.len());
+
+        for index in self.indexes.iter() {
+            output.insert(index.data.as_buf().load(index.header.name)?.to_owned());
+        }
+
+        Ok(output)
+    }
+
     /// Convert a sequence to Id.
     pub fn sequence_to_id(&self, sequence: u32) -> Result<Vec<(usize, Id)>> {
         let mut output = Vec::new();

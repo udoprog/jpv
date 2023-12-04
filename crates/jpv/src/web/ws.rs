@@ -344,12 +344,19 @@ async fn run(
                                 let response = super::handle_analyze_request(bg, request)?;
                                 Ok(serde_json::to_value(&response)?)
                             },
-                            api::RebuildRequest::KIND => {
+                            api::InstallAllRequest::KIND => {
                                 bg.rebuild().await;
                                 Ok(serde_json::Value::Null)
                             }
-                            api::GetConfigRequest::KIND => {
-                                Ok(serde_json::to_value(&bg.config())?)
+                            api::GetConfig::KIND => {
+                                let database = bg.database();
+
+                                let result = api::GetConfigResult {
+                                    config: bg.config(),
+                                    installed: database.installed()?,
+                                };
+
+                                Ok(serde_json::to_value(&result)?)
                             }
                             api::UpdateConfigRequest::KIND => {
                                 let config = serde_json::from_value(request.body)?;
