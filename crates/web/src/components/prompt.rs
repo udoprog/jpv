@@ -73,7 +73,6 @@ pub(crate) struct Prompt {
     limit_entries: usize,
     characters: Vec<kanjidic2::OwnedCharacter>,
     limit_characters: usize,
-    serials: Serials,
     pending_search: Option<ws::Request>,
     log: Vec<api::OwnedLogEntry>,
     tasks: BTreeMap<String, api::OwnedTaskProgress>,
@@ -122,7 +121,6 @@ impl Component for Prompt {
             limit_entries: DEFAULT_LIMIT,
             characters: Vec::default(),
             limit_characters: DEFAULT_LIMIT,
-            serials: Serials::default(),
             pending_search: None,
             log: Vec::new(),
             tasks: BTreeMap::new(),
@@ -144,26 +142,17 @@ impl Component for Prompt {
                 true
             }
             Msg::SearchResponse(response) => {
-                if response.serial == Some(self.serials.search) {
-                    self.phrases = response.phrases;
-                    self.names = response.names;
-                    self.phrases.sort_by(|a, b| a.key.weight.cmp(&b.key.weight));
-                    self.names.sort_by(|a, b| a.key.weight.cmp(&b.key.weight));
-                    self.characters = response.characters;
-                    self.limit_entries = DEFAULT_LIMIT;
-                    self.limit_characters = DEFAULT_LIMIT;
-                    true
-                } else {
-                    false
-                }
+                self.phrases = response.phrases;
+                self.names = response.names;
+                self.phrases.sort_by(|a, b| a.key.weight.cmp(&b.key.weight));
+                self.names.sort_by(|a, b| a.key.weight.cmp(&b.key.weight));
+                self.characters = response.characters;
+                self.limit_entries = DEFAULT_LIMIT;
+                self.limit_characters = DEFAULT_LIMIT;
+                true
             }
             Msg::AnalyzeResponse(response) => {
-                if response.serial != Some(self.serials.analyze) {
-                    return false;
-                }
-
                 log::debug!("Analyze response");
-
                 self.analysis = response.data.into_iter().map(|d| d.string.into()).collect();
                 self.search(ctx);
                 false
@@ -771,24 +760,6 @@ fn copyright() -> Html {
     }
 }
 
-#[derive(Default)]
-struct Serials {
-    search: u32,
-    analyze: u32,
-}
-
-impl Serials {
-    fn search(&mut self) -> u32 {
-        self.search = self.search.wrapping_add(1);
-        self.search
-    }
-
-    fn analyze(&mut self) -> u32 {
-        self.analyze = self.analyze.wrapping_add(1);
-        self.analyze
-    }
-}
-
 impl Prompt {
     fn reload(&mut self, ctx: &Context<Self>) {
         log::debug!("Reload");
@@ -810,13 +781,9 @@ impl Prompt {
         log::debug!("Search `{text}`");
 
         let text = text.to_lowercase();
-        let serial = self.serials.search();
 
         self.pending_search = Some(ctx.props().ws.request(
-            api::SearchRequest {
-                q: text,
-                serial: Some(serial),
-            },
+            api::SearchRequest { q: text },
             ctx.link().callback(|result| match result {
                 Ok(response) => Msg::SearchResponse(response),
                 Err(error) => Msg::Error(error),
@@ -832,13 +799,11 @@ impl Prompt {
         log::debug!("Analyze {analyze}");
 
         let input = self.query.text.as_ref().to_owned();
-        let serial = self.serials.analyze();
 
         self.pending_search = Some(ctx.props().ws.request(
             api::AnalyzeRequest {
                 q: input,
                 start: analyze,
-                serial: Some(serial),
             },
             ctx.link().callback(|result| match result {
                 Ok(response) => Msg::AnalyzeResponse(response),

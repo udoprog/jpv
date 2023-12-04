@@ -112,7 +112,6 @@ impl From<anyhow::Error> for RequestError {
 
 async fn entry(
     Path(sequence): Path<u32>,
-    Query(query): Query<api::EntryQuery>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedEntryResponse>> {
     let db = bg.database();
@@ -126,13 +125,11 @@ async fn entry(
 
     Ok(Json(api::OwnedEntryResponse {
         entry: lib::to_owned(entry),
-        serial: query.serial,
     }))
 }
 
 async fn kanji(
     Path(literal): Path<String>,
-    Query(query): Query<api::KanjiQuery>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedKanjiResponse>> {
     let db = bg.database();
@@ -145,7 +142,6 @@ async fn kanji(
 
     Ok(Json(api::OwnedKanjiResponse {
         entry: lib::to_owned(entry),
-        serial: query.serial,
     }))
 }
 
@@ -184,7 +180,6 @@ fn handle_search_request(
         phrases,
         names,
         characters: lib::to_owned(search.characters),
-        serial: request.serial,
     })
 }
 
@@ -236,10 +231,7 @@ fn handle_analyze_request(
 
     data.sort_by(|a, b| (Reverse(a.string.len()), &a.key).cmp(&(Reverse(b.string.len()), &b.key)));
 
-    Ok(api::OwnedAnalyzeResponse {
-        data,
-        serial: request.serial,
-    })
+    Ok(api::OwnedAnalyzeResponse { data })
 }
 
 impl IntoResponse for RequestError {

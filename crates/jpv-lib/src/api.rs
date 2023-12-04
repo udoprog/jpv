@@ -20,8 +20,6 @@ pub trait Request: Serialize {
 pub struct AnalyzeRequest {
     pub q: String,
     pub start: usize,
-    #[serde(default)]
-    pub serial: Option<u32>,
 }
 
 impl Request for AnalyzeRequest {
@@ -32,8 +30,6 @@ impl Request for AnalyzeRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchRequest {
     pub q: String,
-    #[serde(default)]
-    pub serial: Option<u32>,
 }
 
 impl Request for SearchRequest {
@@ -183,8 +179,6 @@ pub struct SearchResponse<'a> {
     pub names: Vec<SearchName<'a>>,
     #[borrowed_attr(serde(borrow))]
     pub characters: Vec<kanjidic2::Character<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub serial: Option<u32>,
 }
 
 #[borrowme::borrowme]
@@ -199,14 +193,6 @@ pub struct AnalyzeEntry<'a> {
 pub struct AnalyzeResponse<'a> {
     #[borrowed_attr(serde(borrow))]
     pub data: Vec<AnalyzeEntry<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub serial: Option<u32>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct EntryQuery {
-    #[serde(default)]
-    pub serial: Option<u32>,
 }
 
 #[borrowme::borrowme]
@@ -214,14 +200,6 @@ pub struct EntryQuery {
 pub struct EntryResponse<'a> {
     #[borrowed_attr(serde(borrow))]
     pub entry: jmdict::Entry<'a>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub serial: Option<u32>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct KanjiQuery {
-    #[serde(default)]
-    pub serial: Option<u32>,
 }
 
 #[borrowme::borrowme]
@@ -229,8 +207,6 @@ pub struct KanjiQuery {
 pub struct KanjiResponse<'a> {
     #[borrowed_attr(serde(borrow))]
     pub entry: kanjidic2::Character<'a>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub serial: Option<u32>,
 }
 
 #[borrowme::borrowme]
