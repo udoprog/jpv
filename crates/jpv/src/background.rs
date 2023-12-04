@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use anyhow::{anyhow, bail, Context, Result};
 use flate2::read::GzDecoder;
-use lib::config::{Config, IndexKind};
+use lib::config::{Config, IndexFormat};
 use lib::database::{self, Database, Input};
 use lib::reporter::{Reporter, TracingReporter};
 use lib::token::Token;
@@ -26,10 +26,6 @@ use crate::Args;
 
 /// The user agent used by jpv.
 const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
-
-const JMDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMdict_e_examp.gz";
-const KANJIDIC2_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz";
-const JMNEDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMnedict.xml.gz";
 
 pub(crate) struct BackgroundInner {
     config: Config,
@@ -252,26 +248,29 @@ impl Background {
 pub struct ToDownload {
     pub name: String,
     pub url: String,
-    pub url_name: String,
     pub index_path: Box<Path>,
     pub path: Option<Box<Path>>,
-    pub kind: IndexKind,
+    pub format: IndexFormat,
 }
 
 /// Download override paths.
 #[derive(Default)]
 pub struct DownloadOverrides<'a> {
-    overrides: HashMap<IndexKind, &'a Path>,
+    overrides: HashMap<&'a str, &'a Path>,
 }
 
 impl<'a> DownloadOverrides<'a> {
     /// Insert a download override.
-    pub fn insert(&mut self, kind: IndexKind, path: &'a Path) {
-        self.overrides.insert(kind, path);
+    pub fn insert<P>(&mut self, id: &'a str, path: &'a P)
+    where
+        P: ?Sized + AsRef<Path>,
+    {
+        self.overrides.insert(id, path.as_ref());
     }
 
-    fn get(&self, kind: IndexKind) -> Option<&'a Path> {
-        self.overrides.get(&kind).copied()
+    /// Get an individual override.
+    fn get(&self, id: &str) -> Option<&'a Path> {
+        self.overrides.get(id).copied()
     }
 }
 
@@ -283,37 +282,16 @@ pub fn config_to_download(
 ) -> Vec<ToDownload> {
     let mut downloads = Vec::new();
 
-    for &index in &config.enabled {
-        let path = overrides.get(index).map(|p| p.into());
+    for (id, index) in &config.indexes {
+        let path = overrides.get(id.as_str()).map(|p| p.into());
 
-        let download = match index {
-            IndexKind::Jmdict => ToDownload {
-                name: index.name().into(),
-                url: JMDICT_URL.into(),
-                url_name: "JMdict_e_examp.gz".into(),
-                index_path: dirs.index_path(index.name()).into(),
-                path,
-                kind: index,
-            },
-            IndexKind::Kanjidic2 => ToDownload {
-                name: index.name().into(),
-                url: KANJIDIC2_URL.into(),
-                url_name: "kanjidic2.xml.gz".into(),
-                index_path: dirs.index_path(index.name()).into(),
-                path,
-                kind: index,
-            },
-            IndexKind::Jmnedict => ToDownload {
-                name: index.name().into(),
-                url: JMNEDICT_URL.into(),
-                url_name: "jmnedict.xml.gz".into(),
-                index_path: dirs.index_path(index.name()).into(),
-                path,
-                kind: index,
-            },
-        };
-
-        downloads.push(download);
+        downloads.push(ToDownload {
+            name: id.into(),
+            url: index.url.clone(),
+            index_path: dirs.index_path(id).into(),
+            path,
+            format: index.format,
+        });
     }
 
     downloads
@@ -366,15 +344,9 @@ pub(crate) async fn build(
         }
     }
 
-    let (path, data) = read_or_download(
-        &*reporter,
-        download.path.as_deref(),
-        dirs,
-        &download.url_name,
-        &download.url,
-    )
-    .await
-    .context("Reading dictionary")?;
+    let (path, data) = read_or_download(&*reporter, download.path.as_deref(), dirs, &download.url)
+        .await
+        .context("Reading dictionary")?;
 
     lib::report_info!(
         reporter,
@@ -384,7 +356,7 @@ pub(crate) async fn build(
     );
 
     let start = Instant::now();
-    let kind = download.kind;
+    let kind = download.format;
     let name = download.name.clone();
 
     let mut task = tokio::task::spawn_blocking({
@@ -392,9 +364,9 @@ pub(crate) async fn build(
         let shutdown_token = shutdown_token.clone();
         move || {
             let input = match kind {
-                IndexKind::Jmdict => Input::Jmdict(&data[..]),
-                IndexKind::Kanjidic2 => Input::Kanjidic2(&data[..]),
-                IndexKind::Jmnedict => Input::Jmnedict(&data[..]),
+                IndexFormat::Jmdict => Input::Jmdict(&data[..]),
+                IndexFormat::Kanjidic2 => Input::Kanjidic2(&data[..]),
+                IndexFormat::Jmnedict => Input::Jmnedict(&data[..]),
             };
 
             database::build(&*reporter, &shutdown_token, &name, input)
@@ -437,13 +409,17 @@ async fn read_or_download(
     reporter: &dyn Reporter,
     path: Option<&Path>,
     dirs: &Dirs,
-    name: &str,
     url: &str,
 ) -> Result<(PathBuf, String), anyhow::Error> {
     let (path, bytes) = match path {
         Some(path) => (path.to_owned(), fs::read(path).await?),
         None => {
-            let path = dirs.cache_dir(name);
+            let Some((_, name)) = url.rsplit_once('/') else {
+                bail!("Url doesn't have a trailing component: {url}")
+            };
+
+            let hash = crate::hash::hash(url);
+            let path = dirs.cache_dir(format!("{hash:08x}-{name}"));
 
             let bytes = if !path.is_file() {
                 download(reporter, url, &path)

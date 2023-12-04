@@ -777,7 +777,7 @@ impl Database {
             let index =
                 Index::open(data).with_context(|| anyhow!("Loading index from {location}"))?;
 
-            if !config.is_enabled_by_name(index.name()?) {
+            if !config.is_enabled(index.name()?) {
                 continue;
             }
 

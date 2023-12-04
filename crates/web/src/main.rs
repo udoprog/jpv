@@ -104,7 +104,7 @@ fn switch(routes: Route, callbacks: &Callbacks) -> Html {
         },
         Route::NotFound => {
             html! {
-                <div id="container">{"There is nothing here"}</div>
+                <div id="content" class="container">{"There is nothing here"}</div>
             }
         }
     }

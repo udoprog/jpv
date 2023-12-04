@@ -1,13 +1,21 @@
+use std::collections::HashSet;
+
 use lib::api;
-use lib::config::IndexKind;
+use lib::config::ConfigIndex;
 use yew::prelude::*;
 
 use crate::error::Error;
-use crate::fetch;
+use crate::{c, fetch};
 
 pub enum Msg {
     Config(lib::config::Config),
-    Toggle(IndexKind),
+    Toggle(String),
+    IndexAdd,
+    IndexAddSave(String, ConfigIndex),
+    IndexAddCancel,
+    IndexEdit(String),
+    IndexCancel(String),
+    IndexSave(String, ConfigIndex),
     Save,
     Saved,
     Rebuild,
@@ -35,6 +43,8 @@ struct State {
 pub struct Config {
     pending: bool,
     state: Option<State>,
+    edit_index: HashSet<String>,
+    index_add: bool,
 }
 
 impl Component for Config {
@@ -52,6 +62,8 @@ impl Component for Config {
         Self {
             pending: true,
             state: None,
+            edit_index: HashSet::new(),
+            index_add: false,
         }
     }
 
@@ -65,9 +77,39 @@ impl Component for Config {
 
                 self.pending = false;
             }
-            Msg::Toggle(index) => {
+            Msg::Toggle(id) => {
                 if let Some(state) = self.state.as_mut() {
-                    state.local.toggle(index);
+                    state.local.toggle(&id);
+                }
+            }
+            Msg::IndexAdd => {
+                self.index_add = true;
+            }
+            Msg::IndexAddSave(id, index) => {
+                if let Some(state) = &mut self.state {
+                    state.local.indexes.insert(id, index);
+                }
+
+                self.index_add = false;
+            }
+            Msg::IndexAddCancel => {
+                self.index_add = false;
+            }
+            Msg::IndexEdit(id) => {
+                self.edit_index.insert(id);
+            }
+            Msg::IndexCancel(id) => {
+                self.edit_index.remove(&id);
+            }
+            Msg::IndexSave(id, new_index) => {
+                self.edit_index.remove(&id);
+
+                if let Some(index) = self
+                    .state
+                    .as_mut()
+                    .and_then(|s| s.local.indexes.get_mut(&id))
+                {
+                    *index = new_index;
                 }
             }
             Msg::Save => {
@@ -102,7 +144,7 @@ impl Component for Config {
                 self.pending = false;
             }
             Msg::Error(error) => {
-                log::error!("Error: {}", error);
+                log::error!("{}", error);
                 self.pending = false;
             }
         }
@@ -113,31 +155,86 @@ impl Component for Config {
     fn view(&self, ctx: &Context<Self>) -> Html {
         let mut indexes = Vec::new();
 
-        for &index in IndexKind::ALL {
-            let onchange = ctx.link().callback(move |_| Msg::Toggle(index));
+        if let Some(state) = &self.state {
+            for (id, index) in &state.local.indexes {
+                let checked = match &self.state {
+                    Some(state) => state.local.is_enabled(id),
+                    None => false,
+                };
 
-            let checked = match &self.state {
-                Some(state) => state.local.is_enabled(index),
-                None => false,
-            };
+                if self.edit_index.contains(id) {
+                    let oncancel = ctx.link().callback({
+                        let id = id.to_owned();
+                        move |_| Msg::IndexCancel(id.clone())
+                    });
 
-            let class = classes! {
-                "block",
-                "row",
-                "setting",
-                checked.then_some("enabled"),
-            };
+                    let onsave = ctx.link().callback({
+                        let id = id.to_owned();
+                        move |(_, index)| Msg::IndexSave(id.clone(), index)
+                    });
 
-            indexes.push(html! {
-                <div {class}>
-                    <input id={index.name()} type="checkbox" {checked} disabled={self.pending} {onchange} />
-                    <label for={index.name()}>{index.description()}</label>
-                </div>
-            });
+                    indexes.push(html!(<c::EditIndex index={index.clone()} pending={self.pending} {oncancel} {onsave} />));
+                } else {
+                    let onchange = ctx.link().callback({
+                        let id = id.to_owned();
+                        move |_| Msg::Toggle(id.clone())
+                    });
+
+                    let class = classes! {
+                        "block",
+                        "row",
+                        "row-spaced",
+                        "index",
+                        checked.then_some("enabled"),
+                    };
+
+                    let onclick = ctx.link().callback({
+                        let id = id.to_owned();
+                        move |_| Msg::IndexEdit(id.clone())
+                    });
+
+                    let help = index.help.as_ref().map(|help| html! {
+                        <a class="index-url" title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"Help"}</a>
+                    });
+
+                    indexes.push(html! {
+                        <div {class}>
+                            <input id={id.to_owned()} type="checkbox" {checked} disabled={self.pending} {onchange} />
+                            <label for={id.to_owned()} class="index-id">{id.to_owned()}</label>
+                            <label for={id.to_owned()}>{index.description.clone()}</label>
+                            <div class="end index-edit clickable" {onclick} title={"Change this dictionary"}>{"Edit"}</div>
+                            {help}
+                        </div>
+                    });
+                }
+            }
         }
 
+        let add = if self.index_add {
+            let oncancel = ctx.link().callback({ move |_| Msg::IndexAddCancel });
+
+            let onsave = ctx
+                .link()
+                .batch_callback({ move |(id, index)| Some(Msg::IndexAddSave(id?, index)) });
+
+            html! {
+                <c::EditIndex pending={self.pending} {oncancel} {onsave} />
+            }
+        } else {
+            let onclick = ctx.link().callback(|_| Msg::IndexAdd);
+
+            html! {
+                <div class="block">
+                    <button class="btn primary centered" disabled={self.pending} {onclick}>{"+ Add dictionary"}</button>
+                </div>
+            }
+        };
+
         let config = html! {
-            {for indexes}
+            <>
+                {for indexes}
+                {add}
+            </>
         };
 
         let onsave = ctx.link().callback(|_| Msg::Save);
@@ -175,7 +272,7 @@ impl Component for Config {
 
         html! {
             <>
-                <h5>{"Enabled sources"}</h5>
+                <h5>{"Dictionaries"}</h5>
 
                 <div class="block block-lg">{config}</div>
 

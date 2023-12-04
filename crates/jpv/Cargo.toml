@@ -48,6 +48,7 @@ rand = "0.8.5"
 image = "0.24.7"
 tempfile = "3.8.1"
 slab = "0.4.9"
+twox-hash = "1.6.3"
 
 [target.'cfg(unix)'.dependencies]
 tokio-dbus = { version = "0.0.16", optional = true }

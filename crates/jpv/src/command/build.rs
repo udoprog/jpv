@@ -1,10 +1,9 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 
-use lib::config::{Config, IndexKind};
+use lib::config::Config;
 use lib::reporter::TracingReporter;
 use lib::Dirs;
 use tokio::sync::oneshot;
@@ -14,15 +13,10 @@ use crate::Args;
 
 #[derive(Parser)]
 pub(crate) struct BuildArgs {
-    /// Path to load JMDICT file from. By default this will be download into a local cache directory.
+    /// Override the path to the index with the specified id and path.
+    /// This takes the form `<id>=<path>`.
     #[arg(long, value_name = "path")]
-    jmdict_path: Option<PathBuf>,
-    /// Path to load kanjidic2 file from. By default this will be download into a local cache directory.
-    #[arg(long, value_name = "path")]
-    kanjidic2_path: Option<PathBuf>,
-    /// Path to load jmnedict file from. By default this will be download into a local cache directory.
-    #[arg(long, value_name = "path")]
-    jmnedict_path: Option<PathBuf>,
+    path: Vec<String>,
     /// Force a dictionary rebuild.
     #[arg(long, short = 'f')]
     force: bool,
@@ -36,16 +30,12 @@ pub(crate) async fn run(
 ) -> Result<()> {
     let mut overrides = DownloadOverrides::default();
 
-    if let Some(path) = &build_args.jmdict_path {
-        overrides.insert(IndexKind::Jmdict, path);
-    }
+    for path in &build_args.path {
+        let Some((id, path)) = path.split_once('=') else {
+            bail!("Bad override: {path}");
+        };
 
-    if let Some(path) = &build_args.kanjidic2_path {
-        overrides.insert(IndexKind::Kanjidic2, path);
-    }
-
-    if let Some(path) = &build_args.jmnedict_path {
-        overrides.insert(IndexKind::Jmnedict, path);
+        overrides.insert(id, path);
     }
 
     let to_download = crate::background::config_to_download(&config, dirs, overrides);

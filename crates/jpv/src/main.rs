@@ -199,6 +199,7 @@
 mod background;
 mod command;
 mod dbus;
+mod hash;
 mod open_uri;
 mod reporter;
 mod system;

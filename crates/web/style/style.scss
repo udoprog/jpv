@@ -1,4 +1,5 @@
 @import "_reset";
+@import "_mixins";
 
 :root {
     --text-color: #d9d9d9;
@@ -12,13 +13,18 @@
     --tab-active-background: #3c3c3c;
     --tab-disabled-color: #8f8f8f;
 
-    --primary-color: #000000;
-
     --default-bg: #e4e4e4;
     --default-bg-darker: #a4a4a4;
 
+    --primary-color: #000000;
     --primary-bg: #35bba2;
     --primary-bg-darker: #2e9e89;
+    --primary-border: #1c6457;
+
+    --danger-color: #000000;
+    --danger-bg: #e44c4c;
+    --danger-bg-darker: #a93a3a;
+    --danger-border: #662222;
 
     --destructive-color: #d6d6d6;
     --destructive-bg: #8b0b0b;
@@ -111,10 +117,8 @@ body {
     }
 }
 
-#container {
-    font-size: 1em;
+.container {
     margin: 0 auto;
-    padding: 1rem;
     height: 100%;
     max-width: 1200px;
 
@@ -123,6 +127,11 @@ body {
             font-size: 120% !important;
         }
     }
+}
+
+#content {
+    font-size: 1em;
+    padding: 1rem;
 }
 
 #copyright {
@@ -246,6 +255,11 @@ h5, h6 {
         }
     }
 
+    .centered {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
     &.notice {
         background-color: var(--bg-highlight);
         padding: var(--section-margin);
@@ -358,14 +372,29 @@ h5, h6 {
     &.primary {
         color: var(--primary-color);
         background-color: var(--primary-bg);
+        border-color: var(--primary-border);
 
         &:hover:not(:disabled) {
             background-color: var(--primary-bg-darker);
         }
     }
 
+    &.danger {
+        color: var(--danger-color);
+        background-color: var(--danger-bg);
+        border-color: var(--danger-border);
+
+        &:hover:not(:disabled) {
+            background-color: var(--danger-bg-darker);
+        }
+    }
+
     &:disabled {
         opacity: 0.5;
+    }
+
+    &-sm {
+        font-size: 0.6em;
     }
 
     &-lg {
@@ -440,9 +469,13 @@ a {
     }
 }
 
-.setting {
+.index {
     background-color: var(--bg-highlight);
     padding: var(--section-margin);
+
+    &-id {
+        font-weight: bold;
+    }
 }
 
 .log {
@@ -492,12 +525,6 @@ a {
     }
 }
 
-.embed {
-    #tasks {
-        font-size: 0.8em;
-    }
-}
-
 #tasks {
     .task {
         font-family: monospace;
@@ -530,14 +557,90 @@ a {
 
 #window-top {
     padding: 0.5rem;
-    display: grid;
-    grid-template-columns: auto min-content min-content;
     background-color: var(--bg-highlight);
     border-bottom: 1px solid var(--separator-color);
 
-    .maximize {
-        font-size: 1.2em;
-        align-self: stretch !important;
-        margin-left: 0.5rem;
+    & > .container {
+        display: grid;
+        grid-template-columns: min-content auto min-content auto min-content;
+        grid-gap: 0.5rem;
+
+        & > * {
+            white-space: nowrap;
+        }
+
+        .left {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .right {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .sub-title {
+            margin-left: 0.5rem;
+            font-size: 0.6em;
+        }
+
+        .maximize {
+            font-size: 1.2em;
+            align-self: stretch !important;
+            margin-left: 0.5rem;
+        }
+    }
+}
+
+.form {
+    & > * {
+        margin-bottom: 0.5rem;
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    h6 {
+        font-size: 0.8em;
+    }
+
+    &-help {
+        font-size: 0.8em;
+    }
+
+    &-error {
+        padding: 0.5rem;
+        font-size: 0.8em;
+        color: var(--danger-color);
+        background-color: var(--danger-bg);
+    }
+
+    &.has-errors {
+        input {
+            border: 1px solid var(--danger-bg);
+        }
+
+        select {
+            border: 1px solid var(--danger-bg);
+        }
+    }
+}
+
+@include until($mobile) {
+    #tasks {
+        font-size: 0.8em;
+    }
+}
+
+@include from($mobile) {
+    .form {
+        input {
+            max-width: 30em;
+        }
+
+        select {
+            max-width: 30em;
+        }
     }
 }

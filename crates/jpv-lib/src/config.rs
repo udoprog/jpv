@@ -1,71 +1,60 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
+use std::str::FromStr;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::Dirs;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+const JMDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMdict_e_examp.gz";
+const KANJIDIC2_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/kanjidic2.xml.gz";
+const JMNEDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMnedict.xml.gz";
+
+#[derive(Debug, Error)]
+#[error("Invalid index format")]
+pub struct IndexFormatError;
+
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum IndexKind {
+pub enum IndexFormat {
+    #[default]
     Jmdict,
     Jmnedict,
     Kanjidic2,
 }
 
-impl IndexKind {
-    pub const ALL: &'static [IndexKind] =
-        &[IndexKind::Jmdict, IndexKind::Jmnedict, IndexKind::Kanjidic2];
+impl FromStr for IndexFormat {
+    type Err = IndexFormatError;
 
-    /// Convert a string into an [`IndexKind`].
-    pub fn parse(s: &str) -> Option<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "jmdict" => Some(IndexKind::Jmdict),
-            "jmnedict" => Some(IndexKind::Jmnedict),
-            "kanjidic2" => Some(IndexKind::Kanjidic2),
-            _ => None,
-        }
-    }
-
-    /// Get the name of the index.
-    pub fn name(&self) -> &'static str {
-        match self {
-            IndexKind::Jmdict => "jmdict",
-            IndexKind::Jmnedict => "jmnedict",
-            IndexKind::Kanjidic2 => "kanjidic2",
-        }
-    }
-
-    /// Get the name of the index.
-    pub fn description(&self) -> &'static str {
-        match self {
-            IndexKind::Jmdict => "Phrases from JMDict",
-            IndexKind::Kanjidic2 => "Kanji from Kanjidic2",
-            IndexKind::Jmnedict => "Names from JMnedict",
+            "jmdict" => Ok(Self::Jmdict),
+            "jmnedict" => Ok(Self::Jmnedict),
+            "kanjidic2" => Ok(Self::Kanjidic2),
+            _ => Err(IndexFormatError),
         }
     }
 }
 
 /// An index.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Index {
-    pub kind: IndexKind,
+pub struct ConfigIndex {
+    pub format: IndexFormat,
+    pub url: String,
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub help: Option<String>,
 }
 
 /// A configuration used for the application.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     /// Enabled indexes.
-    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
-    pub enabled: BTreeSet<IndexKind>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            enabled: IndexKind::ALL.iter().copied().collect(),
-        }
-    }
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub indexes: BTreeMap<String, ConfigIndex>,
 }
 
 impl Config {
@@ -83,25 +72,65 @@ impl Config {
     }
 
     /// Toggle the specified index kind.
-    pub fn toggle(&mut self, kind: IndexKind) {
-        if self.enabled.contains(&kind) {
-            self.enabled.remove(&kind);
-        } else {
-            self.enabled.insert(kind);
+    pub fn toggle(&mut self, id: &str) {
+        if let Some(index) = self.indexes.get_mut(id) {
+            index.enabled = !index.enabled;
         }
     }
 
     /// Test if the given index is enabled.
-    pub fn is_enabled(&self, kind: IndexKind) -> bool {
-        self.enabled.contains(&kind)
-    }
-
-    /// Test if the given index is enabled.
-    pub fn is_enabled_by_name(&self, name: &str) -> bool {
-        let Some(kind) = IndexKind::parse(name) else {
+    pub fn is_enabled(&self, id: &str) -> bool {
+        let Some(index) = self.indexes.get(id) else {
             return false;
         };
 
-        self.is_enabled(kind)
+        index.enabled
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        let mut indexes = BTreeMap::new();
+
+        indexes.insert(
+            "jmdict".to_owned(),
+            ConfigIndex {
+                format: IndexFormat::Jmdict,
+                url: JMDICT_URL.to_owned(),
+                enabled: true,
+                description: Some("JMDict (with examples)".to_owned()),
+                help: Some(
+                    "https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project"
+                        .to_owned(),
+                ),
+            },
+        );
+
+        indexes.insert(
+            "jmnedict".to_owned(),
+            ConfigIndex {
+                format: IndexFormat::Jmnedict,
+                url: JMNEDICT_URL.to_owned(),
+                enabled: true,
+                description: Some("Names from JMnedict".to_owned()),
+                help: Some(
+                    "https://www.edrdg.org/wiki/index.php/Main_Page#The_ENAMDICT/JMnedict_Project"
+                        .to_owned(),
+                ),
+            },
+        );
+
+        indexes.insert(
+            "kanjidic2".to_owned(),
+            ConfigIndex {
+                format: IndexFormat::Kanjidic2,
+                url: KANJIDIC2_URL.to_owned(),
+                enabled: true,
+                description: Some("Kanji from Kanjidic2".to_owned()),
+                help: Some("https://www.edrdg.org/wiki/index.php/KANJIDIC_Project".to_owned()),
+            },
+        );
+
+        Self { indexes }
     }
 }

@@ -19,3 +19,6 @@ pub(crate) use self::config::Config;
 
 pub(crate) use self::analyze_toggle::AnalyzeToggle;
 mod analyze_toggle;
+
+pub(crate) use self::edit_index::EditIndex;
+mod edit_index;

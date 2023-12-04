@@ -594,10 +594,6 @@ impl Component for Prompt {
             }
         };
 
-        let class = classes! {
-            self.query.embed.then_some("embed"),
-        };
-
         let tasks = (!self.tasks.is_empty()).then(|| {
             let tasks = self.tasks.values().map(|task| {
                 let (progress, done, value) = match task.total {
@@ -647,33 +643,63 @@ impl Component for Prompt {
             }
         });
 
-        let window_top = self.query.embed.then(|| {
+        let window_top = {
+            let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+
+            let search = html! {
+                <a class="search clickable" title="Search" {onclick}>{"🔍"}</a>
+            };
+
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
             let config = html! {
-                <a class="config clickable" {onclick}>{"⚙"}</a>
+                <a class="config clickable" {onclick} title="Configure">{"⚙"}</a>
             };
 
-            let maximize = self.query.to_href(true).map(|href| {
-                html! {
-                    <a class="maximize clickable" {href} target="_window">{"🗖"}</a>
-                }
-            });
+            let maximize = if self.query.embed {
+                self.query.to_href(true).map(|href| {
+                    html! {
+                        <a class="maximize clickable" {href} target="_window" title="Open in big window">{"🗖"}</a>
+                    }
+                })
+            } else {
+                None
+            };
 
             html! {
                 <div id="window-top">
-                    <div class="window-title">{"jpv"}</div>
-                    {config}
-                    {maximize}
+                    <div class="container">
+                        <span class="left">
+                            {search}
+                            {config}
+                        </span>
+                        <span></span>
+                        <span class="title">
+                            <a href="https://github.com/udoprog/jpv">{"Japanese Dictionary"}</a>
+                            <span class="sub-title">
+                                <span>{"by "}</span>
+                                <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
+                            </span>
+                        </span>
+                        <span></span>
+                        <span class="right">
+                            {maximize}
+                        </span>
+                    </div>
                 </div>
             }
-        });
+        };
+
+        let class = classes! {
+            "container",
+            self.query.embed.then_some("embed"),
+        };
 
         html! {
             <>
                 {window_top}
 
-                <div id="container" {class}>
+                <div id="content" {class}>
                     {tasks}
                     {page}
                     <div class="block block-xl" id="copyright">{copyright()}</div>
