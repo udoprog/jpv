@@ -1,6 +1,6 @@
 use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
-use std::mem::take;
+use std::mem::{forget, take};
 use std::rc::Rc;
 
 use anyhow::anyhow;
@@ -24,7 +24,7 @@ pub enum Msg {
     Close(CloseEvent),
     Message(MessageEvent),
     Error(ErrorEvent),
-    ClientRequest(api::ClientRequest),
+    ClientRequest(api::ClientRequestEnvelope),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +36,7 @@ pub struct Service<C> {
     shared: Rc<Shared>,
     socket: Option<WebSocket>,
     opened: Option<Opened>,
-    buffer: Vec<api::ClientRequest>,
+    buffer: Vec<api::ClientRequestEnvelope>,
     timeout: u32,
     on_open: Closure<dyn Fn()>,
     on_close: Closure<dyn Fn(CloseEvent)>,
@@ -121,7 +121,7 @@ where
     }
 
     /// Send a client message.
-    fn send_message(&mut self, message: api::ClientRequest) -> Result<(), Error> {
+    fn send_message(&mut self, message: api::ClientRequestEnvelope) -> Result<(), Error> {
         let Some(socket) = &self.socket else {
             return Err(anyhow!("Socket is not connected").into());
         };
@@ -243,7 +243,14 @@ where
                         };
 
                         if pending.serial == response.serial {
-                            pending.callback.emit(response.kind);
+                            if let Some(error) = response.error {
+                                pending
+                                    .callback
+                                    .emit(Err(Error::from(anyhow!("{}", error))));
+                            } else {
+                                pending.callback.emit(Ok(response.body));
+                            }
+
                             return;
                         }
                     }
@@ -322,14 +329,24 @@ fn now() -> Option<f64> {
 
 /// The handle for a pending request. Dropping this handle cancels the request.
 pub struct Request {
-    index: usize,
+    index: Option<usize>,
     shared: Rc<Shared>,
+}
+
+impl Request {
+    /// Forget the request handle, without cancelling the request.
+    #[inline]
+    pub fn forget(self) {
+        forget(self);
+    }
 }
 
 impl Drop for Request {
     #[inline]
     fn drop(&mut self) {
-        self.shared.requests.borrow_mut().try_remove(self.index);
+        if let Some(index) = self.index.take() {
+            self.shared.requests.borrow_mut().try_remove(index);
+        }
     }
 }
 
@@ -348,12 +365,12 @@ impl Drop for Listener {
 
 struct Pending {
     serial: u32,
-    callback: Callback<api::OwnedClientResponseKind>,
+    callback: Callback<Result<serde_json::Value, Error>>,
 }
 
 struct Shared {
     serial: Cell<u32>,
-    onmessage: Callback<api::ClientRequest>,
+    onmessage: Callback<api::ClientRequestEnvelope>,
     requests: RefCell<Slab<Pending>>,
     broadcasts: RefCell<Slab<Callback<api::OwnedBroadcastKind>>>,
 }
@@ -364,30 +381,62 @@ pub(crate) struct Handle {
 }
 
 impl Handle {
-    pub(crate) fn request<C>(&self, ctx: &Context<C>, kind: api::ClientRequestKind) -> Request
+    pub(crate) fn request<T>(
+        &self,
+        request: T,
+        callback: Callback<Result<T::Response, Error>>,
+    ) -> Request
     where
-        C: Component,
-        C::Message: From<api::OwnedClientResponseKind>,
+        T: api::Request,
     {
+        let body = match serde_json::to_value(request) {
+            Ok(body) => body,
+            Err(error) => {
+                callback.emit(Err(Error::from(error)));
+                return Request {
+                    index: None,
+                    shared: self.shared.clone(),
+                };
+            }
+        };
+
         let mut requests = self.shared.requests.borrow_mut();
         let serial = self.shared.serial.get();
         self.shared.serial.set(serial.wrapping_add(1));
 
         let pending = Pending {
             serial,
-            callback: ctx.link().callback(C::Message::from),
+            callback: Callback::from(move |payload| {
+                let payload = match payload {
+                    Ok(payload) => payload,
+                    Err(error) => {
+                        callback.emit(Err(error));
+                        return;
+                    }
+                };
+
+                match serde_json::from_value(payload) {
+                    Ok(payload) => {
+                        callback.emit(Ok(payload));
+                    }
+                    Err(error) => {
+                        callback.emit(Err(Error::from(error)));
+                    }
+                }
+            }),
         };
 
         let index = requests.insert(pending);
 
-        self.shared.onmessage.emit(api::ClientRequest {
+        self.shared.onmessage.emit(api::ClientRequestEnvelope {
+            kind: T::KIND.to_string(),
             index,
             serial,
-            kind,
+            body,
         });
 
         Request {
-            index,
+            index: Some(index),
             shared: self.shared.clone(),
         }
     }

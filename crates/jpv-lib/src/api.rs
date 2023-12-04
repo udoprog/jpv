@@ -1,12 +1,72 @@
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::config::Config;
 use crate::database::EntryResultKey;
 use crate::jmdict;
 use crate::jmnedict;
 use crate::kanjidic2;
 use crate::Weight;
 
+pub trait Request: Serialize {
+    /// The kind of the request.
+    const KIND: &'static str;
+
+    /// The expected response.
+    type Response: 'static + DeserializeOwned;
+}
+
 #[derive(Debug, Serialize, Deserialize)]
+pub struct AnalyzeRequest {
+    pub q: String,
+    pub start: usize,
+    #[serde(default)]
+    pub serial: Option<u32>,
+}
+
+impl Request for AnalyzeRequest {
+    const KIND: &'static str = "analyze";
+    type Response = OwnedAnalyzeResponse;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchRequest {
+    pub q: String,
+    #[serde(default)]
+    pub serial: Option<u32>,
+}
+
+impl Request for SearchRequest {
+    const KIND: &'static str = "search";
+    type Response = OwnedSearchResponse;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RebuildRequest;
+
+impl Request for RebuildRequest {
+    const KIND: &'static str = "rebuild";
+    type Response = Empty;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetConfigRequest;
+
+impl Request for GetConfigRequest {
+    const KIND: &'static str = "get-config";
+    type Response = Config;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct UpdateConfigRequest(pub Config);
+
+impl Request for UpdateConfigRequest {
+    const KIND: &'static str = "update-config";
+    type Response = Empty;
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Empty;
 
 #[borrowme::borrowme]
@@ -31,20 +91,6 @@ pub struct SendClipboardJson {
 pub struct LogBackFill<'a> {
     #[borrowed_attr(serde(borrow))]
     pub log: Vec<LogEntry<'a>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
-pub enum ClientRequestKind {
-    Search(OwnedSearchRequest),
-    Analyze(OwnedAnalyzeRequest),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClientRequest {
-    pub index: usize,
-    pub serial: u32,
-    pub kind: ClientRequestKind,
 }
 
 #[borrowme::borrowme]
@@ -74,20 +120,33 @@ pub struct Broadcast<'a> {
 #[borrowme::borrowme]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
-pub enum ClientResponseKind<'a> {
+pub enum ClientResponse<'a> {
     #[borrowed_attr(serde(borrow))]
     Search(SearchResponse<'a>),
     #[borrowed_attr(serde(borrow))]
     Analyze(AnalyzeResponse<'a>),
+    GetConfig(Config),
+    Error(String),
+    UpdatedConfig,
+    Empty,
 }
 
-#[borrowme::borrowme]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ClientResponse<'a> {
+pub struct ClientRequestEnvelope {
     pub index: usize,
     pub serial: u32,
-    #[borrowed_attr(serde(borrow))]
-    pub kind: ClientResponseKind<'a>,
+    pub kind: String,
+    pub body: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientResponseEnvelope {
+    pub index: usize,
+    pub serial: u32,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub body: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[borrowme::borrowme]
@@ -96,8 +155,7 @@ pub struct ClientResponse<'a> {
 pub enum ClientEvent<'a> {
     #[borrowed_attr(serde(borrow))]
     Broadcast(Broadcast<'a>),
-    #[borrowed_attr(serde(borrow))]
-    ClientResponse(ClientResponse<'a>),
+    ClientResponse(ClientResponseEnvelope),
 }
 
 #[borrowme::borrowme]
@@ -118,15 +176,6 @@ pub struct SearchName<'a> {
 
 #[borrowme::borrowme]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SearchRequest<'a> {
-    #[borrowed_attr(serde(borrow))]
-    pub q: &'a str,
-    #[serde(default)]
-    pub serial: Option<u32>,
-}
-
-#[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResponse<'a> {
     #[borrowed_attr(serde(borrow))]
     pub phrases: Vec<SearchPhrase<'a>>,
@@ -135,15 +184,6 @@ pub struct SearchResponse<'a> {
     #[borrowed_attr(serde(borrow))]
     pub characters: Vec<kanjidic2::Character<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub serial: Option<u32>,
-}
-
-#[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AnalyzeRequest<'a> {
-    pub q: &'a str,
-    pub start: usize,
-    #[serde(default)]
     pub serial: Option<u32>,
 }
 

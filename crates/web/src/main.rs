@@ -1,6 +1,5 @@
 mod components;
 mod error;
-mod fetch;
 mod query;
 mod ws;
 

@@ -49,7 +49,6 @@ pub(crate) enum Msg {
     MoreCharacters,
     UpdateMessage(UpdateMessage),
     Broadcast(api::OwnedBroadcastKind),
-    ClientResponse(api::OwnedClientResponseKind),
     Error(Error),
 }
 
@@ -57,13 +56,6 @@ impl From<api::OwnedBroadcastKind> for Msg {
     #[inline]
     fn from(broadcast: api::OwnedBroadcastKind) -> Self {
         Msg::Broadcast(broadcast)
-    }
-}
-
-impl From<api::OwnedClientResponseKind> for Msg {
-    #[inline]
-    fn from(response: api::OwnedClientResponseKind) -> Self {
-        Msg::ClientResponse(response)
     }
 }
 
@@ -329,20 +321,6 @@ impl Component for Prompt {
 
                 true
             }
-            Msg::ClientResponse(response) => {
-                self.pending_search.take();
-
-                match response {
-                    api::OwnedClientResponseKind::Search(response) => {
-                        ctx.link().send_message(Msg::SearchResponse(response));
-                    }
-                    api::OwnedClientResponseKind::Analyze(response) => {
-                        ctx.link().send_message(Msg::AnalyzeResponse(response));
-                    }
-                }
-
-                false
-            }
             Msg::Error(error) => {
                 log::error!("{error}");
                 false
@@ -542,7 +520,7 @@ impl Component for Prompt {
                 }
                 Tab::Settings => {
                     let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} {onback} /></div>)
+                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
                 }
             };
 
@@ -558,7 +536,7 @@ impl Component for Prompt {
             match self.query.tab {
                 Tab::Settings => {
                     let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} {onback} /></div>)
+                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
                 }
                 _ => {
                     let onclick = ctx.link().callback(|_| Msg::OpenConfig);
@@ -835,10 +813,13 @@ impl Prompt {
         let serial = self.serials.search();
 
         self.pending_search = Some(ctx.props().ws.request(
-            ctx,
-            api::ClientRequestKind::Search(api::OwnedSearchRequest {
+            api::SearchRequest {
                 q: text,
                 serial: Some(serial),
+            },
+            ctx.link().callback(|result| match result {
+                Ok(response) => Msg::SearchResponse(response),
+                Err(error) => Msg::Error(error),
             }),
         ));
     }
@@ -854,11 +835,14 @@ impl Prompt {
         let serial = self.serials.analyze();
 
         self.pending_search = Some(ctx.props().ws.request(
-            ctx,
-            api::ClientRequestKind::Analyze(api::OwnedAnalyzeRequest {
+            api::AnalyzeRequest {
                 q: input,
                 start: analyze,
                 serial: Some(serial),
+            },
+            ctx.link().callback(|result| match result {
+                Ok(response) => Msg::AnalyzeResponse(response),
+                Err(error) => Msg::Error(error),
             }),
         ));
 

@@ -1374,6 +1374,7 @@ dependencies = [
  "musli-zerocopy",
  "relative-path",
  "serde",
+ "serde_json",
  "thiserror",
  "toml",
  "tracing",

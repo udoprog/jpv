@@ -15,7 +15,9 @@ const JMNEDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMnedict.xml.gz";
 #[error("Invalid index format")]
 pub struct IndexFormatError;
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum IndexFormat {
     #[default]
@@ -38,7 +40,7 @@ impl FromStr for IndexFormat {
 }
 
 /// An index.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfigIndex {
     pub format: IndexFormat,
     pub url: String,
@@ -50,7 +52,7 @@ pub struct ConfigIndex {
 }
 
 /// A configuration used for the application.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     /// Enabled indexes.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

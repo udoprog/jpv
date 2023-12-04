@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::net::SocketAddr;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::ConnectInfo;
 use axum::response::IntoResponse;
@@ -9,7 +9,7 @@ use axum::Extension;
 use futures::sink::SinkExt;
 use futures::stream::SplitSink;
 use futures::stream::StreamExt;
-use lib::api;
+use lib::api::{self, Request};
 use rand::prelude::*;
 use rand::rngs::SmallRng;
 use tokio::sync::broadcast::Receiver;
@@ -323,7 +323,7 @@ async fn run(
                 match message? {
                     Message::Text(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
                     Message::Binary(bytes) => {
-                        let request = match serde_json::from_slice::<api::ClientRequest>(&bytes[..]) {
+                        let request = match serde_json::from_slice::<api::ClientRequestEnvelope>(&bytes[..]) {
                             Ok(event) => event,
                             Err(error) => {
                                 tracing::warn!(?error, "Failed to decode message");
@@ -333,21 +333,48 @@ async fn run(
 
                         tracing::info!("Got request: {:?}", request);
 
-                        let kind = match request.kind {
-                            api::ClientRequestKind::Search(request) => {
+                        let result: Result<serde_json::Value> = match request.kind.as_str() {
+                            api::SearchRequest::KIND => {
+                                let request = serde_json::from_value(request.body)?;
                                 let response = super::handle_search_request(bg, request)?;
-                                api::OwnedClientResponseKind::Search(response)
+                                Ok(serde_json::to_value(&response)?)
                             },
-                            api::ClientRequestKind::Analyze(request) => {
+                            api::AnalyzeRequest::KIND => {
+                                let request = serde_json::from_value(request.body)?;
                                 let response = super::handle_analyze_request(bg, request)?;
-                                api::OwnedClientResponseKind::Analyze(response)
+                                Ok(serde_json::to_value(&response)?)
                             },
+                            api::RebuildRequest::KIND => {
+                                bg.rebuild().await;
+                                Ok(serde_json::Value::Null)
+                            }
+                            api::GetConfigRequest::KIND => {
+                                Ok(serde_json::to_value(&bg.config())?)
+                            }
+                            api::UpdateConfigRequest::KIND => {
+                                let config = serde_json::from_value(request.body)?;
+
+                                if !bg.update_config(config).await {
+                                    Err(anyhow!("Failed to update configuration"))
+                                } else {
+                                    Ok(serde_json::Value::Null)
+                                }
+                            }
+                            _ => {
+                                Err(anyhow!("Unsupported request"))
+                            }
                         };
 
-                        let payload = serde_json::to_vec(&api::OwnedClientEvent::ClientResponse(api::OwnedClientResponse {
+                        let (body, error) = match result {
+                            Ok(value) => (value, None),
+                            Err(error) => (serde_json::Value::Null, Some(error.to_string())),
+                        };
+
+                        let payload = serde_json::to_vec(&api::OwnedClientEvent::ClientResponse(api::ClientResponseEnvelope {
                             index: request.index,
                             serial: request.serial,
-                            kind,
+                            body,
+                            error,
                         }))?;
 
                         sender.send(Message::Binary(payload)).await?;

@@ -5,9 +5,9 @@ use lib::config::ConfigIndex;
 use yew::prelude::*;
 
 use crate::error::Error;
-use crate::{c, fetch};
+use crate::{c, ws};
 
-pub enum Msg {
+pub(crate) enum Msg {
     Config(lib::config::Config),
     Toggle(String),
     IndexAdd,
@@ -19,20 +19,20 @@ pub enum Msg {
     Save,
     Saved,
     Rebuild,
-    Rebuilt,
     Error(Error),
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props {
+pub(crate) struct Props {
     /// Whether the component is embedded or not.
     #[prop_or_default]
-    pub embed: bool,
+    pub(crate) embed: bool,
     /// The current log state.
     #[prop_or_default]
-    pub log: Vec<api::OwnedLogEntry>,
+    pub(crate) log: Vec<api::OwnedLogEntry>,
     ///  What to do when the back button has been pressed.
-    pub onback: Callback<()>,
+    pub(crate) onback: Callback<()>,
+    pub(crate) ws: ws::Handle,
 }
 
 struct State {
@@ -40,11 +40,12 @@ struct State {
     local: lib::config::Config,
 }
 
-pub struct Config {
+pub(crate) struct Config {
     pending: bool,
     state: Option<State>,
     edit_index: HashSet<String>,
     index_add: bool,
+    _get_config: Option<ws::Request>,
 }
 
 impl Component for Config {
@@ -52,18 +53,20 @@ impl Component for Config {
     type Properties = Props;
 
     fn create(ctx: &Context<Self>) -> Self {
-        ctx.link().send_future(async move {
-            match fetch::config().await {
-                Ok(entries) => Msg::Config(entries),
+        let get_config = ctx.props().ws.request(
+            api::GetConfigRequest,
+            ctx.link().callback(|result| match result {
+                Ok(config) => Msg::Config(config),
                 Err(error) => Msg::Error(error),
-            }
-        });
+            }),
+        );
 
         Self {
             pending: true,
             state: None,
             edit_index: HashSet::new(),
             index_add: false,
+            _get_config: Some(get_config),
         }
     }
 
@@ -117,12 +120,16 @@ impl Component for Config {
                     let local = state.local.clone();
                     self.pending = true;
 
-                    ctx.link().send_future(async move {
-                        match fetch::update_config(local).await {
-                            Ok(api::Empty) => Msg::Saved,
-                            Err(error) => Msg::Error(error),
-                        }
-                    });
+                    ctx.props()
+                        .ws
+                        .request(
+                            api::UpdateConfigRequest(local),
+                            ctx.link().callback(|result| match result {
+                                Ok(api::Empty) => Msg::Saved,
+                                Err(error) => Msg::Error(error),
+                            }),
+                        )
+                        .forget();
                 }
             }
             Msg::Saved => {
@@ -133,15 +140,16 @@ impl Component for Config {
                 self.pending = false;
             }
             Msg::Rebuild => {
-                ctx.link().send_future(async move {
-                    match fetch::rebuild().await {
-                        Ok(api::Empty) => Msg::Rebuilt,
-                        Err(error) => Msg::Error(error),
-                    }
-                });
-            }
-            Msg::Rebuilt => {
-                self.pending = false;
+                ctx.props()
+                    .ws
+                    .request(
+                        api::RebuildRequest,
+                        ctx.link().callback(|result| match result {
+                            Ok(api::Empty) => Msg::Rebuild,
+                            Err(error) => Msg::Error(error),
+                        }),
+                    )
+                    .forget();
             }
             Msg::Error(error) => {
                 log::error!("{}", error);

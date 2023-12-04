@@ -150,7 +150,7 @@ async fn kanji(
 }
 
 async fn search(
-    Query(request): Query<api::OwnedSearchRequest>,
+    Query(request): Query<api::SearchRequest>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedSearchResponse>> {
     Ok(Json(handle_search_request(&bg, request)?))
@@ -158,7 +158,7 @@ async fn search(
 
 fn handle_search_request(
     bg: &Background,
-    request: api::OwnedSearchRequest,
+    request: api::SearchRequest,
 ) -> Result<api::OwnedSearchResponse> {
     let db = bg.database();
     let search = db.search(&request.q)?;
@@ -213,7 +213,7 @@ async fn rebuild(Extension(bg): Extension<Background>) -> RequestResult<Json<api
 
 /// Perform text analysis.
 async fn analyze(
-    Query(request): Query<api::OwnedAnalyzeRequest>,
+    Query(request): Query<api::AnalyzeRequest>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedAnalyzeResponse>> {
     Ok(Json(handle_analyze_request(&bg, request)?))
@@ -221,7 +221,7 @@ async fn analyze(
 
 fn handle_analyze_request(
     bg: &Background,
-    request: api::OwnedAnalyzeRequest,
+    request: api::AnalyzeRequest,
 ) -> Result<api::OwnedAnalyzeResponse> {
     let mut data = Vec::new();
 
