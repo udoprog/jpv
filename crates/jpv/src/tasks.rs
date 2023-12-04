@@ -62,21 +62,19 @@ impl Tasks {
 
     /// Drive task completion in general.
     pub(crate) async fn wait(&mut self) -> Result<CompletedTask> {
-        loop {
-            let (index, name) = self
-                .completion
-                .recv()
-                .await
-                .context("Unexpected task queue end")?;
+        let (index, name) = self
+            .completion
+            .recv()
+            .await
+            .context("Unexpected task queue end")?;
 
-            self.tasks.remove(index);
+        self.tasks.remove(index);
 
-            if let Some(name) = &name {
-                self.unique.remove(name);
-            }
-
-            return Ok(CompletedTask { name });
+        if let Some(name) = &name {
+            self.unique.remove(name);
         }
+
+        Ok(CompletedTask { name })
     }
 
     /// Wait for all background tasks to finish.

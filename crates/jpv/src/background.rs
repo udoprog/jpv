@@ -11,11 +11,8 @@ use lib::database::{self, Database, Input};
 use lib::reporter::{Reporter, TracingReporter};
 use lib::token::Token;
 use lib::{api, data, Dirs};
-use reqwest::Method;
 use tempfile::NamedTempFile;
 use tokio::fs;
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
@@ -23,9 +20,6 @@ use crate::reporter::EventsReporter;
 use crate::system::{self, SystemEvents};
 use crate::tasks::{CompletedTask, TaskCompletion, Tasks};
 use crate::Args;
-
-/// The user agent used by jpv.
-const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
 
 pub(crate) struct BackgroundInner {
     config: Config,
@@ -261,6 +255,7 @@ pub struct DownloadOverrides<'a> {
 
 impl<'a> DownloadOverrides<'a> {
     /// Insert a download override.
+    #[cfg(feature = "build")]
     pub fn insert<P>(&mut self, id: &'a str, path: &'a P)
     where
         P: ?Sized + AsRef<Path>,
@@ -306,7 +301,7 @@ pub(crate) async fn build(
     download: &ToDownload,
     force: bool,
 ) -> Result<bool> {
-    let shutdown_token = Token::new();
+    let shutdown_token = Token::default();
     ensure_parent_dir(&download.index_path).await?;
 
     // SAFETY: We are the only ones calling this function now.
@@ -443,7 +438,19 @@ async fn read_or_download(
     Ok((path, string))
 }
 
+#[cfg(not(feature = "reqwest"))]
+async fn download(_: &dyn Reporter, _: &str, _: &Path) -> Result<Vec<u8>> {
+    bail!("Downloading is not supported")
+}
+
+#[cfg(feature = "reqwest")]
 async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec<u8>> {
+    use reqwest::Method;
+    use tokio::io::AsyncWriteExt;
+
+    /// The user agent used by jpv.
+    const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
+
     lib::report_info!(reporter, "Downloading {url} to {}", path.display());
 
     ensure_parent_dir(path).await?;
@@ -461,7 +468,7 @@ async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec
         .content_length()
         .map(|n| usize::try_from(n).unwrap_or(usize::MAX));
 
-    let mut f = File::create(path).await?;
+    let mut f = fs::File::create(path).await?;
     let mut data = Vec::new();
 
     reporter.instrument_start(module_path!(), &format!("Downloading {}", url), total);

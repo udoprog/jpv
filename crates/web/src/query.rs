@@ -44,7 +44,7 @@ impl Query {
     pub(crate) fn to_href(&self, no_embed: bool) -> Option<String> {
         let href = window()?.location().href().ok()?;
         let query = self.serialize(no_embed);
-        let query = serde_urlencoded::to_string(&query).ok()?;
+        let query = serde_urlencoded::to_string(query).ok()?;
         let url = Url::new_with_base("/", &href).ok()?;
         url.set_search(&query);
         Some(url.href())

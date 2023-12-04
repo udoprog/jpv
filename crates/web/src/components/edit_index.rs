@@ -255,7 +255,7 @@ impl Component for EditIndex {
 
 impl EditIndex {
     fn validate(&mut self, ctx: &Context<Self>) {
-        if let Some(id) = ctx.props().index.is_none().then(|| &self.id) {
+        if let Some(id) = ctx.props().index.is_none().then_some(&self.id) {
             if id.is_empty()
                 || !id
                     .chars()
@@ -268,7 +268,7 @@ impl EditIndex {
         }
 
         if self.url.is_empty() {
-            self.errors.url = Some(format!("Must be non-empty"));
+            self.errors.url = Some("Must be non-empty".to_string());
         } else if let Err(error) = Url::parse(&self.url) {
             self.errors.url = Some(error.to_string());
         } else {

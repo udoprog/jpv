@@ -250,8 +250,6 @@ where
                             } else {
                                 pending.callback.emit(Ok(response.body));
                             }
-
-                            return;
                         }
                     }
                 }
@@ -328,12 +326,17 @@ fn now() -> Option<f64> {
 }
 
 /// The handle for a pending request. Dropping this handle cancels the request.
+#[derive(Default)]
 pub struct Request {
-    index: Option<usize>,
-    shared: Rc<Shared>,
+    inner: Option<(Rc<Shared>, usize)>,
 }
 
 impl Request {
+    /// An empty request handler.
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
     /// Forget the request handle, without cancelling the request.
     #[inline]
     pub fn forget(self) {
@@ -344,8 +347,8 @@ impl Request {
 impl Drop for Request {
     #[inline]
     fn drop(&mut self) {
-        if let Some(index) = self.index.take() {
-            self.shared.requests.borrow_mut().try_remove(index);
+        if let Some((shared, index)) = self.inner.take() {
+            shared.requests.borrow_mut().try_remove(index);
         }
     }
 }
@@ -393,10 +396,7 @@ impl Handle {
             Ok(body) => body,
             Err(error) => {
                 callback.emit(Err(Error::from(error)));
-                return Request {
-                    index: None,
-                    shared: self.shared.clone(),
-                };
+                return Request::default();
             }
         };
 
@@ -436,8 +436,7 @@ impl Handle {
         });
 
         Request {
-            index: Some(index),
-            shared: self.shared.clone(),
+            inner: Some((self.shared.clone(), index)),
         }
     }
 

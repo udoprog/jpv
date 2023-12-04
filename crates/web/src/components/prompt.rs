@@ -75,7 +75,7 @@ pub(crate) struct Prompt {
     limit_entries: usize,
     characters: Vec<kanjidic2::OwnedCharacter>,
     limit_characters: usize,
-    pending_search: Option<ws::Request>,
+    pending_search: ws::Request,
     log: Vec<api::OwnedLogEntry>,
     tasks: BTreeMap<String, api::OwnedTaskProgress>,
     analysis: Rc<[Rc<str>]>,
@@ -107,7 +107,7 @@ impl Component for Prompt {
         });
 
         if let Some(window) = window() {
-            window.set_onmessage(Some(&callback.as_ref().unchecked_ref()));
+            window.set_onmessage(Some(callback.as_ref().unchecked_ref()));
         }
 
         let location_handle = ctx
@@ -125,7 +125,7 @@ impl Component for Prompt {
             limit_entries: DEFAULT_LIMIT,
             characters: Vec::default(),
             limit_characters: DEFAULT_LIMIT,
-            pending_search: None,
+            pending_search: ws::Request::empty(),
             log: Vec::new(),
             tasks: BTreeMap::new(),
             analysis: Rc::from([]),
@@ -839,13 +839,13 @@ impl Prompt {
 
         let text = text.to_lowercase();
 
-        self.pending_search = Some(ctx.props().ws.request(
+        self.pending_search = ctx.props().ws.request(
             api::SearchRequest { q: text },
             ctx.link().callback(|result| match result {
                 Ok(response) => Msg::SearchResponse(response),
                 Err(error) => Msg::Error(error),
             }),
-        ));
+        );
     }
 
     fn analyze(&mut self, ctx: &Context<Self>) -> bool {
@@ -857,7 +857,7 @@ impl Prompt {
 
         let input = self.query.text.as_ref().to_owned();
 
-        self.pending_search = Some(ctx.props().ws.request(
+        self.pending_search = ctx.props().ws.request(
             api::AnalyzeRequest {
                 q: input,
                 start: analyze,
@@ -866,7 +866,7 @@ impl Prompt {
                 Ok(response) => Msg::AnalyzeResponse(response),
                 Err(error) => Msg::Error(error),
             }),
-        ));
+        );
 
         true
     }

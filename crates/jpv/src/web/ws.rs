@@ -212,7 +212,7 @@ async fn system_event(
 }
 
 #[cfg(not(feature = "tesseract"))]
-fn handle_image(_: &str, _: &system::SendClipboardData) -> Result<Option<api::ClientEvent>> {
+fn handle_image(_: &str, _: &system::SendClipboardData) -> Result<Option<api::OwnedClientEvent>> {
     Ok(None)
 }
 

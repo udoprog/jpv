@@ -207,7 +207,7 @@ fn handle_method_call<'a>(
 
                 tracing::trace!(?mimetype, len = data.len());
 
-                let _ = state
+                state
                     .system_events
                     .send(Event::SendClipboardData(SendClipboardData {
                         mimetype: mimetype.to_owned(),
