@@ -168,8 +168,10 @@ impl Background {
 
                 task.await??;
 
-                let indexes = data::open_from_args(&args.index[..], &self.dirs)?;
-                let db = lib::database::Database::open(indexes, &new_config)?;
+                let indexes = data::open_from_args(&args.index[..], &self.dirs)
+                    .context("Opening database files")?;
+                let db = lib::database::Database::open(indexes, &new_config)
+                    .context("Opening the database")?;
                 self.inner.write().unwrap().database = db;
                 let _ = callback.send(());
             }

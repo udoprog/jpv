@@ -763,6 +763,7 @@ impl Index {
 #[derive(Clone)]
 pub struct Database {
     indexes: Arc<[Index]>,
+    disabled: Arc<[String]>,
 }
 
 impl Database {
@@ -772,12 +773,14 @@ impl Database {
         I: IntoIterator<Item = (Data, Location)>,
     {
         let mut indexes = Vec::new();
+        let mut disabled = Vec::new();
 
         for (data, location) in iter {
             let index =
                 Index::open(data).with_context(|| anyhow!("Loading index from {location}"))?;
 
             if !config.is_enabled(index.name()?) {
+                disabled.push(index.name()?.to_owned());
                 continue;
             }
 
@@ -786,6 +789,7 @@ impl Database {
 
         Ok(Self {
             indexes: indexes.into(),
+            disabled: disabled.into(),
         })
     }
 
@@ -797,6 +801,7 @@ impl Database {
             output.insert(index.data.as_buf().load(index.header.name)?.to_owned());
         }
 
+        output.extend(self.disabled.iter().cloned());
         Ok(output)
     }
 
