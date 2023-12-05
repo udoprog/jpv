@@ -10,7 +10,6 @@ use lib::data;
 use lib::Dirs;
 use tokio::signal::ctrl_c;
 #[cfg(windows)]
-use tokio::signal::windows::ctrl_shutdown;
 use tokio::sync::Notify;
 
 use crate::background::Background;
@@ -20,6 +19,20 @@ use crate::system;
 use crate::tasks::Tasks;
 use crate::web;
 use crate::Args;
+
+#[cfg(windows)]
+async fn shutdown_signal() -> Result<()> {
+    use tokio::signal::windows::ctrl_shutdown;
+    let mut ctrl_shutdown = ctrl_shutdown()?;
+    ctrl_shutdown.recv().await;
+    Ok(())
+}
+
+#[cfg(not(windows))]
+async fn shutdown_signal() -> Result<()> {
+    std::future::pending().await;
+    Ok(())
+}
 
 #[derive(Default, Parser)]
 pub(crate) struct ServiceArgs {
@@ -110,7 +123,20 @@ pub(crate) async fn run(
 
     let mut tasks = Tasks::new();
 
-    let mut ctrl_c = pin!(Fuse::new(ctrl_c()));
+    let mut shutdown_signal = pin!(async {
+        let mut shutdown_signal = pin!(shutdown_signal());
+        let mut ctrl_c = pin!(Fuse::new(ctrl_c()));
+
+        tokio::select! {
+            result = shutdown_signal.as_mut() => {
+                result?;
+            }
+            _ = ctrl_c.as_mut() => {
+            }
+        }
+
+        Ok::<_, anyhow::Error>(())
+    });
 
     loop {
         tokio::select! {
@@ -129,7 +155,7 @@ pub(crate) async fn run(
                 let completed = result?;
                 background.complete_task(completed);
             }
-            _ = ctrl_c.as_mut() => {
+            _ = shutdown_signal.as_mut() => {
                 tracing::info!("Shutting down...");
                 shutdown.notify_one();
 

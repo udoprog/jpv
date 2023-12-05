@@ -48,9 +48,6 @@ effort on it that I think it might be useful for others.
 
 Install dependencies for the platform you intend to build for:
 
-* For the `ocr` feature:
-  * `Fedora` - `sudo dnf install gcc glib2-devel openssl-devel tesseract-devel leptonica-devel`
-
 Install [`trunk`] and the `wasm32` toolchain to build the UI:
 
 [`trunk`]: https://trunkrs.dev/
@@ -60,12 +57,48 @@ cargo install trunk
 cargo toolchain add wasm32-unknown-unknown
 ```
 
+#### Fedora
+
+```
+sudo dnf install openssl-devel
+```
+
+For the `ocr` feature:
+
+```
+sudo dnf install gcc tesseract-devel leptonica-devel
+```
+
+For the `gnome` feature, we make use of `gio` in order to launch a browser
+window which needs `glib2`:
+
+```
+sudo dnf install glib2-devel
+```
+
+#### Windows
+
+You need to use `vcpkg` to install all needed dependencies.
+
+For the `ocr` feature:
+
+```
+vcpkg install leptonica
+vcpkg install tesseract
+$env:VCPKGRS_DYNAMIC="1"
+```
+
+#### Building the project
+
 After this, you can run the project directly in the project directory:
 
 ```sh
 trunk build --release
-cargo run --features bundle,gnome
+cargo run --features bundle
 ```
+
+> **Note:** On Linux, you probably want to include the `gnome` feature for
+> desktop integration.
 
 There are scripts available to conveniently build and install packages for
 specific environments:

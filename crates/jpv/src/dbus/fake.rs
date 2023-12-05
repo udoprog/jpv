@@ -10,3 +10,7 @@ pub(crate) async fn send_clipboard(_: Option<&str>, _: &[u8]) -> Result<()> {
 pub(crate) async fn setup(_: &ServiceArgs) -> Result<Setup> {
     Ok(Setup::Start(None))
 }
+
+pub(crate) async fn shutdown() -> Result<()> {
+    Ok(())
+}

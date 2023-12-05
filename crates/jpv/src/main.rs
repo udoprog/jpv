@@ -208,13 +208,11 @@ mod web;
 
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use clap::Subcommand;
 use lib::config::Config;
 use lib::Dirs;
-#[cfg(windows)]
-use tokio::signal::windows::ctrl_shutdown;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
@@ -266,7 +264,7 @@ async fn main() -> Result<()> {
 
     let dirs = Dirs::open()?;
 
-    let config = Config::load(&dirs)?;
+    let config = Config::load(&dirs).context("Loading configuration")?;
 
     match &args.command {
         None => {

@@ -15,17 +15,17 @@ categories = ["development-tools"]
 default-run = "jpv"
 
 [features]
-default = ["build", "mmap"]
+default = ["build", "memmap"]
 bundle = ["rust-embed", "mime_guess"]
 build = ["reqwest"]
 gnome = ["dbus", "gio", "ocr"]
-mmap = ["lib/mmap"]
+memmap = ["lib/memmap"]
 ocr = ["tesseract"]
 dbus = ["dep:tokio-dbus"]
+cli = []
 
 [dependencies]
 lib = { package = "jpv-lib", path = "../jpv-lib" }
-tesseract = { package = "jpv-tesseract", path = "../jpv-tesseract", optional = true }
 anyhow = "1.0.75"
 axum = { version = "0.6.20", features = ["ws"] }
 tokio = { version = "1.33.0", features = ["full"] }
@@ -53,6 +53,7 @@ twox-hash = "1.6.3"
 [target.'cfg(unix)'.dependencies]
 tokio-dbus = { version = "0.0.16", optional = true }
 gio = { version = "0.18.3", optional = true }
+tesseract = { package = "jpv-tesseract", path = "../jpv-tesseract", optional = true }
 
 [package.metadata.generate-rpm]
 assets = [

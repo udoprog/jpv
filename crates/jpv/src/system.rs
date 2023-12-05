@@ -7,7 +7,7 @@ use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::sync::futures::Notified;
 
 /// Service startup.
-pub trait Start {
+pub(crate) trait Start {
     fn start<'a>(
         &'a mut self,
         port: u16,
@@ -66,9 +66,7 @@ impl SystemEvents {
     }
 
     pub(crate) fn send(&self, value: Event) {
-        if let Err(error) = self.0.send(value) {
-            tracing::error!("{}", error);
-        }
+        let _ = self.0.send(value);
     }
 
     pub(crate) fn subscribe(&self) -> Receiver<Event> {

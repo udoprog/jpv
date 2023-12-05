@@ -2,11 +2,11 @@
 
 pub(crate) use self::r#impl::Data;
 
-#[cfg(all(unix, feature = "mmap"))]
+#[cfg(feature = "memmap")]
 #[path = "mmap.rs"]
 mod r#impl;
 
-#[cfg(any(not(unix), not(feature = "mmap")))]
+#[cfg(not(feature = "memmap"))]
 #[path = "buf.rs"]
 mod r#impl;
 

@@ -1,7 +1,6 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use directories::ProjectDirs;
@@ -39,7 +38,15 @@ impl Dirs {
     pub fn indexes(&self) -> Result<Vec<PathBuf>> {
         let mut indexes = Vec::new();
 
-        let d = fs::read_dir(self.project_dirs.data_dir())?;
+        let d = match fs::read_dir(self.project_dirs.data_dir()) {
+            Ok(d) => d,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                return Ok(indexes);
+            }
+            Err(e) => {
+                return Err(e).context("Could not read data directory");
+            }
+        };
 
         for e in d {
             let e = e?;

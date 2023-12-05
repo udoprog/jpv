@@ -18,6 +18,7 @@ pub(crate) enum Msg {
     IndexSave(String, ConfigIndex),
     Save,
     Saved,
+    InstallingAll,
     InstallAll,
     Error(Error),
 }
@@ -46,7 +47,7 @@ pub(crate) struct Config {
     installed: HashSet<String>,
     edit_index: HashSet<String>,
     index_add: bool,
-    _get_config: Option<ws::Request>,
+    request: ws::Request,
 }
 
 impl Component for Config {
@@ -54,7 +55,7 @@ impl Component for Config {
     type Properties = Props;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let get_config = ctx.props().ws.request(
+        let request = ctx.props().ws.request(
             api::GetConfig,
             ctx.link().callback(|result| match result {
                 Ok(config) => Msg::GetConfig(config),
@@ -68,7 +69,7 @@ impl Component for Config {
             installed: HashSet::new(),
             edit_index: HashSet::new(),
             index_add: false,
-            _get_config: Some(get_config),
+            request,
         }
     }
 
@@ -123,16 +124,13 @@ impl Component for Config {
                     let local = state.local.clone();
                     self.pending = true;
 
-                    ctx.props()
-                        .ws
-                        .request(
-                            api::UpdateConfigRequest(local),
-                            ctx.link().callback(|result| match result {
-                                Ok(api::Empty) => Msg::Saved,
-                                Err(error) => Msg::Error(error),
-                            }),
-                        )
-                        .forget();
+                    self.request = ctx.props().ws.request(
+                        api::UpdateConfigRequest(local),
+                        ctx.link().callback(|result| match result {
+                            Ok(api::Empty) => Msg::Saved,
+                            Err(error) => Msg::Error(error),
+                        }),
+                    );
                 }
             }
             Msg::Saved => {
@@ -143,16 +141,18 @@ impl Component for Config {
                 self.pending = false;
             }
             Msg::InstallAll => {
-                ctx.props()
-                    .ws
-                    .request(
-                        api::InstallAllRequest,
-                        ctx.link().callback(|result| match result {
-                            Ok(api::Empty) => Msg::InstallAll,
-                            Err(error) => Msg::Error(error),
-                        }),
-                    )
-                    .forget();
+                self.pending = true;
+
+                self.request = ctx.props().ws.request(
+                    api::InstallAllRequest,
+                    ctx.link().callback(|result| match result {
+                        Ok(api::Empty) => Msg::InstallingAll,
+                        Err(error) => Msg::Error(error),
+                    }),
+                );
+            }
+            Msg::InstallingAll => {
+                self.pending = false;
             }
             Msg::Error(error) => {
                 log::error!("{}", error);
@@ -288,9 +288,19 @@ impl Component for Config {
 
         let disabled = self.pending || matches!(&self.state, Some(s) if s.local == s.remote);
 
+        let pending = self.pending.then(|| {
+            html! {
+                <div class="block block-lg row row-spaced">
+                    <div class="spinner">{"Loading"}</div>
+                </div>
+            }
+        });
+
         html! {
             <>
                 <h5>{"Dictionaries"}</h5>
+
+                {pending}
 
                 <div class="block block-lg">{config}</div>
 

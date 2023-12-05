@@ -1,6 +1,6 @@
 use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
-use std::mem::{forget, take};
+use std::mem::take;
 use std::rc::Rc;
 
 use anyhow::anyhow;
@@ -335,12 +335,6 @@ impl Request {
     /// An empty request handler.
     pub fn empty() -> Self {
         Self::default()
-    }
-
-    /// Forget the request handle, without cancelling the request.
-    #[inline]
-    pub fn forget(self) {
-        forget(self);
     }
 }
 
