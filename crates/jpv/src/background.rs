@@ -448,9 +448,6 @@ async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec
     use reqwest::Method;
     use tokio::io::AsyncWriteExt;
 
-    /// The user agent used by jpv.
-    const USER_AGENT: &str = concat!("jpv/", env!("CARGO_PKG_VERSION"));
-
     lib::report_info!(reporter, "Downloading {url} to {}", path.display());
 
     ensure_parent_dir(path).await?;
@@ -459,7 +456,7 @@ async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec
 
     let request = client
         .request(Method::GET, url)
-        .header("User-Agent", USER_AGENT)
+        .header("User-Agent", crate::USER_AGENT)
         .build()?;
 
     let mut response = client.execute(request).await?;

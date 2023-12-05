@@ -205,6 +205,10 @@ mod reporter;
 mod system;
 mod tasks;
 mod web;
+mod windows;
+
+static VERSION: &str = include_str!(concat!(env!("OUT_DIR"), "/version.txt"));
+static USER_AGENT: &str = include_str!(concat!(env!("OUT_DIR"), "/user_agent.txt"));
 
 use std::path::PathBuf;
 

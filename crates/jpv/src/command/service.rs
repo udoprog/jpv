@@ -9,7 +9,6 @@ use lib::config::Config;
 use lib::data;
 use lib::Dirs;
 use tokio::signal::ctrl_c;
-#[cfg(windows)]
 use tokio::sync::Notify;
 
 use crate::background::Background;
@@ -18,6 +17,7 @@ use crate::open_uri;
 use crate::system;
 use crate::tasks::Tasks;
 use crate::web;
+use crate::windows;
 use crate::Args;
 
 #[cfg(windows)]
@@ -91,9 +91,31 @@ pub(crate) async fn run(
         }
     };
 
+    let mut windows = match windows::setup()? {
+        system::Setup::Start(windows) => windows,
+        system::Setup::Port(port) => {
+            tracing::info!("Listening on http://localhost:{port}");
+
+            if !service_args.no_open {
+                let address = format!("http://localhost:{port}");
+                open_uri::open(&address);
+            }
+
+            return Ok(());
+        }
+        system::Setup::Busy => {
+            return Ok(());
+        }
+    };
+
     let listener = TcpListener::bind(addr)?;
     let local_addr = listener.local_addr()?;
     let local_port = web::PORT.unwrap_or(local_addr.port());
+
+    let mut windows = match &mut windows {
+        Some(windows) => Fuse::new(windows.start(local_port, shutdown.notified(), &system_events)),
+        None => Fuse::empty(),
+    };
 
     let mut dbus = match &mut dbus {
         Some(dbus) => Fuse::new(dbus.start(local_port, shutdown.notified(), &system_events)),
@@ -123,22 +145,20 @@ pub(crate) async fn run(
 
     let mut tasks = Tasks::new();
 
-    let mut shutdown_signal = pin!(async {
-        let mut shutdown_signal = pin!(shutdown_signal());
-        let mut ctrl_c = pin!(Fuse::new(ctrl_c()));
-
+    let mut shutdown_signal = pin!(Fuse::new(async {
         tokio::select! {
-            result = shutdown_signal.as_mut() => {
+            result = shutdown_signal() => {
                 result?;
             }
-            _ = ctrl_c.as_mut() => {
+            result = ctrl_c() => {
+                result?;
             }
         }
 
         Ok::<_, anyhow::Error>(())
-    });
+    }));
 
-    loop {
+    while !dbus.is_empty() || !windows.is_empty() {
         tokio::select! {
             result = server.as_mut() => {
                 result?;
@@ -146,7 +166,12 @@ pub(crate) async fn run(
             result = dbus.as_pin_mut() => {
                 result?;
                 tracing::info!("D-Bus integration shut down");
-                break;
+                shutdown.notify_waiters();
+            }
+            result = windows.as_pin_mut() => {
+                result?;
+                tracing::info!("Windows integration shut down");
+                shutdown.notify_waiters();
             }
             Some(event) = receiver.recv() => {
                 background.handle_event(event, args, &mut tasks).await.context("Handling background event")?;
@@ -157,11 +182,7 @@ pub(crate) async fn run(
             }
             _ = shutdown_signal.as_mut() => {
                 tracing::info!("Shutting down...");
-                shutdown.notify_one();
-
-                if dbus.is_empty() {
-                    break;
-                }
+                shutdown.notify_waiters();
             }
         }
     }

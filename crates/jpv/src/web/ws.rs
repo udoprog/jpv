@@ -228,7 +228,7 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::O
         _ => return Ok(None),
     };
 
-    tracing::info!(len = c.data.len(), "Decoding image");
+    tracing::trace!(len = c.data.len(), "Decoding image");
 
     let image = match image::load_from_memory_with_format(&c.data[..], format) {
         Ok(image) => image,
@@ -243,7 +243,7 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::O
     let height = usize::try_from(image.height())?;
     let bytes_per_pixel = usize::try_from(image.color().bytes_per_pixel())?;
 
-    tracing::info!(len = data.len(), width, height, bytes_per_pixel);
+    tracing::trace!(len = data.len(), width, height, bytes_per_pixel);
 
     let text = match tesseract::image_to_text("jpn", data, width, height, bytes_per_pixel) {
         Ok(text) => text,
@@ -255,7 +255,7 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::O
 
     let trimmed = trim_whitespace(&text[..]);
 
-    tracing::info!(text = &text[..], ?trimmed, "Recognized");
+    tracing::trace!(text = &text[..], ?trimmed, "Recognized");
 
     Ok(Some(api::OwnedClientEvent::Broadcast(
         api::OwnedBroadcast {
@@ -272,7 +272,7 @@ async fn run(
     socket: WebSocket,
     bg: &Background,
 ) -> Result<()> {
-    tracing::info!("Accepted");
+    tracing::trace!("Accepted");
 
     const CLOSE_NORMAL: u16 = 1000;
     const CLOSE_PROTOCOL_ERROR: u16 = 1002;
@@ -331,7 +331,7 @@ async fn run(
                             }
                         };
 
-                        tracing::info!("Got request: {:?}", request);
+                        tracing::trace!("Got request: {:?}", request);
 
                         let result: Result<serde_json::Value> = match request.kind.as_str() {
                             api::SearchRequest::KIND => {
@@ -412,7 +412,7 @@ async fn run(
     };
 
     if let Some((code, reason)) = close_here {
-        tracing::info!(code, reason, "Closing websocket with reason");
+        tracing::trace!(code, reason, "Closing websocket with reason");
 
         sender
             .send(Message::Close(Some(CloseFrame {
@@ -421,7 +421,7 @@ async fn run(
             })))
             .await?;
     } else {
-        tracing::info!("Closing websocket");
+        tracing::trace!("Closing websocket");
     };
 
     Ok(())

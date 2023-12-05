@@ -55,6 +55,13 @@ tokio-dbus = { version = "0.0.16", optional = true }
 gio = { version = "0.18.3", optional = true }
 tesseract = { package = "jpv-tesseract", path = "../jpv-tesseract", optional = true }
 
+[target.'cfg(windows)'.dependencies]
+winctx = "0.0.6"
+
+[build-dependencies]
+anyhow = "1.0.75"
+winres = "0.1.12"
+
 [package.metadata.generate-rpm]
 assets = [
     { source = "target/release/jpv", dest = "/usr/bin/", mode = "755" },
