@@ -1,4 +1,5 @@
 /node_modules/
 /out/
-/jpv*.xpi
+/jpv-*.xpi
 /jpv.js
+/jpv-*-source.zip
