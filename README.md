@@ -48,6 +48,9 @@ effort on it that I think it might be useful for others.
 
 Install dependencies for the platform you intend to build for:
 
+* For the `ocr` feature:
+  * `Fedora` - `sudo dnf install tesseract-devel`
+
 Install [`trunk`] and the `wasm32` toolchain to build the UI:
 
 [`trunk`]: https://trunkrs.dev/
@@ -57,24 +60,28 @@ cargo install trunk
 cargo toolchain add wasm32-unknown-unknown
 ```
 
+<br>
+
 #### Fedora
 
-```
+```rust
 sudo dnf install openssl-devel
 ```
 
 For the `ocr` feature:
 
-```
+```rust
 sudo dnf install gcc tesseract-devel leptonica-devel
 ```
 
 For the `gnome` feature, we make use of `gio` in order to launch a browser
 window which needs `glib2`:
 
-```
+```rust
 sudo dnf install glib2-devel
 ```
+
+<br>
 
 #### Windows
 
@@ -82,11 +89,13 @@ You need to use `vcpkg` to install all needed dependencies.
 
 For the `ocr` feature:
 
-```
+```rust
 vcpkg install leptonica
 vcpkg install tesseract
 $env:VCPKGRS_DYNAMIC="1"
 ```
+
+<br>
 
 #### Building the project
 
