@@ -249,7 +249,9 @@ mod tasks;
 mod web;
 mod windows;
 
+#[allow(unused)]
 static VERSION: &str = include_str!(concat!(env!("OUT_DIR"), "/version.txt"));
+#[allow(unused)]
 static USER_AGENT: &str = include_str!(concat!(env!("OUT_DIR"), "/user_agent.txt"));
 
 use std::path::PathBuf;
@@ -271,7 +273,6 @@ enum Command {
     /// Send clipboard to the service.
     SendClipboard(command::send_clipboard::SendClipboardArgs),
     /// Build the dictionary database. This must be performed before the cli or service can be used.
-    #[cfg(feature = "build")]
     Build(command::build::BuildArgs),
 }
 
@@ -326,7 +327,6 @@ async fn main() -> Result<()> {
         Some(Command::SendClipboard(send_clipboard_args)) => {
             self::command::send_clipboard::run(send_clipboard_args).await?;
         }
-        #[cfg(feature = "build")]
         Some(Command::Build(build_args)) => {
             self::command::build::run(&args, build_args, &dirs, config).await?;
         }

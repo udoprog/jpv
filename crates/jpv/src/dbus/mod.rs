@@ -6,4 +6,5 @@ mod r#impl;
 #[path = "fake.rs"]
 mod r#impl;
 
-pub(crate) use r#impl::{send_clipboard, setup, shutdown};
+pub(crate) use r#impl::shutdown;
+pub(crate) use r#impl::{send_clipboard, setup};

@@ -257,7 +257,6 @@ pub struct DownloadOverrides<'a> {
 
 impl<'a> DownloadOverrides<'a> {
     /// Insert a download override.
-    #[cfg(feature = "build")]
     pub fn insert<P>(&mut self, id: &'a str, path: &'a P)
     where
         P: ?Sized + AsRef<Path>,

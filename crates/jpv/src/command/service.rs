@@ -30,7 +30,7 @@ async fn shutdown_signal() -> Result<()> {
 
 #[cfg(not(windows))]
 async fn shutdown_signal() -> Result<()> {
-    std::future::pending().await;
+    std::future::pending::<()>().await;
     Ok(())
 }
 
