@@ -43,6 +43,6 @@ where
     }
 
     let mut buf = OwnedBuf::new();
-    read(&path, &mut buf)?;
+    read(path, &mut buf)?;
     Ok(Data { buf })
 }
