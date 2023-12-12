@@ -284,7 +284,7 @@ function openWindow(element: Element | null, point: Point | null) {
     if (DEBUG) {
         console.debug(pos);
     }
-    
+
     if (!visible) {
         iframe.classList.add('active');
         visible = true;
@@ -390,7 +390,7 @@ async function start() {
 }
 
 browser.storage.sync.onChanged.addListener((changes) => {
-    let {newValue} = changes[`by-site/${location.host}`];
+    let { newValue } = changes[`by-site/${location.host}`];
 
     if (newValue !== undefined) {
         initialize(toSetting(newValue));

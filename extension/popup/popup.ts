@@ -1,10 +1,17 @@
 import { Setting, saveSetting, loadSetting } from "../lib/lib";
 
-function setupToggle(power: HTMLInputElement, host: string, setting: Setting) {
-    power.addEventListener("click", async () => {
+interface Elements {
+    power: HTMLInputElement;
+    domain: HTMLDivElement;
+    status: HTMLDivElement;
+    hint: HTMLDivElement;
+}
+
+function setupToggle(elements: Elements, host: string, setting: Setting) {
+    elements.power.addEventListener("click", async () => {
         setting.enabled = !setting.enabled;
         saveSetting(host, setting);
-        updateState(power, host, setting);
+        updateState(elements, host, setting);
 
         let tabs = await browser.tabs.query({ url: `*://${host}/*` });
 
@@ -17,14 +24,18 @@ function setupToggle(power: HTMLInputElement, host: string, setting: Setting) {
         }
     });
 
-    updateState(power, host, setting);
+    updateState(elements, host, setting);
 }
 
-function updateState(power: HTMLInputElement, host: string, setting: Setting) {
+function updateState(elements: Elements, host: string, setting: Setting) {
     if (setting.enabled) {
-        power.classList.add("active");
+        elements.power.classList.add("active");
+        elements.hint.classList.add("active");
+        elements.status.textContent = "enabled";
     } else {
-        power.classList.remove("active");
+        elements.power.classList.remove("active");
+        elements.hint.classList.remove("active");
+        elements.status.textContent = "disabled";
     }
 }
 
@@ -43,12 +54,16 @@ async function setup() {
 
     let url = new URL(tab.url);
 
-    let power = document.getElementById("power") as HTMLInputElement;
-    let domain = document.getElementById("domain") as HTMLDivElement;
+    let elements = {
+        power: document.getElementById("power") as HTMLInputElement,
+        domain: document.getElementById("domain") as HTMLDivElement,
+        status: document.getElementById("status") as HTMLDivElement,
+        hint: document.getElementById("hint") as HTMLDivElement,
+    } as Elements;
 
-    domain.textContent = url.host;
+    elements.domain.textContent = url.host;
     let setting = await loadSetting(url.host);
-    setupToggle(power, url.host, setting);
+    setupToggle(elements, url.host, setting);
 }
 
 window.addEventListener("load", () => {

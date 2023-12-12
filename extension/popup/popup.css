@@ -1,12 +1,18 @@
 html,
 body {
+  font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
   width: 320px;
   padding: 0;
   margin: 0;
+  background-color: #f6f6f6;
 }
 
 .hidden {
   display: none;
+}
+
+.brand {
+  color: #343e3e;
 }
 
 #domain {
@@ -23,17 +29,32 @@ body {
   text-align: center;
 }
 
-button#power {
-  color: #581708;
-  font-size: 3em;
-  border: 1px solid #581708;
-  border-radius: 0.5rem;
-  width: 1.5em;
-  height: 1.5em;
+#power {
+  margin: 0 auto;
+  width: auto;
+  height: auto;
+  font-size: 6em;
+  cursor: pointer;
+  color: #00000000;
+  -webkit-text-stroke: 2px #581708;
 }
 
-button#power.active {
+#power.active {
   color: #ff3c10;
-  border: 1px solid #ff3c10;
-  border-radius: 0.5rem;
+  -webkit-text-stroke: 2px #ff866b;
+  -webkit-text-stroke-width: 0px;
+}
+
+#hint {
+  margin-top: 0.5rem;
+  font-size: 0.8em;
+  display: none;
+}
+
+#hint.active {
+  display: block;
+}
+
+.line {
+  text-align: center;
 }
