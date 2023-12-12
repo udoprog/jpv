@@ -5,9 +5,15 @@ interface Elements {
     domain: HTMLDivElement;
     status: HTMLDivElement;
     hint: HTMLDivElement;
+    select: HTMLInputElement;
 }
 
 function setupToggle(elements: Elements, host: string, setting: Setting) {
+    elements.select.addEventListener("change", e => {
+        setting.select = elements.select.checked;
+        saveSetting(host, setting);
+    });
+
     elements.power.addEventListener("click", async () => {
         setting.enabled = !setting.enabled;
         saveSetting(host, setting);
@@ -24,6 +30,7 @@ function setupToggle(elements: Elements, host: string, setting: Setting) {
         }
     });
 
+    elements.select.checked = setting.select;
     updateState(elements, host, setting);
 }
 
@@ -63,10 +70,12 @@ async function setup() {
         domain: document.getElementById("domain") as HTMLDivElement,
         status: document.getElementById("status") as HTMLDivElement,
         hint: document.getElementById("hint") as HTMLDivElement,
+        select: document.getElementById("select") as HTMLInputElement,
     } as Elements;
 
     elements.power.classList.add("clickable");
     elements.domain.textContent = url.host;
+    elements.select.disabled = false;
     let setting = await loadSetting(url.host);
     setupToggle(elements, url.host, setting);
 }

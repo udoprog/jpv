@@ -4,17 +4,21 @@ export interface ControlMessage {
 
 export interface Setting {
     enabled: boolean;
+    select: boolean;
+}
+
+function toBoolean(data: any, key: string, defaultValue: boolean): void {
+    if (data[key] === undefined) {
+        data[key] = defaultValue;
+    } else {
+        data[key] = !!data[key];
+    }
 }
 
 export function toSetting(data: any): Setting {
     data = Object.assign({}, data || {});
-
-    if (data.enabled === undefined) {
-        data.enabled = true;
-    } else {
-        data.enabled = !!data.enabled;
-    }
-
+    toBoolean(data, "enabled", true);
+    toBoolean(data, "select", true);
     return data as Setting;
 }
 
@@ -24,15 +28,19 @@ export async function loadSetting(host: string): Promise<Setting> {
     return toSetting(data);
 }
 
-export async function saveSetting(host: string, setting: Setting): Promise<void> {
-    let value: {[key: string]: any} = {};
-
-    if (!setting.enabled) {
-        value.enabled = false;
+function saveBoolean(output: { [key: string]: any; }, key: string, value: boolean) {
+    if (!value) {
+        output[key] = false;
     }
+}
+
+export async function saveSetting(host: string, setting: Setting): Promise<void> {
+    let output: {[key: string]: any} = {};
+
+    saveBoolean(output, "enabled", setting.enabled);
+    saveBoolean(output, "select", setting.select);
 
     let update: {[key: string]: any} = {};
-    update[`by-site/${host}`] = value;
-
+    update[`by-site/${host}`] = output;
     await browser.storage.sync.set(update);
 }

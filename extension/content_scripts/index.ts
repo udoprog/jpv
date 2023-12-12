@@ -1,25 +1,30 @@
 import { Point, rectContainsAny } from './utils';
 import { Boundaries, Bound } from './boundaries';
-import { ControlMessage, Setting, loadSetting, toSetting } from '../lib/lib';
+import { Setting, loadSetting, toSetting } from '../lib/lib';
 
 const DEBUG = false;
 const WIDTH = 400;
 const HEIGHT = 600;
 const PADDING = 10;
-const SELECT = true;
-const MAX_X_OFFSET = 1024;
 
 // Global state.
-let iframe: HTMLIFrameElement | null = null;
-let visible: boolean = false;
-let lastElement: Element | null = null;
-let lastPoint: Point | null = null;
-let currentText: string | null = null;
-let currentPointOver: number | null = null;
+let gIframe: HTMLIFrameElement | null = null;
+let gVisible: boolean = false;
+let gLastElement: HTMLElement | null = null;
+let gLastPoint: Point | null = null;
+let gCurrentText: string | null = null;
+let gCurrentPointOver: number | null = null;
+let gSetting: Setting = toSetting(null);
+let gOldCursor: OldCursor | null = null;
 
 interface UpdateMessage {
     text: string;
     analyze_at_char?: number;
+}
+
+interface OldCursor {
+    element: HTMLElement;
+    cursor: string;
 }
 
 function isValidStart(el: Element): boolean {
@@ -38,7 +43,7 @@ function isInlineElement(el: Node | null): boolean {
 /**
  * @returns {Element | null} The bounding element or null if it contains no text.
  */
-function getBoundingElement(el: Element): Element | null {
+function getBoundingElement(el: HTMLElement): HTMLElement | null {
     if (!el.textContent) {
         return null;
     }
@@ -51,25 +56,54 @@ function getBoundingElement(el: Element): Element | null {
 
     if (isInlineElement(current)) {
         while (isInlineElement(current.parentNode)) {
-            current = current.parentNode as Element;
+            current = current.parentNode as HTMLElement;
         }
 
         if (current.parentNode) {
-            current = current.parentNode as Element;
+            current = current.parentNode as HTMLElement;
         }
     }
 
     return current;
 }
 
+function setCursor(element: HTMLElement) {
+    if (gOldCursor !== null) {
+        if (gOldCursor.element === element) {
+            return;
+        }
+
+        // Restore old cursor since element has changed.
+        gOldCursor.element.style.cursor = gOldCursor.cursor;
+        gOldCursor = null;
+    }
+
+    if (gOldCursor === null) {
+        gOldCursor = {
+            element,
+            cursor: element.style.cursor,
+        };
+
+        element.style.cursor = 'pointer';
+    }
+}
+
+function clearCursor() {
+    if (gOldCursor !== null) {
+        gOldCursor.element.style.cursor = gOldCursor.cursor;
+        gOldCursor = null;
+    }
+}
+
 function closeWindow() {
-    if (!visible || !iframe) {
+    if (!gVisible || !gIframe) {
         return false;
     }
 
-    visible = false;
-    iframe.classList.remove('active');
-    currentText = null;
+    gVisible = false;
+    gIframe.classList.remove('active');
+    gCurrentText = null;
+    clearCursor();
     return true;
 }
 
@@ -230,8 +264,8 @@ function windowPosition(rect: DOMRect, point: Point) {
     };
 }
 
-function openWindow(element: Element | null, point: Point | null) {
-    if (!point || !iframe) {
+function openWindow(element: HTMLElement | null, point: Point | null) {
+    if (!point || !gIframe) {
         return;
     }
 
@@ -263,7 +297,9 @@ function openWindow(element: Element | null, point: Point | null) {
         return;
     }
 
-    if (SELECT) {
+    setCursor(element);
+
+    if (gSetting.select) {
         let s = window.getSelection();
 
         if (s !== null) {
@@ -285,36 +321,36 @@ function openWindow(element: Element | null, point: Point | null) {
         console.debug(pos);
     }
 
-    if (!visible) {
-        iframe.classList.add('active');
-        visible = true;
+    if (!gVisible) {
+        gIframe.classList.add('active');
+        gVisible = true;
     }
 
-    if (currentText != text || currentPointOver != pointOver) {
+    if (gCurrentText != text || gCurrentPointOver != pointOver) {
         let message = { text } as UpdateMessage;
 
         if (pointOver !== null) {
             message.analyze_at_char = pointOver;
         }
 
-        if (!!iframe.contentWindow) {
-            iframe.contentWindow.postMessage(message, '*');
+        if (!!gIframe.contentWindow) {
+            gIframe.contentWindow.postMessage(message, '*');
         }
 
-        currentText = text;
-        currentPointOver = pointOver;
+        gCurrentText = text;
+        gCurrentPointOver = pointOver;
     }
 
-    iframe.style.left = `${pos.x}px`;
-    iframe.style.top = `${pos.y}px`;
-    iframe.style.width = `${WIDTH}px`;
-    iframe.style.height = `${HEIGHT}px`;
+    gIframe.style.left = `${pos.x}px`;
+    gIframe.style.top = `${pos.y}px`;
+    gIframe.style.width = `${WIDTH}px`;
+    gIframe.style.height = `${HEIGHT}px`;
     return;
 }
 
 function click(e: MouseEvent) {
-    lastElement = e.target as Element;
-    lastPoint = { x: e.clientX, y: e.clientY };
+    gLastElement = e.target as HTMLElement;
+    gLastPoint = { x: e.clientX, y: e.clientY };
 
     if (!e.shiftKey) {
         if (closeWindow()) {
@@ -324,56 +360,70 @@ function click(e: MouseEvent) {
         return;
     }
 
-    if (visible) {
-        openWindow(lastElement, lastPoint);
+    if (gVisible) {
+        openWindow(gLastElement, gLastPoint);
         e.preventDefault();
     }
 }
 
 function mouseMove(e: MouseEvent) {
-    lastElement = e.target as Element;
-    lastPoint = { x: e.clientX, y: e.clientY };
+    gLastElement = e.target as HTMLElement;
+    gLastPoint = { x: e.clientX, y: e.clientY };
 
     if (e.shiftKey && e.buttons === 0) {
-        openWindow(lastElement, lastPoint);
+        openWindow(gLastElement, gLastPoint);
         e.preventDefault();
+    } else {
+        clearCursor();
+    }
+}
+
+function keyUp(e: KeyboardEvent) {
+    if (e.key === 'Shift') {
+        clearCursor();
     }
 }
 
 async function setUp(setting: Setting) {
-    if (!document.body || iframe !== null) {
+    gSetting = setting;
+
+    if (!document.body || gIframe !== null) {
         return;
     }
 
     let fragment = document.createDocumentFragment();
-    iframe = fragment.appendChild(document.createElement('iframe'));
+    gIframe = fragment.appendChild(document.createElement('iframe'));
 
     // set the position to the
-    iframe.classList.add('jpv-definitions');
-    iframe.src = 'http://localhost:44714?embed=yes';
+    gIframe.classList.add('jpv-definitions');
+    gIframe.src = 'http://localhost:44714?embed=yes';
 
-    document.body.appendChild(iframe);
+    document.body.appendChild(gIframe);
 
     document.documentElement.addEventListener('click', click);
     document.documentElement.addEventListener('mousemove', mouseMove);
+    document.documentElement.addEventListener('keyup', keyUp);
 }
 
 async function tearDown() {
-    if (!document.body || iframe === null) {
+    if (!document.body || gIframe === null) {
         return;
     }
 
-    document.body.removeChild(iframe);
+    document.body.removeChild(gIframe);
 
     document.documentElement.removeEventListener('click', click);
     document.documentElement.removeEventListener('mousemove', mouseMove);
+    document.documentElement.removeEventListener('keyup', keyUp);
 
-    iframe = null;
-    visible = false;
-    lastElement = null;
-    lastPoint = null;
-    currentText = null;
-    currentPointOver = null;
+    gIframe = null;
+    gVisible = false;
+    gLastElement = null;
+    gLastPoint = null;
+    gCurrentText = null;
+    gCurrentPointOver = null;
+    clearCursor();
+    gSetting = toSetting(null);
 }
 
 async function initialize(setting: Setting) {
