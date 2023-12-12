@@ -48,11 +48,15 @@ async function setup() {
 
     let [tab] = tabs;
 
-    if (!tab.url) {
+    if (tab.url === undefined) {
         return;
     }
 
     let url = new URL(tab.url);
+
+    if (!url.host) {
+        return;
+    }
 
     let elements = {
         power: document.getElementById("power") as HTMLInputElement,
@@ -61,6 +65,7 @@ async function setup() {
         hint: document.getElementById("hint") as HTMLDivElement,
     } as Elements;
 
+    elements.power.classList.add("clickable");
     elements.domain.textContent = url.host;
     let setting = await loadSetting(url.host);
     setupToggle(elements, url.host, setting);

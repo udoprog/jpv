@@ -5,6 +5,7 @@ body {
   padding: 0;
   margin: 0;
   background-color: #f6f6f6;
+  color: #1d1d1d;
 }
 
 .hidden {
@@ -19,6 +20,7 @@ body {
   font-family: 'Courier New', Courier, monospace;
   text-align: center;
   background-color: #819d9d;
+  color: #1d1d1d;
   padding: 0.5rem;
 }
 
@@ -30,13 +32,17 @@ body {
 }
 
 #power {
+  user-select: none;
   margin: 0 auto;
   width: auto;
   height: auto;
   font-size: 6em;
-  cursor: pointer;
   color: #00000000;
   -webkit-text-stroke: 2px #581708;
+}
+
+#power.clickable {
+  cursor: pointer;
 }
 
 #power.active {
@@ -57,4 +63,29 @@ body {
 
 .line {
   text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background-color: #343434;
+    color: #eee;
+  }
+
+  #domain {
+    background-color: #b6e4e4;
+    color: #181c1c;
+  }
+
+  .brand {
+    color: #b5d6d6;
+  }
+
+  #power {
+    -webkit-text-stroke-color: #ff4a22;
+  }
+
+  #power.active {
+    color: #ff3c10;
+    -webkit-text-stroke-color: #ff866b;
+  }
 }
