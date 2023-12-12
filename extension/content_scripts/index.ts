@@ -1,6 +1,6 @@
 import { Point, rectContainsAny } from './utils';
 import { Boundaries, Bound } from './boundaries';
-import { ControlMessage, loadSetting } from '../lib/lib';
+import { ControlMessage, Setting, loadSetting, toSetting } from '../lib/lib';
 
 const DEBUG = false;
 const WIDTH = 400;
@@ -21,13 +21,6 @@ interface UpdateMessage {
     text: string;
     analyze_at_char?: number;
 }
-
-/**
- * Whether we can just press shift to get the popup.
- *
- * We want to avoid triggering this event while the user is typing.
- */
-let keyReady: boolean = false;
 
 function isValidStart(el: Element): boolean {
     return el.localName !== "body";
@@ -331,34 +324,24 @@ function click(e: MouseEvent) {
         return;
     }
 
-    openWindow(lastElement, lastPoint);
-    e.preventDefault();
+    if (visible) {
+        openWindow(lastElement, lastPoint);
+        e.preventDefault();
+    }
 }
 
 function mouseMove(e: MouseEvent) {
     lastElement = e.target as Element;
     lastPoint = { x: e.clientX, y: e.clientY };
-    keyReady = true;
 
-    if (e.shiftKey) {
+    if (e.shiftKey && e.buttons === 0) {
         openWindow(lastElement, lastPoint);
         e.preventDefault();
     }
 }
 
-function keyUp(e: KeyboardEvent) {
-    keyReady = false;
-}
-
-function keyDown(e: KeyboardEvent) {
-    if (keyReady && e.key === "Shift") {
-        openWindow(lastElement, lastPoint);
-        e.preventDefault();
-    }
-}
-
-async function setUp() {
-    if (iframe !== null) {
+async function setUp(setting: Setting) {
+    if (!document.body || iframe !== null) {
         return;
     }
 
@@ -371,21 +354,17 @@ async function setUp() {
 
     document.body.appendChild(iframe);
 
-    document.documentElement.addEventListener('keydown', keyDown);
-    document.documentElement.addEventListener('keyup', keyUp);
     document.documentElement.addEventListener('click', click);
     document.documentElement.addEventListener('mousemove', mouseMove);
 }
 
 async function tearDown() {
-    if (iframe === null) {
+    if (!document.body || iframe === null) {
         return;
     }
 
     document.body.removeChild(iframe);
 
-    document.documentElement.removeEventListener('keydown', keyDown);
-    document.documentElement.removeEventListener('keyup', keyUp);
     document.documentElement.removeEventListener('click', click);
     document.documentElement.removeEventListener('mousemove', mouseMove);
 
@@ -397,22 +376,25 @@ async function tearDown() {
     currentPointOver = null;
 }
 
-async function update() {
-    let setting = await loadSetting(location.host);
-
+async function initialize(setting: Setting) {
     if (setting.enabled) {
-        await setUp();
+        await setUp(setting);
     } else {
         await tearDown();
     }
 }
 
-if (document.body) {
-    update();
+async function start() {
+    let setting = await loadSetting(location.host);
+    await initialize(setting);
 }
 
-browser.runtime.onMessage.addListener(async (message: ControlMessage) => {
-    if (message.type === "update") {
-        update();
+browser.storage.sync.onChanged.addListener((changes) => {
+    let {newValue} = changes[`by-site/${location.host}`];
+
+    if (newValue !== undefined) {
+        initialize(toSetting(newValue));
     }
 });
+
+start();

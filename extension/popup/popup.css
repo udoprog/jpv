@@ -1,30 +1,39 @@
 html,
 body {
   width: 320px;
+  padding: 0;
+  margin: 0;
 }
 
 .hidden {
   display: none;
 }
 
-#content {
-    width: 100%;
-    margin: 0 auto;
-    padding: 0;
-    text-align: center;
-}
-
-button {
-  border: none;
-  width: 100%;
-  margin: 3% auto;
-  padding: 4px;
+#domain {
+  font-family: 'Courier New', Courier, monospace;
   text-align: center;
-  font-size: 1.2em;
-  cursor: pointer;
-  background-color: #e5f2f226;
+  background-color: #819d9d;
+  padding: 0.5rem;
 }
 
-button.active {
-  background-color: #e5f2f2;
+#content {
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+button#power {
+  color: #581708;
+  font-size: 3em;
+  border: 1px solid #581708;
+  border-radius: 0.5rem;
+  width: 1.5em;
+  height: 1.5em;
+}
+
+button#power.active {
+  color: #ff3c10;
+  border: 1px solid #ff3c10;
+  border-radius: 0.5rem;
 }

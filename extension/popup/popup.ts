@@ -1,12 +1,12 @@
 import { Setting, saveSetting, loadSetting } from "../lib/lib";
 
-function setupToggle(toggle: HTMLInputElement, setting: Setting) {
-    toggle.addEventListener("click", async () => {
+function setupToggle(power: HTMLInputElement, host: string, setting: Setting) {
+    power.addEventListener("click", async () => {
         setting.enabled = !setting.enabled;
-        saveSetting(setting);
-        updateState(toggle, setting);
+        saveSetting(host, setting);
+        updateState(power, host, setting);
 
-        let tabs = await browser.tabs.query({ url: `*://${setting.host}/*` });
+        let tabs = await browser.tabs.query({ url: `*://${host}/*` });
 
         for (let tab of tabs) {
             if (!tab.id) {
@@ -17,15 +17,14 @@ function setupToggle(toggle: HTMLInputElement, setting: Setting) {
         }
     });
 
-    toggle.classList.add("active");
-    updateState(toggle, setting);
+    updateState(power, host, setting);
 }
 
-function updateState(toggle: HTMLInputElement, setting: Setting) {
+function updateState(power: HTMLInputElement, host: string, setting: Setting) {
     if (setting.enabled) {
-        toggle.textContent = `Disable ${setting.host}`;
+        power.classList.add("active");
     } else {
-        toggle.textContent = `Enable ${setting.host}`;
+        power.classList.remove("active");
     }
 }
 
@@ -44,14 +43,14 @@ async function setup() {
 
     let url = new URL(tab.url);
 
-    let toggle = document.getElementById("toggle") as HTMLInputElement;
+    let power = document.getElementById("power") as HTMLInputElement;
+    let domain = document.getElementById("domain") as HTMLDivElement;
 
-    if (!toggle) {
-        return;
-    }
-
+    domain.textContent = url.host;
     let setting = await loadSetting(url.host);
-    setupToggle(toggle, setting);
+    setupToggle(power, url.host, setting);
 }
 
-setup();
+window.addEventListener("load", () => {
+    setup();
+});

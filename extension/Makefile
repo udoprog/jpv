@@ -5,10 +5,10 @@ default: jpv-$(VERSION).xpi jpv-$(VERSION)-source.zip
 node_modules:
 	npm install
 
-content_scripts/index.min.js: node_modules content_scripts/*.ts
+content_scripts/index.min.js: node_modules lib/*.ts content_scripts/*.ts
 	npm run build-content-scripts
 
-popup/popup.min.js: node_modules popup/*.ts
+popup/popup.min.js: node_modules lib/*.ts popup/*.ts
 	npm run build-popup
 
 BUILD := manifest.json icons/*
@@ -21,6 +21,7 @@ jpv-$(VERSION).xpi: ${BUILD}
 SOURCES := Makefile README.md tsconfig.json manifest.json package.json package-lock.json icons/*
 SOURCES += content_scripts/*.ts content_scripts/index.css
 SOURCES += popup/*.ts popup/popup.css
+SOURCES += lib/*.ts
 
 jpv-$(VERSION)-source.zip: ${SOURCES}
 	zip -1 $@ $?
