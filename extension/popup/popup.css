@@ -1,0 +1,30 @@
+html,
+body {
+  width: 320px;
+}
+
+.hidden {
+  display: none;
+}
+
+#content {
+    width: 100%;
+    margin: 0 auto;
+    padding: 0;
+    text-align: center;
+}
+
+button {
+  border: none;
+  width: 100%;
+  margin: 3% auto;
+  padding: 4px;
+  text-align: center;
+  font-size: 1.2em;
+  cursor: pointer;
+  background-color: #e5f2f226;
+}
+
+button.active {
+  background-color: #e5f2f2;
+}

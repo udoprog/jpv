@@ -1,5 +1,6 @@
 import { Point, rectContainsAny } from './utils';
 import { Boundaries, Bound } from './boundaries';
+import { ControlMessage, loadSetting } from '../lib/lib';
 
 const DEBUG = false;
 const WIDTH = 400;
@@ -8,6 +9,7 @@ const PADDING = 10;
 const SELECT = true;
 const MAX_X_OFFSET = 1024;
 
+// Global state.
 let iframe: HTMLIFrameElement | null = null;
 let visible: boolean = false;
 let lastElement: Element | null = null;
@@ -355,7 +357,11 @@ function keyDown(e: KeyboardEvent) {
     }
 }
 
-if (document.body) {
+async function setUp() {
+    if (iframe !== null) {
+        return;
+    }
+
     let fragment = document.createDocumentFragment();
     iframe = fragment.appendChild(document.createElement('iframe'));
 
@@ -370,3 +376,43 @@ if (document.body) {
     document.documentElement.addEventListener('click', click);
     document.documentElement.addEventListener('mousemove', mouseMove);
 }
+
+async function tearDown() {
+    if (iframe === null) {
+        return;
+    }
+
+    document.body.removeChild(iframe);
+
+    document.documentElement.removeEventListener('keydown', keyDown);
+    document.documentElement.removeEventListener('keyup', keyUp);
+    document.documentElement.removeEventListener('click', click);
+    document.documentElement.removeEventListener('mousemove', mouseMove);
+
+    iframe = null;
+    visible = false;
+    lastElement = null;
+    lastPoint = null;
+    currentText = null;
+    currentPointOver = null;
+}
+
+async function update() {
+    let setting = await loadSetting(location.host);
+
+    if (setting.enabled) {
+        await setUp();
+    } else {
+        await tearDown();
+    }
+}
+
+if (document.body) {
+    update();
+}
+
+browser.runtime.onMessage.addListener(async (message: ControlMessage) => {
+    if (message.type === "update") {
+        update();
+    }
+});

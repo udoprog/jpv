@@ -1,12 +1,23 @@
 {
     "manifest_version": 2,
     "name": "jpv",
-    "version": "0.0.2",
+    "version": "0.0.3",
   
     "description": "Adds the ability to analyze text using the Japanese Dictionary by John-John Tedro",
-  
+    "homepage_url": "https://github.com/udoprog/jpv",
     "icons": {
       "256": "icons/jpv-256.png"
+    },
+
+    "permissions": [
+        "tabs",
+        "storage"
+    ],
+
+    "browser_action": {
+        "default_icon": "icons/jpv-256.png",
+        "default_title": "Japanese Dictionary",
+        "default_popup": "popup/popup.html"
     },
   
     "content_scripts": [
@@ -16,9 +27,15 @@
             "https://*/*",
             "file://*/*"
         ],
-        "js": ["jpv.js"],
-        "css": ["jpv.css"]
+        "js": ["content_scripts/index.min.js"],
+        "css": ["content_scripts/index.css"]
       }
-    ]
+    ],
+
+    "browser_specific_settings": {
+      "gecko": {
+        "id": "{7bb38355-1e13-49e7-9460-ab81865f7d4f}"
+      }
+    }
   }
   

@@ -5,15 +5,14 @@
         "strictNullChecks": true,
         "strictPropertyInitialization": true,
         "noImplicitReturns": true,
-        "outDir": "out",
         "lib": [
             "es2022",
             "dom"
-        ]
+        ],
+        "outDir": "out"
     },
     "files": [
-        "src/jpv.ts",
-        "src/boundaries.ts",
-        "src/utils.ts"
+        "content_scripts/index.ts",
+        "popup/popup.ts"
     ]
 }

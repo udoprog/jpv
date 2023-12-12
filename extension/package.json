@@ -1,11 +1,13 @@
 {
-  "version": "0.0.2",
+  "version": "0.0.3",
   "dependencies": {
+    "@types/firefox-webext-browser": "^120.0.0",
     "browserify": "^17.0.0",
     "esmify": "^2.1.1",
     "typescript": "^5.3.2"
   },
   "scripts": {
-    "build": "tsc && browserify -s out/*.js -p esmify -o jpv.js"
+    "build-content-scripts": "tsc && browserify -s out/lib/*.js out/content_scripts/*.js -p esmify -o content_scripts/index.min.js",
+    "build-popup": "tsc && browserify -s out/lib/*.js out/popup/*.js -p esmify -o popup/popup.min.js"
   }
 }

@@ -3,3 +3,6 @@
 /jpv-*.xpi
 /jpv.js
 /jpv-*-source.zip
+
+/**/*.min.js
+/**/*.min.js
