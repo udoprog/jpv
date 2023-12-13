@@ -4,5 +4,6 @@ set -e
 
 trunk build --release
 cargo build --release --features gnome,bundle -p jpv
+rm -f target/generate-rpm/jpv-*.rpm
 cargo generate-rpm -p crates/jpv
-sudo dnf reinstall --assumeyes target/generate-rpm/jpv-0.0.0-1.x86_64.rpm
+sudo dnf reinstall --assumeyes target/generate-rpm/jpv-*.rpm
