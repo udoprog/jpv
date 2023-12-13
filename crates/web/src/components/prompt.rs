@@ -10,8 +10,9 @@ use lib::api;
 use lib::kanjidic2;
 use lib::romaji;
 use serde::Deserialize;
+use serde::Serialize;
 use wasm_bindgen::closure::Closure;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::window;
 use web_sys::{HtmlInputElement, MessageEvent};
 use yew::prelude::*;
@@ -49,7 +50,7 @@ pub(crate) enum Msg {
     AnalyzeResponse(api::OwnedAnalyzeResponse),
     MoreEntries,
     MoreCharacters,
-    UpdateMessage(UpdateMessage),
+    ContentMessage(ContentMessage),
     Broadcast(api::OwnedBroadcastKind),
     Error(Error),
 }
@@ -100,8 +101,8 @@ impl Component for Prompt {
             let link = ctx.link().clone();
 
             Box::new(move |value: MessageEvent| {
-                if let Ok(message) = value.data().into_serde::<UpdateMessage>() {
-                    link.send_message(Msg::UpdateMessage(message))
+                if let Ok(message) = value.data().into_serde::<ContentMessage>() {
+                    link.send_message(Msg::ContentMessage(message))
                 }
             }) as Box<dyn FnMut(MessageEvent)>
         });
@@ -139,6 +140,14 @@ impl Component for Prompt {
         this.get_config(ctx);
         this.reload(ctx);
         this
+    }
+
+    fn rendered(&mut self, _: &Context<Self>, first_render: bool) {
+        if first_render {
+            if let Err(error) = post_parent_message(&ContentMessage::Loaded) {
+                log::warn!("Failed to post message: {error}");
+            }
+        }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -296,16 +305,28 @@ impl Component for Prompt {
                 self.limit_characters += DEFAULT_LIMIT;
                 true
             }
-            Msg::UpdateMessage(message) => {
-                self.query.set(message.text.into(), None);
+            Msg::ContentMessage(message) => {
+                match message {
+                    ContentMessage::Ping(payload) => {
+                        if let Err(error) = post_parent_message(&ContentMessage::Pong(payload)) {
+                            log::warn!("Failed to post message: {error}");
+                        }
+                    }
+                    ContentMessage::Loaded => {}
+                    ContentMessage::Update(message) => {
+                        self.query.set(message.text.into(), None);
 
-                if let Some(analyze_at_char) = message.analyze_at_char {
-                    self.query.update_analyze_at_char(analyze_at_char);
+                        if let Some(analyze_at_char) = message.analyze_at_char {
+                            self.query.update_analyze_at_char(analyze_at_char);
+                        }
+
+                        self.analysis = Rc::from([]);
+                        self.save_query(ctx, History::Push);
+                        self.analyze(ctx);
+                    }
+                    _ => {}
                 }
 
-                self.analysis = Rc::from([]);
-                self.save_query(ctx, History::Push);
-                self.analyze(ctx);
                 false
             }
             Msg::Broadcast(event) => {
@@ -965,8 +986,44 @@ impl IsInternal {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct UpdateMessage {
     text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     analyze_at_char: Option<usize>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct PingPayload {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    payload: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub(crate) enum ContentMessage {
+    /// Ping message, for which a pong response is expected.
+    Ping(PingPayload),
+    Pong(PingPayload),
+    Loaded,
+    Update(UpdateMessage),
+}
+
+/// Post a message to the parent window (if present) indicating that the app has
+/// loaded.
+fn post_parent_message<T>(message: &T) -> Result<(), Error>
+where
+    T: Serialize,
+{
+    let Some(w) = window() else {
+        return Ok(());
+    };
+
+    let Some(parent) = w.parent()? else {
+        return Ok(());
+    };
+
+    let message = JsValue::from_serde(&message)?;
+    parent.post_message(&message, "*")?;
+    Ok(())
 }

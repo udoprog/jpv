@@ -1,4 +1,4 @@
-import { Setting, loadSetting, toSetting } from "../lib/lib";
+import { Setting, loadSetting, toSetting } from '../lib/lib';
 
 browser.tabs.onUpdated.addListener(async (tabId) => {
     let tab = await browser.tabs.get(tabId);
@@ -18,16 +18,16 @@ browser.runtime.onInstalled.addListener(async () => {
     }
 });
 
-browser.storage.sync.onChanged.addListener(async (changes) => {
+browser.storage.sync.onChanged.addListener(async (changes: {[key: string]: browser.storage.StorageChange}) => {
     for (let key of Object.keys(changes)) {
-        if (!key.startsWith("by-site/")) {
+        if (!key.startsWith('domain/')) {
             continue;
         }
 
         let { newValue } = changes[key];
         let setting = toSetting(newValue);
 
-        let [_, host] = key.split("/", 2);
+        let [_, host] = key.split('/', 2);
         let tabs = await browser.tabs.query({ active: true });
 
         for (let tab of tabs) {
@@ -58,8 +58,8 @@ async function updateTab(tab: browser.tabs.Tab) {
 
 function updateIcon(tab: browser.tabs.Tab, setting: Setting) {
     if (setting.enabled) {
-        browser.browserAction.setIcon({ tabId: tab.id, path: "/icons/jpv-256.png" });
+        browser.browserAction.setIcon({ tabId: tab.id, path: '/icons/jpv-256.png' });
     } else {
-        browser.browserAction.setIcon({ tabId: tab.id, path: "/icons/jpv-disabled-256.png" });
+        browser.browserAction.setIcon({ tabId: tab.id, path: '/icons/jpv-disabled-256.png' });
     }
 }

@@ -1,6 +1,8 @@
-.jpv-definitions {
+.jpv-window {
+    color: #1d1d1d;
+    background-color: #f6f6f6;
     position: fixed;
-    display: none;
+    visibility: hidden;
     width: 0;
     height: 0;
     top: 0;
@@ -8,6 +10,28 @@
     z-index: 999999;
 }
 
-.jpv-definitions.active {
-    display: block;
+.jpv-window.active {
+    visibility: visible;
+}
+
+#jpv-error {
+    text-align: center;
+    min-width: 320px;
+    background-color: #de5739;
+    padding: 0.5rem 0;
+}
+
+#jpv-error .jpv-title {
+    font-weight: bold;
+}
+
+#jpv-error .jpv-content {
+    font-size: 0.8em;
+}
+
+@media (prefers-color-scheme: dark) {
+    .jpv-window {
+        background-color: #343434;
+        color: #eee;
+    }
 }
