@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "jpv",
-    "version": "0.0.3",
+    "version": "0.0.4",
   
     "description": "Adds the ability to analyze text using the Japanese Dictionary by John-John Tedro",
     "homepage_url": "https://github.com/udoprog/jpv",
