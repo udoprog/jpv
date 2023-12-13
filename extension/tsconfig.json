@@ -13,6 +13,7 @@
     },
     "files": [
         "content_scripts/index.ts",
-        "popup/popup.ts"
+        "popup/popup.ts",
+        "background/background.ts"
     ]
 }

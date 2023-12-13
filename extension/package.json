@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build-content-scripts": "tsc && browserify -s out/lib/*.js out/content_scripts/*.js -p esmify -o content_scripts/index.min.js",
-    "build-popup": "tsc && browserify -s out/lib/*.js out/popup/*.js -p esmify -o popup/popup.min.js"
+    "build-popup": "tsc && browserify -s out/lib/*.js out/popup/*.js -p esmify -o popup/popup.min.js",
+    "build-background": "tsc && browserify -s out/lib/*.js out/background/*.js -p esmify -o background/background.min.js"
   }
 }

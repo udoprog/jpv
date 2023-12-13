@@ -14,6 +14,12 @@
         "storage"
     ],
 
+    "background": {
+      "scripts": ["background/background.min.js"],
+      "persistent": true,
+      "type": "module"
+    },    
+
     "browser_action": {
         "default_icon": "icons/jpv-256.png",
         "default_title": "Japanese Dictionary",

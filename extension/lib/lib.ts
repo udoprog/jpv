@@ -23,6 +23,10 @@ export function toSetting(data: any): Setting {
 }
 
 export async function loadSetting(host: string): Promise<Setting> {
+    if (!host) {
+        return toSetting(null);
+    }
+
     let objects = await browser.storage.sync.get(`by-site/${host}`);
     let data = objects[`by-site/${host}`] || {};
     return toSetting(data);

@@ -11,16 +11,21 @@ content_scripts/index.min.js: node_modules lib/*.ts content_scripts/*.ts
 popup/popup.min.js: node_modules lib/*.ts popup/*.ts
 	npm run build-popup
 
+background/background.min.js: node_modules lib/*.ts background/*.ts
+	npm run build-background
+
 BUILD := manifest.json icons/*
 BUILD += content_scripts/index.min.js content_scripts/index.css
 BUILD += popup/popup.min.js popup/popup.css popup/popup.html
+BUILD += background/background.min.js
 
 jpv-$(VERSION).xpi: ${BUILD}
 	zip -1 $@ $?
 
 SOURCES := Makefile README.md tsconfig.json manifest.json package.json package-lock.json icons/*
 SOURCES += content_scripts/*.ts content_scripts/index.css
-SOURCES += popup/*.ts popup/popup.css
+SOURCES += popup/*.ts popup/popup.css popup/popup.html
+SOURCES += background/*.ts
 SOURCES += lib/*.ts
 
 jpv-$(VERSION)-source.zip: ${SOURCES}
@@ -30,5 +35,6 @@ clean:
 	rm -rf out
 	rm -f content_scripts/index.min.js
 	rm -f popup/popup.min.js
+	rm -f background/background.min.js
 	rm -f jpv-*.xpi
 	rm -f jpv-*-source.zip

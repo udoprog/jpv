@@ -18,16 +18,6 @@ function setupToggle(elements: Elements, host: string, setting: Setting) {
         setting.enabled = !setting.enabled;
         saveSetting(host, setting);
         updateState(elements, host, setting);
-
-        let tabs = await browser.tabs.query({ url: `*://${host}/*` });
-
-        for (let tab of tabs) {
-            if (!tab.id) {
-                continue;
-            }
-
-            browser.tabs.sendMessage(tab.id, { type: "update" });
-        }
     });
 
     elements.select.checked = setting.select;
