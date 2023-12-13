@@ -18,19 +18,19 @@ use std::net::{SocketAddr, TcpListener};
 use anyhow::Result;
 use axum::body::{boxed, Body};
 use axum::extract::{Path, Query};
-use axum::http::{HeaderValue, Method, StatusCode};
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use lib::api;
 use lib::config::Config;
-use tower_http::cors::CorsLayer;
+use serde::Serialize;
+use tower_http::cors::{AllowMethods, AllowOrigin, CorsLayer};
 
 use crate::background::Background;
 use crate::system;
 
 pub(crate) fn setup(
-    local_port: u16,
     listener: TcpListener,
     background: Background,
     system_events: system::SystemEvents,
@@ -43,9 +43,8 @@ pub(crate) fn setup(
     };
 
     let cors = CorsLayer::new()
-        .allow_origin(format!("http://localhost:{}", local_port).parse::<HeaderValue>()?)
-        .allow_origin(format!("http://127.0.0.1:{}", local_port).parse::<HeaderValue>()?)
-        .allow_methods([Method::GET]);
+        .allow_origin(AllowOrigin::any())
+        .allow_methods(AllowMethods::any());
 
     let app = self::r#impl::router()
         .layer(Extension(background))
@@ -62,6 +61,7 @@ pub(crate) fn setup(
 
 fn common_routes(router: Router) -> Router {
     router
+        .route("/api/version", get(version))
         .route("/api/config", get(config).post(update_config))
         .route("/api/rebuild", post(rebuild))
         .route("/api/analyze", get(analyze))
@@ -181,6 +181,18 @@ fn handle_search_request(
         names,
         characters: lib::to_owned(search.characters),
     })
+}
+
+#[derive(Serialize)]
+struct VersionResponse {
+    version: &'static str,
+}
+
+/// Get the current service version.
+async fn version() -> RequestResult<Json<VersionResponse>> {
+    Ok(Json(VersionResponse {
+        version: crate::VERSION,
+    }))
 }
 
 /// Read the current service configuration.

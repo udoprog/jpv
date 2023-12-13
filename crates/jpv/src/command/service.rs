@@ -131,7 +131,6 @@ pub(crate) async fn run(
     let background = Background::new(dirs, channel, config, db, system_events.clone());
 
     let mut server = pin!(web::setup(
-        local_port,
         listener,
         background.clone(),
         system_events.clone()

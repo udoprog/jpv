@@ -1,4 +1,4 @@
-import { Setting, saveSetting, loadSetting } from "../lib/lib";
+import { Setting, saveSetting, loadSetting, checkAvailable } from "../lib/lib";
 
 interface Elements {
     power: HTMLInputElement;
@@ -6,33 +6,46 @@ interface Elements {
     status: HTMLDivElement;
     hint: HTMLDivElement;
     select: HTMLInputElement;
+    unavailable: HTMLDivElement;
 }
 
-function setupToggle(elements: Elements, host: string, setting: Setting) {
-    elements.select.addEventListener("change", e => {
-        setting.select = elements.select.checked;
-        saveSetting(host, setting);
-    });
+function setupToggle(elements: Elements, available: boolean, host: string, setting: Setting) {
+    if (available) {
+        elements.select.addEventListener("change", e => {
+            setting.select = elements.select.checked;
+            saveSetting(host, setting);
+        });
+    }
 
-    elements.power.addEventListener("click", async () => {
-        setting.enabled = !setting.enabled;
-        saveSetting(host, setting);
-        updateState(elements, host, setting);
-    });
+    if (available) {
+        elements.power.addEventListener("click", async () => {
+            setting.enabled = !setting.enabled;
+            saveSetting(host, setting);
+            updateState(elements, available, setting);
+        });
+    }
 
     elements.select.checked = setting.select;
-    updateState(elements, host, setting);
+    updateState(elements, available, setting);
 }
 
-function updateState(elements: Elements, host: string, setting: Setting) {
-    if (setting.enabled) {
+function updateState(elements: Elements, available: boolean, setting: Setting) {
+    if (setting.enabled && available) {
         elements.power.classList.add("active");
         elements.hint.classList.add("active");
         elements.status.textContent = "enabled";
+        elements.select.disabled = false;
     } else {
         elements.power.classList.remove("active");
         elements.hint.classList.remove("active");
         elements.status.textContent = "disabled";
+        elements.select.disabled = true;
+    }
+
+    if (available) {
+        elements.unavailable.classList.remove("active");
+    } else {
+        elements.unavailable.classList.add("active");
     }
 }
 
@@ -61,13 +74,14 @@ async function setup() {
         status: document.getElementById("status") as HTMLDivElement,
         hint: document.getElementById("hint") as HTMLDivElement,
         select: document.getElementById("select") as HTMLInputElement,
+        unavailable: document.getElementById("unavailable") as HTMLDivElement,
     } as Elements;
 
+    let available = await checkAvailable();
     elements.power.classList.add("clickable");
     elements.domain.textContent = url.host;
-    elements.select.disabled = false;
     let setting = await loadSetting(url.host);
-    setupToggle(elements, url.host, setting);
+    setupToggle(elements, available, url.host, setting);
 }
 
 window.addEventListener("load", () => {

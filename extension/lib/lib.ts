@@ -7,7 +7,19 @@ export interface Setting {
     select: boolean;
 }
 
+export interface GlobalSetting {
+    port: number;
+}
+
 function toBoolean(data: any, key: string, defaultValue: boolean): void {
+    if (data[key] === undefined) {
+        data[key] = defaultValue;
+    } else {
+        data[key] = !!data[key];
+    }
+}
+
+function toNumber(data: any, key: string, defaultValue: number): void {
     if (data[key] === undefined) {
         data[key] = defaultValue;
     } else {
@@ -22,14 +34,24 @@ export function toSetting(data: any): Setting {
     return data as Setting;
 }
 
+export function toGlobalSetting(data: any): GlobalSetting {
+    data = Object.assign({}, data || {});
+    toNumber(data, "port", 44714);
+    return data as GlobalSetting;
+}
+
 export async function loadSetting(host: string): Promise<Setting> {
     if (!host) {
         return toSetting(null);
     }
 
     let objects = await browser.storage.sync.get(`by-site/${host}`);
-    let data = objects[`by-site/${host}`] || {};
-    return toSetting(data);
+    return toSetting(objects[`by-site/${host}`] || {});
+}
+
+export async function loadGlobalSetting(): Promise<GlobalSetting> {
+    let objects = await browser.storage.sync.get("global");
+    return toGlobalSetting(objects["global"] || {});
 }
 
 function saveBoolean(output: { [key: string]: any; }, key: string, value: boolean) {
@@ -47,4 +69,16 @@ export async function saveSetting(host: string, setting: Setting): Promise<void>
     let update: {[key: string]: any} = {};
     update[`by-site/${host}`] = output;
     await browser.storage.sync.set(update);
+}
+
+export async function checkAvailable(): Promise<boolean> {
+    let global = await loadGlobalSetting();
+    let request = new Request(`http://localhost:${global.port}/api/version`, { method: "HEAD" });
+
+    try {
+        let response = await fetch(request);
+        return response.status == 200;
+    } catch (e) {
+        return false;
+    }
 }

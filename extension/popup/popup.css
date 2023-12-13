@@ -25,7 +25,7 @@ body {
 }
 
 .row:first-child {
-  margin-bottom: 0;
+  margin-top: 0;
 }
 
 .row:last-child {
@@ -104,6 +104,24 @@ body {
 
 #hint.active {
   opacity: 1;
+}
+
+.error {
+  display: none;
+  background-color: #de5739;
+  padding: 0.5rem 0;
+}
+
+.error.active {
+  display: block;
+}
+
+.error .title {
+  font-weight: bold;
+}
+
+.error .content {
+  font-size: 0.8em;
 }
 
 @media (prefers-color-scheme: dark) {
