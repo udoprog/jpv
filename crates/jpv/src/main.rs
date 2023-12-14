@@ -62,13 +62,13 @@
 //! #### Fedora
 //!
 //! ```
-//! sudo dnf install openssl-devel
+//! sudo dnf install openssl-devel git
 //! ```
 //!
 //! For the `ocr` feature:
 //!
 //! ```
-//! sudo dnf install gcc tesseract-devel leptonica-devel
+//! sudo dnf install gcc tesseract-devel leptonica-devel clang-devel
 //! ```
 //!
 //! For the `gnome` feature, we make use of `gio` in order to launch a browser
