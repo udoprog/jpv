@@ -22,7 +22,9 @@ jobs:
     - uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{matrix.rust}}
+    - run: cargo build --workspace --exclude jpv-tesseract --no-default-features
     - run: cargo test --workspace --exclude jpv-tesseract --no-default-features
+      if: matrix.rust == 'stable'
     - run: cargo test --workspace --exclude jpv-tesseract --no-default-features --doc
       if: matrix.rust == 'stable'
 
