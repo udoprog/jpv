@@ -16,12 +16,13 @@
 
     "background": {
       "scripts": ["background/background.js"],
-      "persistent": true,
-      "type": "module"
-    },    
+      "persistent": true
+    },
 
     "browser_action": {
-        "default_icon": "icons/jpv-256.png",
+        "default_icon": {
+          "256": "icons/jpv-256.png"
+        },
         "default_title": "Japanese Dictionary",
         "default_popup": "pages/popup.html"
     },

@@ -22,3 +22,11 @@ To build and package:
 ```
 make
 ```
+
+## Developing
+
+To build the project for in-place, you can watch the project for changes.
+
+```
+npm run watch
+```

@@ -1,11 +1,13 @@
 {
   "version": "0.0.4",
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "watch": "rollup -c -w"
   },
   "type": "module",
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.5",
+    "@types/chrome": "^0.0.254",
     "@types/firefox-webext-browser": "^120.0.0",
     "rollup": "^4.9.0",
     "tslib": "^2.6.2",

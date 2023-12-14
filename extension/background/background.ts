@@ -58,8 +58,8 @@ async function updateTab(tab: browser.tabs.Tab) {
 
 function updateIcon(tab: browser.tabs.Tab, setting: DomainSettings) {
     if (setting.enabled) {
-        browser.browserAction.setIcon({ tabId: tab.id, path: '/icons/jpv-256.png' });
+        browser.browserAction.setIcon({ tabId: tab.id, path: { "256": '/icons/jpv-256.png' } });
     } else {
-        browser.browserAction.setIcon({ tabId: tab.id, path: '/icons/jpv-disabled-256.png' });
+        browser.browserAction.setIcon({ tabId: tab.id, path: { "256": '/icons/jpv-disabled-256.png' } });
     }
 }
