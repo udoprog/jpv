@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-fedora:
+  fedora:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -46,7 +46,7 @@ jobs:
 
   publish:
     permissions: write-all
-    needs: build-fedora
+    needs: fedora
     runs-on: ubuntu-latest
     steps:
     - uses: udoprog/github-release@tag
