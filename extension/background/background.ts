@@ -1,24 +1,26 @@
+import { StorageChange, Tab, getBrowser } from '../lib/compat.js';
 import { DomainSettings, loadDomainSetting, toDomainSettings } from '../lib/lib.js';
 
-browser.tabs.onUpdated.addListener(async (tabId) => {
-    let tab = await browser.tabs.get(tabId);
+let B = getBrowser();
+
+B.onTabUpdated.addListener(async (_tabId, _change, tab) => {
     await updateTab(tab);
 });
 
-browser.tabs.onActivated.addListener(async ({tabId}) => {
-    let tab = await browser.tabs.get(tabId);
+B.onTabActivated.addListener(async ({tabId}) => {
+    let tab = await B.tabsGet(tabId);
     await updateTab(tab);
 });
 
-browser.runtime.onInstalled.addListener(async () => {
-    let tabs = await browser.tabs.query({ active: true });
+B.onInstalled.addListener(async () => {
+    let tabs = await B.tabsQuery({ active: true });
 
     for (let tab of tabs) {
         await updateTab(tab);
     }
 });
 
-browser.storage.sync.onChanged.addListener(async (changes: {[key: string]: browser.storage.StorageChange}) => {
+B.onStorageChanged.addListener(async (changes: {[key: string]: StorageChange}) => {
     for (let key of Object.keys(changes)) {
         if (!key.startsWith('domain/')) {
             continue;
@@ -28,7 +30,7 @@ browser.storage.sync.onChanged.addListener(async (changes: {[key: string]: brows
         let setting = toDomainSettings(newValue);
 
         let [_, host] = key.split('/', 2);
-        let tabs = await browser.tabs.query({ active: true });
+        let tabs = await B.tabsQuery({ active: true });
 
         for (let tab of tabs) {
             if (!tab.url) {
@@ -46,20 +48,20 @@ browser.storage.sync.onChanged.addListener(async (changes: {[key: string]: brows
     }
 });
 
-async function updateTab(tab: browser.tabs.Tab) {
+async function updateTab(tab: Tab) {
     if (tab.url === undefined) {
         return;
     }
 
     let url = new URL(tab.url);
     let setting = await loadDomainSetting(url.host);
-    updateIcon(tab, setting);
+    await updateIcon(tab, setting);
 }
 
-function updateIcon(tab: browser.tabs.Tab, setting: DomainSettings) {
+async function updateIcon(tab: Tab, setting: DomainSettings) {
     if (setting.enabled) {
-        browser.browserAction.setIcon({ tabId: tab.id, path: { "256": '/icons/jpv-256.png' } });
+        await B.setIcon({ tabId: tab.id, path: { "256": '/icons/jpv-256.png' } });
     } else {
-        browser.browserAction.setIcon({ tabId: tab.id, path: { "256": '/icons/jpv-disabled-256.png' } });
+        await B.setIcon({ tabId: tab.id, path: { "256": '/icons/jpv-disabled-256.png' } });
     }
 }

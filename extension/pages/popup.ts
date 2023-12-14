@@ -1,5 +1,8 @@
 import { DomainSettings } from '../lib/lib.js';
 import * as lib from '../lib/lib.js';
+import * as compat from '../lib/compat.js';
+
+const B = compat.getBrowser();
 
 interface Elements {
     power: HTMLInputElement;
@@ -51,7 +54,7 @@ function updateState(elements: Elements, available: boolean, setting: DomainSett
 }
 
 async function setup() {
-    let tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    let tabs = await B.tabsQuery({ active: true, currentWindow: true });
 
     if (tabs.length !== 1) {
         return;

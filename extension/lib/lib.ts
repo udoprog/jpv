@@ -1,3 +1,5 @@
+import * as compat from './compat.js';
+
 // domain-specific settings.
 const DEFAULT_ENABLED: boolean = true;
 const DEFAULT_SELECT: boolean = true;
@@ -8,6 +10,8 @@ const DEFAULT_DEBUG: boolean = false;
 const DEFAULT_WIDTH = 400;
 const DEFAULT_HEIGHT = 600;
 const DEFAULT_MARGIN = 10;
+
+const S = compat.getStorage();
 
 export interface ControlMessage {
     type: string;
@@ -97,12 +101,12 @@ export async function loadDomainSetting(host: string): Promise<DomainSettings> {
         return toDomainSettings();
     }
 
-    let objects = await browser.storage.sync.get(`domain/${host}`);
+    let objects = await S.storageGet(`domain/${host}`);
     return toDomainSettings(objects[`domain/${host}`] || {});
 }
 
 export async function loadSettings(): Promise<Settings> {
-    let objects = await browser.storage.sync.get('settings');
+    let objects = await S.storageGet('settings');
     return toSettings(objects['settings'] || {});
 }
 
@@ -126,7 +130,7 @@ export async function saveDomainSettings(domain: string, settings: DomainSetting
 
     let update: {[key: string]: any} = {};
     update[`domain/${domain}`] = output;
-    await browser.storage.sync.set(update);
+    await S.storageSet(update);
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
@@ -140,7 +144,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
 
     let update: {[key: string]: any} = {};
     update['settings'] = output;
-    await browser.storage.sync.set(update);
+    await S.storageSet(update);
 }
 
 export async function checkAvailable(): Promise<boolean> {

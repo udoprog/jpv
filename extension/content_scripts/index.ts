@@ -3,6 +3,9 @@ import { Boundaries, Bound } from './boundaries.js';
 import { Pinger } from './pinger.js';
 import { Settings, DomainSettings } from '../lib/lib.js';
 import * as lib from '../lib/lib.js';
+import * as compat from '../lib/compat.js';
+
+const S = compat.getStorage();
 
 interface OldCursor {
     element: HTMLElement;
@@ -494,7 +497,7 @@ const G = new Globals(window, document.body);
 // Start the content script.
 G.start();
 
-browser.storage.sync.onChanged.addListener(async (changes) => {
+S.onStorageChanged.addListener(async (changes) => {
     let domainKey = `domain/${location.host}`;
     let any = false;
 
