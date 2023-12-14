@@ -1,6 +1,8 @@
 /node_modules/
 /out/
 /jpv-*.xpi
+/jpv-*.zip
 /jpv.js
 /jpv-*-source.zip
 /*/*.js
+/manifest.json

@@ -5,16 +5,28 @@
 html {
   width: 100%;
   height: 100%;
+  min-width: 320px;
 }
 
 body {
+  min-width: 320px;
   font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  font-size: 16px;
   width: 100%;
   height: 100%;
   padding: 0;
   margin: 0;
   color: #1d1d1d;
   background-color: #f6f6f6;
+}
+
+a {
+  color: #093a72;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #051a32;
 }
 
 #options {
@@ -31,6 +43,7 @@ body {
 
 .row {
   margin: 0.5rem 0;
+  align-items: center;
 }
 
 .row:first-child {
@@ -50,6 +63,10 @@ body {
   flex-direction: row;
 }
 
+.row .right {
+  margin-left: auto;
+}
+
 .options {
   text-align: left;
 }
@@ -57,6 +74,10 @@ body {
 .option {
   background-color: #b5d6d638;
   padding: 0.5rem;
+}
+
+.option-transparent {
+  background-color: #00000000;
 }
 
 .option input[type="checkbox"] {
@@ -148,14 +169,19 @@ body {
   font-size: 1.2em;
 }
 
-.options button.right {
-  margin-left: auto;
-}
-
 @media (prefers-color-scheme: dark) {
   body {
     color: #eee;
     background-color: #343434;
+  }
+
+  a {
+    color: #8cc0fa;
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: #779fcd;
   }
 
   #domain {

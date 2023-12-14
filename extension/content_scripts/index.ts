@@ -24,50 +24,50 @@ interface PongMessage {
 class Globals {
     domainSettings: DomainSettings;
     settings: Settings;
-    #window: Window;
-    #target: HTMLElement;
-    #errorWindowEl: HTMLDivElement;
-    #iframeEl: HTMLIFrameElement;
-    #isSetUp: boolean;
-    #isVisible: boolean;
-    #lastElement: HTMLElement | null;
-    #lastPoint: Point | null;
-    #currentText: string | null;
-    #currentPointOver: number | null;
-    #oldCursor: OldCursor | null;
-    #error: boolean;
-    #windowRect: DOMRect | null;
-    #windowPos: Point;
-    #pinger: Pinger;
-    #onMessageHandle: (e: MessageEvent) => void;
-    #onMouseMoveHandle: (e: MouseEvent) => void;
-    #onClickHandle: (e: MouseEvent) => void;
-    #onKeyUpHandle: (e: KeyboardEvent) => void;
-    #onVisibilityChangeHandle: (e: Event) => void;
+    window: Window;
+    target: HTMLElement;
+    errorWindowEl: HTMLDivElement;
+    iframeEl: HTMLIFrameElement;
+    isSetUp: boolean;
+    isVisible: boolean;
+    lastElement: HTMLElement | null;
+    lastPoint: Point | null;
+    currentText: string | null;
+    currentPointOver: number | null;
+    oldCursor: OldCursor | null;
+    error: boolean;
+    windowRect: DOMRect | null;
+    windowPos: Point;
+    pinger: Pinger;
+    onMessageHandle: (e: MessageEvent) => void;
+    onMouseMoveHandle: (e: MouseEvent) => void;
+    onClickHandle: (e: MouseEvent) => void;
+    onKeyUpHandle: (e: KeyboardEvent) => void;
+    onVisibilityChangeHandle: (e: Event) => void;
 
     constructor(window: Window, target: HTMLElement) {
         this.domainSettings = lib.toDomainSettings();
         this.settings = lib.toSettings();
-        this.#window = window;
-        this.#target = target;
-        this.#errorWindowEl = window.document.createElement('div');
-        this.#iframeEl = window.document.createElement('iframe');
-        this.#isSetUp = false;
-        this.#isVisible = false;
-        this.#lastElement = null;
-        this.#lastPoint = null;
-        this.#currentText = null;
-        this.#currentPointOver = null;
-        this.#oldCursor = null;
-        this.#error = true;
-        this.#windowRect = null;
-        this.#windowPos = { x: 0, y: 0 };
-        this.#pinger = new Pinger(this.onTimeout.bind(this), this.onSendPing.bind(this));
-        this.#onMessageHandle = this.onMessage.bind(this);
-        this.#onMouseMoveHandle = this.onMouseMove.bind(this);
-        this.#onClickHandle = this.onClick.bind(this);
-        this.#onKeyUpHandle = this.onKeyUp.bind(this);
-        this.#onVisibilityChangeHandle = this.onVisibilityChange.bind(this);
+        this.window = window;
+        this.target = target;
+        this.errorWindowEl = window.document.createElement('div');
+        this.iframeEl = window.document.createElement('iframe');
+        this.isSetUp = false;
+        this.isVisible = false;
+        this.lastElement = null;
+        this.lastPoint = null;
+        this.currentText = null;
+        this.currentPointOver = null;
+        this.oldCursor = null;
+        this.error = true;
+        this.windowRect = null;
+        this.windowPos = { x: 0, y: 0 };
+        this.pinger = new Pinger(this.onTimeout.bind(this), this.onSendPing.bind(this));
+        this.onMessageHandle = this.onMessage.bind(this);
+        this.onMouseMoveHandle = this.onMouseMove.bind(this);
+        this.onClickHandle = this.onClick.bind(this);
+        this.onKeyUpHandle = this.onKeyUp.bind(this);
+        this.onVisibilityChangeHandle = this.onVisibilityChange.bind(this);
     }
 
     onTimeout() {
@@ -75,15 +75,15 @@ class Globals {
             console.debug("timeout");
         }
 
-        this.#error = true;
+        this.error = true;
         this.setWindowState();
-        this.#iframeEl.src = '';
-        this.#iframeEl.src = this.embedUrl();
+        this.iframeEl.src = '';
+        this.iframeEl.src = this.embedUrl();
     }
 
     onSendPing(payload: string) {
-        if (this.#iframeEl !== null && !!this.#iframeEl.contentWindow) {
-            this.#iframeEl.contentWindow.postMessage({ type: 'ping', payload }, '*');
+        if (this.iframeEl !== null && !!this.iframeEl.contentWindow) {
+            this.iframeEl.contentWindow.postMessage({ type: 'ping', payload }, '*');
         }
     }
 
@@ -92,16 +92,16 @@ class Globals {
      */
     reset() {
         this.clearCursor();
-        this.#isVisible = false;
-        this.#lastElement = null;
-        this.#lastPoint = null;
-        this.#currentText = null;
-        this.#currentPointOver = null;
-        this.#oldCursor = null;
-        this.#error = true;
-        this.#windowRect = null;
-        this.#windowPos = { x: 0, y: 0 };
-        this.#pinger.stop();
+        this.isVisible = false;
+        this.lastElement = null;
+        this.lastPoint = null;
+        this.currentText = null;
+        this.currentPointOver = null;
+        this.oldCursor = null;
+        this.error = true;
+        this.windowRect = null;
+        this.windowPos = { x: 0, y: 0 };
+        this.pinger.stop();
         this.setWindowState();
     }
 
@@ -111,18 +111,18 @@ class Globals {
      * @param element The element to modify cursor for.
      */
     setCursor(element: HTMLElement) {
-        if (this.#oldCursor !== null) {
-            if (this.#oldCursor.element === element) {
+        if (this.oldCursor !== null) {
+            if (this.oldCursor.element === element) {
                 return;
             }
 
             // Restore old cursor since element has changed.
-            this.#oldCursor.element.style.cursor = this.#oldCursor.cursor;
-            this.#oldCursor = null;
+            this.oldCursor.element.style.cursor = this.oldCursor.cursor;
+            this.oldCursor = null;
         }
 
-        if (this.#oldCursor === null) {
-            this.#oldCursor = {
+        if (this.oldCursor === null) {
+            this.oldCursor = {
                 element,
                 cursor: element.style.cursor,
             };
@@ -135,22 +135,22 @@ class Globals {
      * Clear the cursor that is over the current element.
      */
     clearCursor() {
-        if (this.#oldCursor !== null) {
-            this.#oldCursor.element.style.cursor = this.#oldCursor.cursor;
-            this.#oldCursor = null;
+        if (this.oldCursor !== null) {
+            this.oldCursor.element.style.cursor = this.oldCursor.cursor;
+            this.oldCursor = null;
         }
     }
 
     setWindowState() {
-        let a: HTMLElement = this.#iframeEl;
-        let o: HTMLElement = this.#errorWindowEl;
+        let a: HTMLElement = this.iframeEl;
+        let o: HTMLElement = this.errorWindowEl;
 
-        if (this.#error) {
-            a = this.#errorWindowEl;
-            o = this.#iframeEl;
+        if (this.error) {
+            a = this.errorWindowEl;
+            o = this.iframeEl;
         }
 
-        if (this.#isVisible) {
+        if (this.isVisible) {
             a.classList.add('active');
             o.classList.remove('active');
         } else {
@@ -158,9 +158,9 @@ class Globals {
             o.classList.remove('active');
         }
 
-        if (this.#isVisible) {
-            a.style.left = `${this.#windowPos.x}px`;
-            a.style.top = `${this.#windowPos.y}px`;
+        if (this.isVisible) {
+            a.style.left = `${this.windowPos.x}px`;
+            a.style.top = `${this.windowPos.y}px`;
             a.style.width = `${this.settings.width}px`;
             a.style.height = `${this.settings.height}px`;
         } else {
@@ -222,11 +222,11 @@ class Globals {
      * Open hover window.
      */
     openWindow() {
-        if (this.#lastPoint === null || this.#lastElement === null) {
+        if (this.lastPoint === null || this.lastElement === null) {
             return;
         }
 
-        let element = getBoundingElement(this.#lastElement);
+        let element = getBoundingElement(this.lastElement);
 
         if (!element) {
             return;
@@ -237,7 +237,7 @@ class Globals {
 
         let rect = textRange.getBoundingClientRect();
 
-        let { found, pointOver } = adjustRangeToBoundaries(textRange, this.#lastPoint);
+        let { found, pointOver } = adjustRangeToBoundaries(textRange, this.lastPoint);
 
         if (!found) {
             return;
@@ -269,21 +269,21 @@ class Globals {
             }
         }
 
-        if (!this.#isVisible) {
-            this.#isVisible = true;
+        if (!this.isVisible) {
+            this.isVisible = true;
         }
 
-        if (this.#currentText != text || this.#currentPointOver != pointOver) {
-            this.#currentText = text;
-            this.#currentPointOver = pointOver;
+        if (this.currentText != text || this.currentPointOver != pointOver) {
+            this.currentText = text;
+            this.currentPointOver = pointOver;
             this.postAnalyze();
         }
 
-        this.#windowRect = rect;
-        this.#windowPos = this.windowPosition(rect);
+        this.windowRect = rect;
+        this.windowPos = this.windowPosition(rect);
 
         if (this.settings.debug) {
-            console.debug(this.#windowPos);
+            console.debug(this.windowPos);
         }
 
         this.setWindowState();
@@ -291,18 +291,18 @@ class Globals {
     }
 
     postAnalyze() {
-        if (this.#currentText === null) {
+        if (this.currentText === null) {
             return;
         }
 
-        let message = { type: 'update', text: this.#currentText } as UpdateMessage;
+        let message = { type: 'update', text: this.currentText } as UpdateMessage;
 
-        if (this.#currentPointOver !== null) {
-            message.analyze_at_char = this.#currentPointOver;
+        if (this.currentPointOver !== null) {
+            message.analyze_at_char = this.currentPointOver;
         }
 
-        if (this.#iframeEl.contentWindow) {
-            this.#iframeEl.contentWindow.postMessage(message, '*');
+        if (this.iframeEl.contentWindow) {
+            this.iframeEl.contentWindow.postMessage(message, '*');
         }
     }
 
@@ -312,20 +312,20 @@ class Globals {
      * @returns {boolean} True if the window was closed, false otherwise.
      */
     closeWindow(): boolean {
-        if (!this.#isVisible) {
+        if (!this.isVisible) {
             return false;
         }
 
-        this.#isVisible = false;
+        this.isVisible = false;
         this.setWindowState();
-        this.#currentText = null;
+        this.currentText = null;
         this.clearCursor();
         return true;
     }
 
     onClick(e: MouseEvent) {
-        this.#lastElement = e.target as HTMLElement;
-        this.#lastPoint = { x: e.clientX, y: e.clientY };
+        this.lastElement = e.target as HTMLElement;
+        this.lastPoint = { x: e.clientX, y: e.clientY };
 
         if (!e.shiftKey) {
             if (this.closeWindow()) {
@@ -335,18 +335,18 @@ class Globals {
             return;
         }
 
-        if (this.#isVisible) {
+        if (this.isVisible) {
             this.openWindow();
             e.preventDefault();
         }
     }
 
     onMessage(e: MessageEvent) {
-        if (this.#iframeEl.contentWindow === null) {
+        if (this.iframeEl.contentWindow === null) {
             return;
         }
 
-        if (e.source !== this.#iframeEl.contentWindow) {
+        if (e.source !== this.iframeEl.contentWindow) {
             return;
         }
 
@@ -357,23 +357,23 @@ class Globals {
         }
 
         if (data.type === 'open') {
-            this.#pinger.restart();
-            this.#error = false;
+            this.pinger.restart();
+            this.error = false;
             this.postAnalyze();
             this.setWindowState();
         } else if (data.type === 'closed') {
-            this.#pinger.restart();
-            this.#error = true;
+            this.pinger.restart();
+            this.error = true;
             this.setWindowState();
         } else if (data.type === 'pong') {
             let data = e.data as PongMessage;
-            this.#pinger.receivePong(data.payload);
+            this.pinger.receivePong(data.payload);
         }
     }
 
     onMouseMove(e: MouseEvent) {
-        this.#lastElement = e.target as HTMLElement;
-        this.#lastPoint = { x: e.clientX, y: e.clientY };
+        this.lastElement = e.target as HTMLElement;
+        this.lastPoint = { x: e.clientX, y: e.clientY };
 
         if (e.shiftKey && e.buttons === 0) {
             this.openWindow();
@@ -401,11 +401,11 @@ class Globals {
         this.settings = settings;
 
         if (this.settings.port !== old.port) {
-            this.#iframeEl.src = this.embedUrl();
+            this.iframeEl.src = this.embedUrl();
         }
 
-        if (this.#windowRect !== null) {
-            this.#windowPos = this.windowPosition(this.#windowRect);
+        if (this.windowRect !== null) {
+            this.windowPos = this.windowPosition(this.windowRect);
             this.setWindowState();
         }
     }
@@ -415,64 +415,73 @@ class Globals {
     }
 
     async setUp() {
-        if (this.#isSetUp) {
+        if (this.isSetUp) {
             return;
         }
 
+        this.isSetUp = true;
+
         if (this.settings.debug) {
-            this.#isSetUp = true;
+            console.debug('setting up');
         }
 
-        console.debug('setting up');
-
-        this.#window.addEventListener('message', this.#onMessageHandle);
+        this.window.addEventListener('message', this.onMessageHandle);
 
         // set the position to the
-        this.#errorWindowEl.classList.add('jpv-window');
-        this.#errorWindowEl.innerHTML = '\
+        this.errorWindowEl.classList.add('jpv-window');
+        this.errorWindowEl.innerHTML = '\
             <div id="jpv-error">\
                 <div class="jpv-title">The jpv service is not available</div>\
                 <div class="jpv-content">Make sure it\'s running on your computer.</div>\
             </div>';
 
-        this.#iframeEl.classList.add('jpv-window');
-        this.#iframeEl.src = this.embedUrl();
+        this.iframeEl.classList.add('jpv-window');
+        this.iframeEl.src = this.embedUrl();
 
-        this.#target.appendChild(this.#errorWindowEl);
-        this.#target.appendChild(this.#iframeEl);
+        this.target.appendChild(this.errorWindowEl);
+        this.target.appendChild(this.iframeEl);
 
-        this.#window.document.documentElement.addEventListener('click', this.#onClickHandle);
-        this.#window.document.documentElement.addEventListener('mousemove', this.#onMouseMoveHandle);
-        this.#window.document.documentElement.addEventListener('keyup', this.#onKeyUpHandle);
-        this.#pinger.start();
+        this.window.document.documentElement.addEventListener('click', this.onClickHandle);
+        this.window.document.documentElement.addEventListener('mousemove', this.onMouseMoveHandle);
+        this.window.document.documentElement.addEventListener('keyup', this.onKeyUpHandle);
+        this.pinger.start();
     }
 
     async tearDown() {
-        if (!this.#isSetUp) {
+        if (!this.isSetUp) {
             return;
         }
 
-        this.#isSetUp = false;
+        this.isSetUp = false;
 
         if (this.settings.debug) {
             console.debug('tearing down');
         }
 
-        this.#target.removeChild(this.#errorWindowEl);
-        this.#target.removeChild(this.#iframeEl);
+        this.target.removeChild(this.errorWindowEl);
+        this.target.removeChild(this.iframeEl);
 
-        this.#errorWindowEl = this.#window.document.createElement('div');
-        this.#iframeEl = this.#window.document.createElement('iframe');
+        this.errorWindowEl = this.window.document.createElement('div');
+        this.iframeEl = this.window.document.createElement('iframe');
 
-        window.removeEventListener('message', this.#onMessageHandle);
-        this.#window.document.documentElement.removeEventListener('click', this.#onClickHandle);
-        this.#window.document.documentElement.removeEventListener('mousemove', this.#onMouseMoveHandle);
-        this.#window.document.documentElement.removeEventListener('keyup', this.#onKeyUpHandle);
+        window.removeEventListener('message', this.onMessageHandle);
+        this.window.document.documentElement.removeEventListener('click', this.onClickHandle);
+        this.window.document.documentElement.removeEventListener('mousemove', this.onMouseMoveHandle);
+        this.window.document.documentElement.removeEventListener('keyup', this.onKeyUpHandle);
         this.reset();
     }
 
     async initialize() {
-        if (this.domainSettings.enabled && this.#window.document.visibilityState === 'visible' && this.#window.document.hasFocus()) {
+        if (this.settings.debug) {
+            console.debug(
+                'initialize', {
+                    domainSettings: this.domainSettings,
+                    visibilityState: this.window.document.visibilityState,
+                }
+            );
+        }
+
+        if (this.domainSettings.enabled && this.window.document.visibilityState === 'visible') {
             await this.setUp();
         } else {
             await this.tearDown();
@@ -482,9 +491,9 @@ class Globals {
     async start() {
         this.domainSettings = await lib.loadDomainSetting(location.host);
         this.settings = await lib.loadSettings();
-        this.#window.document.addEventListener('visibilitychange', this.#onVisibilityChangeHandle);
-        this.#window.document.addEventListener('focus', this.#onVisibilityChangeHandle);
-        this.#window.document.addEventListener('blur', this.#onVisibilityChangeHandle);
+        this.window.document.addEventListener('visibilitychange', this.onVisibilityChangeHandle);
+        this.window.document.addEventListener('focus', this.onVisibilityChangeHandle);
+        this.window.document.addEventListener('blur', this.onVisibilityChangeHandle);
         await this.initialize();
     }
 }

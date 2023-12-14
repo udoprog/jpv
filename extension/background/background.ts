@@ -5,6 +5,20 @@ import { DomainSettings, loadDomainSetting, toDomainSettings } from '../lib/lib.
 const B = compat.getBrowser();
 const S = compat.getStorage();
 
+function makeIcon(name: string): {[key: string]: string} {
+    return {
+        '19': `/icons/${name}-19.png`,
+        '38': `/icons/${name}-38.png`,
+        '48': `/icons/${name}-48.png`,
+        '64': `/icons/${name}-64.png`,
+        '128': `/icons/${name}-128.png`,
+        '256': `/icons/${name}-256.png`,
+    };
+}
+
+const ICON = makeIcon('jpv');
+const ICON_DISABLED = makeIcon('jpv-disabled');
+
 B.onTabUpdated.addListener(async (_tabId, _change, tab) => {
     await updateTab(tab);
 });
@@ -75,8 +89,8 @@ async function updateTab(tab: Tab) {
 
 async function updateIcon(tab: Tab, setting: DomainSettings) {
     if (setting.enabled) {
-        await B.setIcon({ tabId: tab.id, path: { "256": '/icons/jpv-256.png' } });
+        await B.setIcon({ tabId: tab.id, path: ICON });
     } else {
-        await B.setIcon({ tabId: tab.id, path: { "256": '/icons/jpv-disabled-256.png' } });
+        await B.setIcon({ tabId: tab.id, path: ICON_DISABLED });
     }
 }

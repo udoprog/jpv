@@ -87,7 +87,7 @@ export function getBrowser(): Browser {
     if (typeof chrome !== 'undefined') {
         return {
             setIcon: (key) => {
-                return new Promise((resolve) => chrome.browserAction.setIcon(key, resolve));
+                return chrome.action.setIcon(key);
             },
             tabsGet: (tabId) => {
                 return new Promise((resolve) => chrome.tabs.get(tabId, resolve));
