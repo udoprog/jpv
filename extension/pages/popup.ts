@@ -66,7 +66,13 @@ async function setup() {
         return;
     }
 
-    let url = new URL(tab.url);
+    let url;
+
+    try {
+        url = new URL(tab.url);
+    } catch (e) {
+        return;
+    }
 
     if (!url.host) {
         return;

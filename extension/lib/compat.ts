@@ -40,7 +40,7 @@ export interface Storage {
     onStorageChanged: EventListener<(changes: { [key: string]: StorageChange }) => void>;
 }
 
-export interface Browser extends Storage {
+export interface Browser {
     /**
      * Update icon for the tab.
      */
@@ -74,17 +74,31 @@ export interface Browser extends Storage {
 
 export function getBrowser(): Browser {
     if (typeof browser !== 'undefined') {
-        return Object.assign(
-            getStorage(),
-            {
-                setIcon: browser.browserAction.setIcon,
-                tabsGet: browser.tabs.get,
-                tabsQuery: browser.tabs.query,
-                onTabUpdated: browser.tabs.onUpdated,
-                onTabActivated: browser.tabs.onActivated,
-                onInstalled: browser.runtime.onInstalled,
-            }
-        );
+        return {
+            setIcon: browser.browserAction.setIcon,
+            tabsGet: browser.tabs.get,
+            tabsQuery: browser.tabs.query,
+            onTabUpdated: browser.tabs.onUpdated,
+            onTabActivated: browser.tabs.onActivated,
+            onInstalled: browser.runtime.onInstalled,
+        };
+    }
+
+    if (typeof chrome !== 'undefined') {
+        return {
+            setIcon: (key) => {
+                return new Promise((resolve) => chrome.browserAction.setIcon(key, resolve));
+            },
+            tabsGet: (tabId) => {
+                return new Promise((resolve) => chrome.tabs.get(tabId, resolve));
+            },
+            tabsQuery: (query) => {
+                return new Promise((resolve) => chrome.tabs.query(query, resolve));
+            },
+            onTabUpdated: chrome.tabs.onUpdated,
+            onTabActivated: chrome.tabs.onActivated,
+            onInstalled: chrome.runtime.onInstalled,
+        };
     }
 
     throw new Error("Unsupported browser");
@@ -93,9 +107,21 @@ export function getBrowser(): Browser {
 export function getStorage(): Storage {
     if (typeof browser !== 'undefined') {
         return {
-            storageGet: browser.storage.sync.get,
-            storageSet: browser.storage.sync.set,
+            storageGet: browser.storage.sync.get.bind(browser.storage.sync),
+            storageSet: browser.storage.sync.set.bind(browser.storage.sync),
             onStorageChanged: browser.storage.sync.onChanged,
+        };
+    }
+
+    if (typeof chrome !== 'undefined') {
+        return {
+            storageGet: (key) => {
+                return new Promise((resolve) => chrome.storage.sync.get(key, resolve));
+            },
+            storageSet: (data) => {
+                return new Promise((resolve) => chrome.storage.sync.set(data, resolve));
+            },
+            onStorageChanged: chrome.storage.onChanged,
         };
     }
 

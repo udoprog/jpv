@@ -1,7 +1,9 @@
-import { StorageChange, Tab, getBrowser } from '../lib/compat.js';
+import { StorageChange, Tab } from '../lib/compat.js';
+import * as compat from '../lib/compat.js';
 import { DomainSettings, loadDomainSetting, toDomainSettings } from '../lib/lib.js';
 
-let B = getBrowser();
+const B = compat.getBrowser();
+const S = compat.getStorage();
 
 B.onTabUpdated.addListener(async (_tabId, _change, tab) => {
     await updateTab(tab);
@@ -20,7 +22,7 @@ B.onInstalled.addListener(async () => {
     }
 });
 
-B.onStorageChanged.addListener(async (changes: {[key: string]: StorageChange}) => {
+S.onStorageChanged.addListener(async (changes: {[key: string]: StorageChange}) => {
     for (let key of Object.keys(changes)) {
         if (!key.startsWith('domain/')) {
             continue;
@@ -37,7 +39,13 @@ B.onStorageChanged.addListener(async (changes: {[key: string]: StorageChange}) =
                 continue;
             }
 
-            let url = new URL(tab.url);
+            let url;
+
+            try {
+                url = new URL(tab.url);
+            } catch (e) {
+                continue;
+            }
 
             if (url.host !== host) {
                 continue;
@@ -53,7 +61,14 @@ async function updateTab(tab: Tab) {
         return;
     }
 
-    let url = new URL(tab.url);
+    let url;
+
+    try {
+        url = new URL(tab.url);
+    } catch (e) {
+        return;
+    }
+
     let setting = await loadDomainSetting(url.host);
     await updateIcon(tab, setting);
 }
