@@ -57,7 +57,7 @@ Install [`trunk`] and the `wasm32` toolchain to build the UI:
 
 ```sh
 cargo install trunk
-cargo toolchain add wasm32-unknown-unknown
+rustup target add wasm32-unknown-unknown
 ```
 
 <br>

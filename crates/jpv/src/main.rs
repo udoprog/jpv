@@ -54,7 +54,7 @@
 //!
 //! ```sh
 //! cargo install trunk
-//! cargo toolchain add wasm32-unknown-unknown
+//! rustup target add wasm32-unknown-unknown
 //! ```
 //!
 //! <br>

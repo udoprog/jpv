@@ -52,7 +52,8 @@ fn main() -> Result<()> {
 
     let output = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
-        .output()?;
+        .output()
+        .context("git rev-parse --short HEAD")?;
 
     let rev = std::str::from_utf8(&output.stdout)?.trim();
 

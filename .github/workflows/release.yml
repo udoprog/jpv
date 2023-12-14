@@ -5,6 +5,10 @@ on:
     tags:
     - '*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-fedora:
     runs-on: ubuntu-latest
@@ -12,15 +16,22 @@ jobs:
       image: fedora:39
     steps:
     - run: cat /etc/fedora-release
+    - uses: udoprog/github-release@tag
+      id: release
     - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@1.74.0
-    - run: dnf install --assumeyes gcc glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+    - run: dnf install --assumeyes gcc glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
     - run: cargo install cargo-generate-rpm
     - uses: udoprog/trunk-action@v1
       with:
         args: build --release
         binaryen-version: version_114
+        version: v0.17.5
     - run: cargo build --release --features gnome,bundle -p jpv
+      env:
+        JPV_VERSION: ${{steps.release.outputs.tag}}
     - run: cargo generate-rpm -p crates/jpv
     - run: mkdir dist
     - run: mv target/generate-rpm/*.rpm dist/
