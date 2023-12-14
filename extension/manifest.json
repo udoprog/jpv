@@ -23,7 +23,11 @@
     "browser_action": {
         "default_icon": "icons/jpv-256.png",
         "default_title": "Japanese Dictionary",
-        "default_popup": "popup/popup.html"
+        "default_popup": "pages/popup.html"
+    },
+  
+    "options_ui": {
+      "page": "pages/options.html"
     },
   
     "content_scripts": [

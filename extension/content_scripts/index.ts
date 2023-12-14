@@ -1,13 +1,8 @@
 import { Point, rectContainsAny } from './utils.js';
 import { Boundaries, Bound } from './boundaries.js';
 import { Pinger } from './pinger.js';
-import { Setting, loadSetting, toSetting } from '../lib/lib.js';
-
-const DEBUG = false;
-const PADDING = 10;
-const WIDTH = 400;
-const HEIGHT = 600;
-const EMBED_URL = 'http://127.0.0.1:44714?embed=yes';
+import { Settings, DomainSettings } from '../lib/lib.js';
+import * as lib from '../lib/lib.js';
 
 interface OldCursor {
     element: HTMLElement;
@@ -24,64 +19,68 @@ interface PongMessage {
 }
 
 class Globals {
-    window: Window;
-    target: HTMLElement;
-    errorWindow: HTMLDivElement;
-    iframe: HTMLIFrameElement;
+    domainSettings: DomainSettings;
+    settings: Settings;
+    #window: Window;
+    #target: HTMLElement;
+    #errorWindowEl: HTMLDivElement;
+    #iframeEl: HTMLIFrameElement;
     #isSetUp: boolean;
-    isVisible: boolean;
-    lastElement: HTMLElement | null;
-    lastPoint: Point | null;
-    currentText: string | null;
-    currentPointOver: number | null;
-    setting: Setting;
-    oldCursor: OldCursor | null;
-    started: boolean;
+    #isVisible: boolean;
+    #lastElement: HTMLElement | null;
+    #lastPoint: Point | null;
+    #currentText: string | null;
+    #currentPointOver: number | null;
+    #oldCursor: OldCursor | null;
     #error: boolean;
-    windowPos: Point;
-    pinger: Pinger;
-    onMessageHandle: (e: MessageEvent) => void;
-    onMouseMoveHandle: (e: MouseEvent) => void;
-    onClickHandle: (e: MouseEvent) => void;
-    onKeyUpHandle: (e: KeyboardEvent) => void;
+    #windowRect: DOMRect | null;
+    #windowPos: Point;
+    #pinger: Pinger;
+    #onMessageHandle: (e: MessageEvent) => void;
+    #onMouseMoveHandle: (e: MouseEvent) => void;
+    #onClickHandle: (e: MouseEvent) => void;
+    #onKeyUpHandle: (e: KeyboardEvent) => void;
+    #onVisibilityChangeHandle: (e: Event) => void;
 
     constructor(window: Window, target: HTMLElement) {
-        this.window = window;
-        this.target = target;
-        this.errorWindow = window.document.createElement('div');
-        this.iframe = window.document.createElement('iframe');
+        this.domainSettings = lib.toDomainSettings();
+        this.settings = lib.toSettings();
+        this.#window = window;
+        this.#target = target;
+        this.#errorWindowEl = window.document.createElement('div');
+        this.#iframeEl = window.document.createElement('iframe');
         this.#isSetUp = false;
-        this.isVisible = false;
-        this.lastElement = null;
-        this.lastPoint = null;
-        this.currentText = null;
-        this.currentPointOver = null;
-        this.setting = toSetting(null);
-        this.oldCursor = null;
-        this.started = false;
+        this.#isVisible = false;
+        this.#lastElement = null;
+        this.#lastPoint = null;
+        this.#currentText = null;
+        this.#currentPointOver = null;
+        this.#oldCursor = null;
         this.#error = true;
-        this.windowPos = { x: 0, y: 0 };
-        this.pinger = new Pinger(this.onTimeout.bind(this), this.onSendPing.bind(this));
-        this.onMessageHandle = this.onMessage.bind(this);
-        this.onMouseMoveHandle = this.onMouseMove.bind(this);
-        this.onClickHandle = this.onClick.bind(this);
-        this.onKeyUpHandle = this.onKeyUp.bind(this);
+        this.#windowRect = null;
+        this.#windowPos = { x: 0, y: 0 };
+        this.#pinger = new Pinger(this.onTimeout.bind(this), this.onSendPing.bind(this));
+        this.#onMessageHandle = this.onMessage.bind(this);
+        this.#onMouseMoveHandle = this.onMouseMove.bind(this);
+        this.#onClickHandle = this.onClick.bind(this);
+        this.#onKeyUpHandle = this.onKeyUp.bind(this);
+        this.#onVisibilityChangeHandle = this.onVisibilityChange.bind(this);
     }
 
     onTimeout() {
-        if (DEBUG) {
+        if (this.settings.debug) {
             console.debug("timeout");
         }
 
         this.#error = true;
         this.setWindowState();
-        this.iframe.src = '';
-        this.iframe.src = EMBED_URL;
+        this.#iframeEl.src = '';
+        this.#iframeEl.src = this.embedUrl();
     }
 
     onSendPing(payload: string) {
-        if (this.iframe !== null && !!this.iframe.contentWindow) {
-            this.iframe.contentWindow.postMessage({ type: 'ping', payload }, '*');
+        if (this.#iframeEl !== null && !!this.#iframeEl.contentWindow) {
+            this.#iframeEl.contentWindow.postMessage({ type: 'ping', payload }, '*');
         }
     }
 
@@ -90,16 +89,16 @@ class Globals {
      */
     reset() {
         this.clearCursor();
-        this.isVisible = false;
-        this.lastElement = null;
-        this.lastPoint = null;
-        this.currentText = null;
-        this.currentPointOver = null;
-        this.setting = toSetting(null);
-        this.oldCursor = null;
+        this.#isVisible = false;
+        this.#lastElement = null;
+        this.#lastPoint = null;
+        this.#currentText = null;
+        this.#currentPointOver = null;
+        this.#oldCursor = null;
         this.#error = true;
-        this.windowPos = { x: 0, y: 0 };
-        this.pinger.stop();
+        this.#windowRect = null;
+        this.#windowPos = { x: 0, y: 0 };
+        this.#pinger.stop();
         this.setWindowState();
     }
 
@@ -109,18 +108,18 @@ class Globals {
      * @param element The element to modify cursor for.
      */
     setCursor(element: HTMLElement) {
-        if (this.oldCursor !== null) {
-            if (this.oldCursor.element === element) {
+        if (this.#oldCursor !== null) {
+            if (this.#oldCursor.element === element) {
                 return;
             }
 
             // Restore old cursor since element has changed.
-            this.oldCursor.element.style.cursor = this.oldCursor.cursor;
-            this.oldCursor = null;
+            this.#oldCursor.element.style.cursor = this.#oldCursor.cursor;
+            this.#oldCursor = null;
         }
 
-        if (this.oldCursor === null) {
-            this.oldCursor = {
+        if (this.#oldCursor === null) {
+            this.#oldCursor = {
                 element,
                 cursor: element.style.cursor,
             };
@@ -133,22 +132,22 @@ class Globals {
      * Clear the cursor that is over the current element.
      */
     clearCursor() {
-        if (this.oldCursor !== null) {
-            this.oldCursor.element.style.cursor = this.oldCursor.cursor;
-            this.oldCursor = null;
+        if (this.#oldCursor !== null) {
+            this.#oldCursor.element.style.cursor = this.#oldCursor.cursor;
+            this.#oldCursor = null;
         }
     }
 
     setWindowState() {
-        let a: HTMLElement = this.iframe;
-        let o: HTMLElement = this.errorWindow;
+        let a: HTMLElement = this.#iframeEl;
+        let o: HTMLElement = this.#errorWindowEl;
 
         if (this.#error) {
-            a = this.errorWindow;
-            o = this.iframe;
+            a = this.#errorWindowEl;
+            o = this.#iframeEl;
         }
 
-        if (this.isVisible) {
+        if (this.#isVisible) {
             a.classList.add('active');
             o.classList.remove('active');
         } else {
@@ -156,11 +155,11 @@ class Globals {
             o.classList.remove('active');
         }
 
-        if (this.isVisible) {
-            a.style.left = `${this.windowPos.x}px`;
-            a.style.top = `${this.windowPos.y}px`;
-            a.style.width = `${WIDTH}px`;
-            a.style.height = `${HEIGHT}px`;
+        if (this.#isVisible) {
+            a.style.left = `${this.#windowPos.x}px`;
+            a.style.top = `${this.#windowPos.y}px`;
+            a.style.width = `${this.settings.width}px`;
+            a.style.height = `${this.settings.height}px`;
         } else {
             a.style.left = '0px';
             a.style.right = '0px';
@@ -175,14 +174,56 @@ class Globals {
     }
 
     /**
+     * Calculate the window position.
+     *
+     * @param rect The rectangle of the element in where we are placing the popup.
+     * @param point The position of the mouse.
+     * @returns 
+     */
+    windowPosition(rect: DOMRect) {
+        let popupHeight = this.settings.height;
+        let popupWidth = this.settings.width;
+        let margin = this.settings.margin;
+
+        let windowWidth = window.innerWidth;
+        let windowHeight = window.innerHeight;
+
+        // Place the window to the right of the element being examined.
+        if (rect.x + rect.width + popupWidth + margin * 2 < windowWidth) {
+            return {
+                x: rect.x + rect.width + margin,
+                y: Math.max(Math.min(rect.y, windowHeight - popupHeight - margin), 0),
+            };
+        }
+
+        // Place the window aligned with the element, but shift to the left if it
+        // doesn't fit.
+        let x = Math.max(Math.min(rect.x, windowWidth - popupWidth - margin), 0);
+
+        // Test if the window fits below the element.
+        if (rect.y + rect.height + popupHeight + margin * 2 < windowHeight) {
+            return {
+                x,
+                y: rect.y + rect.height + margin,
+            };
+        }
+
+        // Force it to be above the element.
+        return {
+            x,
+            y: rect.y - popupHeight - margin,
+        };
+    }
+
+    /**
      * Open hover window.
      */
     openWindow() {
-        if (this.lastPoint === null || this.lastElement === null) {
+        if (this.#lastPoint === null || this.#lastElement === null) {
             return;
         }
 
-        let element = getBoundingElement(this.lastElement);
+        let element = getBoundingElement(this.#lastElement);
 
         if (!element) {
             return;
@@ -193,13 +234,12 @@ class Globals {
 
         let rect = textRange.getBoundingClientRect();
 
-        let { found, pointOver } = adjustRangeToBoundaries(textRange, this.lastPoint);
+        let { found, pointOver } = adjustRangeToBoundaries(textRange, this.#lastPoint);
 
         if (!found) {
             return;
         }
 
-        let pos = windowPosition(rect, this.lastPoint);
         let text = textRange.toString().trim();
 
         if (text === '') {
@@ -208,7 +248,7 @@ class Globals {
 
         this.setCursor(element);
 
-        if (this.setting.select) {
+        if (this.domainSettings.select) {
             let s = window.getSelection();
 
             if (s !== null) {
@@ -226,32 +266,41 @@ class Globals {
             }
         }
 
-        if (DEBUG) {
-            console.debug(pos);
+        if (!this.#isVisible) {
+            this.#isVisible = true;
         }
 
-        if (!this.isVisible) {
-            this.isVisible = true;
+        if (this.#currentText != text || this.#currentPointOver != pointOver) {
+            this.#currentText = text;
+            this.#currentPointOver = pointOver;
+            this.postAnalyze();
         }
 
-        if (this.currentText != text || this.currentPointOver != pointOver) {
-            let message = { type: 'update', text } as UpdateMessage;
+        this.#windowRect = rect;
+        this.#windowPos = this.windowPosition(rect);
 
-            if (pointOver !== null) {
-                message.analyze_at_char = pointOver;
-            }
-
-            if (!!this.iframe.contentWindow) {
-                this.iframe.contentWindow.postMessage(message, '*');
-            }
-
-            this.currentText = text;
-            this.currentPointOver = pointOver;
+        if (this.settings.debug) {
+            console.debug(this.#windowPos);
         }
 
-        this.windowPos = pos;
         this.setWindowState();
         return;
+    }
+
+    postAnalyze() {
+        if (this.#currentText === null) {
+            return;
+        }
+
+        let message = { type: 'update', text: this.#currentText } as UpdateMessage;
+
+        if (this.#currentPointOver !== null) {
+            message.analyze_at_char = this.#currentPointOver;
+        }
+
+        if (this.#iframeEl.contentWindow) {
+            this.#iframeEl.contentWindow.postMessage(message, '*');
+        }
     }
 
     /**
@@ -260,20 +309,20 @@ class Globals {
      * @returns {boolean} True if the window was closed, false otherwise.
      */
     closeWindow(): boolean {
-        if (!this.isVisible) {
+        if (!this.#isVisible) {
             return false;
         }
 
-        this.isVisible = false;
+        this.#isVisible = false;
         this.setWindowState();
-        this.currentText = null;
+        this.#currentText = null;
         this.clearCursor();
         return true;
     }
 
     onClick(e: MouseEvent) {
-        this.lastElement = e.target as HTMLElement;
-        this.lastPoint = { x: e.clientX, y: e.clientY };
+        this.#lastElement = e.target as HTMLElement;
+        this.#lastPoint = { x: e.clientX, y: e.clientY };
 
         if (!e.shiftKey) {
             if (this.closeWindow()) {
@@ -283,44 +332,45 @@ class Globals {
             return;
         }
 
-        if (this.isVisible) {
+        if (this.#isVisible) {
             this.openWindow();
             e.preventDefault();
         }
     }
 
     onMessage(e: MessageEvent) {
-        if (this.iframe.contentWindow === null) {
+        if (this.#iframeEl.contentWindow === null) {
             return;
         }
 
-        if (e.source !== this.iframe.contentWindow) {
+        if (e.source !== this.#iframeEl.contentWindow) {
             return;
         }
 
         let data = e.data as ContentMessage;
 
-        if (DEBUG) {
+        if (this.settings.debug) {
             console.debug(data);
         }
 
         if (data.type === 'open') {
-            this.pinger.restart();
+            this.#pinger.restart();
             this.#error = false;
+            this.postAnalyze();
             this.setWindowState();
         } else if (data.type === 'closed') {
-            this.pinger.restart();
+            this.#pinger.restart();
             this.#error = true;
             this.setWindowState();
         } else if (data.type === 'pong') {
             let data = e.data as PongMessage;
-            this.pinger.receivePong(data.payload);
+            this.#pinger.receivePong(data.payload);
         }
     }
 
     onMouseMove(e: MouseEvent) {
-        this.lastElement = e.target as HTMLElement;
-        this.lastPoint = { x: e.clientX, y: e.clientY };
+        this.#lastElement = e.target as HTMLElement;
+        this.#lastPoint = { x: e.clientX, y: e.clientY };
 
         if (e.shiftKey && e.buttons === 0) {
             this.openWindow();
@@ -336,34 +386,62 @@ class Globals {
         }
     }
 
-    async setUp(setting: Setting) {
+    /**
+     * Get the configured embed port.
+     */
+    embedUrl(): string {
+        return `http://127.0.0.1:${this.settings.port}?embed=yes`;
+    }
+
+    updateSettings(settings: Settings) {
+        let old = this.settings;
+        this.settings = settings;
+
+        if (this.settings.port !== old.port) {
+            this.#iframeEl.src = this.embedUrl();
+        }
+
+        if (this.#windowRect !== null) {
+            this.#windowPos = this.windowPosition(this.#windowRect);
+            this.setWindowState();
+        }
+    }
+
+    async onVisibilityChange(e: Event) {
+        await this.initialize();
+    }
+
+    async setUp() {
         if (this.#isSetUp) {
             return;
         }
 
-        this.setting = setting;
+        if (this.settings.debug) {
+            this.#isSetUp = true;
+        }
 
-        this.window.addEventListener('message', this.onMessageHandle);
+        console.debug('setting up');
+
+        this.#window.addEventListener('message', this.#onMessageHandle);
 
         // set the position to the
-        this.errorWindow.classList.add('jpv-window');
-        this.errorWindow.innerHTML = '\
+        this.#errorWindowEl.classList.add('jpv-window');
+        this.#errorWindowEl.innerHTML = '\
             <div id="jpv-error">\
                 <div class="jpv-title">The jpv service is not available</div>\
                 <div class="jpv-content">Make sure it\'s running on your computer.</div>\
             </div>';
 
-        this.iframe.classList.add('jpv-window');
-        this.iframe.src = EMBED_URL;
+        this.#iframeEl.classList.add('jpv-window');
+        this.#iframeEl.src = this.embedUrl();
 
-        this.target.appendChild(this.errorWindow);
-        this.target.appendChild(this.iframe);
+        this.#target.appendChild(this.#errorWindowEl);
+        this.#target.appendChild(this.#iframeEl);
 
-        this.window.document.documentElement.addEventListener('click', this.onClickHandle);
-        this.window.document.documentElement.addEventListener('mousemove', this.onMouseMoveHandle);
-        this.window.document.documentElement.addEventListener('keyup', this.onKeyUpHandle);
-        this.pinger.start();
-        this.#isSetUp = true;
+        this.#window.document.documentElement.addEventListener('click', this.#onClickHandle);
+        this.#window.document.documentElement.addEventListener('mousemove', this.#onMouseMoveHandle);
+        this.#window.document.documentElement.addEventListener('keyup', this.#onKeyUpHandle);
+        this.#pinger.start();
     }
 
     async tearDown() {
@@ -371,36 +449,40 @@ class Globals {
             return;
         }
 
-        this.target.removeChild(this.errorWindow);
-        this.target.removeChild(this.iframe);
-
-        this.errorWindow = this.window.document.createElement('div');
-        this.iframe = this.window.document.createElement('iframe');
-
-        window.removeEventListener('message', this.onMessageHandle);
-        this.window.document.documentElement.removeEventListener('click', this.onClickHandle);
-        this.window.document.documentElement.removeEventListener('mousemove', this.onMouseMoveHandle);
-        this.window.document.documentElement.removeEventListener('keyup', this.onKeyUpHandle);
-        this.reset();
         this.#isSetUp = false;
+
+        if (this.settings.debug) {
+            console.debug('tearing down');
+        }
+
+        this.#target.removeChild(this.#errorWindowEl);
+        this.#target.removeChild(this.#iframeEl);
+
+        this.#errorWindowEl = this.#window.document.createElement('div');
+        this.#iframeEl = this.#window.document.createElement('iframe');
+
+        window.removeEventListener('message', this.#onMessageHandle);
+        this.#window.document.documentElement.removeEventListener('click', this.#onClickHandle);
+        this.#window.document.documentElement.removeEventListener('mousemove', this.#onMouseMoveHandle);
+        this.#window.document.documentElement.removeEventListener('keyup', this.#onKeyUpHandle);
+        this.reset();
     }
 
-    async initialize(setting: Setting) {
-        if (setting.enabled) {
-            await this.setUp(setting);
+    async initialize() {
+        if (this.domainSettings.enabled && this.#window.document.visibilityState === 'visible' && this.#window.document.hasFocus()) {
+            await this.setUp();
         } else {
             await this.tearDown();
         }
     }
 
     async start() {
-        if (this.started) {
-            return;
-        }
-
-        this.started = true;
-        let setting = await loadSetting(location.host);
-        await this.initialize(setting);
+        this.domainSettings = await lib.loadDomainSetting(location.host);
+        this.settings = await lib.loadSettings();
+        this.#window.document.addEventListener('visibilitychange', this.#onVisibilityChangeHandle);
+        this.#window.document.addEventListener('focus', this.#onVisibilityChangeHandle);
+        this.#window.document.addEventListener('blur', this.#onVisibilityChangeHandle);
+        await this.initialize();
     }
 }
 
@@ -412,11 +494,34 @@ const G = new Globals(window, document.body);
 // Start the content script.
 G.start();
 
-browser.storage.sync.onChanged.addListener((changes) => {
-    let { newValue } = changes[`domain/${location.host}`];
+browser.storage.sync.onChanged.addListener(async (changes) => {
+    let domainKey = `domain/${location.host}`;
+    let any = false;
 
-    if (newValue !== undefined) {
-        G.initialize(toSetting(newValue));
+    if (domainKey in changes) {
+        let { newValue: newSetting } = changes[`domain/${location.host}`];
+
+        if (newSetting !== undefined) {
+            G.domainSettings = lib.toDomainSettings(newSetting);
+            any = true;
+        }
+    }
+
+    if ('settings' in changes) {
+        let { newValue: newGlobalValue } = changes['settings'];
+
+        if (newGlobalValue !== undefined) {
+            let newSettings = lib.toSettings(newGlobalValue);
+
+            if (!lib.settingsEqual(G.settings, newSettings)) {
+                G.updateSettings(newSettings);
+                any = true;
+            }
+        }
+    }
+
+    if (any) {
+        G.initialize();
     }
 });
 
@@ -579,46 +684,4 @@ function walk(range: Range, point: Point): WalkResult {
     }
 
     return { bounds: boundaries.build(), pointOver: boundaries.getPointOver() };
-}
-
-/**
- * Calculate the window position.
- *
- * @param rect The rectangle of the element in where we are placing the popup.
- * @param point The position of the mouse.
- * @returns 
- */
-function windowPosition(rect: DOMRect, point: Point) {
-    let popupHeight = HEIGHT;
-    let popupWidth = WIDTH;
-    let padding = PADDING;
-
-    let windowWidth = window.innerWidth;
-    let windowHeight = window.innerHeight;
-
-    // Place the window to the right of the element being examined.
-    if (rect.x + rect.width + popupWidth + padding * 2 < windowWidth) {
-        return {
-            x: rect.x + rect.width + padding,
-            y: Math.max(Math.min(rect.y, windowHeight - popupHeight - padding), 0),
-        };
-    }
-
-    // Place the window aligned with the element, but shift to the left if it
-    // doesn't fit.
-    let x = Math.max(Math.min(rect.x, windowWidth - popupWidth - padding), 0);
-
-    // Test if the window fits below the element.
-    if (rect.y + rect.height + popupHeight + padding * 2 < windowHeight) {
-        return {
-            x,
-            y: rect.y + rect.height + padding,
-        };
-    }
-
-    // Force it to be above the element.
-    return {
-        x,
-        y: rect.y - popupHeight - padding,
-    };
 }

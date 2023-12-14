@@ -11,9 +11,17 @@ export default [
         plugins: [typescript()]
     },
     {
-        input: 'popup/popup.ts',
+        input: 'pages/popup.ts',
         output: {
-            file: 'popup/popup.js',
+            file: 'pages/popup.js',
+            format: 'cjs'
+        },
+        plugins: [typescript()]
+    },
+    {
+        input: 'pages/options.ts',
+        output: {
+            file: 'pages/options.js',
             format: 'cjs'
         },
         plugins: [typescript()]
@@ -25,5 +33,5 @@ export default [
             format: 'cjs'
         },
         plugins: [typescript()]
-    }
+    },
 ];

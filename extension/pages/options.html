@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width">
+    <link rel="stylesheet" type="text/css" href="pages.css">
+    <meta charset="UTF-8">
+    <title>Settings</title>
+</head>
+<body>
+    <div id="options" class="options">
+        <div class="row flow option">
+            <label for="port">Local port:</label>
+            <input type="text" id="port" disabled />
+        </div>
+        <div class="row flow option">
+            <label for="width">Popup width:</label>
+            <input type="text" id="width" disabled />
+        </div>
+        <div class="row flow option">
+            <label for="height">Popup height:</label>
+            <input type="text" id="height" disabled />
+        </div>
+        <div class="row flow option">
+            <label for="margin">Popup margin:</label>
+            <input type="text" id="margin" disabled />
+        </div>
+        <div class="row flow option">
+            <label for="debug" class="after">Enable debugging</label>
+            <input type="checkbox" id="debug" disabled />
+        </div>
+        <div class="row flow">
+            <button class="right" id="reset">Reset defaults</button>
+        </div>
+    </div>
+    <script src="options.js"></script>
+</body>
+</html>

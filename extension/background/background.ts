@@ -1,4 +1,4 @@
-import { Setting, loadSetting, toSetting } from '../lib/lib.js';
+import { DomainSettings, loadDomainSetting, toDomainSettings } from '../lib/lib.js';
 
 browser.tabs.onUpdated.addListener(async (tabId) => {
     let tab = await browser.tabs.get(tabId);
@@ -25,7 +25,7 @@ browser.storage.sync.onChanged.addListener(async (changes: {[key: string]: brows
         }
 
         let { newValue } = changes[key];
-        let setting = toSetting(newValue);
+        let setting = toDomainSettings(newValue);
 
         let [_, host] = key.split('/', 2);
         let tabs = await browser.tabs.query({ active: true });
@@ -52,11 +52,11 @@ async function updateTab(tab: browser.tabs.Tab) {
     }
 
     let url = new URL(tab.url);
-    let setting = await loadSetting(url.host);
+    let setting = await loadDomainSetting(url.host);
     updateIcon(tab, setting);
 }
 
-function updateIcon(tab: browser.tabs.Tab, setting: Setting) {
+function updateIcon(tab: browser.tabs.Tab, setting: DomainSettings) {
     if (setting.enabled) {
         browser.browserAction.setIcon({ tabId: tab.id, path: '/icons/jpv-256.png' });
     } else {

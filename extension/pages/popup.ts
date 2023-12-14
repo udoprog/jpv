@@ -1,4 +1,5 @@
-import { Setting, saveSetting, loadSetting, checkAvailable } from '../lib/lib.js';
+import { DomainSettings } from '../lib/lib.js';
+import * as lib from '../lib/lib.js';
 
 interface Elements {
     power: HTMLInputElement;
@@ -9,18 +10,18 @@ interface Elements {
     unavailable: HTMLDivElement;
 }
 
-function setupToggle(elements: Elements, available: boolean, host: string, setting: Setting) {
+function setupToggle(elements: Elements, available: boolean, host: string, setting: DomainSettings) {
     if (available) {
         elements.select.addEventListener('change', e => {
             setting.select = elements.select.checked;
-            saveSetting(host, setting);
+            lib.saveDomainSettings(host, setting);
         });
     }
 
     if (available) {
         elements.power.addEventListener('click', async () => {
             setting.enabled = !setting.enabled;
-            saveSetting(host, setting);
+            lib.saveDomainSettings(host, setting);
             updateState(elements, available, setting);
         });
     }
@@ -29,7 +30,7 @@ function setupToggle(elements: Elements, available: boolean, host: string, setti
     updateState(elements, available, setting);
 }
 
-function updateState(elements: Elements, available: boolean, setting: Setting) {
+function updateState(elements: Elements, available: boolean, setting: DomainSettings) {
     if (setting.enabled && available) {
         elements.power.classList.add('active');
         elements.hint.classList.add('active');
@@ -77,10 +78,10 @@ async function setup() {
         unavailable: document.getElementById('unavailable') as HTMLDivElement,
     } as Elements;
 
-    let available = await checkAvailable();
+    let available = await lib.checkAvailable();
     elements.power.classList.add('clickable');
     elements.domain.textContent = url.host;
-    let setting = await loadSetting(url.host);
+    let setting = await lib.loadDomainSetting(url.host);
     setupToggle(elements, available, url.host, setting);
 }
 
