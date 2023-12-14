@@ -12,8 +12,12 @@ concurrency:
 jobs:
   build-fedora:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: ["39", "40"]
     container:
-      image: fedora:39
+      image: fedora:${{matrix.fedora}}
     steps:
     - run: cat /etc/fedora-release
     - uses: udoprog/github-release@tag
@@ -32,12 +36,12 @@ jobs:
     - run: cargo build --release --features gnome,bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.tag}}
-    - run: cargo generate-rpm -p crates/jpv
+    - run: cargo generate-rpm -p crates/jpv --set-metadata 'release="1.fc${{matrix.fedora}}"'
     - run: mkdir dist
     - run: mv target/generate-rpm/*.rpm dist/
     - uses: actions/upload-artifact@v3
       with:
-        name: dist-fedora
+        name: dist-fedora-${{matrix.fedora}}
         path: dist
 
   publish:
@@ -49,7 +53,9 @@ jobs:
       id: release
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
-      with: {name: dist-fedora, path: dist}
+      with: {name: dist-fedora-39, path: dist}
+    - uses: actions/download-artifact@v3
+      with: {name: dist-fedora-40, path: dist}
     - uses: udoprog/github-release@v1
       with:
         files: "dist/*"
