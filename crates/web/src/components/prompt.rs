@@ -52,7 +52,7 @@ pub(crate) enum Msg {
     MoreCharacters,
     ContentMessage(ContentMessage),
     Broadcast(api::OwnedBroadcastKind),
-    StateChange(ws::StateChange),
+    StateChange(ws::State),
     Error(Error),
 }
 
@@ -63,9 +63,9 @@ impl From<api::OwnedBroadcastKind> for Msg {
     }
 }
 
-impl From<ws::StateChange> for Msg {
+impl From<ws::State> for Msg {
     #[inline]
-    fn from(state: ws::StateChange) -> Self {
+    fn from(state: ws::State) -> Self {
         Msg::StateChange(state)
     }
 }
@@ -369,7 +369,7 @@ impl Component for Prompt {
                 true
             }
             Msg::StateChange(state) => {
-                self.is_open = matches!(state, ws::StateChange::Open);
+                self.is_open = matches!(state, ws::State::Open);
 
                 if let Err(error) = self.post_update() {
                     log::warn!("Failed to post update: {error}")

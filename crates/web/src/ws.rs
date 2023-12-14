@@ -36,7 +36,7 @@ pub struct Service<C> {
     shared: Rc<Shared>,
     socket: Option<WebSocket>,
     opened: Option<Opened>,
-    state: StateChange,
+    state: State,
     buffer: Vec<api::ClientRequestEnvelope>,
     timeout: u32,
     on_open: Closure<dyn Fn()>,
@@ -106,7 +106,7 @@ where
             shared: shared.clone(),
             socket: None,
             opened: None,
-            state: StateChange::Closed,
+            state: State::Closed,
             buffer: Vec::new(),
             timeout: INITIAL_TIMEOUT,
             on_open,
@@ -137,7 +137,7 @@ where
     fn set_open(&mut self) {
         log::debug!("Set open");
         self.opened = Some(Opened { at: now() });
-        self.emit_state_change(StateChange::Open);
+        self.emit_state_change(State::Open);
     }
 
     fn is_open_for_a_while(&self) -> bool {
@@ -176,10 +176,10 @@ where
 
         self.opened = None;
         self.reconnect(ctx);
-        self.emit_state_change(StateChange::Closed);
+        self.emit_state_change(State::Closed);
     }
 
-    fn emit_state_change(&mut self, state: StateChange) {
+    fn emit_state_change(&mut self, state: State) {
         if self.state != state {
             let callbacks = self.shared.state_changes.borrow();
 
@@ -397,9 +397,12 @@ struct Pending {
     callback: Callback<Result<serde_json::Value, Error>>,
 }
 
+/// The state of the connection.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub(crate) enum StateChange {
+pub(crate) enum State {
+    /// The connection is open.
     Open,
+    /// The connection is closed.
     Closed,
 }
 
@@ -408,7 +411,7 @@ struct Shared {
     onmessage: Callback<api::ClientRequestEnvelope>,
     requests: RefCell<Slab<Pending>>,
     broadcasts: RefCell<Slab<Callback<api::OwnedBroadcastKind>>>,
-    state_changes: RefCell<Slab<Callback<StateChange>>>,
+    state_changes: RefCell<Slab<Callback<State>>>,
 }
 
 #[derive(Clone)]
@@ -491,7 +494,7 @@ impl Handle {
     pub(crate) fn state_changes<C>(&self, ctx: &Context<C>) -> StateListener
     where
         C: Component,
-        C::Message: From<StateChange>,
+        C::Message: From<State>,
     {
         let mut state = self.shared.state_changes.borrow_mut();
         let index = state.insert(ctx.link().callback(C::Message::from));
