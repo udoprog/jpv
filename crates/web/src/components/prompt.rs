@@ -371,14 +371,8 @@ impl Component for Prompt {
             Msg::StateChange(state) => {
                 self.is_open = matches!(state, ws::StateChange::Open);
 
-                if self.is_open {
-                    if let Err(error) = post_parent_message(&ContentMessage::Open) {
-                        log::warn!("Failed to post message: {error}");
-                    }
-                } else {
-                    if let Err(error) = post_parent_message(&ContentMessage::Closed) {
-                        log::warn!("Failed to post message: {error}");
-                    }
+                if let Err(error) = self.post_update() {
+                    log::warn!("Failed to post update: {error}")
                 }
 
                 true
@@ -790,6 +784,18 @@ impl Component for Prompt {
                 </div>
             </>
         }
+    }
+}
+
+impl Prompt {
+    fn post_update(&self) -> Result<(), Error> {
+        let message = if self.is_open {
+            ContentMessage::Open
+        } else {
+            ContentMessage::Closed
+        };
+
+        post_parent_message(&message)
     }
 }
 
