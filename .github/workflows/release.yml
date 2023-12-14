@@ -26,13 +26,12 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
-    - run: dnf install --assumeyes gcc glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
-    - run: cargo install cargo-generate-rpm
+    - run: dnf install --assumeyes gcc
     - uses: udoprog/trunk-action@v1
       with:
-        args: build --release
-        binaryen-version: version_114
-        version: v0.17.5
+        args: build --release crates/web/index.html
+    - run: dnf install --assumeyes gcc glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
+    - run: cargo install cargo-generate-rpm
     - run: cargo build --release --features gnome,bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.tag}}
