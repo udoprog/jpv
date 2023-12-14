@@ -1,6 +1,6 @@
 [package]
 name = "jpv"
-version = "0.0.1"
+version = "0.0.4"
 authors = ["John-John Tedro <udoprog@tedro.se>"]
 edition = "2021"
 description = "Japanese Dictionary by John-John Tedro"
