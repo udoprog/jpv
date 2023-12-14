@@ -1,11 +1,13 @@
-import { Point, rectContainsAny } from './utils';
-import { Boundaries, Bound } from './boundaries';
-import { Setting, loadSetting, toSetting } from '../lib/lib';
+import { Point, rectContainsAny } from './utils.js';
+import { Boundaries, Bound } from './boundaries.js';
+import { Pinger } from './pinger.js';
+import { Setting, loadSetting, toSetting } from '../lib/lib.js';
 
 const DEBUG = false;
 const PADDING = 10;
 const WIDTH = 400;
 const HEIGHT = 600;
+const EMBED_URL = 'http://127.0.0.1:44714?embed=yes';
 
 interface OldCursor {
     element: HTMLElement;
@@ -13,15 +15,21 @@ interface OldCursor {
 }
 
 interface ContentMessage {
-    type: 'loaded';
+    type: string;
+}
+
+interface PongMessage {
+    type: 'pong';
+    payload: string;
 }
 
 class Globals {
     window: Window;
     target: HTMLElement;
-    errorWindow: HTMLDivElement | null;
-    iframe: HTMLIFrameElement | null;
-    visible: boolean;
+    errorWindow: HTMLDivElement;
+    iframe: HTMLIFrameElement;
+    #isSetUp: boolean;
+    isVisible: boolean;
     lastElement: HTMLElement | null;
     lastPoint: Point | null;
     currentText: string | null;
@@ -29,19 +37,21 @@ class Globals {
     setting: Setting;
     oldCursor: OldCursor | null;
     started: boolean;
-    error: boolean;
+    #error: boolean;
     windowPos: Point;
-    messageHandle: (e: MessageEvent) => void;
-    mouseMoveHandle: (e: MouseEvent) => void;
-    clickHandle: (e: MouseEvent) => void;
-    keyUpHandle: (e: KeyboardEvent) => void;
+    pinger: Pinger;
+    onMessageHandle: (e: MessageEvent) => void;
+    onMouseMoveHandle: (e: MouseEvent) => void;
+    onClickHandle: (e: MouseEvent) => void;
+    onKeyUpHandle: (e: KeyboardEvent) => void;
 
     constructor(window: Window, target: HTMLElement) {
         this.window = window;
         this.target = target;
-        this.errorWindow = null;
-        this.iframe = null;
-        this.visible = false;
+        this.errorWindow = window.document.createElement('div');
+        this.iframe = window.document.createElement('iframe');
+        this.#isSetUp = false;
+        this.isVisible = false;
         this.lastElement = null;
         this.lastPoint = null;
         this.currentText = null;
@@ -49,12 +59,30 @@ class Globals {
         this.setting = toSetting(null);
         this.oldCursor = null;
         this.started = false;
-        this.error = true;
+        this.#error = true;
         this.windowPos = { x: 0, y: 0 };
-        this.messageHandle = this.message.bind(this);
-        this.mouseMoveHandle = this.mouseMove.bind(this);
-        this.clickHandle = this.click.bind(this);
-        this.keyUpHandle = this.keyUp.bind(this);
+        this.pinger = new Pinger(this.onTimeout.bind(this), this.onSendPing.bind(this));
+        this.onMessageHandle = this.onMessage.bind(this);
+        this.onMouseMoveHandle = this.onMouseMove.bind(this);
+        this.onClickHandle = this.onClick.bind(this);
+        this.onKeyUpHandle = this.onKeyUp.bind(this);
+    }
+
+    onTimeout() {
+        if (DEBUG) {
+            console.debug("timeout");
+        }
+
+        this.#error = true;
+        this.setWindowState();
+        this.iframe.src = '';
+        this.iframe.src = EMBED_URL;
+    }
+
+    onSendPing(payload: string) {
+        if (this.iframe !== null && !!this.iframe.contentWindow) {
+            this.iframe.contentWindow.postMessage({ type: 'ping', payload }, '*');
+        }
     }
 
     /**
@@ -62,17 +90,17 @@ class Globals {
      */
     reset() {
         this.clearCursor();
-        this.errorWindow = null;
-        this.iframe = null;
-        this.visible = false;
+        this.isVisible = false;
         this.lastElement = null;
         this.lastPoint = null;
         this.currentText = null;
         this.currentPointOver = null;
         this.setting = toSetting(null);
         this.oldCursor = null;
-        this.error = true;
+        this.#error = true;
         this.windowPos = { x: 0, y: 0 };
+        this.pinger.stop();
+        this.setWindowState();
     }
 
     /**
@@ -112,19 +140,15 @@ class Globals {
     }
 
     setWindowState() {
-        if (this.iframe === null || this.errorWindow === null) {
-            return;
-        }
-
         let a: HTMLElement = this.iframe;
         let o: HTMLElement = this.errorWindow;
 
-        if (this.error) {
+        if (this.#error) {
             a = this.errorWindow;
             o = this.iframe;
         }
 
-        if (this.visible) {
+        if (this.isVisible) {
             a.classList.add('active');
             o.classList.remove('active');
         } else {
@@ -132,29 +156,29 @@ class Globals {
             o.classList.remove('active');
         }
 
-        if (this.visible) {
+        if (this.isVisible) {
             a.style.left = `${this.windowPos.x}px`;
             a.style.top = `${this.windowPos.y}px`;
             a.style.width = `${WIDTH}px`;
             a.style.height = `${HEIGHT}px`;
         } else {
-            a.style.left = "0px";
-            a.style.right = "0px";
-            a.style.width = "0px";
-            a.style.height = "0px";
+            a.style.left = '0px';
+            a.style.right = '0px';
+            a.style.width = '0px';
+            a.style.height = '0px';
         }
 
-        o.style.left = "0px";
-        o.style.right = "0px";
-        o.style.width = "0px";
-        o.style.height = "0px";
+        o.style.left = '0px';
+        o.style.right = '0px';
+        o.style.width = '0px';
+        o.style.height = '0px';
     }
 
     /**
      * Open hover window.
      */
     openWindow() {
-        if (this.lastPoint === null || this.iframe === null || this.errorWindow === null || this.lastElement === null) {
+        if (this.lastPoint === null || this.lastElement === null) {
             return;
         }
 
@@ -206,12 +230,12 @@ class Globals {
             console.debug(pos);
         }
 
-        if (!this.visible) {
-            this.visible = true;
+        if (!this.isVisible) {
+            this.isVisible = true;
         }
 
         if (this.currentText != text || this.currentPointOver != pointOver) {
-            let message = { type: "update", text } as UpdateMessage;
+            let message = { type: 'update', text } as UpdateMessage;
 
             if (pointOver !== null) {
                 message.analyze_at_char = pointOver;
@@ -236,18 +260,18 @@ class Globals {
      * @returns {boolean} True if the window was closed, false otherwise.
      */
     closeWindow(): boolean {
-        if (!this.visible || this.iframe === null || this.errorWindow === null) {
+        if (!this.isVisible) {
             return false;
         }
 
-        this.visible = false;
+        this.isVisible = false;
         this.setWindowState();
         this.currentText = null;
         this.clearCursor();
         return true;
     }
 
-    click(e: MouseEvent) {
+    onClick(e: MouseEvent) {
         this.lastElement = e.target as HTMLElement;
         this.lastPoint = { x: e.clientX, y: e.clientY };
 
@@ -259,14 +283,14 @@ class Globals {
             return;
         }
 
-        if (this.visible) {
+        if (this.isVisible) {
             this.openWindow();
             e.preventDefault();
         }
     }
 
-    message(e: MessageEvent) {
-        if (this.iframe === null || this.errorWindow === null || this.iframe.contentWindow === null) {
+    onMessage(e: MessageEvent) {
+        if (this.iframe.contentWindow === null) {
             return;
         }
 
@@ -276,13 +300,25 @@ class Globals {
 
         let data = e.data as ContentMessage;
 
-        if (data.type === 'loaded') {
-            this.error = false;
+        if (DEBUG) {
+            console.debug(data);
+        }
+
+        if (data.type === 'open') {
+            this.pinger.restart();
+            this.#error = false;
             this.setWindowState();
+        } else if (data.type === 'closed') {
+            this.pinger.restart();
+            this.#error = true;
+            this.setWindowState();
+        } else if (data.type === 'pong') {
+            let data = e.data as PongMessage;
+            this.pinger.receivePong(data.payload);
         }
     }
 
-    mouseMove(e: MouseEvent) {
+    onMouseMove(e: MouseEvent) {
         this.lastElement = e.target as HTMLElement;
         this.lastPoint = { x: e.clientX, y: e.clientY };
 
@@ -294,22 +330,20 @@ class Globals {
         }
     }
 
-    keyUp(e: KeyboardEvent) {
+    onKeyUp(e: KeyboardEvent) {
         if (e.key === 'Shift') {
             this.clearCursor();
         }
     }
 
     async setUp(setting: Setting) {
-        this.setting = setting;
-
-        if (this.iframe !== null) {
+        if (this.#isSetUp) {
             return;
         }
 
-        this.errorWindow = document.createElement('div');
+        this.setting = setting;
 
-        this.window.addEventListener('message', this.messageHandle);
+        this.window.addEventListener('message', this.onMessageHandle);
 
         // set the position to the
         this.errorWindow.classList.add('jpv-window');
@@ -319,31 +353,36 @@ class Globals {
                 <div class="jpv-content">Make sure it\'s running on your computer.</div>\
             </div>';
 
-        this.iframe = document.createElement('iframe');
         this.iframe.classList.add('jpv-window');
-        this.iframe.src = 'http://localhost:44714?embed=yes';
+        this.iframe.src = EMBED_URL;
 
         this.target.appendChild(this.errorWindow);
         this.target.appendChild(this.iframe);
 
-        document.documentElement.addEventListener('click', this.clickHandle);
-        document.documentElement.addEventListener('mousemove', this.mouseMoveHandle);
-        document.documentElement.addEventListener('keyup', this.keyUpHandle);
+        this.window.document.documentElement.addEventListener('click', this.onClickHandle);
+        this.window.document.documentElement.addEventListener('mousemove', this.onMouseMoveHandle);
+        this.window.document.documentElement.addEventListener('keyup', this.onKeyUpHandle);
+        this.pinger.start();
+        this.#isSetUp = true;
     }
 
     async tearDown() {
-        if (this.iframe === null || this.errorWindow === null) {
+        if (!this.#isSetUp) {
             return;
         }
 
         this.target.removeChild(this.errorWindow);
         this.target.removeChild(this.iframe);
 
-        window.removeEventListener('message', this.messageHandle);
-        document.documentElement.removeEventListener('click', this.clickHandle);
-        document.documentElement.removeEventListener('mousemove', this.mouseMoveHandle);
-        document.documentElement.removeEventListener('keyup', this.keyUpHandle);
+        this.errorWindow = this.window.document.createElement('div');
+        this.iframe = this.window.document.createElement('iframe');
+
+        window.removeEventListener('message', this.onMessageHandle);
+        this.window.document.documentElement.removeEventListener('click', this.onClickHandle);
+        this.window.document.documentElement.removeEventListener('mousemove', this.onMouseMoveHandle);
+        this.window.document.documentElement.removeEventListener('keyup', this.onKeyUpHandle);
         this.reset();
+        this.#isSetUp = false;
     }
 
     async initialize(setting: Setting) {

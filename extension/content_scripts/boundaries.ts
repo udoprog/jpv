@@ -1,4 +1,4 @@
-import {Point, rectContainsAny} from './utils';
+import {Point, rectContainsAny} from './utils.js';
 
 export interface Bound {
     node: Node;

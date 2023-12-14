@@ -1,4 +1,4 @@
-import { Setting, saveSetting, loadSetting, checkAvailable } from '../lib/lib';
+import { Setting, saveSetting, loadSetting, checkAvailable } from '../lib/lib.js';
 
 interface Elements {
     power: HTMLInputElement;

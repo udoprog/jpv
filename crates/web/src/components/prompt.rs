@@ -52,6 +52,7 @@ pub(crate) enum Msg {
     MoreCharacters,
     ContentMessage(ContentMessage),
     Broadcast(api::OwnedBroadcastKind),
+    StateChange(ws::StateChange),
     Error(Error),
 }
 
@@ -59,6 +60,13 @@ impl From<api::OwnedBroadcastKind> for Msg {
     #[inline]
     fn from(broadcast: api::OwnedBroadcastKind) -> Self {
         Msg::Broadcast(broadcast)
+    }
+}
+
+impl From<ws::StateChange> for Msg {
+    #[inline]
+    fn from(state: ws::StateChange) -> Self {
+        Msg::StateChange(state)
     }
 }
 
@@ -82,9 +90,11 @@ pub(crate) struct Prompt {
     analysis: Rc<[Rc<str>]>,
     missing: BTreeSet<String>,
     get_config: Option<ws::Request>,
+    is_open: bool,
     _callback: Closure<dyn FnMut(MessageEvent)>,
     _location_handle: Option<LocationHandle>,
     _listener: ws::Listener,
+    _state_changes: ws::StateListener,
 }
 
 #[derive(Properties, PartialEq)]
@@ -118,6 +128,7 @@ impl Component for Prompt {
         let query = decode_query(ctx.link().location());
 
         let listener = ctx.props().ws.listen(ctx);
+        let state_changes = ctx.props().ws.state_changes(ctx);
 
         let mut this = Self {
             query,
@@ -132,22 +143,16 @@ impl Component for Prompt {
             analysis: Rc::from([]),
             missing: BTreeSet::new(),
             get_config: None,
+            is_open: false,
             _callback: callback,
             _location_handle: location_handle,
             _listener: listener,
+            _state_changes: state_changes,
         };
 
         this.get_config(ctx);
         this.reload(ctx);
         this
-    }
-
-    fn rendered(&mut self, _: &Context<Self>, first_render: bool) {
-        if first_render {
-            if let Err(error) = post_parent_message(&ContentMessage::Loaded) {
-                log::warn!("Failed to post message: {error}");
-            }
-        }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -308,11 +313,14 @@ impl Component for Prompt {
             Msg::ContentMessage(message) => {
                 match message {
                     ContentMessage::Ping(payload) => {
-                        if let Err(error) = post_parent_message(&ContentMessage::Pong(payload)) {
-                            log::warn!("Failed to post message: {error}");
+                        if self.is_open {
+                            if let Err(error) = post_parent_message(&ContentMessage::Pong(payload))
+                            {
+                                log::warn!("Failed to post message: {error}");
+                            }
                         }
                     }
-                    ContentMessage::Loaded => {}
+                    ContentMessage::Open => {}
                     ContentMessage::Update(message) => {
                         self.query.set(message.text.into(), None);
 
@@ -355,6 +363,21 @@ impl Component for Prompt {
                     api::OwnedBroadcastKind::Refresh => {
                         self.get_config(ctx);
                         self.reload(ctx);
+                    }
+                }
+
+                true
+            }
+            Msg::StateChange(state) => {
+                self.is_open = matches!(state, ws::StateChange::Open);
+
+                if self.is_open {
+                    if let Err(error) = post_parent_message(&ContentMessage::Open) {
+                        log::warn!("Failed to post message: {error}");
+                    }
+                } else {
+                    if let Err(error) = post_parent_message(&ContentMessage::Closed) {
+                        log::warn!("Failed to post message: {error}");
                     }
                 }
 
@@ -1002,10 +1025,13 @@ pub struct PingPayload {
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub(crate) enum ContentMessage {
+    /// Connection is loaded.
+    Open,
+    /// Connection to backend is closed.
+    Closed,
     /// Ping message, for which a pong response is expected.
     Ping(PingPayload),
     Pong(PingPayload),
-    Loaded,
     Update(UpdateMessage),
 }
 

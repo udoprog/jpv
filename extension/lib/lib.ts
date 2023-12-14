@@ -73,7 +73,7 @@ export async function saveSetting(host: string, setting: Setting): Promise<void>
 
 export async function checkAvailable(): Promise<boolean> {
     let global = await loadGlobalSetting();
-    let request = new Request(`http://localhost:${global.port}/api/version`, { method: 'HEAD' });
+    let request = new Request(`http://127.0.0.1:${global.port}/api/version`, { method: 'HEAD' });
 
     try {
         let response = await fetch(request);

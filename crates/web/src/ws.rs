@@ -36,6 +36,7 @@ pub struct Service<C> {
     shared: Rc<Shared>,
     socket: Option<WebSocket>,
     opened: Option<Opened>,
+    state: StateChange,
     buffer: Vec<api::ClientRequestEnvelope>,
     timeout: u32,
     on_open: Closure<dyn Fn()>,
@@ -58,6 +59,7 @@ where
             onmessage: ctx.link().callback(Msg::ClientRequest),
             requests: RefCell::new(Slab::new()),
             broadcasts: RefCell::new(Slab::new()),
+            state_changes: RefCell::new(Slab::new()),
         });
 
         let on_open = {
@@ -104,6 +106,7 @@ where
             shared: shared.clone(),
             socket: None,
             opened: None,
+            state: StateChange::Closed,
             buffer: Vec::new(),
             timeout: INITIAL_TIMEOUT,
             on_open,
@@ -133,8 +136,8 @@ where
 
     fn set_open(&mut self) {
         log::debug!("Set open");
-
         self.opened = Some(Opened { at: now() });
+        self.emit_state_change(StateChange::Open);
     }
 
     fn is_open_for_a_while(&self) -> bool {
@@ -173,6 +176,19 @@ where
 
         self.opened = None;
         self.reconnect(ctx);
+        self.emit_state_change(StateChange::Closed);
+    }
+
+    fn emit_state_change(&mut self, state: StateChange) {
+        if self.state != state {
+            let callbacks = self.shared.state_changes.borrow();
+
+            for (_, callback) in callbacks.iter() {
+                callback.emit(state);
+            }
+
+            self.state = state;
+        }
     }
 
     pub(crate) fn update(&mut self, ctx: &Context<C>, message: Msg) {
@@ -292,7 +308,7 @@ where
     pub(crate) fn connect(&mut self, ctx: &Context<C>) -> Result<()> {
         let window = window().ok_or("no window")?;
         let port = window.location().port()?;
-        let url = format!("ws://localhost:{port}/ws");
+        let url = format!("ws://127.0.0.1:{port}/ws");
 
         let ws = match WebSocket::new(&url) {
             Ok(ws) => ws,
@@ -360,9 +376,31 @@ impl Drop for Listener {
     }
 }
 
+/// The handle for state change listening. Dropping this handle cancels the request.
+pub struct StateListener {
+    index: usize,
+    shared: Rc<Shared>,
+}
+
+impl Drop for StateListener {
+    #[inline]
+    fn drop(&mut self) {
+        self.shared
+            .state_changes
+            .borrow_mut()
+            .try_remove(self.index);
+    }
+}
+
 struct Pending {
     serial: u32,
     callback: Callback<Result<serde_json::Value, Error>>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub(crate) enum StateChange {
+    Open,
+    Closed,
 }
 
 struct Shared {
@@ -370,6 +408,7 @@ struct Shared {
     onmessage: Callback<api::ClientRequestEnvelope>,
     requests: RefCell<Slab<Pending>>,
     broadcasts: RefCell<Slab<Callback<api::OwnedBroadcastKind>>>,
+    state_changes: RefCell<Slab<Callback<StateChange>>>,
 }
 
 #[derive(Clone)]
@@ -443,6 +482,21 @@ impl Handle {
         let index = broadcasts.insert(ctx.link().callback(C::Message::from));
 
         Listener {
+            index,
+            shared: self.shared.clone(),
+        }
+    }
+
+    /// Listen for state changes.
+    pub(crate) fn state_changes<C>(&self, ctx: &Context<C>) -> StateListener
+    where
+        C: Component,
+        C::Message: From<StateChange>,
+    {
+        let mut state = self.shared.state_changes.borrow_mut();
+        let index = state.insert(ctx.link().callback(C::Message::from));
+
+        StateListener {
             index,
             shared: self.shared.clone(),
         }

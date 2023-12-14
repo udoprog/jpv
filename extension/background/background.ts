@@ -1,4 +1,4 @@
-import { Setting, loadSetting, toSetting } from '../lib/lib';
+import { Setting, loadSetting, toSetting } from '../lib/lib.js';
 
 browser.tabs.onUpdated.addListener(async (tabId) => {
     let tab = await browser.tabs.get(tabId);
