@@ -65,7 +65,7 @@ export class Pinger {
 
     #onInterval() {
         if (this.#lastPing === null) {
-            this.#lastPing = `ping${this.#sequence}`;
+            this.#lastPing = `${this.#sequence}`;
             this.#sequence += 1;
             this.#sequence %= 1000000;
         }

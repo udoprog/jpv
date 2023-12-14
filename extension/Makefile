@@ -1,5 +1,5 @@
 VERSION := $(shell node -e "console.log(require('./package.json').version);")
-ROLLUP := ${PWD}/node_modules/.bin/rollup
+ROLLUP := node_modules/.bin/rollup
 
 default: jpv-$(VERSION).xpi jpv-$(VERSION)-source.zip
 
