@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::pin::pin;
@@ -43,11 +44,11 @@ pub(crate) struct ServiceArgs {
     #[arg(long)]
     pub(crate) no_open: bool,
     /// Disable D-Bus binding.
-    #[cfg(feature = "dbus")]
+    #[cfg(feature = "tokio-dbus")]
     #[arg(long)]
     pub(crate) dbus_disable: bool,
     /// Bind to the D-Bus system bus.
-    #[cfg(feature = "dbus")]
+    #[cfg(feature = "tokio-dbus")]
     #[arg(long)]
     pub(crate) dbus_system: bool,
     /// Bind to the given address. Default is `127.0.0.1:44714`.
@@ -128,7 +129,31 @@ pub(crate) async fn run(
 
     let (channel, mut receiver) = tokio::sync::mpsc::unbounded_channel();
 
-    let background = Background::new(dirs, channel, config, db, system_events.clone());
+    let tesseract = match tesseract::open("jpn") {
+        Ok(tesseract) => {
+            if let Some(path) = tesseract.path() {
+                tracing::info!("Tesseract OCR support enabled from {}", path.display());
+            } else {
+                tracing::info!("Tesseract OCR support enabled from system");
+            }
+
+            Some(tesseract)
+        }
+        Err(error) => {
+            tracing::warn!("Failed to load Tesseract-OCR: {error}");
+
+            let mut error = error.source();
+
+            while let Some(source) = error {
+                tracing::warn!("Caused by: {source}");
+                error = source.source();
+            }
+
+            None
+        }
+    };
+
+    let background = Background::new(dirs, channel, config, db, system_events.clone(), tesseract)?;
 
     let mut server = pin!(web::setup(
         listener,

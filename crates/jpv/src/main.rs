@@ -82,15 +82,16 @@
 //!
 //! #### Windows
 //!
-//! You need to use `vcpkg` to install all needed dependencies.
+//! The OCR feature depends on tesseract which is dynamically loaded.
 //!
-//! For the `ocr` feature:
+//! You'll have to install tesseract from the [UB-Mannheim/tesseract] project.
 //!
-//! ```
-//! vcpkg install leptonica
-//! vcpkg install tesseract
-//! $env:VCPKGRS_DYNAMIC="1"
-//! ```
+//! [UB-Mannheim/tesseract]: https://github.com/UB-Mannheim/tesseract/wiki
+//!
+//! Make sure to install the "Japanese" and "Japanese (vertical)" under
+//! `Additional language data`.
+//!
+//! ![Additional language data](https://github.com/udoprog/jpv/blob/main/gfx/tesseract-ocr-japanese.png?raw=true)
 //!
 //! <br>
 //!

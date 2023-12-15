@@ -14,7 +14,7 @@ use lib::{api, data, Dirs};
 use tempfile::NamedTempFile;
 use tokio::fs;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Mutex};
 
 use crate::reporter::EventsReporter;
 use crate::system::{self, SystemEvents};
@@ -36,9 +36,14 @@ pub enum BackgroundEvent {
     InstallAll(bool),
 }
 
+struct Immutable {
+    dirs: Dirs,
+    tesseract: Option<Mutex<tesseract::Tesseract>>,
+}
+
 #[derive(Clone)]
 pub struct Background {
-    dirs: Arc<Dirs>,
+    immutable: Arc<Immutable>,
     channel: UnboundedSender<BackgroundEvent>,
     system_events: SystemEvents,
     inner: Arc<RwLock<BackgroundInner>>,
@@ -51,9 +56,12 @@ impl Background {
         config: Config,
         database: Database,
         system_events: SystemEvents,
-    ) -> Self {
-        Self {
-            dirs: Arc::new(dirs),
+        tesseract: Option<tesseract::Tesseract>,
+    ) -> Result<Self> {
+        let tesseract = tesseract.map(Mutex::new);
+
+        Ok(Self {
+            immutable: Arc::new(Immutable { dirs, tesseract }),
             channel,
             system_events,
             inner: Arc::new(RwLock::new(BackgroundInner {
@@ -62,7 +70,12 @@ impl Background {
                 log: Vec::new(),
                 tasks: HashMap::new(),
             })),
-        }
+        })
+    }
+
+    /// Get tesseract API handle.
+    pub(crate) fn tesseract(&self) -> Option<&Mutex<tesseract::Tesseract>> {
+        self.immutable.tesseract.as_ref()
     }
 
     /// Get the current log backfill.
@@ -150,16 +163,16 @@ impl Background {
     ) -> Result<()> {
         match event {
             BackgroundEvent::SaveConfig(config, callback) => {
-                let dirs = self.dirs.clone();
-                let path = dirs.config_path();
+                let path = self.immutable.dirs.config_path();
                 ensure_parent_dir(&path).await?;
 
+                let config_dir = self.immutable.dirs.config_dir().to_owned();
                 let new_config = config.clone();
 
                 let task = tokio::task::spawn_blocking(move || {
                     let config = lib::toml::to_string_pretty(&config)?;
 
-                    let mut tempfile = NamedTempFile::new_in(dirs.config_dir())?;
+                    let mut tempfile = NamedTempFile::new_in(config_dir)?;
                     std::io::copy(&mut config.as_bytes(), &mut tempfile)?;
                     tempfile.persist(&path)?;
                     tracing::info!("Wrote new configuration to {}", path.display());
@@ -168,7 +181,7 @@ impl Background {
 
                 task.await??;
 
-                let indexes = data::open_from_args(&args.index[..], &self.dirs)
+                let indexes = data::open_from_args(&args.index[..], &self.immutable.dirs)
                     .context("Opening database files")?;
                 let db = lib::database::Database::open(indexes, &new_config)
                     .context("Opening the database")?;
@@ -177,8 +190,8 @@ impl Background {
             }
             BackgroundEvent::InstallAll(force) => {
                 let config = self.config();
-                let dirs = self.dirs.clone();
-                let to_download = config_to_download(&config, &dirs, Default::default());
+                let to_download =
+                    config_to_download(&config, &self.immutable.dirs, Default::default());
 
                 for to_download in to_download {
                     let Some((shutdown, completion)) =
@@ -189,7 +202,6 @@ impl Background {
 
                     self.start_task(&completion, 6);
 
-                    let dirs = self.dirs.clone();
                     let inner = self.inner.clone();
                     let index = args.index.clone();
 
@@ -201,6 +213,7 @@ impl Background {
                     });
 
                     tokio::spawn({
+                        let immutable = self.immutable.clone();
                         let system_events = self.system_events.clone();
 
                         async move {
@@ -208,13 +221,19 @@ impl Background {
                             let _completion = completion;
 
                             let future = async {
-                                if !build(reporter.clone(), shutdown, &dirs, &to_download, force)
-                                    .await?
+                                if !build(
+                                    reporter.clone(),
+                                    shutdown,
+                                    &immutable.dirs,
+                                    &to_download,
+                                    force,
+                                )
+                                .await?
                                 {
                                     return Ok(());
                                 }
 
-                                let indexes = data::open_from_args(&index[..], &dirs)?;
+                                let indexes = data::open_from_args(&index[..], &immutable.dirs)?;
                                 let mut inner = inner.write().unwrap();
                                 let db = lib::database::Database::open(indexes, &inner.config)?;
                                 inner.database = db;

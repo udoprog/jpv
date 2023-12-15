@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::io::Cursor;
 use std::pin::{pin, Pin};
 
 use anyhow::Result;
@@ -6,7 +7,7 @@ use async_fuse::Fuse;
 use tokio::sync::futures::Notified;
 
 use crate::open_uri;
-use crate::system::{Setup, Start};
+use crate::system::{self, Setup, Start, SystemEvents};
 use crate::VERSION;
 
 const ICON: &[u8] = include_bytes!("../../res/jpv22.ico");
@@ -30,16 +31,19 @@ impl Start for Windows {
         &'a mut self,
         port: u16,
         shutdown: Notified<'a>,
-        _: &'a crate::system::SystemEvents,
+        system_events: &'a SystemEvents,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>> {
         Box::pin(async move {
             let mut shutdown = pin!(Fuse::new(shutdown));
-            let mut builder = winctx::WindowBuilder::new("jpv");
+            let mut builder = winctx::ContextBuilder::new("jpv").with_clipboard_events(true);
 
             builder.set_icon(ICON, 22, 22);
-            builder.add_menu_entry(format_args!("jpv ({VERSION})"), true);
-            let open = builder.add_menu_entry("Open dictionary...", false);
-            let exit = builder.add_menu_entry("Shutdown...", false);
+            builder.push_menu_item(winctx::MenuItem::entry(
+                format_args!("jpv ({VERSION})"),
+                true,
+            ));
+            let open = builder.push_menu_item(winctx::MenuItem::entry("Open dictionary...", false));
+            let exit = builder.push_menu_item(winctx::MenuItem::entry("Shutdown...", false));
 
             let (sender, mut event_loop) = builder.with_class_name(NAME).build().await?;
 
@@ -50,6 +54,17 @@ impl Start for Windows {
                     },
                     event = event_loop.tick() => {
                         match event? {
+                            winctx::Event::Clipboard(clipboard_event) => match clipboard_event {
+                                winctx::ClipboardEvent::BitMap(bitmap) => {
+                                    let decoder = image::codecs::bmp::BmpDecoder::new_without_file_header(Cursor::new(& bitmap[..]))?;
+                                    let image = image::DynamicImage::from_decoder(decoder)?;
+                                    system_events.send(system::Event::SendDynamicImage(image.clone()));
+                                }
+                                winctx::ClipboardEvent::Text(text) => {
+                                    system_events.send(system::Event::SendText(text.clone()));
+                                }
+                                _ => {}
+                            },
                             winctx::Event::MenuEntryClicked(token) => {
                                 if token == open {
                                     let address = format!("http://localhost:{port}");

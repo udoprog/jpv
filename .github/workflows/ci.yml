@@ -12,20 +12,23 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{matrix.os}}
     strategy:
       fail-fast: false
       matrix:
         rust: ["1.74", stable]
+        os: [ubuntu-latest, windows-latest]
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{matrix.rust}}
-    - run: cargo build --workspace --exclude jpv-tesseract --no-default-features
-    - run: cargo test --workspace --exclude jpv-tesseract --no-default-features
+    - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
+      if: matrix.os == 'ubuntu-latest'
+    - run: cargo build --workspace
+    - run: cargo test --workspace
       if: matrix.rust == 'stable'
-    - run: cargo test --workspace --exclude jpv-tesseract --no-default-features --doc
+    - run: cargo test --workspace --doc
       if: matrix.rust == 'stable'
 
   clippy:
@@ -35,7 +38,8 @@ jobs:
     - uses: dtolnay/rust-toolchain@1.74.1
       with:
         components: clippy
-    - run: cargo clippy --workspace --exclude jpv-tesseract --no-default-features -- -D warnings
+    - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
+    - run: cargo clippy --workspace -- -D warnings
 
   rustfmt:
     runs-on: ubuntu-latest

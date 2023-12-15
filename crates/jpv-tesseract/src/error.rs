@@ -1,9 +1,12 @@
-use core::fmt;
-use std::error;
 use std::ffi::NulError;
+#[cfg(windows)]
+use std::io;
 use std::num::TryFromIntError;
+#[cfg(windows)]
+use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
 pub struct Error {
     kind: ErrorKind,
 }
@@ -27,36 +30,54 @@ where
     }
 }
 
-impl fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.kind.fmt(f)
-    }
-}
-
-impl error::Error for Error {
-    #[inline]
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        self.kind.source()
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub(super) enum ErrorKind {
-    #[error("{0}")]
+    #[error("String is not null terminated")]
     NulError(
         #[from]
         #[source]
         NulError,
     ),
-    #[error("{0}")]
+    #[error("Failed integer conversion")]
     TryFromIntError(
         #[from]
         #[source]
         TryFromIntError,
     ),
-    #[error("failed to initialize")]
+    #[cfg(any(windows, feature = "tesseract-sys"))]
+    #[error("Failed to initialize")]
     Initialize,
-    #[error("bytes per pixel must be a smaller non-zero multiple of width")]
+    #[cfg(any(windows, feature = "tesseract-sys"))]
+    #[error("Bytes per pixel must be a smaller non-zero multiple of width")]
     IllegalBytesPerPixel,
+    #[cfg(windows)]
+    #[error("Failed to load dynamic library")]
+    LoadLibrary(#[source] libloading::Error),
+    #[cfg(windows)]
+    #[error("Missing symbol `{symbol}` in dynamic library")]
+    MissingSymbol {
+        error: libloading::Error,
+        symbol: &'static str,
+    },
+    #[cfg(windows)]
+    #[error("Failed to open registry key")]
+    OpenRegistryKey(#[source] io::Error),
+    #[cfg(windows)]
+    #[error("Failed to get `Path` key from registry")]
+    GetRegistryPath(#[source] io::Error),
+    #[cfg(windows)]
+    #[error("Failed to get `CurrentVersion` key from registry")]
+    GetRegistryCurrentVersion(#[source] io::Error),
+    #[cfg(windows)]
+    #[error("Unsupported version `{0}, expected major version `{1}`")]
+    UnsupportedMajorVersion(Box<str>, u32),
+    #[cfg(windows)]
+    #[error("Not installed, please install it from https://github.com/UB-Mannheim/tesseract/wiki")]
+    NotInstalled,
+    #[cfg(windows)]
+    #[error("Missing language data ({0}), please install it through the installer")]
+    MissingLanguage(Box<Path>),
+    #[cfg(all(not(windows), not(feature = "tesseract-sys")))]
+    #[error("Platform is not supported")]
+    Unsupported,
 }

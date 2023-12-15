@@ -13,6 +13,7 @@ use lib::api::{self, Request};
 use rand::prelude::*;
 use rand::rngs::SmallRng;
 use tokio::sync::broadcast::Receiver;
+use tokio::sync::Mutex;
 use tokio::time::Duration;
 use tracing::{Instrument, Level};
 
@@ -75,7 +76,6 @@ fn decode_escaped(data: &[u8]) -> Option<String> {
     Some(s)
 }
 
-#[cfg(feature = "tesseract")]
 fn trim_whitespace(input: &str) -> Cow<'_, str> {
     let mut output = String::new();
     let mut c = input.char_indices();
@@ -114,6 +114,7 @@ async fn log_backfill(
 }
 
 async fn system_event(
+    bg: &Background,
     sink: &mut SplitSink<WebSocket, Message>,
     event: system::Event,
 ) -> Result<()> {
@@ -158,7 +159,11 @@ async fn system_event(
                 sink.send(Message::Binary(json)).await?;
             }
             ty => {
-                let Some(event) = handle_image(ty, &clipboard)? else {
+                let Some(tesseract) = bg.tesseract() else {
+                    return Ok(());
+                };
+
+                let Some(event) = handle_mimetype_image(tesseract, ty, &clipboard).await? else {
                     return Ok(());
                 };
 
@@ -166,6 +171,29 @@ async fn system_event(
                 sink.send(Message::Binary(json)).await?;
             }
         },
+        system::Event::SendDynamicImage(image) => {
+            let Some(tesseract) = bg.tesseract() else {
+                return Ok(());
+            };
+
+            let Some(event) = handle_image(tesseract, image).await? else {
+                return Ok(());
+            };
+
+            let json = serde_json::to_vec(&event)?;
+            sink.send(Message::Binary(json)).await?;
+        }
+        system::Event::SendText(text) => {
+            let event = api::ClientEvent::Broadcast(api::Broadcast {
+                kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
+                    ty: Some("text/plain"),
+                    data: text.as_bytes(),
+                }),
+            });
+
+            let json = serde_json::to_vec(&event)?;
+            sink.send(Message::Binary(json)).await?;
+        }
         system::Event::LogEntry(event) => {
             let event = api::OwnedClientEvent::Broadcast(api::OwnedBroadcast {
                 kind: api::OwnedBroadcastKind::LogEntry(event),
@@ -211,13 +239,11 @@ async fn system_event(
     Ok(())
 }
 
-#[cfg(not(feature = "tesseract"))]
-fn handle_image(_: &str, _: &system::SendClipboardData) -> Result<Option<api::OwnedClientEvent>> {
-    Ok(None)
-}
-
-#[cfg(feature = "tesseract")]
-fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::OwnedClientEvent>> {
+async fn handle_mimetype_image(
+    tesseract: &Mutex<tesseract::Tesseract>,
+    ty: &str,
+    c: &system::SendClipboardData,
+) -> Result<Option<api::OwnedClientEvent>> {
     use image::ImageFormat;
 
     let format = match ty {
@@ -238,6 +264,13 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::O
         }
     };
 
+    handle_image(tesseract, image).await
+}
+
+async fn handle_image(
+    tesseract: &Mutex<tesseract::Tesseract>,
+    image: image::DynamicImage,
+) -> Result<Option<api::OwnedClientEvent>> {
     let data = image.as_bytes();
     let width = usize::try_from(image.width())?;
     let height = usize::try_from(image.height())?;
@@ -245,7 +278,11 @@ fn handle_image(ty: &str, c: &system::SendClipboardData) -> Result<Option<api::O
 
     tracing::trace!(len = data.len(), width, height, bytes_per_pixel);
 
-    let text = match tesseract::image_to_text("jpn", data, width, height, bytes_per_pixel) {
+    let text = match tesseract
+        .lock()
+        .await
+        .image_to_text(data, width, height, bytes_per_pixel)
+    {
         Ok(text) => text,
         Err(error) => {
             tracing::warn!(?error, "Image recognition failed");
@@ -311,7 +348,7 @@ async fn run(
                     break Some((CLOSE_NORMAL, "system shutting down"));
                 };
 
-                if let Err(error) = system_event(&mut sender, event).await {
+                if let Err(error) = system_event(bg, &mut sender, event).await {
                     tracing::error!(?error, "Failed to process system event");
                 };
             }

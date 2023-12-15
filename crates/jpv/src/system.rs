@@ -46,11 +46,18 @@ pub(crate) struct TaskCompleted {
 }
 
 #[derive(Clone)]
+#[allow(unused)]
 pub(crate) enum Event {
-    #[cfg_attr(not(dbus), allow(unused))]
     SendClipboardData(SendClipboardData),
+    /// Send a dynamic image directly.
+    SendDynamicImage(image::DynamicImage),
+    /// Send text to analyze.
+    SendText(String),
+    /// Emit a log entry.
     LogEntry(api::OwnedLogEntry),
+    /// Emit task progress.
     TaskProgress(TaskProgress),
+    /// Emit that a task has completed.
     TaskCompleted(TaskCompleted),
     /// Indicate that clients should refresh their state.
     Refresh,
