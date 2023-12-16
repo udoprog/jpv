@@ -26,6 +26,7 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
+    - uses: Swatinem/rust-cache@v2
     - run: dnf install --assumeyes gcc
     - uses: udoprog/trunk-action@v1
       with:
@@ -43,9 +44,34 @@ jobs:
         name: dist-fedora-${{matrix.fedora}}
         path: dist
 
+  windows:
+    runs-on: windows-latest
+    steps:
+    - uses: udoprog/github-release@tag
+      id: release
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+    - uses: Swatinem/rust-cache@v2
+    - uses: udoprog/kick@nightly
+    - uses: udoprog/trunk-action@v1
+      with:
+        args: build --release crates/web/index.html
+    - run: cargo build --release --features bundle -p jpv
+      env:
+        JPV_VERSION: ${{steps.release.outputs.tag}}
+    - run: kick msi --msi-version ${{steps.release.outputs.tag}}
+    - run: mkdir dist
+    - run: mv wix/*.msi dist/
+    - uses: actions/upload-artifact@v3
+      with:
+        name: dist-windows
+        path: dist
+
   publish:
     permissions: write-all
-    needs: fedora
+    needs: [fedora, windows]
     runs-on: ubuntu-latest
     steps:
     - uses: udoprog/github-release@tag
@@ -55,6 +81,8 @@ jobs:
       with: {name: dist-fedora-39, path: dist}
     - uses: actions/download-artifact@v3
       with: {name: dist-fedora-40, path: dist}
+    - uses: actions/download-artifact@v3
+      with: {name: dist-windows, path: dist}
     - uses: udoprog/github-release@v1
       with:
         files: "dist/*"
