@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -21,7 +22,7 @@ use crate::system::{self, SystemEvents};
 use crate::tasks::{CompletedTask, TaskCompletion, Tasks};
 use crate::Args;
 
-pub(crate) struct BackgroundInner {
+pub(crate) struct Mutable {
     config: Config,
     database: Database,
     pub(crate) log: Vec<api::OwnedLogEntry>,
@@ -36,17 +37,18 @@ pub enum BackgroundEvent {
     InstallAll(bool),
 }
 
-struct Immutable {
+struct Shared {
     dirs: Dirs,
     tesseract: Option<Mutex<tesseract::Tesseract>>,
+    ocr: AtomicBool,
 }
 
 #[derive(Clone)]
 pub struct Background {
-    immutable: Arc<Immutable>,
+    shared: Arc<Shared>,
     channel: UnboundedSender<BackgroundEvent>,
     system_events: SystemEvents,
-    inner: Arc<RwLock<BackgroundInner>>,
+    mutable: Arc<RwLock<Mutable>>,
 }
 
 impl Background {
@@ -61,10 +63,14 @@ impl Background {
         let tesseract = tesseract.map(Mutex::new);
 
         Ok(Self {
-            immutable: Arc::new(Immutable { dirs, tesseract }),
+            shared: Arc::new(Shared {
+                dirs,
+                tesseract,
+                ocr: AtomicBool::new(config.ocr),
+            }),
             channel,
             system_events,
-            inner: Arc::new(RwLock::new(BackgroundInner {
+            mutable: Arc::new(RwLock::new(Mutable {
                 config,
                 database,
                 log: Vec::new(),
@@ -75,12 +81,16 @@ impl Background {
 
     /// Get tesseract API handle.
     pub(crate) fn tesseract(&self) -> Option<&Mutex<tesseract::Tesseract>> {
-        self.immutable.tesseract.as_ref()
+        if !self.shared.ocr.load(Ordering::SeqCst) {
+            return None;
+        }
+
+        self.shared.tesseract.as_ref()
     }
 
     /// Get the current log backfill.
     pub(crate) fn log(&self) -> Vec<api::OwnedLogEntry> {
-        self.inner.read().unwrap().log.clone()
+        self.mutable.read().unwrap().log.clone()
     }
 
     /// Update current configuration.
@@ -95,7 +105,8 @@ impl Background {
             return false;
         }
 
-        self.inner.write().unwrap().config = config;
+        self.shared.ocr.store(config.ocr, Ordering::SeqCst);
+        self.mutable.write().unwrap().config = config;
         self.system_events.send(system::Event::Refresh);
         true
     }
@@ -107,12 +118,12 @@ impl Background {
 
     /// Access current configuration.
     pub(crate) fn config(&self) -> Config {
-        self.inner.read().unwrap().config.clone()
+        self.mutable.read().unwrap().config.clone()
     }
 
     /// Access the database currently in use.
     pub(crate) fn database(&self) -> Database {
-        self.inner.read().unwrap().database.clone()
+        self.mutable.read().unwrap().database.clone()
     }
 
     /// Mark the given task as completed.
@@ -121,7 +132,7 @@ impl Background {
             return;
         };
 
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.mutable.write().unwrap();
 
         inner.tasks.insert(
             name.into(),
@@ -142,7 +153,7 @@ impl Background {
             return;
         };
 
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.mutable.write().unwrap();
 
         let Some(task) = inner.tasks.remove(name) else {
             return;
@@ -163,10 +174,10 @@ impl Background {
     ) -> Result<()> {
         match event {
             BackgroundEvent::SaveConfig(config, callback) => {
-                let path = self.immutable.dirs.config_path();
+                let path = self.shared.dirs.config_path();
                 ensure_parent_dir(&path).await?;
 
-                let config_dir = self.immutable.dirs.config_dir().to_owned();
+                let config_dir = self.shared.dirs.config_dir().to_owned();
                 let new_config = config.clone();
 
                 let task = tokio::task::spawn_blocking(move || {
@@ -181,17 +192,17 @@ impl Background {
 
                 task.await??;
 
-                let indexes = data::open_from_args(&args.index[..], &self.immutable.dirs)
+                let indexes = data::open_from_args(&args.index[..], &self.shared.dirs)
                     .context("Opening database files")?;
                 let db = lib::database::Database::open(indexes, &new_config)
                     .context("Opening the database")?;
-                self.inner.write().unwrap().database = db;
+                self.mutable.write().unwrap().database = db;
                 let _ = callback.send(());
             }
             BackgroundEvent::InstallAll(force) => {
                 let config = self.config();
                 let to_download =
-                    config_to_download(&config, &self.immutable.dirs, Default::default());
+                    config_to_download(&config, &self.shared.dirs, Default::default());
 
                 for to_download in to_download {
                     let Some((shutdown, completion)) =
@@ -202,7 +213,7 @@ impl Background {
 
                     self.start_task(&completion, 6);
 
-                    let inner = self.inner.clone();
+                    let inner = self.mutable.clone();
                     let index = args.index.clone();
 
                     let reporter = Arc::new(EventsReporter {
@@ -213,7 +224,7 @@ impl Background {
                     });
 
                     tokio::spawn({
-                        let immutable = self.immutable.clone();
+                        let immutable = self.shared.clone();
                         let system_events = self.system_events.clone();
 
                         async move {

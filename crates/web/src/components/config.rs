@@ -10,6 +10,7 @@ use crate::{c, ws};
 pub(crate) enum Msg {
     GetConfig(api::GetConfigResult),
     Toggle(String),
+    ToggleOcr,
     IndexAdd,
     IndexAddSave(String, ConfigIndex),
     IndexAddCancel,
@@ -45,6 +46,7 @@ pub(crate) struct Config {
     pending: bool,
     state: Option<State>,
     installed: HashSet<String>,
+    missing_ocr: Option<api::MissingOcr>,
     edit_index: HashSet<String>,
     index_add: bool,
     request: ws::Request,
@@ -67,6 +69,7 @@ impl Component for Config {
             pending: true,
             state: None,
             installed: HashSet::new(),
+            missing_ocr: None,
             edit_index: HashSet::new(),
             index_add: false,
             request,
@@ -82,11 +85,17 @@ impl Component for Config {
                 });
 
                 self.installed = result.installed;
+                self.missing_ocr = result.missing_ocr;
                 self.pending = false;
             }
             Msg::Toggle(id) => {
                 if let Some(state) = self.state.as_mut() {
                     state.local.toggle(&id);
+                }
+            }
+            Msg::ToggleOcr => {
+                if let Some(state) = self.state.as_mut() {
+                    state.local.ocr = !state.local.ocr;
                 }
             }
             Msg::IndexAdd => {
@@ -165,6 +174,7 @@ impl Component for Config {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         let mut indexes = Vec::new();
+        let mut ocr = None;
 
         if let Some(state) = &self.state {
             for (id, index) in &state.local.indexes {
@@ -217,7 +227,7 @@ impl Component for Config {
                     indexes.push(html! {
                         <div {class}>
                             <input id={id.to_owned()} type="checkbox" {checked} disabled={self.pending} {onchange} />
-                            <label for={id.to_owned()} class="index-id">{id.to_owned()}</label>
+                            <label for={id.to_owned()}>{id.to_owned()}</label>
                             <label for={id.to_owned()}>{index.description.clone()}</label>
                             {not_installed}
                             <div class="end index-edit clickable" {onclick} title={"Change this dictionary"}>{"Edit"}</div>
@@ -226,6 +236,49 @@ impl Component for Config {
                     });
                 }
             }
+
+            ocr = Some({
+                let checked = state.local.ocr;
+
+                let onchange = ctx.link().callback(move |_| Msg::ToggleOcr);
+
+                let missing_ocr = self.missing_ocr.as_ref().filter(|_| state.remote.ocr).map(|missing| {
+                    let install_url = missing
+                        .install_url
+                        .as_ref()
+                        .map(|install| {
+                            let href = install.url.clone();
+                            let title = install.title.clone();
+
+                            html! {
+                                <div class="block block-sm row row-spaced">
+                                    <a {href} {title} class="btn btn-lg" target="_install_url">{format!("⇓ {}", install.text)}</a>
+                                </div>
+                            }
+                        });
+
+                    html! {
+                        <div class="block block-lg danger">
+                            <div class="block block-sm row row-spaced">
+                                <span class="title">{"OCR support is not installed"}</span>
+                            </div>
+
+                            {for install_url}
+                        </div>
+                    }
+                });
+
+                html! {
+                    <>
+                        <div class="block row row-spaced">
+                            <input id="ocr" type="checkbox" {checked} disabled={self.pending} {onchange} />
+                            <label for="ocr">{"OCR Support"}</label>
+                        </div>
+
+                        {for missing_ocr}
+                    </>
+                }
+            });
         }
 
         let add = if self.index_add {
@@ -241,14 +294,17 @@ impl Component for Config {
         } else {
             let onclick = ctx.link().callback(|_| Msg::IndexAdd);
 
+            let onrebuild = ctx.link().callback(|_| Msg::InstallAll);
+
             html! {
-                <div class="block">
-                    <button class="btn primary centered" disabled={self.pending} {onclick}>{"+ Add dictionary"}</button>
+                <div class="block row row-spaced">
+                    <button class="btn end primary" disabled={self.pending} {onclick}>{"New dictionary"}</button>
+                    <button class="btn primary" disabled={self.pending} onclick={onrebuild} title="Install all missing dictionaries">{"Install all"}</button>
                 </div>
             }
         };
 
-        let config = html! {
+        let dictionaries = html! {
             <>
                 {for indexes}
                 {add}
@@ -256,11 +312,10 @@ impl Component for Config {
         };
 
         let onsave = ctx.link().callback(|_| Msg::Save);
-        let onrebuild = ctx.link().callback(|_| Msg::InstallAll);
 
         let back = (!ctx.props().embed).then(|| {
             html! {
-                <button class="btn" onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
+                <button class="btn btn-lg" onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
             }
         });
 
@@ -298,18 +353,23 @@ impl Component for Config {
 
         html! {
             <>
-                <h5>{"Dictionaries"}</h5>
+                <div class="block block-lg row row-spaced">
+                    {back}
+                    <button class="btn btn-lg end primary" {disabled} onclick={onsave}>{"Save"}</button>
+                </div>
 
                 {pending}
 
-                <div class="block block-lg">{config}</div>
+                <h5>{"Dictionaries"}</h5>
+                <div class="block block-lg">{dictionaries}</div>
 
-                <div class="block block-lg row row-spaced">
-                    {back}
-                    <button class="btn end primary" {disabled} onclick={onsave}>{"Save"}</button>
-                    <button class="btn" onclick={onrebuild} title="Install all dictionary">{"Install all"}</button>
+                <h5>{"OCR"}</h5>
+
+                <div class="block block-lg">
+                    {for ocr}
                 </div>
 
+                <h5>{"Log"}</h5>
                 {log}
             </>
         }

@@ -57,6 +57,13 @@ pub struct Config {
     /// Enabled indexes.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub indexes: BTreeMap<String, ConfigIndex>,
+    /// Whether OCR support is enabled or not.
+    #[serde(default = "default_ocr")]
+    pub ocr: bool,
+}
+
+fn default_ocr() -> bool {
+    true
 }
 
 impl Config {
@@ -133,6 +140,6 @@ impl Default for Config {
             },
         );
 
-        Self { indexes }
+        Self { indexes, ocr: true }
     }
 }

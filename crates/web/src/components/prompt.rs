@@ -88,7 +88,9 @@ pub(crate) struct Prompt {
     log: Vec<api::OwnedLogEntry>,
     tasks: BTreeMap<String, api::OwnedTaskProgress>,
     analysis: Rc<[Rc<str>]>,
+    ocr: bool,
     missing: BTreeSet<String>,
+    missing_ocr: Option<api::MissingOcr>,
     get_config: Option<ws::Request>,
     is_open: bool,
     _callback: Closure<dyn FnMut(MessageEvent)>,
@@ -141,7 +143,9 @@ impl Component for Prompt {
             log: Vec::new(),
             tasks: BTreeMap::new(),
             analysis: Rc::from([]),
+            ocr: false,
             missing: BTreeSet::new(),
+            missing_ocr: None,
             get_config: None,
             is_open: false,
             _callback: callback,
@@ -164,6 +168,7 @@ impl Component for Prompt {
             }
             Msg::GetConfig(state) => {
                 log::debug!("{:?}", state);
+
                 let mut missing = state
                     .config
                     .indexes
@@ -176,12 +181,24 @@ impl Component for Prompt {
                     missing.remove(&id);
                 }
 
+                let mut any = false;
+
+                if state.config.ocr != self.ocr {
+                    self.ocr = state.config.ocr;
+                    any |= true;
+                }
+
                 if missing != self.missing {
                     self.missing = missing;
-                    true
-                } else {
-                    false
+                    any |= true;
                 }
+
+                if self.missing_ocr != state.missing_ocr {
+                    self.missing_ocr = state.missing_ocr;
+                    any |= true;
+                }
+
+                any
             }
             Msg::SearchResponse(response) => {
                 self.phrases = response.phrases;
@@ -720,6 +737,40 @@ impl Component for Prompt {
             }
         });
 
+        let missing_ocr = self
+            .missing_ocr
+            .as_ref()
+            .filter(|_| self.query.tab != Tab::Settings && self.ocr);
+
+        let missing_ocr = missing_ocr.map(|missing| {
+            let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
+
+            let install_url = missing
+                .install_url
+                .as_ref()
+                .map(|install| {
+                    let href = install.url.clone();
+                    let title = install.title.clone();
+
+                    html! {
+                        <a {href} {title} class="btn btn-lg" target="_install_url">{format!("⇓ {}", install.text)}</a>
+                    }
+                });
+
+            html! {
+                <div class="block block-lg danger">
+                    <div class="block block-sm row row-spaced">
+                        <span class="title">{"OCR support is enabled but not installed"}</span>
+                    </div>
+
+                    <div class="block block-sm row row-spaced">
+                        {for install_url}
+                        <button class="end btn btn-lg" {onclick}>{"⚙ Disable"}</button>
+                    </div>
+                </div>
+            }
+        });
+
         let window_top = {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
 
@@ -778,6 +829,7 @@ impl Component for Prompt {
 
                 <div id="content" {class}>
                     {missing}
+                    {missing_ocr}
                     {tasks}
                     {page}
                     <div class="block block-xl" id="copyright">{copyright()}</div>

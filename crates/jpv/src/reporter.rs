@@ -4,12 +4,12 @@ use std::sync::{Arc, RwLock};
 use lib::api;
 use lib::reporter::{Reporter, TracingReporter};
 
-use crate::background::BackgroundInner;
+use crate::background::Mutable;
 use crate::system::{Event, SystemEvents};
 
 pub(crate) struct EventsReporter {
     pub(crate) parent: TracingReporter,
-    pub(crate) inner: Arc<RwLock<BackgroundInner>>,
+    pub(crate) inner: Arc<RwLock<Mutable>>,
     pub(crate) system_events: SystemEvents,
     pub(crate) name: Option<Box<str>>,
 }

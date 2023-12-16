@@ -388,9 +388,16 @@ async fn run(
                             api::GetConfig::KIND => {
                                 let database = bg.database();
 
+                                let missing_ocr = if bg.tesseract().is_none() {
+                                    Some(api::MissingOcr::for_platform())
+                                } else {
+                                    None
+                                };
+
                                 let result = api::GetConfigResult {
                                     config: bg.config(),
                                     installed: database.installed()?,
+                                    missing_ocr,
                                 };
 
                                 Ok(serde_json::to_value(&result)?)

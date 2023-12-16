@@ -69,12 +69,53 @@ impl Request for GetConfig {
     type Response = GetConfigResult;
 }
 
+/// Missing OCR support.
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstallUrl {
+    /// Title of the URL.
+    pub text: String,
+    /// Hover title.
+    pub title: String,
+    /// The URL where to install it from.
+    pub url: String,
+}
+
+/// Missing OCR support.
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MissingOcr {
+    /// The URL where to install it from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub install_url: Option<InstallUrl>,
+}
+
+impl MissingOcr {
+    #[cfg(unix)]
+    pub fn for_platform() -> Self {
+        Self { install_url: None }
+    }
+
+    #[cfg(windows)]
+    pub fn for_platform() -> Self {
+        Self {
+            install_url: Some(InstallUrl {
+                text: "Install Tesseract-OCR".to_string(),
+                title: "Download and install Tesseract-OCR from UB-Mannheim.\nDon't forget to add Japanese as additional script!".to_string(),
+                url: "https://github.com/UB-Mannheim/tesseract/wiki".to_string(),
+            }),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetConfigResult {
     /// System configuration.
     pub config: Config,
     /// Installed dictionaries.
+    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
     pub installed: HashSet<String>,
+    /// Indicates that OCR support is missing, and some indications of how to install it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub missing_ocr: Option<MissingOcr>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
