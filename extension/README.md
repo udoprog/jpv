@@ -20,8 +20,12 @@ npm run build
 To build and package:
 
 ```
+make firefox
 make
 ```
+
+> Note: replace `firefox` with `chrome` in case you're building the chrome
+> extension.
 
 ## Developing
 

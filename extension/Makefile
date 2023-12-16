@@ -6,19 +6,19 @@ default: jpv-$(VERSION).zip jpv-$(VERSION).xpi jpv-$(VERSION)-source.zip
 .PHONY: chrome firefox
 
 chrome:
-	ln -fs manifests/manifest-chrome.json manifest.json
+	cp -f manifests/manifest-chrome.json manifest.json
 
 firefox:
-	ln -fs manifests/manifest-ff.json manifest.json
+	cp -f manifests/manifest-ff.json manifest.json
 
 node_modules:
 	npm install
 
 icons/jpv-%.png: graphics/jpv.png
-	magick $? -resize $*x$* $@
+	convert $? -resize $*x$* $@
 
 icons/jpv-disabled-%.png: graphics/jpv-disabled.png
-	magick $? -resize $*x$* $@
+	convert $? -resize $*x$* $@
 
 ICONS := icons/jpv-19.png icons/jpv-38.png icons/jpv-48.png icons/jpv-64.png icons/jpv-128.png icons/jpv-256.png
 ICONS += icons/jpv-disabled-19.png icons/jpv-disabled-38.png icons/jpv-disabled-48.png icons/jpv-disabled-64.png icons/jpv-disabled-128.png icons/jpv-disabled-256.png
