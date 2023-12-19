@@ -1,20 +1,6 @@
 <?xml version="1.0" encoding="windows-1252"?>
-<!--
-  Please do not remove these pre-processor If-Else blocks. These are used with
-  the `cargo wix` subcommand to automatically determine the installation
-  destination for 32-bit versus 64-bit installers. Removal of these lines will
-  cause installation errors.
--->
-<?if $(var.Platform) = x64 ?>
-<?define Win64 = "yes" ?>
-<?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
-<?else ?>
-<?define Win64 = "no" ?>
-<?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
-<?endif ?>
-
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="Japanese Dictionary" UpgradeCode="8e9e1d20-1c0b-4abe-8e05-e3a55376e9c6" Manufacturer="John-John Tedro" Language="1033" Codepage="1252" Version="$(var.Version)">
+  <Product Id="*" Name="Japanese Dictionary" UpgradeCode="8E9E1D20-1C0B-4ABE-8E05-E3A55376E9C6" Manufacturer="John-John Tedro" Language="1033" Codepage="1252" Version="$(var.Version)">
     <Package Id="*" Keywords="Installer" Manufacturer="John-John Tedro" InstallerVersion="450" Languages="1033" Compressed="yes" InstallScope="perMachine" SummaryCodepage="1252" Platform="$(var.Platform)"/>
 
     <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."/>
@@ -26,22 +12,22 @@
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramMenuFolder">
         <Directory Id="ApplicationProgramsFolder" Name="jpv">
-          <Component Id="ApplicationShortcut" Guid="{3f082014-d87f-4d6d-9e06-75de51853627}" Win64="$(var.Win64)">
-            <Shortcut Id="ApplicationStartMenuShortcut" Name="Japanese Dictionary" Description="Japanese Dictionary by John-John Tedro" Target="[!jpv.exe]" WorkingDirectory="APPLICATIONFOLDER" />
+          <Component Id="ApplicationShortcut" Guid="{3F082014-D87F-4D6D-9E06-75DE51853627}" Win64="$(var.Win64)">
+            <Shortcut Id="ApplicationStartMenuShortcut" Name="Japanese Dictionary" Description="Japanese Dictionary by John-John Tedro" Target="[!$(var.BinaryName)]" WorkingDirectory="APPLICATIONFOLDER" />
             <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
             <RegistryValue Root="HKCU" Key="Software\jpv" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
           </Component>
         </Directory>
       </Directory>
 
-      <Directory Id="$(var.PlatformProgramFilesFolder)" Name="PFiles">
+      <Directory Id="$(var.ProgramFilesFolder)" Name="PFiles">
         <Directory Id="APPLICATIONFOLDER" Name="jpv">
-          <Component Id="jpv.exe" Guid="{8a7ce694-dec6-4dc5-886b-512af88635fb}" Win64="$(var.Win64)">
-            <File Id="jpv.exe" Name="jpv.exe" DiskId="1" Source="target/release/jpv.exe" KeyPath="yes"/>
+          <Component Id="$(var.BinaryName)" Guid="{8A7CE694-DEC6-4DC5-886B-512AF88635FB}" Win64="$(var.Win64)">
+            <File Id="$(var.BinaryName)" Name="$(var.BinaryName)" DiskId="1" Source="$(var.BinaryPath)" KeyPath="yes"/>
           </Component>
 
-          <Component Id="RegistryAutostart" Guid="{5819545e-92bc-4baa-ab49-bd906f38da23}" Win64="$(var.Win64)">
-            <RegistryValue Root="HKCU" Action="write" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="jpv" Value='"[APPLICATIONFOLDER]jpv.exe" service --no-open' Type="string" />
+          <Component Id="RegistryAutostart" Guid="{5819545E-92BC-4BAA-AB49-BD906F38DA23}" Win64="$(var.Win64)">
+            <RegistryValue Root="HKCU" Action="write" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="jpv" Value='"[APPLICATIONFOLDER]$(var.BinaryName)" service --no-open' Type="string" />
             <Condition>START_VIA_REGISTRY</Condition>
           </Component>
         </Directory>
@@ -49,7 +35,7 @@
     </Directory>
 
     <Feature Id="MainProgram" Title="Japanese Dictionary" Description="Installs Japanese Dictionary." Level="1" ConfigurableDirectory="APPLICATIONFOLDER" AllowAdvertise="no" Display="expand" Absent="disallow">
-      <ComponentRef Id="jpv.exe"/>
+      <ComponentRef Id="$(var.BinaryName)"/>
       <ComponentRef Id="ApplicationShortcut"/>
     </Feature>
 
@@ -59,7 +45,7 @@
 
     <SetProperty Id="ARPINSTALLLOCATION" Value="[APPLICATIONFOLDER]" After="CostFinalize"/>
 
-    <Icon Id="ProductICO" SourceFile="crates\jpv\res\jpv128.ico"/>
+    <Icon Id="ProductICO" SourceFile="$(var.Root)\crates\jpv\res\jpv128.ico"/>
     <Property Id="ARPPRODUCTICON" Value="ProductICO" />
     <Property Id="ARPHELPLINK" Value="https://github.com/udoprog/jpv"/>
 
@@ -67,12 +53,12 @@
       <UIRef Id="WixUI_FeatureTree"/>
     </UI>
 
-    <WixVariable Id="WixUIDialogBmp" Value="crates\jpv\res\dialog.bmp"/>
-    <WixVariable Id="WixUILicenseRtf" Value="wix\license.rtf" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.Root)\crates\jpv\res\dialog.bmp"/>
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.Root)\wix\license.rtf" />
 
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch jpv" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
-    <Property Id="WixShellExecTarget" Value="[#jpv.exe]" />
+    <Property Id="WixShellExecTarget" Value="[#$(var.BinaryName)]" />
     <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
   </Product>
 </Wix>

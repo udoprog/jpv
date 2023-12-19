@@ -23,6 +23,7 @@ jobs:
     - uses: udoprog/github-release@tag
       id: release
     - uses: actions/checkout@v3
+    - uses: udoprog/kick@nightly
     - uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
@@ -36,9 +37,7 @@ jobs:
     - run: cargo build --release --features gnome,bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.tag}}
-    - run: cargo generate-rpm -p crates/jpv --set-metadata 'release="1.fc${{matrix.fedora}}"'
-    - run: mkdir dist
-    - run: mv target/generate-rpm/*.rpm dist/
+    - run: kick rpm --version ${{steps.release.outputs.tag}} --append fc${{matrix.fedora}}
     - uses: actions/upload-artifact@v3
       with:
         name: dist-fedora-${{matrix.fedora}}
@@ -50,11 +49,11 @@ jobs:
     - uses: udoprog/github-release@tag
       id: release
     - uses: actions/checkout@v3
+    - uses: udoprog/kick@nightly
     - uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
     - uses: Swatinem/rust-cache@v2
-    - uses: udoprog/kick@nightly
     - uses: udoprog/trunk-action@v1
       with:
         args: build --release crates/web/index.html

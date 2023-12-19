@@ -54,7 +54,7 @@ tokio-dbus = { version = "0.0.16", optional = true }
 gio = { version = "0.18.3", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-winctx = "0.0.9"
+winctx = "0.0.18"
 
 [build-dependencies]
 anyhow = "1.0.75"

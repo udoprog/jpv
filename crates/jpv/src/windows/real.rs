@@ -5,6 +5,7 @@ use std::pin::{pin, Pin};
 use anyhow::Result;
 use async_fuse::Fuse;
 use tokio::sync::futures::Notified;
+use winctx::event::{ClipboardEvent, Event, MouseButton};
 
 use crate::open_uri;
 use crate::system::{self, Setup, Start, SystemEvents};
@@ -35,17 +36,19 @@ impl Start for Windows {
     ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>> {
         Box::pin(async move {
             let mut shutdown = pin!(Fuse::new(shutdown));
-            let mut builder = winctx::ContextBuilder::new("jpv").with_clipboard_events(true);
+            let mut window = winctx::CreateWindow::new(NAME).clipboard_events(true);
 
-            builder.set_icon(ICON, 22, 22);
-            builder.push_menu_item(winctx::MenuItem::entry(
-                format_args!("jpv ({VERSION})"),
-                true,
-            ));
-            let open = builder.push_menu_item(winctx::MenuItem::entry("Open dictionary...", false));
-            let exit = builder.push_menu_item(winctx::MenuItem::entry("Shutdown...", false));
+            let icon = window.icons().insert_buffer(ICON, 22, 22);
 
-            let (sender, mut event_loop) = builder.with_class_name(NAME).build().await?;
+            let area = window.new_area().icon(icon);
+            let menu = area.popup_menu();
+
+            let open = menu
+                .push_entry(format_args!("Japanese Dictionary ({VERSION})"))
+                .id();
+            let exit = menu.push_entry("Quit").id();
+
+            let (sender, mut event_loop) = window.build().await?;
 
             loop {
                 tokio::select! {
@@ -54,34 +57,34 @@ impl Start for Windows {
                     },
                     event = event_loop.tick() => {
                         match event? {
-                            winctx::Event::Clipboard(clipboard_event) => match clipboard_event {
-                                winctx::ClipboardEvent::BitMap(bitmap) => {
+                            Event::Clipboard { event, .. } => match event {
+                                ClipboardEvent::BitMap(bitmap) => {
                                     let decoder = image::codecs::bmp::BmpDecoder::new_without_file_header(Cursor::new(& bitmap[..]))?;
                                     let image = image::DynamicImage::from_decoder(decoder)?;
                                     system_events.send(system::Event::SendDynamicImage(image.clone()));
                                 }
-                                winctx::ClipboardEvent::Text(text) => {
+                                ClipboardEvent::Text(text) => {
                                     system_events.send(system::Event::SendText(text.clone()));
                                 }
                                 _ => {}
                             },
-                            winctx::Event::MenuEntryClicked(token) => {
-                                if token == open {
+                            Event::MenuItemClicked { item_id, .. } => {
+                                if item_id == open {
                                     let address = format!("http://localhost:{port}");
                                     open_uri::open(&address);
                                 }
 
-                                if token == exit {
+                                if item_id == exit {
                                     sender.shutdown();
                                 }
                             },
-                            winctx::Event::NotificationClicked(..) => {
-
+                            Event::IconClicked { event, .. } => {
+                                if event.buttons.test(MouseButton::Left) {
+                                    let address = format!("http://localhost:{port}");
+                                    open_uri::open(&address);
+                                }
                             },
-                            winctx::Event::NotificationDismissed(..) => {
-
-                            },
-                            winctx::Event::Shutdown => {
+                            Event::Shutdown { .. } => {
                                 break;
                             },
                             _ => {}
