@@ -1,0 +1,22 @@
+[[rpm.files]]
+source = "desktop/se.tedro.JapaneseDictionary.desktop"
+dest = "/usr/share/applications/"
+
+[[rpm.files]]
+source = "desktop/se.tedro.JapaneseDictionary.png"
+dest = "/usr/share/icons/hicolor/256x256/apps/"
+
+[[rpm.files]]
+source = "desktop/se.tedro.JapaneseDictionary.service"
+dest = "/usr/share/dbus-1/services/"
+
+[[rpm.files]]
+source = "desktop/se.tedro.japanese-dictionary.plugins.gschema.xml"
+dest = "/usr/share/glib-2.0/schemas/"
+
+[[rpm.files]]
+source = "gnome/jpv@tedro.se/*"
+dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/"
+
+[[rpm.requires]]
+package = "tesseract-langpack-jpn"

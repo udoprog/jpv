@@ -61,9 +61,7 @@ jobs:
     - run: cargo build --release --features bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.tag}}
-    - run: kick msi --version ${{steps.release.outputs.tag}}
-    - run: mkdir dist
-    - run: mv wix/*.msi dist/
+    - run: kick msi --version ${{steps.release.outputs.tag}} --output dist
     - uses: actions/upload-artifact@v3
       with:
         name: dist-windows
