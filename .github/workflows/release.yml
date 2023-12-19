@@ -28,16 +28,16 @@ jobs:
       with:
         targets: wasm32-unknown-unknown
     - uses: Swatinem/rust-cache@v2
-    - run: dnf install --assumeyes gcc
+    - run: dnf install --assumeyes gcc rpm-build glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
     - uses: udoprog/trunk-action@v1
       with:
         args: build --release crates/web/index.html
-    - run: dnf install --assumeyes gcc glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
-    - run: cargo install cargo-generate-rpm
     - run: cargo build --release --features gnome,bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.tag}}
-    - run: kick rpm --version ${{steps.release.outputs.tag}} --append fc${{matrix.fedora}}
+    - run: kick rpm --version ${{steps.release.outputs.tag}} --append fc${{matrix.fedora}} --output dist
+      env:
+        RUST_LOG: trace
     - uses: actions/upload-artifact@v3
       with:
         name: dist-fedora-${{matrix.fedora}}
