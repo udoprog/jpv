@@ -102,4 +102,6 @@ jobs:
     - uses: actions/download-artifact@v3
       with: {name: dist-windows, path: dist}
     - uses: udoprog/kick@nightly
-    - run: kick github-release --github-action --token ${{secrets.GITHUB_TOKEN}} --upload "dist/*"
+    - run: kick github-release --github-action --upload "dist/*"
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
