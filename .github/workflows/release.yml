@@ -23,8 +23,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+    - uses: Swatinem/rust-cache@v2
+    - uses: udoprog/trunk-action@v1
+      with:
+        args: build --release crates/web/index.html
+    - uses: actions/upload-artifact@v3
+      with:
+        name: dist-frontend
+        path: crates/web/dist
+
   fedora:
     runs-on: ubuntu-latest
+    needs: frontend
     strategy:
       fail-fast: false
       matrix:
@@ -33,18 +50,15 @@ jobs:
       image: fedora:${{matrix.fedora}}
     steps:
     - run: cat /etc/fedora-release
-    - uses: actions/checkout@v3
     - uses: udoprog/kick@nightly
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: wasm32-unknown-unknown
-    - uses: Swatinem/rust-cache@v2
-    - run: dnf install --assumeyes gcc rpm-build glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
-    - uses: udoprog/trunk-action@v1
-      with:
-        args: build --release crates/web/index.html
     - run: kick define --github-action
       id: release
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
+      with: {name: dist-frontend, path: crates/web/dist}
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+    - run: dnf install --assumeyes gcc rpm-build glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
     - run: cargo build --release --features gnome,bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.version}}
@@ -56,18 +70,16 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    needs: frontend
     steps:
-    - uses: actions/checkout@v3
     - uses: udoprog/kick@nightly
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: wasm32-unknown-unknown
-    - uses: Swatinem/rust-cache@v2
-    - uses: udoprog/trunk-action@v1
-      with:
-        args: build --release crates/web/index.html
     - run: kick define --github-action
       id: release
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
+      with: {name: dist-frontend, path: crates/web/dist}
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
     - run: cargo build --release --features bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.version}}
