@@ -1,9 +1,22 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        default: 'nightly'
+        type: choice
+        options:
+        - nightly
+        - "%date"
   push:
     tags:
     - '*'
+
+env:
+  KICK_VERSION: "%{git.tag} || %date"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,8 +33,6 @@ jobs:
       image: fedora:${{matrix.fedora}}
     steps:
     - run: cat /etc/fedora-release
-    - uses: udoprog/github-release@tag
-      id: release
     - uses: actions/checkout@v3
     - uses: udoprog/kick@nightly
     - uses: dtolnay/rust-toolchain@stable
@@ -32,12 +43,12 @@ jobs:
     - uses: udoprog/trunk-action@v1
       with:
         args: build --release crates/web/index.html
+    - run: kick define --github-action
+      id: release
     - run: cargo build --release --features gnome,bundle -p jpv
       env:
-        JPV_VERSION: ${{steps.release.outputs.tag}}
-    - run: kick rpm --version ${{steps.release.outputs.tag}} --append fc${{matrix.fedora}} --output dist
-      env:
-        RUST_LOG: trace
+        JPV_VERSION: ${{steps.release.outputs.version}}
+    - run: kick rpm --append fc${{matrix.fedora}} --output dist
     - uses: actions/upload-artifact@v3
       with:
         name: dist-fedora-${{matrix.fedora}}
@@ -46,8 +57,6 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-    - uses: udoprog/github-release@tag
-      id: release
     - uses: actions/checkout@v3
     - uses: udoprog/kick@nightly
     - uses: dtolnay/rust-toolchain@stable
@@ -57,10 +66,12 @@ jobs:
     - uses: udoprog/trunk-action@v1
       with:
         args: build --release crates/web/index.html
+    - run: kick define --github-action
+      id: release
     - run: cargo build --release --features bundle -p jpv
       env:
-        JPV_VERSION: ${{steps.release.outputs.tag}}
-    - run: kick msi --version ${{steps.release.outputs.tag}} --output dist
+        JPV_VERSION: ${{steps.release.outputs.version}}
+    - run: kick msi --output dist
     - uses: actions/upload-artifact@v3
       with:
         name: dist-windows
@@ -71,8 +82,6 @@ jobs:
     needs: [fedora, windows]
     runs-on: ubuntu-latest
     steps:
-    - uses: udoprog/github-release@tag
-      id: release
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
       with: {name: dist-fedora-39, path: dist}
@@ -80,9 +89,5 @@ jobs:
       with: {name: dist-fedora-40, path: dist}
     - uses: actions/download-artifact@v3
       with: {name: dist-windows, path: dist}
-    - uses: udoprog/github-release@v1
-      with:
-        files: "dist/*"
-        name: ${{steps.release.outputs.tag}}
-        token: ${{secrets.GITHUB_TOKEN}}
-        prerelease: ${{steps.release.outputs.prerelease}}
+    - uses: udoprog/kick@nightly
+    - run: kick github-release --github-action --token ${{secrets.GITHUB_TOKEN}} --upload "dist/*"
