@@ -8,7 +8,7 @@ const URL: &str = "https://github.com/udoprog/jpv";
 
 /// Construct a Windows version information.
 fn file_version() -> Option<(String, u64)> {
-    let version = match env::var("JPV_FILE_VERSION") {
+    let version = match env::var("JPV_MSI_VERSION") {
         Ok(version) => version,
         Err(_) => return None,
     };

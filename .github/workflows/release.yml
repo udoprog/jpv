@@ -73,7 +73,7 @@ jobs:
     needs: frontend
     steps:
     - uses: udoprog/kick@nightly
-    - run: kick define --github-action
+    - run: kick define --github-action --msi-version-to msi_version
       id: release
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
@@ -83,6 +83,7 @@ jobs:
     - run: cargo build --release --features bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.version}}
+        JPV_MSI_VERSION: ${{steps.release.outputs.msi_version}}
     - run: kick msi --output dist
     - uses: actions/upload-artifact@v3
       with:
