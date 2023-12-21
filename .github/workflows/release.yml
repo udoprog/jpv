@@ -50,15 +50,15 @@ jobs:
       image: fedora:${{matrix.fedora}}
     steps:
     - run: cat /etc/fedora-release
-    - uses: udoprog/kick@nightly
-    - run: kick define --github-action
-      id: release
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
       with: {name: dist-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
     - run: dnf install --assumeyes gcc rpm-build glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
+    - uses: udoprog/kick@nightly
+    - run: kick define --github-action
+      id: release
     - run: cargo build --release --features gnome,bundle -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.version}}

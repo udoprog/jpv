@@ -186,6 +186,7 @@ pub(crate) async fn run(
         tokio::select! {
             result = server.as_mut() => {
                 result?;
+                tracing::info!("Server shut down");
             }
             result = dbus.as_pin_mut() => {
                 result?;

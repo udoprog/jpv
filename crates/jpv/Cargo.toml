@@ -15,11 +15,10 @@ categories = ["development-tools"]
 default-run = "jpv"
 
 [features]
-default = ["dbus", "reqwest", "memmap", "tesseract/linked"]
+default = ["tokio-dbus", "reqwest", "memmap", "tesseract/tesseract-sys"]
 bundle = ["rust-embed", "mime_guess"]
 gnome = ["gio"]
 memmap = ["lib/memmap"]
-dbus = ["dep:tokio-dbus"]
 cli = []
 
 [dependencies]

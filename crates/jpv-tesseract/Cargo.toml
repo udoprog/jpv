@@ -12,9 +12,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["dictionary"]
 categories = ["development-tools"]
 
-[features]
-linked = ["dep:tesseract-sys"]
-
 [dependencies]
 thiserror = "1.0.50"
 
