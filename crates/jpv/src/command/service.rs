@@ -44,11 +44,11 @@ pub(crate) struct ServiceArgs {
     #[arg(long)]
     pub(crate) no_open: bool,
     /// Disable D-Bus binding.
-    #[cfg(feature = "tokio-dbus")]
+    #[cfg(all(unix, feature = "dbus"))]
     #[arg(long)]
     pub(crate) dbus_disable: bool,
     /// Bind to the D-Bus system bus.
-    #[cfg(feature = "tokio-dbus")]
+    #[cfg(all(unix, feature = "dbus"))]
     #[arg(long)]
     pub(crate) dbus_system: bool,
     /// Bind to the given address. Default is `127.0.0.1:44714`.
@@ -182,7 +182,9 @@ pub(crate) async fn run(
         Ok::<_, anyhow::Error>(())
     }));
 
-    while !dbus.is_empty() || !windows.is_empty() {
+    let mut needs_shutdown_signal = dbus.is_empty() && windows.is_empty();
+
+    while needs_shutdown_signal || !dbus.is_empty() || !windows.is_empty() {
         tokio::select! {
             result = server.as_mut() => {
                 result?;
@@ -208,6 +210,7 @@ pub(crate) async fn run(
             _ = shutdown_signal.as_mut() => {
                 tracing::info!("Shutting down...");
                 shutdown.notify_waiters();
+                needs_shutdown_signal = false;
             }
         }
     }

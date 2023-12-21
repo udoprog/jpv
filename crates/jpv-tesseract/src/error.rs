@@ -44,40 +44,40 @@ pub(super) enum ErrorKind {
         #[source]
         TryFromIntError,
     ),
-    #[cfg(any(windows, feature = "tesseract-sys"))]
     #[error("Failed to initialize")]
+    #[cfg(any(windows, feature = "linked"))]
     Initialize,
-    #[cfg(any(windows, feature = "tesseract-sys"))]
     #[error("Bytes per pixel must be a smaller non-zero multiple of width")]
+    #[cfg(any(windows, feature = "linked"))]
     IllegalBytesPerPixel,
-    #[cfg(windows)]
     #[error("Failed to load dynamic library")]
-    LoadLibrary(#[source] libloading::Error),
     #[cfg(windows)]
+    LoadLibrary(#[source] libloading::Error),
     #[error("Missing symbol `{symbol}` in dynamic library")]
+    #[cfg(windows)]
     MissingSymbol {
         error: libloading::Error,
         symbol: &'static str,
     },
-    #[cfg(windows)]
     #[error("Failed to open registry key")]
+    #[cfg(windows)]
     OpenRegistryKey(#[source] io::Error),
-    #[cfg(windows)]
     #[error("Failed to get `Path` key from registry")]
+    #[cfg(windows)]
     GetRegistryPath(#[source] io::Error),
-    #[cfg(windows)]
     #[error("Failed to get `CurrentVersion` key from registry")]
+    #[cfg(windows)]
     GetRegistryCurrentVersion(#[source] io::Error),
-    #[cfg(windows)]
     #[error("Unsupported version `{0}, expected major version `{1}`")]
+    #[cfg(windows)]
     UnsupportedMajorVersion(Box<str>, u32),
-    #[cfg(windows)]
     #[error("Not installed, please install it from https://github.com/UB-Mannheim/tesseract/wiki")]
-    NotInstalled,
     #[cfg(windows)]
+    NotInstalled,
     #[error("Missing language data ({0}), please install it through the installer")]
+    #[cfg(windows)]
     MissingLanguage(Box<Path>),
-    #[cfg(all(not(windows), not(feature = "tesseract-sys")))]
     #[error("Platform is not supported")]
+    #[cfg(any(windows, not(feature = "linked")))]
     Unsupported,
 }

@@ -10,8 +10,8 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub use self::error::Error;
 mod error;
 
-#[cfg_attr(all(not(windows), feature = "tesseract-sys"), path = "linked.rs")]
-#[cfg_attr(all(not(windows), not(feature = "tesseract-sys")), path = "fake.rs")]
+#[cfg_attr(all(not(windows), feature = "linked"), path = "linked.rs")]
+#[cfg_attr(all(not(windows), not(feature = "linked")), path = "fake.rs")]
 #[cfg_attr(windows, path = "dll.rs")]
 mod r#impl;
 pub use self::r#impl::{open, Tesseract, TesseractString};

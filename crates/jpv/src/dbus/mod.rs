@@ -1,8 +1,8 @@
-#[cfg(feature = "tokio-dbus")]
+#[cfg(all(unix, feature = "dbus"))]
 #[path = "real.rs"]
 mod r#impl;
 
-#[cfg(not(feature = "tokio-dbus"))]
+#[cfg(not(all(unix, feature = "dbus")))]
 #[path = "fake.rs"]
 mod r#impl;
 
