@@ -240,6 +240,7 @@ entity! {
         <IrregularKana "ik" "word containing irregular kana usage">
         <ObsoleteKana "ok" "out-dated or obsolete kana usage">
         <SearchOnlyKana "sk" "search-only kana form">
+        <RareKana "rk" "rarely used kana form">
     }
 }
 
@@ -276,11 +277,13 @@ entity! {
         <Biochem "biochem" "biochemistry">
         <Biol "biol" "biology">
         <Bot "bot" "botany">
+        <Boxing "boxing" "boxing">
         <Buddh "Buddh" "Buddhism">
         <Bus "bus" "business">
         <Cards "cards" "card games">
         <Chem "chem" "chemistry">
         <Christn "Christn" "Christianity">
+        <Chmyth "chmyth" "Chinese mythology">
         <Cloth "cloth" "clothing">
         <Comp "comp" "computing">
         <Cryst "cryst" "crystallography">
@@ -307,6 +310,7 @@ entity! {
         <Grmyth "grmyth" "Greek mythology">
         <Hanaf "hanaf" "hanafuda">
         <Horse "horse" "horse racing">
+        <Internet "internet" "internet">
         <Kabuki "kabuki" "kabuki">
         <Law "law" "law">
         <Ling "ling" "linguistics">
@@ -320,6 +324,7 @@ entity! {
         <Met "met" "meteorology">
         <Mil "mil" "military">
         <Mining "mining" "mining">
+        <Motor "motor" "motorsport">
         <Music "music" "music">
         <Noh "noh" "noh">
         <Ornith "ornith" "ornithology">
@@ -332,6 +337,7 @@ entity! {
         <Physiol "physiol" "physiology">
         <Politics "politics" "politics">
         <Print "print" "printing">
+        <ProwRes "prowres" "professional wrestling">
         <Psy "psy" "psychiatry">
         <Psyanal "psyanal" "psychoanalysis">
         <Psych "psych" "psychology">
