@@ -83,6 +83,16 @@ sudo dnf install glib2-devel
 
 <br>
 
+#### MacOS
+
+The OCR dependencies can be installed using homebrew
+
+```sh
+brew install tesseract leptonica
+```
+
+In the case that brew does not link the pkg-config files, you may need to add these libraries' path to the `PKG_CONFIG_PATH` environment variable.
+
 #### Windows
 
 The OCR feature depends on tesseract which is dynamically loaded.
