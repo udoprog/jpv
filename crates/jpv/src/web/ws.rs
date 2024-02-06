@@ -483,8 +483,12 @@ where
 {
     let mut data = data.as_ref();
 
+    fn filter(b: u8) -> bool {
+        b.is_ascii_control() || b.is_ascii_whitespace()
+    }
+
     while let [a, rest @ ..] = data {
-        if a.is_ascii_whitespace() || a.is_ascii_control() {
+        if filter(a) {
             data = rest;
             continue;
         }
@@ -493,7 +497,7 @@ where
     }
 
     while let [rest @ .., a] = data {
-        if a.is_ascii_whitespace() || a.is_ascii_control() {
+        if filter(a) {
             data = rest;
             continue;
         }
@@ -506,7 +510,7 @@ where
 
     'ws: {
         for (n, b) in it.by_ref() {
-            if b.is_ascii_control() || b.is_ascii_whitespace() {
+            if filter(b) {
                 output.extend_from_slice(&data[..n]);
                 break 'ws;
             }
@@ -516,7 +520,7 @@ where
     }
 
     for (_, &b) in it {
-        if b.is_ascii_control() || b.is_ascii_whitespace() {
+        if filter(b) {
             continue;
         }
 
