@@ -488,7 +488,7 @@ where
     }
 
     while let [a, rest @ ..] = data {
-        if filter(a) {
+        if filter(*a) {
             data = rest;
             continue;
         }
@@ -497,7 +497,7 @@ where
     }
 
     while let [rest @ .., a] = data {
-        if filter(a) {
+        if filter(*a) {
             data = rest;
             continue;
         }
@@ -510,7 +510,7 @@ where
 
     'ws: {
         for (n, b) in it.by_ref() {
-            if filter(b) {
+            if filter(*b) {
                 output.extend_from_slice(&data[..n]);
                 break 'ws;
             }
@@ -519,12 +519,12 @@ where
         return Cow::Borrowed(data);
     }
 
-    for (_, &b) in it {
-        if filter(b) {
+    for (_, b) in it {
+        if filter(*b) {
             continue;
         }
 
-        output.push(b);
+        output.push(*b);
     }
 
     Cow::Owned(output)
