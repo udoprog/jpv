@@ -76,30 +76,6 @@ fn decode_escaped(data: &[u8]) -> Option<String> {
     Some(s)
 }
 
-fn trim_whitespace(input: &str) -> Cow<'_, str> {
-    let mut output = String::new();
-    let mut c = input.char_indices();
-
-    'ws: {
-        for (n, c) in c.by_ref() {
-            if c.is_whitespace() {
-                output.push_str(&input[..n]);
-                break 'ws;
-            }
-        }
-
-        return Cow::Borrowed(input);
-    };
-
-    for (_, c) in c {
-        if !c.is_whitespace() {
-            output.push(c);
-        }
-    }
-
-    Cow::Owned(output)
-}
-
 async fn log_backfill(
     sink: &mut SplitSink<WebSocket, Message>,
     log: Vec<api::OwnedLogEntry>,
@@ -121,10 +97,12 @@ async fn system_event(
     match event {
         system::Event::SendClipboardData(clipboard) => match clipboard.mimetype.as_str() {
             "UTF8_STRING" | "text/plain;charset=utf-8" => {
+                let data = filter_data(&clipboard.data);
+
                 let event = api::ClientEvent::Broadcast(api::Broadcast {
                     kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
                         ty: Some("text/plain"),
-                        data: &clipboard.data,
+                        data: data.as_ref(),
                     }),
                 });
 
@@ -137,10 +115,12 @@ async fn system_event(
                     return Ok(());
                 };
 
+                let data = filter_data(&data);
+
                 let event = api::ClientEvent::Broadcast(api::Broadcast {
                     kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
                         ty: Some("text/plain"),
-                        data: data.as_bytes(),
+                        data: data.as_ref(),
                     }),
                 });
 
@@ -184,10 +164,12 @@ async fn system_event(
             sink.send(Message::Binary(json)).await?;
         }
         system::Event::SendText(text) => {
+            let data = filter_data(&text);
+
             let event = api::ClientEvent::Broadcast(api::Broadcast {
                 kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
                     ty: Some("text/plain"),
-                    data: text.as_bytes(),
+                    data: data.as_ref(),
                 }),
             });
 
@@ -298,7 +280,7 @@ async fn handle_image(
         api::OwnedBroadcast {
             kind: api::OwnedBroadcastKind::SendClipboardData(api::OwnedSendClipboard {
                 ty: Some("text/plain".to_owned()),
-                data: trimmed.into_owned().into_bytes().into(),
+                data: filter_data(trimmed.as_ref()).into(),
             }),
         },
     )))
@@ -469,4 +451,77 @@ async fn run(
     };
 
     Ok(())
+}
+
+fn trim_whitespace(input: &str) -> Cow<'_, str> {
+    let mut output = String::new();
+    let mut c = input.char_indices();
+
+    'ws: {
+        for (n, c) in c.by_ref() {
+            if c.is_whitespace() {
+                output.push_str(&input[..n]);
+                break 'ws;
+            }
+        }
+
+        return Cow::Borrowed(input);
+    };
+
+    for (_, c) in c {
+        if !c.is_whitespace() {
+            output.push(c);
+        }
+    }
+
+    Cow::Owned(output)
+}
+
+fn filter_data<'a, T>(data: &'a T) -> Cow<'a, [u8]>
+where
+    T: ?Sized + AsRef<[u8]>,
+{
+    let mut data = data.as_ref();
+
+    while let [a, rest @ ..] = data {
+        if a.is_ascii_whitespace() || a.is_ascii_control() {
+            data = rest;
+            continue;
+        }
+
+        break;
+    }
+
+    while let [rest @ .., a] = data {
+        if a.is_ascii_whitespace() || a.is_ascii_control() {
+            data = rest;
+            continue;
+        }
+
+        break;
+    }
+
+    let mut output = Vec::new();
+    let mut it = data.iter().enumerate();
+
+    'ws: {
+        for (n, b) in it.by_ref() {
+            if b.is_ascii_control() || b.is_ascii_whitespace() {
+                output.extend_from_slice(&data[..n]);
+                break 'ws;
+            }
+        }
+
+        return Cow::Borrowed(data);
+    }
+
+    for (_, &b) in it {
+        if b.is_ascii_control() || b.is_ascii_whitespace() {
+            continue;
+        }
+
+        output.push(b);
+    }
+
+    Cow::Owned(output)
 }
