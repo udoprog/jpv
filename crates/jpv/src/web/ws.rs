@@ -477,7 +477,7 @@ fn trim_whitespace(input: &str) -> Cow<'_, str> {
     Cow::Owned(output)
 }
 
-fn filter_data<'a, T>(data: &'a T) -> Cow<'a, [u8]>
+fn filter_data<T>(data: &T) -> Cow<'_, [u8]>
 where
     T: ?Sized + AsRef<[u8]>,
 {
