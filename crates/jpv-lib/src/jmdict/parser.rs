@@ -201,9 +201,15 @@ impl<'a> Parser<'a> {
                     macro_rules! entity {
                         ($out:ident.$field:ident: $ty:ty = $text:expr) => {
                             let text = $text.context("Missing text")?;
-                            let $field = <$ty>::parse(text)
-                                .with_context(|| anyhow!("Invalid entity: {text}"))?;
-                            $out.$field.insert($field);
+
+                            match <$ty>::parse(text) {
+                                Some($field) => {
+                                    $out.$field.insert($field);
+                                }
+                                None => {
+                                    log::warn!("Invalid entity: {text}");
+                                }
+                            }
                         };
                     }
 

@@ -167,7 +167,7 @@ impl Component for Prompt {
                 true
             }
             Msg::GetConfig(state) => {
-                log::debug!("{:?}", state);
+                log::trace!("{:?}", state);
 
                 let mut missing = state
                     .config
@@ -211,7 +211,7 @@ impl Component for Prompt {
                 true
             }
             Msg::AnalyzeResponse(response) => {
-                log::debug!("Analyze response");
+                log::trace!("Analyze response");
                 self.analysis = response.data.into_iter().map(|d| d.string.into()).collect();
                 self.search(ctx);
                 false
@@ -246,7 +246,7 @@ impl Component for Prompt {
                 true
             }
             Msg::Change(input) => {
-                log::info!("{:?}", input);
+                log::trace!("{:?}", input);
 
                 let input = match self.query.mode {
                     Mode::Unfiltered => Rc::from(input),
@@ -306,9 +306,9 @@ impl Component for Prompt {
                 let query = decode_query(Some(location));
                 let old = replace(&mut self.query, query);
 
-                log::debug!("History change");
-                log::debug!("From: {:?}", old);
-                log::debug!("To: {:?}", self.query);
+                log::trace!("History change");
+                log::trace!("From: {:?}", old);
+                log::trace!("To: {:?}", self.query);
 
                 if self.query.analyze_at != old.analyze_at || self.query.text != old.text {
                     self.analysis = Rc::from([]);
@@ -921,7 +921,7 @@ impl Prompt {
     }
 
     fn reload(&mut self, ctx: &Context<Self>) {
-        log::debug!("Reload");
+        log::trace!("Reload");
 
         if self.analyze(ctx) {
             return;
@@ -937,7 +937,7 @@ impl Prompt {
             self.query.text.clone()
         };
 
-        log::debug!("Search `{text}`");
+        log::trace!("Search `{text}`");
 
         let text = text.to_lowercase();
 
@@ -955,7 +955,7 @@ impl Prompt {
             return false;
         };
 
-        log::debug!("Analyze {analyze}");
+        log::trace!("Analyze {analyze}");
 
         let input = self.query.text.as_ref().to_owned();
 

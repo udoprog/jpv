@@ -135,7 +135,7 @@ where
     }
 
     fn set_open(&mut self) {
-        log::debug!("Set open");
+        log::trace!("Set open");
         self.opened = Some(Opened { at: now() });
         self.emit_state_change(State::Open);
     }
@@ -160,7 +160,7 @@ where
     where
         C::Message: From<Error>,
     {
-        log::debug!(
+        log::trace!(
             "Set closed timeout={}, opened={:?}",
             self.timeout,
             self.opened
@@ -246,7 +246,7 @@ where
                         }
                     }
                     api::OwnedClientEvent::ClientResponse(response) => {
-                        log::debug!(
+                        log::trace!(
                             "Got response: index={}, serial={}",
                             response.index,
                             response.serial

@@ -22,6 +22,7 @@ struct ExtraState {
     filter: Inflection,
 }
 
+#[derive(Debug)]
 struct Combined {
     kanji: OwnedKanjiElement,
     reading: OwnedReadingElement,

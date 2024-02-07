@@ -5,7 +5,7 @@ use std::fmt;
 use std::io::Write;
 use std::mem;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Result};
 use clap::Parser;
 use lib::config::Config;
 use lib::data;
@@ -112,18 +112,21 @@ pub(crate) async fn run(
 
     if !cli_args.parts_of_speech.is_empty() {
         let mut seed = cli_args.arguments.is_empty() && cli_args.sequences.is_empty();
+        let mut pos = fixed_map::Set::new();
 
-        for pos in &cli_args.parts_of_speech {
-            let pos = PartOfSpeech::parse_keyword(pos)
-                .with_context(|| anyhow!("Invalid part of speech `{pos}`"))?;
+        for p in cli_args
+            .parts_of_speech
+            .iter()
+            .flat_map(|s| PartOfSpeech::parse_keyword(s))
+        {
+            pos.insert(p);
+        }
 
-            let indexes = db.by_pos(pos)?;
+        let indexes = db.by_pos(pos)?;
 
-            if mem::take(&mut seed) {
-                to_look_up.extend(indexes);
-                continue;
-            }
-
+        if mem::take(&mut seed) {
+            to_look_up.extend(indexes);
+        } else {
             to_look_up.retain(|index| indexes.contains(index));
         }
     }

@@ -265,97 +265,98 @@ entity! {
 entity! {
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum Field {
-        <Agric "agric" "agriculture">
-        <Anat "anat" "anatomy">
-        <Archeol "archeol" "archeology">
-        <Archit "archit" "architecture">
+        <Agriculture "agric" "agriculture">
+        <Anatomy "anat" "anatomy">
+        <Archeology "archeol" "archeology">
+        <Architecture "archit" "architecture">
         <Art "art" "art, aesthetics">
-        <Astron "astron" "astronomy">
-        <Audvid "audvid" "audiovisual">
-        <Aviat "aviat" "aviation">
-        <Baseb "baseb" "baseball">
-        <Biochem "biochem" "biochemistry">
-        <Biol "biol" "biology">
-        <Bot "bot" "botany">
+        <Astronomy "astron" "astronomy">
+        <AudioVisual "audvid" "audiovisual">
+        <Aviatation "aviat" "aviation">
+        <Baseball "baseb" "baseball">
+        <Biochemistry "biochem" "biochemistry">
+        <Biology "biol" "biology">
+        <Botany "bot" "botany">
         <Boxing "boxing" "boxing">
         <Buddh "Buddh" "Buddhism">
-        <Bus "bus" "business">
+        <Business "bus" "business">
         <Cards "cards" "card games">
-        <Chem "chem" "chemistry">
-        <Christn "Christn" "Christianity">
-        <Chmyth "chmyth" "Chinese mythology">
-        <Cloth "cloth" "clothing">
-        <Comp "comp" "computing">
-        <Cryst "cryst" "crystallography">
-        <Dent "dent" "dentistry">
-        <Ecol "ecol" "ecology">
-        <Econ "econ" "economics">
-        <Elec "elec" "electricity, elec. eng.">
-        <Electr "electr" "electronics">
-        <Embryo "embryo" "embryology">
-        <Engr "engr" "engineering">
-        <Ent "ent" "entomology">
+        <Chemistry "chem" "chemistry">
+        <Christianity "Christn" "Christianity">
+        <CivilEngineering "civeng" "civil engineering">
+        <ChineseMythology "chmyth" "Chinese mythology">
+        <Clothing "cloth" "clothing">
+        <Computing "comp" "computing">
+        <Crystallography "cryst" "crystallography">
+        <Dentistry "dent" "dentistry">
+        <Ecology "ecol" "ecology">
+        <Economy "econ" "economics">
+        <Electricity "elec" "electricity, elec. eng.">
+        <Electronics "electr" "electronics">
+        <Embryology "embryo" "embryology">
+        <Engineering "engr" "engineering">
+        <Entomology "ent" "entomology">
         <Film "film" "film">
         <Finc "finc" "finance">
         <Fish "fish" "fishing">
         <Food "food" "food, cooking">
-        <Gardn "gardn" "gardening, horticulture">
-        <Genet "genet" "genetics">
-        <Geogr "geogr" "geography">
-        <Geol "geol" "geology">
-        <Geom "geom" "geometry">
+        <Gardening "gardn" "gardening, horticulture">
+        <Genetics "genet" "genetics">
+        <Geography "geogr" "geography">
+        <Geology "geol" "geology">
+        <Geometry "geom" "geometry">
         <Go "go" "go (game)">
         <Golf "golf" "golf">
-        <Gramm "gramm" "grammar">
-        <Grmyth "grmyth" "Greek mythology">
-        <Hanaf "hanaf" "hanafuda">
+        <Grammar "gramm" "grammar">
+        <GreekMythology "grmyth" "Greek mythology">
+        <Hanafuda "hanaf" "hanafuda">
         <Horse "horse" "horse racing">
         <Internet "internet" "internet">
         <Kabuki "kabuki" "kabuki">
         <Law "law" "law">
         <Ling "ling" "linguistics">
         <Logic "logic" "logic">
-        <Ma "MA" "martial arts">
-        <Mahj "mahj" "mahjong">
+        <MartialArts "MA" "martial arts">
+        <Mahjong "mahj" "mahjong">
         <Manga "manga" "manga">
-        <Math "math" "mathematics">
-        <Mech "mech" "mechanical engineering">
-        <Med "med" "medicine">
-        <Met "met" "meteorology">
-        <Mil "mil" "military">
+        <Mathematics "math" "mathematics">
+        <MechanicalEnginering "mech" "mechanical engineering">
+        <Medicine "med" "medicine">
+        <Meteorology "met" "meteorology">
+        <Military "mil" "military">
         <Mining "mining" "mining">
-        <Motor "motor" "motorsport">
+        <Motorsport "motor" "motorsport">
         <Music "music" "music">
         <Noh "noh" "noh">
-        <Ornith "ornith" "ornithology">
-        <Paleo "paleo" "paleontology">
-        <Pathol "pathol" "pathology">
-        <Pharm "pharm" "pharmacology">
-        <Phil "phil" "philosophy">
+        <Ornithology "ornith" "ornithology">
+        <Paleontology "paleo" "paleontology">
+        <Pathology "pathol" "pathology">
+        <Pharmacology "pharm" "pharmacology">
+        <Philosophy "phil" "philosophy">
         <Photo "photo" "photography">
         <Physics "physics" "physics">
         <Physiol "physiol" "physiology">
         <Politics "politics" "politics">
         <Print "print" "printing">
         <ProwRes "prowres" "professional wrestling">
-        <Psy "psy" "psychiatry">
+        <Psychatry "psy" "psychiatry">
         <Psyanal "psyanal" "psychoanalysis">
-        <Psych "psych" "psychology">
-        <Rail "rail" "railway">
-        <Rommyth "rommyth" "Roman mythology">
+        <Psychology "psych" "psychology">
+        <Railway "rail" "railway">
+        <RomanMythology "rommyth" "Roman mythology">
         <Shinto "Shinto" "Shinto">
         <Shogi "shogi" "shogi">
-        <Ski "ski" "skiing">
+        <Skiing "ski" "skiing">
         <Sports "sports" "sports">
-        <Stat "stat" "statistics">
-        <Stockm "stockm" "stock market">
+        <Statistics "stat" "statistics">
+        <StockMarket "stockm" "stock market">
         <Sumo "sumo" "sumo">
         <Surgery "surg" "surgery">
-        <Telec "telec" "telecommunications">
-        <Tradem "tradem" "trademark">
+        <Telecommunications "telec" "telecommunications">
+        <Trademark "tradem" "trademark">
         <Tv "tv" "television">
-        <Vidg "vidg" "video games">
-        <Zool "zool" "zoology">
+        <VideoGames "vidg" "video games">
+        <Zoology "zool" "zoology">
     }
 }
 

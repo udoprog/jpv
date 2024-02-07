@@ -178,7 +178,7 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
                     // Trailing is *all* kanji, so simply find its offset in the
                     // reading group and extract it.
                     let group_kana =
-                        reading.get(..reading.find(trailing).unwrap_or(reading.len()))?;
+                        reading.get(..reading.rfind(trailing).unwrap_or(reading.len()))?;
 
                     self.kana = Some(trailing);
                     self.current = self.advance();
@@ -188,7 +188,7 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
                 let (kana_suffix, remaining_kanji) = trailing.split_at(suffix);
 
                 let (group_kana, remaining_kana) =
-                    reading.split_at(reading.find(kana_suffix).unwrap_or(reading.len()));
+                    reading.split_at(reading.rfind(kana_suffix).unwrap_or(reading.len()));
 
                 // Store the immediate kana suffix to avoid having to do that
                 // work again, this will be emitted in the next iteration.

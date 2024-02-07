@@ -70,3 +70,54 @@ fn no_matching_hiragana() {
         &[FuriganaGroup::Kanji("18禁", "じゅうはちきん")]
     );
 }
+
+#[test]
+fn test_common_suffix() {
+    // 見失う -> 見失[みうしな]う
+    let furigana = Furigana::new("見失", "みうしな", "う");
+
+    assert_eq!(
+        furigana.iter().collect::<Vec<_>>(),
+        [
+            FuriganaGroup::Kanji("見失", "みうしな"),
+            FuriganaGroup::Kana("う"),
+        ]
+    );
+
+    assert_eq!(furigana.to_string(), "見失[みうしな]う");
+
+    let furigana = Furigana::new("見失う", "みうしなう", "");
+
+    assert_eq!(
+        furigana.iter().collect::<Vec<_>>(),
+        [
+            FuriganaGroup::Kanji("見失", "みうしな"),
+            FuriganaGroup::Kana("う"),
+        ]
+    );
+
+    assert_eq!(furigana.to_string(), "見失[みうしな]う");
+}
+
+#[test]
+fn test_long_suffix() {
+    let furigana = Furigana::new("愛する", "あいする", "");
+
+    assert_eq!(
+        furigana.iter().collect::<Vec<_>>(),
+        [
+            FuriganaGroup::Kanji("愛", "あい"),
+            FuriganaGroup::Kana("する"),
+        ]
+    );
+
+    let furigana = Furigana::new("愛", "あい", "する");
+
+    assert_eq!(
+        furigana.iter().collect::<Vec<_>>(),
+        [
+            FuriganaGroup::Kanji("愛", "あい"),
+            FuriganaGroup::Kana("する"),
+        ]
+    );
+}

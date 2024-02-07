@@ -75,6 +75,16 @@ impl<const N: usize> fmt::Display for Concat<'_, N> {
     }
 }
 
+impl<const N: usize> fmt::Debug for Concat<'_, N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for string in &self.storage {
+            string.fmt(f)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl<'a, const N: usize> IntoIterator for Concat<'a, N> {
     type Item = &'a str;
     type IntoIter = IntoIter<'a, N>;

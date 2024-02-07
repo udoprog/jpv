@@ -10,6 +10,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{anyhow, ensure, Context, Result};
+use fixed_map::Set;
 use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::Variable;
@@ -776,8 +777,14 @@ impl Database {
         let mut disabled = Vec::new();
 
         for (data, location) in iter {
-            let index =
-                Index::open(data).with_context(|| anyhow!("Loading index from {location}"))?;
+            let index = match Index::open(data) {
+                Ok(index) => index,
+                Err(error) => {
+                    log::error!("Failed to load index from {location}");
+                    log::error!("Caused by: {}", error);
+                    continue;
+                }
+            };
 
             if !config.is_enabled(index.name()?) {
                 disabled.push(index.name()?.to_owned());
@@ -862,16 +869,30 @@ impl Database {
 
     /// Get indexes by part of speech.
     #[tracing::instrument(skip_all)]
-    pub fn by_pos(&self, pos: PartOfSpeech) -> Result<Vec<(usize, Id)>> {
+    pub fn by_pos(&self, pos: Set<PartOfSpeech>) -> Result<Vec<(usize, Id)>> {
+        let mut unique = BTreeSet::new();
         let mut output = Vec::new();
 
         for (index, d) in self.indexes.iter().enumerate() {
-            if let Some(by_pos) = d.header.by_pos.get(d.data.as_buf(), &pos)? {
-                tracing::trace!(?by_pos);
+            let mut first = true;
+            unique.clear();
 
-                for id in d.data.as_buf().load(*by_pos)? {
-                    output.push((index, Id::phrase(*id)));
+            for pos in pos.iter() {
+                if let Some(by_pos) = d.header.by_pos.get(d.data.as_buf(), &pos)? {
+                    if first {
+                        first = false;
+                        unique.extend(by_pos.iter());
+                    } else {
+                        let new_set = by_pos.iter().collect::<HashSet<_>>();
+                        unique.retain(|n| new_set.contains(n));
+                    }
                 }
+            }
+
+            for &by_pos in unique.iter() {
+                tracing::trace!(?by_pos);
+                let id = d.data.as_buf().load(by_pos)?;
+                output.push((index, Id::phrase(*id)));
             }
         }
 
@@ -940,7 +961,7 @@ impl Database {
     }
 
     /// Perform the given search.
-    pub fn search(&self, input: &str) -> Result<Search<'_>> {
+    pub fn search(&self, mut input: &str) -> Result<Search<'_>> {
         let mut phrases = Vec::new();
         let mut names = Vec::new();
         let mut characters = Vec::new();
@@ -948,9 +969,30 @@ impl Database {
         let mut dedup_names = HashMap::new();
         let mut seen = HashSet::new();
 
-        self.populate_kanji(input, &mut seen, &mut characters)?;
+        let mut tags = fixed_map::Set::new();
 
-        for (index, id) in self.lookup(input)? {
+        input = input.trim();
+
+        while let Some(n) = input.rfind('#') {
+            let (prefix, suffix) = input.split_at(n);
+
+            input = prefix.trim();
+
+            if let Some(suffix) = suffix.strip_prefix('#') {
+                if let Some(pos) = PartOfSpeech::parse_keyword(suffix) {
+                    tags.insert(pos);
+                }
+            }
+        }
+
+        let results = if input.is_empty() || input.chars().all(|c| matches!(c, '*' | '＊')) {
+            self.by_pos(tags)?
+        } else {
+            self.populate_kanji(input, &mut seen, &mut characters)?;
+            self.lookup(input)?
+        };
+
+        for (index, id) in results {
             let entry = self.entry_at(index, id)?;
 
             match entry {
@@ -962,6 +1004,20 @@ impl Database {
                     continue;
                 }
                 Entry::Phrase(entry) => {
+                    if !tags.is_empty() {
+                        let mut matched = tags.clone();
+
+                        entry.senses.iter().for_each(|sense| {
+                            for p in sense.pos.iter() {
+                                matched.remove(p);
+                            }
+                        });
+
+                        if !matched.is_empty() {
+                            continue;
+                        }
+                    }
+
                     let Some(&i) = dedup_phrases.get(&(index, id.offset())) else {
                         dedup_phrases.insert((index, id.offset()), phrases.len());
 

@@ -114,8 +114,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
                 }
                 PartOfSpeech::VerbGodanKS => {
-                    let Some((kanji_stem, reading_prefix)) =
-                        extract_stem(kanji_text, reading_text, 'く')
+                    let Some((mode, kanji_stem, reading_stem)) =
+                        extract_iku(kanji_text, reading_text)
                     else {
                         allowlist!();
                         continue;
@@ -125,13 +125,21 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         inflections.insert(
                             inflect,
                             &[],
-                            Fragments::new([kanji_stem], [reading_prefix, prefix], [suffix]),
+                            Fragments::new(
+                                [kanji_stem, mode.apply(prefix)],
+                                [reading_stem, prefix],
+                                [suffix],
+                            ),
                         );
                     });
 
                     kind = Kind::Verb;
                     chau_stem = Some((
-                        Fragments::new([kanji_stem], [reading_prefix, "き"], ["っ"]),
+                        Fragments::new(
+                            [kanji_stem, mode.apply("き")],
+                            [reading_stem, "き"],
+                            ["っ"],
+                        ),
                         false,
                     ));
                 }
@@ -292,8 +300,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     chau_stem = Some((Fragments::new([k], [r], ["し"]), false));
                 }
                 PartOfSpeech::VerbSuruSpecial | PartOfSpeech::VerbSuruIncluded => {
-                    let Some((kanji_stem, reading_prefix)) =
-                        extract_stem(kanji_text, reading_text, 'る')
+                    let Some((mode, kanji_stem, reading_stem)) =
+                        extract_suru(kanji_text, reading_text)
                     else {
                         allowlist!();
                         continue;
@@ -303,19 +311,20 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         inflections.insert(
                             inflect,
                             &[],
-                            Fragments::new([kanji_stem], [reading_prefix, prefix], [suffix]),
+                            Fragments::new(
+                                [kanji_stem, mode.apply(prefix)],
+                                [reading_stem, prefix],
+                                [suffix],
+                            ),
                         );
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((
-                        Fragments::new([kanji_stem], [reading_prefix, "し"], []),
-                        false,
-                    ));
+                    chau_stem = Some((Fragments::new([kanji_stem], [reading_stem], ["し"]), false));
                 }
                 PartOfSpeech::VerbKuru => {
-                    let Some((kanji_stem, reading_prefix)) =
-                        extract_stem(kanji_text, reading_text, 'る')
+                    let Some((mode, kanji_stem, reading_prefix)) =
+                        extract_kuru(kanji_text, reading_text)
                     else {
                         allowlist!();
                         continue;
@@ -325,7 +334,11 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         inflections.insert(
                             inflect,
                             &[],
-                            Fragments::new([kanji_stem], [reading_prefix, prefix], [suffix]),
+                            Fragments::new(
+                                [kanji_stem, mode.apply(prefix)],
+                                [reading_prefix, prefix],
+                                [suffix],
+                            ),
                         );
                     });
 
@@ -346,8 +359,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     chau_stem = None;
                 }
                 PartOfSpeech::AdjectiveIx => {
-                    let Some((kanji_stem, reading_prefix)) =
-                        extract_stem(kanji_text, reading_text, 'い')
+                    let Some((mode, kanji_stem, reading_prefix)) =
+                        extract_ii(kanji_text, reading_text)
                     else {
                         allowlist!();
                         continue;
@@ -357,7 +370,11 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         inflections.insert(
                             inflect,
                             &[],
-                            Fragments::new([kanji_stem], [reading_prefix, prefix], [suffix]),
+                            Fragments::new(
+                                [kanji_stem, mode.apply(prefix)],
+                                [reading_prefix, prefix],
+                                [suffix],
+                            ),
                         );
                     });
 
@@ -453,38 +470,98 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
     output
 }
 
-fn extract_stem<'a>(
-    kanji_text: &'a str,
-    reading_text: &'a str,
-    c: char,
-) -> Option<(&'a str, &'a str)> {
-    let mut k = kanji_text.char_indices();
-    let mut r = reading_text.char_indices();
+fn s(s: &str) -> Option<(char, char, &str)> {
+    let mut it = s.chars();
+    let c1 = it.next_back()?;
+    let c2 = it.next_back()?;
+    Some((c2, c1, it.as_str()))
+}
 
-    let (k_e, _) = k.next_back()?;
-    let (_, reading_char) = r.next_back()?;
+fn s2(s: &str) -> Option<(char, char, &str, &str)> {
+    let mut it = s.chars();
+    let c1 = it.next_back()?;
+    let s1 = it.as_str();
+    let c2 = it.next_back()?;
+    Some((c2, c1, s1, it.as_str()))
+}
 
-    if reading_char != c {
-        return None;
+/// Whether or not a kanji text should have a conjugation suffix added to it or
+/// not. If set to excluded, this implies that the kanji itself represents the
+/// conjugation suffix.
+#[derive(Debug, Clone, Copy)]
+enum SuffixMode {
+    /// Exclude suffix.
+    Excluded,
+    /// Include suffix.
+    Included,
+}
+
+impl SuffixMode {
+    fn apply(self, prefix: &str) -> &str {
+        match self {
+            SuffixMode::Excluded => "",
+            SuffixMode::Included => prefix,
+        }
     }
+}
 
-    r.next_back();
-    Some((&kanji_text[..k_e], r.as_str()))
+fn extract_ii<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a str, &'a str)> {
+    let ('い' | 'よ', 'い', r) = s(reading)? else {
+        return None;
+    };
+
+    match s2(kanji)? {
+        ('好' | '良', 'い', k, _) => Some((SuffixMode::Excluded, k, r)),
+        ('い' | 'よ', 'い', _, k) => Some((SuffixMode::Included, k, r)),
+        _ => None,
+    }
+}
+
+fn extract_iku<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a str, &'a str)> {
+    let ('い' | 'ゆ', 'く', r) = s(reading)? else {
+        return None;
+    };
+
+    match s2(kanji)? {
+        ('行' | '往' | '逝', 'く', k, _) => Some((SuffixMode::Excluded, k, r)),
+        ('い' | 'ゆ', 'く', _, k) => Some((SuffixMode::Included, k, r)),
+        _ => None,
+    }
+}
+
+fn extract_suru<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a str, &'a str)> {
+    let ('す', 'る', r) = s(reading)? else {
+        return None;
+    };
+
+    match s2(kanji)? {
+        ('為', 'る', k, _) => Some((SuffixMode::Excluded, k, r)),
+        ('す', 'る', _, k) => Some((SuffixMode::Included, k, r)),
+        _ => None,
+    }
+}
+
+fn extract_kuru<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a str, &'a str)> {
+    let ('く', 'る', r) = s(reading)? else {
+        return None;
+    };
+
+    match s2(kanji)? {
+        ('来' | '來', 'る', k, _) => Some((SuffixMode::Excluded, k, r)),
+        ('く', 'る', _, k) => Some((SuffixMode::Included, k, r)),
+        _ => None,
+    }
 }
 
 fn match_char<'a>(
     kanji_text: &'a str,
     reading_text: &'a str,
-    expected: char,
+    suffix: char,
 ) -> Option<(&'a str, &'a str)> {
-    let mut k = kanji_text.chars();
-    let mut r = reading_text.chars();
-
-    if k.next_back() != Some(expected) || r.next_back() != Some(expected) {
-        return None;
-    }
-
-    Some((k.as_str(), r.as_str()))
+    Some((
+        kanji_text.strip_suffix(suffix)?,
+        reading_text.strip_suffix(suffix)?,
+    ))
 }
 
 pub(crate) fn reading_permutations<'a>(
