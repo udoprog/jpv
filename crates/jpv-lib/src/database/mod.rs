@@ -1005,7 +1005,7 @@ impl Database {
                 }
                 Entry::Phrase(entry) => {
                     if !tags.is_empty() {
-                        let mut matched = tags.clone();
+                        let mut matched = tags;
 
                         entry.senses.iter().for_each(|sense| {
                             for p in sense.pos.iter() {
