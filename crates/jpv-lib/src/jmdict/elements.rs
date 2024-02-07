@@ -306,6 +306,21 @@ pub struct Sense<'a> {
 }
 
 impl<'a> Sense<'a> {
+    /// Test if sense applies to the current kanji.
+    pub fn applies_to(&self, kanji: Option<&str>, reading: &str) -> bool {
+        if let Some(kanji) = kanji {
+            if !self.stagk.is_empty() && !self.stagk.contains(&kanji) {
+                return false;
+            }
+        }
+
+        if !self.stagr.is_empty() && !self.stagr.contains(&reading) {
+            return false;
+        }
+
+        true
+    }
+
     /// Debug the sense element, while avoiding formatting elements which are
     /// not defined.
     pub fn debug_sparse(&self) -> impl fmt::Debug + '_ {

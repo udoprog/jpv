@@ -75,8 +75,8 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
 
     let readings = reading_permutations(entry);
 
-    for pos in parts_of_speech(entry) {
-        for &(kanji, reading) in &readings {
+    for &(kanji, reading, pos) in &readings {
+        for pos in pos.iter() {
             let (_, kanji_text) = kanji.unwrap_or(reading);
             let (_, reading_text) = reading;
 
@@ -566,7 +566,11 @@ fn match_char<'a>(
 
 pub(crate) fn reading_permutations<'a>(
     entry: &Entry<'a>,
-) -> Vec<(Option<(usize, &'a str)>, (usize, &'a str))> {
+) -> Vec<(
+    Option<(usize, &'a str)>,
+    (usize, &'a str),
+    Set<PartOfSpeech>,
+)> {
     let mut readings = Vec::new();
 
     for (reading_index, reading) in entry.reading_elements.iter().enumerate() {
@@ -575,7 +579,23 @@ pub(crate) fn reading_permutations<'a>(
         }
 
         if reading.no_kanji || entry.kanji_elements.is_empty() {
-            readings.push((None, (reading_index, reading.text)));
+            let mut pos = Set::new();
+
+            for sense in &entry.senses {
+                if !sense.applies_to(None, reading.text) {
+                    continue;
+                }
+
+                for p in sense.pos.iter() {
+                    pos.insert(p);
+                }
+            }
+
+            readings.push((
+                None,
+                (reading_index, reading.text),
+                build_pos(entry, None, reading.text),
+            ));
             continue;
         }
 
@@ -584,24 +604,30 @@ pub(crate) fn reading_permutations<'a>(
                 continue;
             }
 
-            if reading.applies_to(kanji.text) {
-                readings.push((
-                    Some((kanji_index, kanji.text)),
-                    (reading_index, reading.text),
-                ));
+            if !reading.applies_to(kanji.text) {
+                continue;
             }
+
+            readings.push((
+                Some((kanji_index, kanji.text)),
+                (reading_index, reading.text),
+                build_pos(entry, Some(kanji.text), reading.text),
+            ));
         }
     }
 
     readings
 }
 
-/// If the entry is a verb, figure out the verb kind.
-pub(crate) fn parts_of_speech(entry: &Entry<'_>) -> Set<PartOfSpeech> {
+fn build_pos(entry: &Entry<'_>, kanji: Option<&str>, reading: &str) -> Set<PartOfSpeech> {
     let mut pos = Set::new();
 
     for sense in &entry.senses {
-        for p in sense.pos {
+        if !sense.applies_to(kanji, reading) {
+            continue;
+        }
+
+        for p in sense.pos.iter() {
             pos.insert(p);
         }
     }
