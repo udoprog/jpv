@@ -1,6 +1,7 @@
 //! Database that can be used as a dictionary.
 
 mod analyze_glossary;
+mod stored;
 mod string_indexer;
 
 use std::borrow::Cow;
@@ -15,8 +16,7 @@ use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::int::Variable;
 use musli_storage::Encoding;
-use musli_zerocopy::endian::Little;
-use musli_zerocopy::{slice, swiss, trie, OwnedBuf, Ref, ZeroCopy};
+use musli_zerocopy::{swiss, trie, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -71,17 +71,10 @@ impl fmt::Display for Location {
     }
 }
 
-pub struct CompactTrie;
-
-impl trie::Flavor for CompactTrie {
-    type String = slice::Packed<[u8], u32, u8>;
-    type Values<T> = slice::Packed<[T], u32, u16> where T: ZeroCopy;
-    type Children<T> = slice::Packed<[T], u32, u16> where T: ZeroCopy;
-}
-
 /// A deserialized database entry.
 #[derive(Serialize)]
 #[serde(tag = "type")]
+#[non_exhaustive]
 pub enum Entry<'a> {
     #[serde(rename = "phrase")]
     Phrase(jmdict::Entry<'a>),
@@ -91,30 +84,10 @@ pub enum Entry<'a> {
     Name(jmnedict::Entry<'a>),
 }
 
-#[derive(ZeroCopy)]
-#[repr(C)]
-struct Header {
-    magic: u32,
-    version: u32,
-    index: Ref<IndexHeader, Little>,
-}
-
-#[derive(Clone, Copy, ZeroCopy)]
-#[repr(C)]
-pub struct IndexHeader {
-    pub name: Ref<str>,
-    pub lookup: trie::TrieRef<Id, CompactTrie>,
-    pub by_pos: swiss::MapRef<PartOfSpeech, Ref<[PhrasePos]>>,
-    pub by_kanji_literal: swiss::MapRef<Ref<str>, u32>,
-    pub by_sequence: swiss::MapRef<u32, PhrasePos>,
-    pub inflections: Ref<[InflectionData]>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryResultKey {
-    pub index: usize,
-    pub offset: u32,
-    pub sources: BTreeSet<FullSource>,
+    pub key: Key,
+    pub sources: BTreeSet<Source>,
     pub weight: Weight,
 }
 
@@ -243,37 +216,12 @@ pub struct InflectionData {
     pub inflection: Inflection,
 }
 
-/// Extra information about an index.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ZeroCopy)]
-#[repr(u8)]
-pub enum Source {
-    /// Indexed due to a kanji.
-    Kanji { index: KanjiIndex },
-    /// Indexed due to a phrase.
-    Phrase { index: PhraseIndex },
-    /// Indexed due to an inflection. The exact kind of inflection is identifier
-    /// by its index, which fits into a u16.
-    Inflection { inflection: u16 },
-    /// Indexed to to a name.
-    Name { index: NameIndex },
-}
-
-impl Source {
-    /// Test if extra indicates an inflection.
-    pub fn is_inflection(&self) -> bool {
-        match self {
-            Source::Inflection { .. } => true,
-            _ => false,
-        }
-    }
-}
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Encode, Decode,
 )]
 #[non_exhaustive]
 #[serde(tag = "type")]
-pub enum FullSource {
+pub enum Source {
     /// Indexed due to a kanji.
     #[serde(rename = "kanji")]
     Kanji { index: KanjiIndex },
@@ -292,67 +240,44 @@ pub enum FullSource {
     Name { index: NameIndex },
 }
 
-impl FullSource {
+impl Source {
     /// Test if extra indicates an inflection.
     pub fn is_inflection(&self) -> bool {
         match self {
-            FullSource::Inflection { .. } => true,
+            Source::Inflection { .. } => true,
             _ => false,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ZeroCopy)]
-#[repr(C)]
-pub struct PhrasePos {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Key {
+    index: u32,
     offset: u32,
-    reading: PhraseIndex,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ZeroCopy)]
-#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Id {
+    /// The index the element was fetched from.
+    index: u32,
+    /// Raw offset inside of the identifier of the entry.
     offset: u32,
+    /// What the identifier refers to.
     source: Source,
 }
 
 impl Id {
-    fn phrase(offset: u32, index: PhraseIndex) -> Self {
-        Self {
-            offset,
-            source: Source::Phrase { index },
+    /// Get a unique key that identifiers the entry being pointed to.
+    pub fn key(&self) -> Key {
+        Key {
+            index: self.index,
+            offset: self.offset,
         }
     }
 
-    fn name(offset: u32, index: NameIndex) -> Self {
-        Self {
-            offset,
-            source: Source::Name { index },
-        }
-    }
-
-    fn kanji(offset: u32, index: KanjiIndex) -> Self {
-        Self {
-            offset,
-            source: Source::Kanji { index },
-        }
-    }
-
-    fn inflection(offset: u32, inflection: u16) -> Self {
-        Self {
-            offset,
-            source: Source::Inflection { inflection },
-        }
-    }
-
-    /// Get the unique index this id corresponds to.
-    pub fn offset(&self) -> u32 {
-        self.offset
-    }
-
-    /// Extra information on index.
-    pub fn source(&self) -> Source {
-        self.source
+    /// Stored source.
+    pub fn source(&self) -> &Source {
+        &self.source
     }
 }
 
@@ -389,8 +314,8 @@ pub fn build(
 ) -> Result<OwnedBuf> {
     let mut buf = OwnedBuf::new();
 
-    let header = buf.store_uninit::<Header>();
-    let index = buf.store_uninit::<IndexHeader>();
+    let header = buf.store_uninit::<stored::GlobalHeader>();
+    let index = buf.store_uninit::<stored::IndexHeader>();
 
     let name = buf.store_unsized(name);
 
@@ -430,7 +355,7 @@ pub fn build(
                 let entry_ref = buf.store_slice(&output).offset() as u32;
                 by_sequence.insert(
                     entry.sequence as u32,
-                    PhrasePos {
+                    stored::PhrasePos {
                         offset: entry_ref,
                         reading: PhraseIndex::Entry,
                     },
@@ -438,13 +363,13 @@ pub fn build(
 
                 for sense in &entry.senses {
                     for pos in &sense.pos {
-                        by_pos.entry(pos).or_default().insert(PhrasePos {
+                        by_pos.entry(pos).or_default().insert(stored::PhrasePos {
                             offset: entry_ref,
                             reading: PhraseIndex::Meaning,
                         });
                     }
 
-                    let id = Id::phrase(entry_ref, PhraseIndex::Meaning);
+                    let id = stored::Id::phrase(entry_ref, PhraseIndex::Meaning);
 
                     for g in &sense.gloss {
                         if g.ty == Some("expl") {
@@ -458,22 +383,25 @@ pub fn build(
                 for el in &entry.reading_elements {
                     lookup.push((
                         Cow::Borrowed(el.text),
-                        Id::phrase(entry_ref, PhraseIndex::Hiragana),
+                        stored::Id::phrase(entry_ref, PhraseIndex::Hiragana),
                     ));
 
-                    let a = Id::phrase(entry_ref, PhraseIndex::Romanized);
-                    let b = Id::phrase(entry_ref, PhraseIndex::Katakana);
+                    let a = stored::Id::phrase(entry_ref, PhraseIndex::Romanized);
+                    let b = stored::Id::phrase(entry_ref, PhraseIndex::Katakana);
                     other_readings(&mut lookup, el.text, a, b, |s| s.katakana());
                 }
 
                 for el in &entry.kanji_elements {
                     if let Some(s) = full_to_half_string(el.text) {
-                        lookup.push((Cow::Owned(s), Id::phrase(entry_ref, PhraseIndex::KanjiHalf)));
+                        lookup.push((
+                            Cow::Owned(s),
+                            stored::Id::phrase(entry_ref, PhraseIndex::KanjiHalf),
+                        ));
                     }
 
                     lookup.push((
                         Cow::Borrowed(el.text),
-                        Id::phrase(entry_ref, PhraseIndex::Kanji),
+                        stored::Id::phrase(entry_ref, PhraseIndex::Kanji),
                     ));
                 }
 
@@ -494,7 +422,7 @@ pub fn build(
                         };
 
                         assert!(index < u16::MAX as u32);
-                        let id = Id::inflection(entry_ref, index as u16);
+                        let id = stored::Id::inflection(entry_ref, index as u16);
 
                         if pair.text() != pair.reading() {
                             let key = Cow::Owned(format!("{}{}", pair.text(), pair.suffix()));
@@ -530,43 +458,43 @@ pub fn build(
 
                 lookup.push((
                     Cow::Borrowed(c.literal),
-                    Id::kanji(kanji_ref, KanjiIndex::Literal),
+                    stored::Id::kanji(kanji_ref, KanjiIndex::Literal),
                 ));
 
                 for reading in &c.reading_meaning.readings {
                     match reading.ty {
                         "ja_kun" => {
                             if let Some((prefix, _)) = reading.text.split_once('.') {
-                                let a = Id::kanji(kanji_ref, KanjiIndex::KunyomiRomanize);
-                                let b = Id::kanji(kanji_ref, KanjiIndex::KunyomiKatakana);
+                                let a = stored::Id::kanji(kanji_ref, KanjiIndex::KunyomiRomanize);
+                                let b = stored::Id::kanji(kanji_ref, KanjiIndex::KunyomiKatakana);
                                 other_readings(&mut lookup, prefix, a, b, |s| s.katakana());
-                                let id = Id::kanji(kanji_ref, KanjiIndex::KunyomiHiragana);
+                                let id = stored::Id::kanji(kanji_ref, KanjiIndex::KunyomiHiragana);
                                 lookup.push((Cow::Borrowed(prefix), id));
                             }
 
-                            let a = Id::kanji(kanji_ref, KanjiIndex::KunyomiFullRomanized);
-                            let b = Id::kanji(kanji_ref, KanjiIndex::KunyomiFullKatakana);
+                            let a = stored::Id::kanji(kanji_ref, KanjiIndex::KunyomiFullRomanized);
+                            let b = stored::Id::kanji(kanji_ref, KanjiIndex::KunyomiFullKatakana);
                             other_readings(&mut lookup, reading.text, a, b, |s| s.katakana());
 
-                            let id = Id::kanji(kanji_ref, KanjiIndex::KunyomiFullHiragana);
+                            let id = stored::Id::kanji(kanji_ref, KanjiIndex::KunyomiFullHiragana);
                             lookup.push((Cow::Borrowed(reading.text), id));
                         }
                         "ja_on" => {
-                            let a = Id::kanji(kanji_ref, KanjiIndex::OnyomiRomanized);
-                            let b = Id::kanji(kanji_ref, KanjiIndex::OnyomiHiragana);
+                            let a = stored::Id::kanji(kanji_ref, KanjiIndex::OnyomiRomanized);
+                            let b = stored::Id::kanji(kanji_ref, KanjiIndex::OnyomiHiragana);
                             other_readings(&mut lookup, reading.text, a, b, |s| s.hiragana());
-                            let id = Id::kanji(kanji_ref, KanjiIndex::OnyomiKatakana);
+                            let id = stored::Id::kanji(kanji_ref, KanjiIndex::OnyomiKatakana);
                             lookup.push((Cow::Borrowed(reading.text), id));
                         }
                         _ => {
-                            let id = Id::kanji(kanji_ref, KanjiIndex::Other);
+                            let id = stored::Id::kanji(kanji_ref, KanjiIndex::Other);
                             lookup.push((Cow::Borrowed(reading.text), id));
                         }
                     };
                 }
 
                 for meaning in &c.reading_meaning.meanings {
-                    let id = Id::kanji(kanji_ref, KanjiIndex::Meaning);
+                    let id = stored::Id::kanji(kanji_ref, KanjiIndex::Meaning);
                     populate_analyzed(meaning.text, &mut lookup, id);
                 }
             }
@@ -589,16 +517,19 @@ pub fn build(
                 let name_ref = buf.store_slice(&output).offset() as u32;
 
                 for kanji in entry.kanji.iter().copied() {
-                    lookup.push((Cow::Borrowed(kanji), Id::name(name_ref, NameIndex::Literal)));
+                    lookup.push((
+                        Cow::Borrowed(kanji),
+                        stored::Id::name(name_ref, NameIndex::Literal),
+                    ));
                 }
 
                 for reading in entry.reading {
                     lookup.push((
                         Cow::Borrowed(reading.text),
-                        Id::name(name_ref, NameIndex::Hiragana),
+                        stored::Id::name(name_ref, NameIndex::Hiragana),
                     ));
-                    let a = Id::name(name_ref, NameIndex::Romanized);
-                    let b = Id::name(name_ref, NameIndex::Katakana);
+                    let a = stored::Id::name(name_ref, NameIndex::Romanized);
+                    let b = stored::Id::name(name_ref, NameIndex::Katakana);
                     other_readings(&mut lookup, reading.text, a, b, |s| s.katakana());
                 }
             }
@@ -710,7 +641,7 @@ pub fn build(
 
     let inflections = buf.store_slice(&inflections);
 
-    buf.load_uninit_mut(index).write(&IndexHeader {
+    buf.load_uninit_mut(index).write(&stored::IndexHeader {
         name,
         lookup,
         by_pos,
@@ -719,7 +650,7 @@ pub fn build(
         inflections,
     });
 
-    buf.load_uninit_mut(header).write(&Header {
+    buf.load_uninit_mut(header).write(&stored::GlobalHeader {
         magic: DICTIONARY_MAGIC,
         version: DICTIONARY_VERSION,
         index: index.assume_init(),
@@ -729,7 +660,11 @@ pub fn build(
     Ok(buf)
 }
 
-fn populate_analyzed<'a>(text: &'a str, lookup: &mut Vec<(Cow<'a, str>, Id)>, id: Id) {
+fn populate_analyzed<'a>(
+    text: &'a str,
+    lookup: &mut Vec<(Cow<'a, str>, stored::Id)>,
+    id: stored::Id,
+) {
     fn is_common(phrase: &str) -> bool {
         match phrase {
             "to" | "a" | "in" | "of" | "for" | "so" | "if" | "by" | "but" | "not" | "any"
@@ -839,10 +774,10 @@ fn full_to_half_string(input: &str) -> Option<String> {
 }
 
 fn other_readings(
-    output: &mut Vec<(Cow<'_, str>, Id)>,
+    output: &mut Vec<(Cow<'_, str>, stored::Id)>,
     text: &str,
-    a: Id,
-    b: Id,
+    a: stored::Id,
+    b: stored::Id,
     f: for<'a> fn(&'a Segment<'_>) -> &'a str,
 ) {
     let mut romanized = String::new();
@@ -859,7 +794,7 @@ fn other_readings(
 
 // A loaded index.
 pub struct Index {
-    header: IndexHeader,
+    header: stored::IndexHeader,
     data: Data,
 }
 
@@ -870,7 +805,7 @@ impl Index {
     /// version.
     pub fn open(data: Data) -> Result<Self, IndexOpenError> {
         let buf = data.as_buf();
-        let header = buf.load(Ref::<Header>::zero())?;
+        let header = buf.load(Ref::<stored::GlobalHeader>::zero())?;
 
         if header.magic != DICTIONARY_MAGIC {
             return Err(IndexOpenError::MagicMismatch);
@@ -890,7 +825,7 @@ impl Index {
     }
 
     /// Get an entry from the database.
-    pub fn entry_at(&self, id: Id) -> Result<Entry<'_>> {
+    fn entry_at(&self, id: Id) -> Result<Entry<'_>> {
         let Some(bytes) = self.data.as_buf().get(id.offset as usize..) else {
             return Err(anyhow!("Missing entry at {}", id.offset));
         };
@@ -898,7 +833,9 @@ impl Index {
         Ok(match id.source {
             Source::Kanji { .. } => Entry::Kanji(ENCODING.from_slice(bytes)?),
             Source::Name { .. } => Entry::Name(ENCODING.from_slice(bytes)?),
-            _ => Entry::Phrase(ENCODING.from_slice(bytes)?),
+            Source::Phrase { .. } | Source::Inflection { .. } => {
+                Entry::Phrase(ENCODING.from_slice(bytes)?)
+            }
         })
     }
 }
@@ -955,7 +892,7 @@ impl Database {
     }
 
     /// Convert a sequence to Id.
-    pub fn sequence_to_id(&self, sequence: u32) -> Result<Vec<(usize, Id)>> {
+    pub fn sequence_to_id(&self, sequence: u32) -> Result<Vec<Id>> {
         let mut output = Vec::new();
 
         for (index, d) in self.indexes.iter().enumerate() {
@@ -963,15 +900,18 @@ impl Database {
                 continue;
             };
 
-            output.push((index, Id::phrase(pos.offset, pos.reading)));
+            output.push(self.convert_id(index, stored::Id::phrase(pos.offset, pos.reading))?);
         }
 
         Ok(output)
     }
 
     /// Get all entries matching the given id.
-    pub fn entry_at(&self, index: usize, id: Id) -> Result<Entry<'_>> {
-        let i = self.indexes.get(index).context("missing index")?;
+    pub fn entry_at(&self, id: Id) -> Result<Entry<'_>> {
+        let i = self
+            .indexes
+            .get(id.index as usize)
+            .context("missing index")?;
         i.entry_at(id)
     }
 
@@ -1011,7 +951,7 @@ impl Database {
 
     /// Get indexes by part of speech.
     #[tracing::instrument(skip_all)]
-    pub fn by_pos(&self, pos: Set<PartOfSpeech>) -> Result<Vec<(usize, Id)>> {
+    pub fn by_pos(&self, pos: Set<PartOfSpeech>) -> Result<Vec<Id>> {
         let mut unique = BTreeSet::new();
         let mut output = Vec::new();
 
@@ -1034,7 +974,7 @@ impl Database {
             for &by_pos in unique.iter() {
                 tracing::trace!(?by_pos);
                 let pos = d.data.as_buf().load(by_pos)?;
-                output.push((index, Id::phrase(pos.offset, pos.reading)));
+                output.push(self.convert_id(index, stored::Id::phrase(pos.offset, pos.reading))?);
             }
         }
 
@@ -1044,7 +984,7 @@ impl Database {
 
     /// Lookup all entries matching the given prefix.
     #[tracing::instrument(skip_all)]
-    pub fn prefix(&self, prefix: &str) -> Result<Vec<Id>> {
+    pub fn prefix(&self, prefix: &str) -> Result<Vec<stored::Id>> {
         let mut output = Vec::new();
 
         for d in self.indexes.iter() {
@@ -1058,7 +998,7 @@ impl Database {
 
     /// Perform a free text lookup.
     #[tracing::instrument(skip_all)]
-    pub fn lookup(&self, query: &str) -> Result<Vec<(usize, Id)>> {
+    pub fn lookup(&self, query: &str) -> Result<Vec<Id>> {
         let mut output = Vec::new();
 
         match query.split_once(|c: char| matches!(c, '*' | '＊')) {
@@ -1066,7 +1006,8 @@ impl Database {
                 if suffix.is_empty() {
                     for (n, i) in self.indexes.iter().enumerate() {
                         for id in i.header.lookup.values_in(i.data.as_buf(), prefix) {
-                            output.push((n, *id?));
+                            let id = id?;
+                            output.push(self.convert_id(n, *id)?);
                         }
                     }
                 } else {
@@ -1082,7 +1023,7 @@ impl Database {
                                 continue;
                             }
 
-                            output.push((n, *id));
+                            output.push(self.convert_id(n, *id)?);
                         }
                     }
                 }
@@ -1091,7 +1032,7 @@ impl Database {
                 for (n, i) in self.indexes.iter().enumerate() {
                     if let Some(lookup) = i.header.lookup.get(i.data.as_buf(), query)? {
                         for id in lookup {
-                            output.push((n, *id));
+                            output.push(self.convert_id(n, *id)?);
                         }
                     }
                 }
@@ -1103,14 +1044,23 @@ impl Database {
     }
 
     #[tracing::instrument(skip_all)]
-    pub fn convert_source(&self, index: usize, source: Source) -> Result<FullSource> {
+    fn convert_id(&self, index: usize, id: stored::Id) -> Result<Id> {
+        Ok(Id {
+            index: index as u32,
+            offset: id.offset,
+            source: self.convert_source(index, id.source)?,
+        })
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn convert_source(&self, index: usize, source: stored::Source) -> Result<Source> {
         Ok(match source {
-            Source::Kanji { index } => FullSource::Kanji { index },
-            Source::Phrase { index } => FullSource::Phrase { index },
-            Source::Inflection { inflection } => FullSource::Inflection {
+            stored::Source::Kanji { index } => Source::Kanji { index },
+            stored::Source::Phrase { index } => Source::Phrase { index },
+            stored::Source::Inflection { inflection } => Source::Inflection {
                 data: *self.inflection_data(index, inflection)?,
             },
-            Source::Name { index } => FullSource::Name { index },
+            stored::Source::Name { index } => Source::Name { index },
         })
     }
 
@@ -1157,10 +1107,8 @@ impl Database {
             self.lookup(input)?
         };
 
-        for (index, id) in results {
-            let entry = self.entry_at(index, id)?;
-
-            match entry {
+        for id in results {
+            match self.entry_at(id)? {
                 Entry::Kanji(kanji) => {
                     if seen.insert(kanji.literal) {
                         characters.push(kanji);
@@ -1183,15 +1131,12 @@ impl Database {
                         }
                     }
 
-                    let Some(&i) = dedup_phrases.get(&(index, id.offset())) else {
-                        dedup_phrases.insert((index, id.offset()), phrases.len());
+                    let Some(&i) = dedup_phrases.get(&id.key()) else {
+                        dedup_phrases.insert(id.key(), phrases.len());
 
                         let data = EntryResultKey {
-                            index,
-                            offset: id.offset(),
-                            sources: [self.convert_source(index, id.source())?]
-                                .into_iter()
-                                .collect(),
+                            key: id.key(),
+                            sources: [id.source].into_iter().collect(),
                             weight: Weight::default(),
                         };
 
@@ -1203,19 +1148,15 @@ impl Database {
                         continue;
                     };
 
-                    data.sources
-                        .insert(self.convert_source(index, id.source())?);
+                    data.sources.insert(id.source);
                 }
                 Entry::Name(entry) => {
-                    let Some(&i) = dedup_names.get(&(index, id.offset())) else {
-                        dedup_names.insert((index, id.offset()), names.len());
+                    let Some(&i) = dedup_names.get(&id.key()) else {
+                        dedup_names.insert(id.key(), names.len());
 
                         let data = EntryResultKey {
-                            index,
-                            offset: id.offset(),
-                            sources: [self.convert_source(index, id.source())?]
-                                .into_iter()
-                                .collect(),
+                            key: id.key(),
+                            sources: [id.source].into_iter().collect(),
                             weight: Weight::default(),
                         };
 
@@ -1227,10 +1168,9 @@ impl Database {
                         continue;
                     };
 
-                    data.sources
-                        .insert(self.convert_source(index, id.source())?);
+                    data.sources.insert(id.source);
                 }
-            };
+            }
         }
 
         for (data, e) in &mut phrases {
@@ -1271,7 +1211,7 @@ impl Database {
                 continue;
             }
 
-            for d in self.indexes.iter() {
+            for (index, d) in self.indexes.iter().enumerate() {
                 let Some(lookup) = d
                     .header
                     .lookup
@@ -1281,21 +1221,12 @@ impl Database {
                 };
 
                 for id in lookup {
-                    if !matches!(
-                        id.source,
-                        Source::Kanji {
-                            index: KanjiIndex::Literal
+                    let id = self.convert_id(index, *id)?;
+
+                    if let Entry::Kanji(kanji) = d.entry_at(id)? {
+                        if seen.insert(kanji.literal) {
+                            out.push(kanji);
                         }
-                    ) {
-                        continue;
-                    }
-
-                    let Entry::Kanji(kanji) = d.entry_at(*id)? else {
-                        continue;
-                    };
-
-                    if seen.insert(kanji.literal) {
-                        out.push(kanji);
                     }
                 }
             }
@@ -1316,14 +1247,16 @@ impl Database {
         let mut it = suffix.chars();
 
         while !it.as_str().is_empty() {
-            for d in self.indexes.iter() {
+            for (index, d) in self.indexes.iter().enumerate() {
                 let Some(values) = d.header.lookup.get(d.data.as_buf(), it.as_str())? else {
                     continue;
                 };
 
-                for id in values {
-                    let key = match d.entry_at(*id)? {
-                        Entry::Phrase(e) => e.weight(it.as_str(), id.source().is_inflection()),
+                for stored_id in values {
+                    let id = self.convert_id(index, *stored_id)?;
+
+                    let key = match d.entry_at(id)? {
+                        Entry::Phrase(e) => e.weight(it.as_str(), id.source.is_inflection()),
                         Entry::Name(e) => e.weight(it.as_str()).boost(0.5),
                         Entry::Kanji(e) => e.weight(it.as_str()).boost(0.5),
                     };

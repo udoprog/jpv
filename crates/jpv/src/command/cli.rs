@@ -9,7 +9,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use lib::config::Config;
 use lib::data;
-use lib::database::{Database, Entry, Id, Source};
+use lib::database::{Database, Entry, Id};
 use lib::inflection;
 use lib::{Dirs, Form, Furigana, PartOfSpeech};
 
@@ -104,9 +104,9 @@ pub(crate) async fn run(
             let filter = db
                 .lookup(input)?
                 .into_iter()
-                .map(|(index, id)| (index, id.offset()))
+                .map(|id| id.key())
                 .collect::<HashSet<_>>();
-            to_look_up.retain(|(index, id)| filter.contains(&(*index, id.offset())));
+            to_look_up.retain(|id| filter.contains(&id.key()));
         }
     }
 
@@ -122,12 +122,12 @@ pub(crate) async fn run(
             pos.insert(p);
         }
 
-        let indexes = db.by_pos(pos)?;
+        let ids = db.by_pos(pos)?;
 
         if mem::take(&mut seed) {
-            to_look_up.extend(indexes);
+            to_look_up.extend(ids);
         } else {
-            to_look_up.retain(|index| indexes.contains(index));
+            to_look_up.retain(|id| ids.contains(id));
         }
     }
 
@@ -136,25 +136,17 @@ pub(crate) async fn run(
     let o = std::io::stdout();
     let mut o = o.lock();
 
-    for (i, (index, id)) in to_look_up.iter().enumerate() {
+    for (i, id) in to_look_up.iter().enumerate() {
         match format {
-            OutputFormat::Rich => print_rich(
-                &mut o,
-                &db,
-                cli_args,
-                current_lang,
-                &to_look_up,
-                i,
-                *index,
-                id,
-            )?,
+            OutputFormat::Rich => {
+                print_rich(&mut o, &db, cli_args, current_lang, &to_look_up, i, *id)?
+            }
             OutputFormat::Json | OutputFormat::JsonPretty => print_json(
                 &mut o,
                 &db,
                 cli_args,
                 matches!(format, OutputFormat::JsonPretty),
                 i,
-                *index,
                 id,
             )?,
         }
@@ -168,19 +160,14 @@ fn print_rich<O>(
     db: &Database,
     cli_args: &CliArgs,
     current_lang: &str,
-    to_look_up: &BTreeSet<(usize, Id)>,
+    to_look_up: &BTreeSet<Id>,
     i: usize,
-    index: usize,
-    id: &Id,
+    id: Id,
 ) -> Result<()>
 where
     O: ?Sized + Write,
 {
-    if let Source::Inflection { inflection, .. } = id.source() {
-        writeln!(o, "Found through inflection: {inflection:?}")?;
-    }
-
-    match db.entry_at(index, *id)? {
+    match db.entry_at(id)? {
         Entry::Phrase(d) => {
             println!("#{i} Sequence: {}", d.sequence);
 
@@ -257,6 +244,9 @@ where
                 writeln!(o, "Reading: {}", reading.text)?;
             }
         }
+        _ => {
+            writeln!(o, "Unsupported entry")?;
+        }
     }
 
     o.flush()?;
@@ -269,13 +259,12 @@ fn print_json<O>(
     _: &CliArgs,
     pretty: bool,
     _: usize,
-    index: usize,
     id: &Id,
 ) -> Result<()>
 where
     O: ?Sized + Write,
 {
-    let output = db.entry_at(index, *id)?;
+    let output = db.entry_at(*id)?;
 
     if pretty {
         serde_json::to_writer_pretty(&mut *o, &output)?;
