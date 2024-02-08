@@ -236,7 +236,7 @@ pub enum Source {
         data: InflectionData,
     },
     /// Indexed to to a name.
-    #[serde(rename = "kanji")]
+    #[serde(rename = "name")]
     Name { index: NameIndex },
 }
 

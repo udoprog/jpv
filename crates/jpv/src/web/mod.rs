@@ -242,7 +242,6 @@ fn handle_analyze_request(
     }
 
     data.sort_by(|a, b| (Reverse(a.string.len()), &a.key).cmp(&(Reverse(b.string.len()), &b.key)));
-
     Ok(api::OwnedAnalyzeResponse { data })
 }
 
