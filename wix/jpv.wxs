@@ -3,7 +3,11 @@
   <Product Id="*" Name="Japanese Dictionary" UpgradeCode="8E9E1D20-1C0B-4ABE-8E05-E3A55376E9C6" Manufacturer="John-John Tedro" Language="1033" Codepage="1252" Version="$(var.Version)">
     <Package Id="*" Keywords="Installer" Manufacturer="John-John Tedro" InstallerVersion="450" Languages="1033" Compressed="yes" InstallScope="perMachine" SummaryCodepage="1252" Platform="$(var.Platform)"/>
 
-    <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."/>
+    <MajorUpgrade
+      AllowDowngrades="no"
+      AllowSameVersionUpgrades="no"
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."
+      />
 
     <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" DiskPrompt="CD-ROM #1"/>
     <Property Id="DiskPrompt" Value="Japanese Dictionary Installation"/>
@@ -51,6 +55,8 @@
 
     <UI>
       <UIRef Id="WixUI_FeatureTree"/>
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
     </UI>
 
     <WixVariable Id="WixUIDialogBmp" Value="$(var.Root)\crates\jpv\res\dialog.bmp"/>
