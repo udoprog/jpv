@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use lib::database::IndexSource;
+use lib::database::Source;
 use lib::{jmnedict, kana};
 use yew::prelude::*;
 
@@ -11,7 +11,7 @@ pub enum Msg {}
 #[derive(Properties, PartialEq)]
 pub struct Props {
     pub embed: bool,
-    pub sources: BTreeSet<IndexSource>,
+    pub sources: BTreeSet<Source>,
     pub entry: jmnedict::OwnedEntry,
 }
 

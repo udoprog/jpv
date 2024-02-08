@@ -104,16 +104,16 @@ struct Header {
 pub struct IndexHeader {
     pub name: Ref<str>,
     pub lookup: trie::TrieRef<Id, CompactTrie>,
-    pub by_pos: swiss::MapRef<PartOfSpeech, Ref<[u32]>>,
+    pub by_pos: swiss::MapRef<PartOfSpeech, Ref<[PhrasePos]>>,
     pub by_kanji_literal: swiss::MapRef<Ref<str>, u32>,
-    pub by_sequence: swiss::MapRef<u32, u32>,
+    pub by_sequence: swiss::MapRef<u32, PhrasePos>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryResultKey {
     pub index: usize,
     pub offset: u32,
-    pub sources: BTreeSet<IndexSource>,
+    pub sources: BTreeSet<Source>,
     pub weight: Weight,
 }
 
@@ -135,21 +135,89 @@ pub struct EntryResultKey {
 #[non_exhaustive]
 #[serde(tag = "type")]
 #[repr(u8)]
-pub enum KanjiReading {
+pub enum KanjiIndex {
     /// The literal reading.
     Literal,
-    Kunyomi,
-    KunyomiFull,
+    /// Kunyomi readings only.
+    KunyomiHiragana,
     KunyomiRomanize,
     KunyomiKatakana,
-    /// This includes the contextual kunyomi part as well.
-    KunyomiFullRomanize,
+    /// Kunyomi readings including contextual part.
+    KunyomiFullHiragana,
+    KunyomiFullRomanized,
     KunyomiFullKatakana,
-    Onyomi,
-    OnyomiRomanize,
+    /// Onyomi readings.
+    OnyomiKatakana,
+    OnyomiRomanized,
     OnyomiHiragana,
+    /// Meaning (or sense).
     Meaning,
+    /// Other language.
     Other,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    ZeroCopy,
+)]
+#[non_exhaustive]
+#[serde(tag = "type")]
+#[repr(u8)]
+pub enum NameIndex {
+    /// The literal reading.
+    Literal,
+    /// Hiragana reading.
+    Hiragana,
+    /// Katakana reading.
+    Katakana,
+    /// Romanized.
+    Romanized,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    ZeroCopy,
+)]
+#[non_exhaustive]
+#[serde(tag = "type")]
+#[repr(u8)]
+pub enum PhraseIndex {
+    /// Indexed by entry.
+    Entry,
+    /// Indexed by kanji reading.
+    Kanji,
+    /// Indexed by half-kanji reading.
+    KanjiHalf,
+    /// Indexed by hiragana reading.
+    Hiragana,
+    /// Indexed by katakana reading.
+    Katakana,
+    /// Indexed by romanized reading.
+    Romanized,
+    /// Indexed by meaning.
+    Meaning,
 }
 
 /// Extra information about an index.
@@ -171,27 +239,29 @@ pub enum KanjiReading {
 #[non_exhaustive]
 #[serde(tag = "type")]
 #[repr(u8)]
-pub enum IndexSource {
+pub enum Source {
+    /// Indexed due to a kanji.
     #[serde(rename = "kanji")]
-    Kanji { reading: KanjiReading },
-    /// No extra information on why the index was added.
+    Kanji { index: KanjiIndex },
+    /// Indexed due to a phrase.
     #[serde(rename = "phrase")]
-    Phrase,
-    /// Index was added because of an inflection.
+    Phrase { index: PhraseIndex },
+    /// Indexed due to an inflection.
     #[serde(rename = "inflection")]
     Inflection {
         reading: inflection::Reading,
         inflection: Inflection,
     },
+    /// Indexed to to a name.
     #[serde(rename = "kanji")]
-    Name { reading: KanjiReading },
+    Name { index: NameIndex },
 }
 
-impl IndexSource {
+impl Source {
     /// Test if extra indicates an inflection.
     pub fn is_inflection(&self) -> bool {
         match self {
-            IndexSource::Inflection { .. } => true,
+            Source::Inflection { .. } => true,
             _ => false,
         }
     }
@@ -199,37 +269,44 @@ impl IndexSource {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ZeroCopy)]
 #[repr(C)]
+pub struct PhrasePos {
+    offset: u32,
+    reading: PhraseIndex,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ZeroCopy)]
+#[repr(C)]
 pub struct Id {
     offset: u32,
-    source: IndexSource,
+    source: Source,
 }
 
 impl Id {
-    fn phrase(offset: u32) -> Self {
+    fn phrase(offset: u32, index: PhraseIndex) -> Self {
         Self {
             offset,
-            source: IndexSource::Phrase,
+            source: Source::Phrase { index },
         }
     }
 
-    fn name(offset: u32, reading: KanjiReading) -> Self {
+    fn name(offset: u32, index: NameIndex) -> Self {
         Self {
             offset,
-            source: IndexSource::Name { reading },
+            source: Source::Name { index },
         }
     }
 
-    fn kanji(offset: u32, reading: KanjiReading) -> Self {
+    fn kanji(offset: u32, index: KanjiIndex) -> Self {
         Self {
             offset,
-            source: IndexSource::Kanji { reading },
+            source: Source::Kanji { index },
         }
     }
 
     fn inflection(offset: u32, reading: inflection::Reading, inflection: Inflection) -> Self {
         Self {
             offset,
-            source: IndexSource::Inflection {
+            source: Source::Inflection {
                 reading,
                 inflection,
             },
@@ -242,7 +319,7 @@ impl Id {
     }
 
     /// Extra information on index.
-    pub fn source(&self) -> IndexSource {
+    pub fn source(&self) -> Source {
         self.source
     }
 }
@@ -317,14 +394,23 @@ pub fn build(
                 ENCODING.to_writer(&mut output, &entry)?;
 
                 let entry_ref = buf.store_slice(&output).offset() as u32;
-                by_sequence.insert(entry.sequence as u32, entry_ref);
+                by_sequence.insert(
+                    entry.sequence as u32,
+                    PhrasePos {
+                        offset: entry_ref,
+                        reading: PhraseIndex::Entry,
+                    },
+                );
 
                 for sense in &entry.senses {
                     for pos in &sense.pos {
-                        by_pos.entry(pos).or_default().insert(entry_ref);
+                        by_pos.entry(pos).or_default().insert(PhrasePos {
+                            offset: entry_ref,
+                            reading: PhraseIndex::Meaning,
+                        });
                     }
 
-                    let id = Id::phrase(entry_ref);
+                    let id = Id::phrase(entry_ref, PhraseIndex::Meaning);
 
                     for g in &sense.gloss {
                         if g.ty == Some("expl") {
@@ -336,33 +422,40 @@ pub fn build(
                 }
 
                 for el in &entry.reading_elements {
-                    lookup.push((Cow::Borrowed(el.text), Id::phrase(entry_ref)));
+                    lookup.push((
+                        Cow::Borrowed(el.text),
+                        Id::phrase(entry_ref, PhraseIndex::Hiragana),
+                    ));
+
+                    let a = Id::phrase(entry_ref, PhraseIndex::Romanized);
+                    let b = Id::phrase(entry_ref, PhraseIndex::Katakana);
+                    other_readings(&mut lookup, el.text, a, b, |s| s.katakana());
                 }
 
                 for el in &entry.kanji_elements {
                     if let Some(s) = full_to_half_string(el.text) {
-                        lookup.push((Cow::Owned(s), Id::phrase(entry_ref)));
+                        lookup.push((Cow::Owned(s), Id::phrase(entry_ref, PhraseIndex::KanjiHalf)));
                     }
 
-                    lookup.push((Cow::Borrowed(el.text), Id::phrase(entry_ref)));
+                    lookup.push((
+                        Cow::Borrowed(el.text),
+                        Id::phrase(entry_ref, PhraseIndex::Kanji),
+                    ));
                 }
 
-                for (reading, c, kind) in inflection::conjugate(&entry) {
+                for (reading, c, _) in inflection::conjugate(&entry) {
                     for (inflection, pair) in c.iter() {
-                        for word in [pair.text(), pair.reading()] {
-                            let key = Cow::Owned(format!("{}{}", word, pair.suffix()));
+                        let id = Id::inflection(entry_ref, reading, *inflection);
 
-                            let id = match kind {
-                                inflection::Kind::Verb => {
-                                    Id::inflection(entry_ref, reading, *inflection)
-                                }
-                                inflection::Kind::Adjective => {
-                                    Id::inflection(entry_ref, reading, *inflection)
-                                }
-                            };
-
+                        if pair.text() != pair.reading() {
+                            let key = Cow::Owned(format!("{}{}", pair.text(), pair.suffix()));
                             lookup.push((key, id));
                         }
+
+                        let key: Cow<'_, str> =
+                            Cow::Owned(format!("{}{}", pair.reading(), pair.suffix()));
+                        other_readings(&mut lookup, key.as_ref(), id, id, |text| text.katakana());
+                        lookup.push((key, id));
                     }
                 }
             }
@@ -388,43 +481,43 @@ pub fn build(
 
                 lookup.push((
                     Cow::Borrowed(c.literal),
-                    Id::kanji(kanji_ref, KanjiReading::Literal),
+                    Id::kanji(kanji_ref, KanjiIndex::Literal),
                 ));
 
                 for reading in &c.reading_meaning.readings {
                     match reading.ty {
                         "ja_kun" => {
                             if let Some((prefix, _)) = reading.text.split_once('.') {
-                                let a = Id::kanji(kanji_ref, KanjiReading::KunyomiRomanize);
-                                let b = Id::kanji(kanji_ref, KanjiReading::KunyomiKatakana);
+                                let a = Id::kanji(kanji_ref, KanjiIndex::KunyomiRomanize);
+                                let b = Id::kanji(kanji_ref, KanjiIndex::KunyomiKatakana);
                                 other_readings(&mut lookup, prefix, a, b, |s| s.katakana());
-                                let id = Id::kanji(kanji_ref, KanjiReading::Kunyomi);
+                                let id = Id::kanji(kanji_ref, KanjiIndex::KunyomiHiragana);
                                 lookup.push((Cow::Borrowed(prefix), id));
                             }
 
-                            let a = Id::kanji(kanji_ref, KanjiReading::KunyomiFullRomanize);
-                            let b = Id::kanji(kanji_ref, KanjiReading::KunyomiFullKatakana);
+                            let a = Id::kanji(kanji_ref, KanjiIndex::KunyomiFullRomanized);
+                            let b = Id::kanji(kanji_ref, KanjiIndex::KunyomiFullKatakana);
                             other_readings(&mut lookup, reading.text, a, b, |s| s.katakana());
 
-                            let id = Id::kanji(kanji_ref, KanjiReading::KunyomiFull);
+                            let id = Id::kanji(kanji_ref, KanjiIndex::KunyomiFullHiragana);
                             lookup.push((Cow::Borrowed(reading.text), id));
                         }
                         "ja_on" => {
-                            let a = Id::kanji(kanji_ref, KanjiReading::OnyomiRomanize);
-                            let b = Id::kanji(kanji_ref, KanjiReading::OnyomiHiragana);
+                            let a = Id::kanji(kanji_ref, KanjiIndex::OnyomiRomanized);
+                            let b = Id::kanji(kanji_ref, KanjiIndex::OnyomiHiragana);
                             other_readings(&mut lookup, reading.text, a, b, |s| s.hiragana());
-                            let id = Id::kanji(kanji_ref, KanjiReading::Onyomi);
+                            let id = Id::kanji(kanji_ref, KanjiIndex::OnyomiKatakana);
                             lookup.push((Cow::Borrowed(reading.text), id));
                         }
                         _ => {
-                            let id = Id::kanji(kanji_ref, KanjiReading::Other);
+                            let id = Id::kanji(kanji_ref, KanjiIndex::Other);
                             lookup.push((Cow::Borrowed(reading.text), id));
                         }
                     };
                 }
 
                 for meaning in &c.reading_meaning.meanings {
-                    let id = Id::kanji(kanji_ref, KanjiReading::Meaning);
+                    let id = Id::kanji(kanji_ref, KanjiIndex::Meaning);
                     populate_analyzed(meaning.text, &mut lookup, id);
                 }
             }
@@ -447,19 +540,16 @@ pub fn build(
                 let name_ref = buf.store_slice(&output).offset() as u32;
 
                 for kanji in entry.kanji.iter().copied() {
-                    lookup.push((
-                        Cow::Borrowed(kanji),
-                        Id::name(name_ref, KanjiReading::Literal),
-                    ));
+                    lookup.push((Cow::Borrowed(kanji), Id::name(name_ref, NameIndex::Literal)));
                 }
 
                 for reading in entry.reading {
                     lookup.push((
                         Cow::Borrowed(reading.text),
-                        Id::name(name_ref, KanjiReading::KunyomiFull),
+                        Id::name(name_ref, NameIndex::Hiragana),
                     ));
-                    let a = Id::name(name_ref, KanjiReading::KunyomiFullRomanize);
-                    let b = Id::name(name_ref, KanjiReading::KunyomiFullKatakana);
+                    let a = Id::name(name_ref, NameIndex::Romanized);
+                    let b = Id::name(name_ref, NameIndex::Katakana);
                     other_readings(&mut lookup, reading.text, a, b, |s| s.katakana());
                 }
             }
@@ -754,8 +844,8 @@ impl Index {
         };
 
         Ok(match id.source {
-            IndexSource::Kanji { .. } => Entry::Kanji(ENCODING.from_slice(bytes)?),
-            IndexSource::Name { .. } => Entry::Name(ENCODING.from_slice(bytes)?),
+            Source::Kanji { .. } => Entry::Kanji(ENCODING.from_slice(bytes)?),
+            Source::Name { .. } => Entry::Name(ENCODING.from_slice(bytes)?),
             _ => Entry::Phrase(ENCODING.from_slice(bytes)?),
         })
     }
@@ -817,11 +907,11 @@ impl Database {
         let mut output = Vec::new();
 
         for (index, d) in self.indexes.iter().enumerate() {
-            let Some(offset) = d.header.by_sequence.get(d.data.as_buf(), &sequence)? else {
+            let Some(pos) = d.header.by_sequence.get(d.data.as_buf(), &sequence)? else {
                 continue;
             };
 
-            output.push((index, Id::phrase(*offset)));
+            output.push((index, Id::phrase(pos.offset, pos.reading)));
         }
 
         Ok(output)
@@ -853,12 +943,12 @@ impl Database {
     /// Get identifier by sequence.
     pub fn sequence_to_entry(&self, sequence: u32) -> Result<Option<jmdict::Entry<'_>>> {
         for d in self.indexes.iter() {
-            let Some(index) = d.header.by_sequence.get(d.data.as_buf(), &sequence)? else {
+            let Some(pos) = d.header.by_sequence.get(d.data.as_buf(), &sequence)? else {
                 continue;
             };
 
-            let Some(bytes) = d.data.as_buf().get(*index as usize..) else {
-                return Err(anyhow!("Missing entry at {}", *index));
+            let Some(bytes) = d.data.as_buf().get(pos.offset as usize..) else {
+                return Err(anyhow!("Missing entry at {}", pos.offset));
             };
 
             return Ok(Some(ENCODING.from_slice(bytes)?));
@@ -891,8 +981,8 @@ impl Database {
 
             for &by_pos in unique.iter() {
                 tracing::trace!(?by_pos);
-                let id = d.data.as_buf().load(by_pos)?;
-                output.push((index, Id::phrase(*id)));
+                let pos = d.data.as_buf().load(by_pos)?;
+                output.push((index, Id::phrase(pos.offset, pos.reading)));
             }
         }
 
@@ -1112,8 +1202,8 @@ impl Database {
                 for id in lookup {
                     if !matches!(
                         id.source,
-                        IndexSource::Kanji {
-                            reading: KanjiReading::Literal
+                        Source::Kanji {
+                            index: KanjiIndex::Literal
                         }
                     ) {
                         continue;

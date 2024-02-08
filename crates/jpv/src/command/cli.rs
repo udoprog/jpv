@@ -9,7 +9,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use lib::config::Config;
 use lib::data;
-use lib::database::{Database, Entry, Id, IndexSource};
+use lib::database::{Database, Entry, Id, Source};
 use lib::inflection;
 use lib::{Dirs, Form, Furigana, PartOfSpeech};
 
@@ -176,7 +176,7 @@ fn print_rich<O>(
 where
     O: ?Sized + Write,
 {
-    if let IndexSource::Inflection { inflection, .. } = id.source() {
+    if let Source::Inflection { inflection, .. } = id.source() {
         writeln!(o, "Found through inflection: {inflection:?}")?;
     }
 
