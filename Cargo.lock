@@ -1335,6 +1335,8 @@ dependencies = [
  "jpv-tesseract",
  "mime_guess",
  "musli-zerocopy",
+ "num_cpus",
+ "parking_lot",
  "rand",
  "reqwest",
  "rust-embed",

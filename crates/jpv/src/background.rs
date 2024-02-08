@@ -9,7 +9,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use flate2::read::GzDecoder;
 use lib::config::{Config, IndexFormat};
 use lib::database::{self, Database, Input};
-use lib::reporter::{Reporter, TracingReporter};
+use lib::reporter::Reporter;
 use lib::token::Token;
 use lib::{api, data, Dirs};
 use tempfile::NamedTempFile;
@@ -25,7 +25,6 @@ use crate::Args;
 pub(crate) struct Mutable {
     config: Config,
     database: Database,
-    pub(crate) log: Vec<api::OwnedLogEntry>,
     pub(crate) tasks: HashMap<Box<str>, system::TaskProgress>,
 }
 
@@ -49,6 +48,7 @@ pub struct Background {
     channel: UnboundedSender<BackgroundEvent>,
     system_events: SystemEvents,
     mutable: Arc<RwLock<Mutable>>,
+    log: crate::log::Capture,
 }
 
 impl Background {
@@ -59,6 +59,7 @@ impl Background {
         database: Database,
         system_events: SystemEvents,
         tesseract: Option<tesseract::Tesseract>,
+        log: crate::log::Capture,
     ) -> Result<Self> {
         let tesseract = tesseract.map(Mutex::new);
 
@@ -73,9 +74,9 @@ impl Background {
             mutable: Arc::new(RwLock::new(Mutable {
                 config,
                 database,
-                log: Vec::new(),
                 tasks: HashMap::new(),
             })),
+            log,
         })
     }
 
@@ -90,7 +91,7 @@ impl Background {
 
     /// Get the current log backfill.
     pub(crate) fn log(&self) -> Vec<api::OwnedLogEntry> {
-        self.mutable.read().unwrap().log.clone()
+        self.log.read()
     }
 
     /// Update current configuration.
@@ -217,7 +218,6 @@ impl Background {
                     let index = args.index.clone();
 
                     let reporter = Arc::new(EventsReporter {
-                        parent: TracingReporter,
                         inner: inner.clone(),
                         system_events: self.system_events.clone(),
                         name: completion.name().map(Box::from),
@@ -252,10 +252,10 @@ impl Background {
                             };
 
                             if let Err(error) = future.await {
-                                lib::report_error!(reporter, "Failed to build index");
+                                tracing::error!("Failed to build index");
 
                                 for error in error.chain() {
-                                    lib::report_error!(reporter, "Caused by: {}", error);
+                                    tracing::error!("Caused by: {error}");
                                 }
                             }
 
@@ -342,23 +342,20 @@ pub(crate) async fn build(
         Ok(data) => match database::Index::open(data) {
             Ok(..) => {
                 if !force {
-                    lib::report_info!(
-                        reporter,
+                    tracing::info!(
                         "Dictionary already exists at {}",
                         download.index_path.display()
                     );
                     return Ok(false);
                 } else {
-                    lib::report_info!(
-                        reporter,
+                    tracing::info!(
                         "Dictionary already exists at {} (forcing rebuild)",
                         download.index_path.display()
                     );
                 }
             }
             Err(error) => {
-                lib::report_warn!(
-                    reporter,
+                tracing::warn!(
                     "Rebuilding since exists, but could not open: {error}: {}",
                     download.index_path.display()
                 );
@@ -374,12 +371,7 @@ pub(crate) async fn build(
         .await
         .context("Reading dictionary")?;
 
-    lib::report_info!(
-        reporter,
-        "Loading `{}` from {}",
-        download.name,
-        path.display()
-    );
+    tracing::info!("Loading `{}` from {}", download.name, path.display());
 
     let start = Instant::now();
     let kind = download.format;
@@ -421,8 +413,7 @@ pub(crate) async fn build(
         .await
         .with_context(|| anyhow!("{}", download.index_path.display()))?;
 
-    lib::report_info!(
-        reporter,
+    tracing::info!(
         "Took {duration:?} to build index at {}",
         download.index_path.display()
     );
@@ -479,7 +470,7 @@ async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec
     use reqwest::Method;
     use tokio::io::AsyncWriteExt;
 
-    lib::report_info!(reporter, "Downloading {url} to {}", path.display());
+    tracing::info!("Downloading {url} to {}", path.display());
 
     ensure_parent_dir(path).await?;
 

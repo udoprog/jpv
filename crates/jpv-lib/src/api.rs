@@ -277,6 +277,8 @@ pub struct KanjiResponse<'a> {
 #[borrowme::borrowme]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogEntry<'a> {
+    /// Timestamp of the log entry in milliseconds since the unix epoch.
+    pub timestamp: u128,
     /// The target being logged.
     pub target: &'a str,
     /// The level of the rebuild.

@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 
 use lib::config::Config;
-use lib::reporter::TracingReporter;
+use lib::reporter::EmptyReporter;
 use lib::Dirs;
 use tokio::sync::oneshot;
 
@@ -41,7 +41,7 @@ pub(crate) async fn run(
     let to_download = crate::background::config_to_download(&config, dirs, overrides);
 
     for to_download in to_download {
-        let tracing_reporter = Arc::new(TracingReporter);
+        let tracing_reporter = Arc::new(EmptyReporter);
         let (_sender, shutdown) = oneshot::channel();
 
         crate::background::build(
