@@ -278,7 +278,7 @@ pub struct KanjiResponse<'a> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogEntry<'a> {
     /// Timestamp of the log entry in milliseconds since the unix epoch.
-    pub timestamp: u128,
+    pub timestamp: u64,
     /// The target being logged.
     pub target: &'a str,
     /// The level of the rebuild.

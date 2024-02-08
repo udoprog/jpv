@@ -52,15 +52,14 @@ struct Inner {
 }
 
 impl Inner {
-    fn timestamp(&self, instant: Instant) -> Option<u128> {
+    fn timestamp(&self, instant: Instant) -> Option<u64> {
         let duration = instant.checked_duration_since(self.start)?;
         let timestamp = self.start_time.checked_add(duration)?;
-        Some(
-            timestamp
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .ok()?
-                .as_millis(),
-        )
+        let timestamp = timestamp
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .ok()?
+            .as_millis();
+        u64::try_from(timestamp).ok()
     }
 }
 
@@ -106,7 +105,7 @@ where
 
         let timestamp = Instant::now();
 
-        let timestamp = self.inner.timestamp(timestamp).unwrap_or(u128::MIN);
+        let timestamp = self.inner.timestamp(timestamp).unwrap_or(u64::MIN);
 
         let entry = api::OwnedLogEntry {
             timestamp,
