@@ -243,6 +243,7 @@ mod background;
 mod command;
 mod dbus;
 mod hash;
+mod log;
 mod open_uri;
 mod reporter;
 mod system;
@@ -289,6 +290,8 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    use tracing_subscriber::Layer;
+
     let args = Args::try_parse()?;
 
     let directive = match &args.command {
@@ -305,10 +308,15 @@ async fn main() -> Result<()> {
 
     let filter = filter.from_env_lossy();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .finish()
-        .try_init()?;
+    let system_events = system::SystemEvents::new();
+
+    let (capturing_layer, log) = log::new(system_events.clone());
+
+    let layer = tracing_subscriber::Registry::default();
+    let layer = tracing_subscriber::fmt::layer().with_subscriber(layer);
+    let layer = capturing_layer.with_subscriber(layer);
+    let layer = filter.with_subscriber(layer);
+    layer.try_init()?;
 
     let dirs = Dirs::open()?;
 
@@ -317,10 +325,12 @@ async fn main() -> Result<()> {
     match &args.command {
         None => {
             let service_args = Default::default();
-            self::command::service::run(&args, &service_args, dirs, config).await?;
+            self::command::service::run(&args, &service_args, dirs, config, system_events, log)
+                .await?;
         }
         Some(Command::Service(service_args)) => {
-            self::command::service::run(&args, service_args, dirs, config).await?;
+            self::command::service::run(&args, service_args, dirs, config, system_events, log)
+                .await?;
         }
         Some(Command::Cli(cli_args)) => {
             self::command::cli::run(&args, cli_args, &dirs, config).await?;

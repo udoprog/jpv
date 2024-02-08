@@ -539,7 +539,7 @@ pub fn build(
     reporter.instrument_end(count);
 
     lookup.sort_by(|(a, _), (b, _)| b.as_ref().cmp(a.as_ref()));
-    report_info!(reporter, "Inserting {} readings", lookup.len());
+    tracing::info!("Inserting {} readings", lookup.len());
 
     let mut readings2 = Vec::with_capacity(lookup.len());
     let by_kanji_literal;
@@ -573,8 +573,7 @@ pub fn build(
             output
         };
 
-        report_info!(
-            reporter,
+        tracing::info!(
             "Reused {} string(s) (out of {})",
             indexer.reuse(),
             indexer.total()
@@ -621,21 +620,17 @@ pub fn build(
             entries.push((key, set));
         }
 
-        report_info!(reporter, "Storing by_pos: {}...", entries.len());
+        tracing::info!("Storing by_pos: {}...", entries.len());
         swiss::store_map(&mut buf, entries)?
     };
 
     let by_kanji_literal = {
-        report_info!(
-            reporter,
-            "Storing by_kanji_literal: {}...",
-            by_kanji_literal.len()
-        );
+        tracing::info!("Storing by_kanji_literal: {}...", by_kanji_literal.len());
         swiss::store_map(&mut buf, by_kanji_literal)?
     };
 
     let by_sequence = {
-        report_info!(reporter, "Storing by_sequence: {}...", by_sequence.len());
+        tracing::info!("Storing by_sequence: {}...", by_sequence.len());
         swiss::store_map(&mut buf, by_sequence)?
     };
 

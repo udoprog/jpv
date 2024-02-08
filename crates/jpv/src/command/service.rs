@@ -61,6 +61,8 @@ pub(crate) async fn run(
     service_args: &ServiceArgs,
     dirs: Dirs,
     config: Config,
+    system_events: system::SystemEvents,
+    log: crate::log::Capture,
 ) -> Result<()> {
     let addr: SocketAddr = service_args
         .bind
@@ -69,8 +71,6 @@ pub(crate) async fn run(
         .parse()?;
 
     let shutdown = Notify::new();
-
-    let system_events = system::SystemEvents::new();
 
     let mut dbus = match dbus::setup(service_args)
         .await
@@ -153,7 +153,15 @@ pub(crate) async fn run(
         }
     };
 
-    let background = Background::new(dirs, channel, config, db, system_events.clone(), tesseract)?;
+    let background = Background::new(
+        dirs,
+        channel,
+        config,
+        db,
+        system_events.clone(),
+        tesseract,
+        log,
+    )?;
 
     let mut server = pin!(web::setup(
         listener,
