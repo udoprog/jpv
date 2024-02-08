@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use lib::database::IndexSource;
+use lib::database::Source;
 use lib::entities::KanjiInfo;
 use lib::jmdict::{
     OwnedExample, OwnedExampleSentence, OwnedKanjiElement, OwnedReadingElement, OwnedSense,
@@ -70,7 +70,7 @@ pub(crate) struct Entry {
 #[derive(Properties)]
 pub struct Props {
     pub embed: bool,
-    pub sources: BTreeSet<IndexSource>,
+    pub sources: BTreeSet<Source>,
     pub entry: jmdict::OwnedEntry,
     pub onchange: Callback<(String, Option<String>), ()>,
 }
@@ -391,11 +391,11 @@ impl Entry {
 
 /// Find the matching inflection based on the source.
 fn find_inflection<'a>(
-    source: &IndexSource,
+    source: &Source,
     inflections: &'a [(inflection::Reading, OwnedInflections)],
 ) -> Option<(Inflection, &'a OwnedInflections)> {
     match source {
-        IndexSource::Inflection {
+        Source::Inflection {
             reading,
             inflection,
         } => {

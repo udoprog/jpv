@@ -8,7 +8,7 @@
 /// Dictionary magic `JPVD`.
 pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44;
 /// Current database version in use.
-pub const DICTIONARY_VERSION: u32 = 3;
+pub const DICTIONARY_VERSION: u32 = 4;
 
 /// Helper to convert a type to its owned variant.
 pub use ::borrowme::to_owned;
