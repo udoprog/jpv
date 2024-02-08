@@ -107,13 +107,14 @@ pub struct IndexHeader {
     pub by_pos: swiss::MapRef<PartOfSpeech, Ref<[PhrasePos]>>,
     pub by_kanji_literal: swiss::MapRef<Ref<str>, u32>,
     pub by_sequence: swiss::MapRef<u32, PhrasePos>,
+    pub inflections: Ref<[InflectionData]>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryResultKey {
     pub index: usize,
     pub offset: u32,
-    pub sources: BTreeSet<Source>,
+    pub sources: BTreeSet<FullSource>,
     pub weight: Weight,
 }
 
@@ -220,7 +221,7 @@ pub enum PhraseIndex {
     Meaning,
 }
 
-/// Extra information about an index.
+/// Data stored for a given inflection.
 #[derive(
     Debug,
     Clone,
@@ -236,24 +237,24 @@ pub enum PhraseIndex {
     Decode,
     ZeroCopy,
 )]
-#[non_exhaustive]
-#[serde(tag = "type")]
+#[repr(C)]
+pub struct InflectionData {
+    pub reading: inflection::Reading,
+    pub inflection: Inflection,
+}
+
+/// Extra information about an index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ZeroCopy)]
 #[repr(u8)]
 pub enum Source {
     /// Indexed due to a kanji.
-    #[serde(rename = "kanji")]
     Kanji { index: KanjiIndex },
     /// Indexed due to a phrase.
-    #[serde(rename = "phrase")]
     Phrase { index: PhraseIndex },
-    /// Indexed due to an inflection.
-    #[serde(rename = "inflection")]
-    Inflection {
-        reading: inflection::Reading,
-        inflection: Inflection,
-    },
+    /// Indexed due to an inflection. The exact kind of inflection is identifier
+    /// by its index, which fits into a u16.
+    Inflection { inflection: u16 },
     /// Indexed to to a name.
-    #[serde(rename = "kanji")]
     Name { index: NameIndex },
 }
 
@@ -262,6 +263,40 @@ impl Source {
     pub fn is_inflection(&self) -> bool {
         match self {
             Source::Inflection { .. } => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Encode, Decode,
+)]
+#[non_exhaustive]
+#[serde(tag = "type")]
+pub enum FullSource {
+    /// Indexed due to a kanji.
+    #[serde(rename = "kanji")]
+    Kanji { index: KanjiIndex },
+    /// Indexed due to a phrase.
+    #[serde(rename = "phrase")]
+    Phrase { index: PhraseIndex },
+    /// Indexed due to an inflection. The exact kind of inflection is identifier
+    /// by its index, which fits into a u16.
+    #[serde(rename = "inflection")]
+    Inflection {
+        #[serde(flatten)]
+        data: InflectionData,
+    },
+    /// Indexed to to a name.
+    #[serde(rename = "kanji")]
+    Name { index: NameIndex },
+}
+
+impl FullSource {
+    /// Test if extra indicates an inflection.
+    pub fn is_inflection(&self) -> bool {
+        match self {
+            FullSource::Inflection { .. } => true,
             _ => false,
         }
     }
@@ -303,13 +338,10 @@ impl Id {
         }
     }
 
-    fn inflection(offset: u32, reading: inflection::Reading, inflection: Inflection) -> Self {
+    fn inflection(offset: u32, inflection: u16) -> Self {
         Self {
             offset,
-            source: Source::Inflection {
-                reading,
-                inflection,
-            },
+            source: Source::Inflection { inflection },
         }
     }
 
@@ -368,6 +400,8 @@ pub fn build(
     let mut by_sequence = HashMap::new();
     let mut by_pos = HashMap::<_, HashSet<_>>::new();
     let mut kanji_literals = HashMap::new();
+    let mut inflections = Vec::new();
+    let mut inflections_index = HashMap::new();
 
     reporter.instrument_start(
         module_path!(),
@@ -445,7 +479,22 @@ pub fn build(
 
                 for (reading, c, _) in inflection::conjugate(&entry) {
                     for (inflection, pair) in c.iter() {
-                        let id = Id::inflection(entry_ref, reading, *inflection);
+                        let data = InflectionData {
+                            reading,
+                            inflection: *inflection,
+                        };
+
+                        let index = match inflections_index.entry(data) {
+                            hash_map::Entry::Vacant(e) => {
+                                let index = *e.insert(inflections.len() as u32);
+                                inflections.push(data);
+                                index
+                            }
+                            hash_map::Entry::Occupied(e) => *e.get(),
+                        };
+
+                        assert!(index < u16::MAX as u32);
+                        let id = Id::inflection(entry_ref, index as u16);
 
                         if pair.text() != pair.reading() {
                             let key = Cow::Owned(format!("{}{}", pair.text(), pair.suffix()));
@@ -659,12 +708,15 @@ pub fn build(
         swiss::store_map(&mut buf, by_sequence)?
     };
 
+    let inflections = buf.store_slice(&inflections);
+
     buf.load_uninit_mut(index).write(&IndexHeader {
         name,
         lookup,
         by_pos,
         by_kanji_literal,
         by_sequence,
+        inflections,
     });
 
     buf.load_uninit_mut(header).write(&Header {
@@ -1050,6 +1102,29 @@ impl Database {
         Ok(output)
     }
 
+    #[tracing::instrument(skip_all)]
+    pub fn convert_source(&self, index: usize, source: Source) -> Result<FullSource> {
+        Ok(match source {
+            Source::Kanji { index } => FullSource::Kanji { index },
+            Source::Phrase { index } => FullSource::Phrase { index },
+            Source::Inflection { inflection } => FullSource::Inflection {
+                data: *self.inflection_data(index, inflection)?,
+            },
+            Source::Name { index } => FullSource::Name { index },
+        })
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn inflection_data(&self, index: usize, inflection: u16) -> Result<&InflectionData> {
+        let i = self.indexes.get(index).context("missing index")?;
+        let data = i
+            .header
+            .inflections
+            .get(inflection as usize)
+            .context("missing inflection")?;
+        Ok(i.data.as_buf().load(data)?)
+    }
+
     /// Perform the given search.
     pub fn search(&self, mut input: &str) -> Result<Search<'_>> {
         let mut phrases = Vec::new();
@@ -1114,7 +1189,9 @@ impl Database {
                         let data = EntryResultKey {
                             index,
                             offset: id.offset(),
-                            sources: [id.source()].into_iter().collect(),
+                            sources: [self.convert_source(index, id.source())?]
+                                .into_iter()
+                                .collect(),
                             weight: Weight::default(),
                         };
 
@@ -1126,7 +1203,8 @@ impl Database {
                         continue;
                     };
 
-                    data.sources.insert(id.source());
+                    data.sources
+                        .insert(self.convert_source(index, id.source())?);
                 }
                 Entry::Name(entry) => {
                     let Some(&i) = dedup_names.get(&(index, id.offset())) else {
@@ -1135,7 +1213,9 @@ impl Database {
                         let data = EntryResultKey {
                             index,
                             offset: id.offset(),
-                            sources: [id.source()].into_iter().collect(),
+                            sources: [self.convert_source(index, id.source())?]
+                                .into_iter()
+                                .collect(),
                             weight: Weight::default(),
                         };
 
@@ -1147,13 +1227,14 @@ impl Database {
                         continue;
                     };
 
-                    data.sources.insert(id.source());
+                    data.sources
+                        .insert(self.convert_source(index, id.source())?);
                 }
             };
         }
 
         for (data, e) in &mut phrases {
-            let inflection = data.sources.iter().any(|index| index.is_inflection());
+            let inflection = data.sources.iter().any(|source| source.is_inflection());
             data.weight = e.weight(input, inflection);
         }
 

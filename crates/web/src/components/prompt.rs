@@ -496,13 +496,12 @@ impl Component for Prompt {
         });
 
         let names = (!self.names.is_empty()).then(|| {
-            let names = self.names.iter().map(|e| {
-                html!(<c::Name embed={self.query.embed} sources={e.key.sources.clone()} entry={e.name.clone()} />)
-            });
+            let names = self
+                .names
+                .iter()
+                .map(|e| html!(<c::Name embed={self.query.embed} entry={e.name.clone()} />));
 
-            let header = (!self.query.embed).then(|| {
-                html!(<h4>{"Names"}</h4>)
-            });
+            let header = (!self.query.embed).then(|| html!(<h4>{"Names"}</h4>));
 
             html! {
                 <>

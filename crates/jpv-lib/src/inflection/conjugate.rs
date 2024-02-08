@@ -458,6 +458,18 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                 }
             }
 
+            if let Some(kanji) = kanji {
+                if kanji.0 >= u8::MAX as usize {
+                    log::warn!("Kanji index too large: {}", kanji.0);
+                    continue;
+                }
+            }
+
+            if reading.0 >= u8::MAX as usize {
+                log::warn!("Reading index too large: {}", reading.0);
+                continue;
+            }
+
             let reading = Reading {
                 kanji: kanji.map(|(i, _)| i as u8).unwrap_or(u8::MAX),
                 reading: reading.0 as u8,
