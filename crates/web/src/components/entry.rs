@@ -8,7 +8,7 @@ use lib::jmdict::{
 use lib::{inflection, jmdict, kana, Form, Furigana, Inflection, OwnedInflections, Priority};
 use yew::prelude::*;
 
-use super::{colon, comma, iter, ruby, seq, spacing};
+use super::{colon, comma, iter, romaji, ruby, seq, spacing};
 
 pub(crate) enum Msg {
     ToggleForm(usize, Form),
@@ -283,7 +283,7 @@ impl Entry {
 
         let stags = seq(s.stagr.iter().chain(s.stagk.iter()), |text, not_last| {
             let stag = if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
-                ruby(c.furigana())
+                html!(<span title={romaji(c.furigana())}>{ruby(c.furigana())}</span>)
             } else {
                 html!(<>{text}</>)
             };
@@ -363,7 +363,7 @@ impl Entry {
             });
 
             let text = if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
-                ruby(c.furigana())
+                html!(<span title={romaji(c.furigana())}>{ruby(c.furigana())}</span>)
             } else {
                 html!(<>{text}</>)
             };
@@ -416,8 +416,8 @@ fn render_extra(
 ) -> Option<Html> {
     let word = inflections.get(inflection ^ filter);
 
-    let word = word.map(|w| ruby(w.furigana())).map(
-        |word| html!(<div class="block row"><span class="text kanji highlight">{word}</span></div>),
+    let word = word.map(
+        |w| html!(<div class="block row"><span class="text kanji highlight" title={romaji(w.furigana())}>{ruby(w.furigana())}</span></div>),
     );
 
     let inflection_html = render_inflection(ctx, index, inflection, filter, inflections);
@@ -522,7 +522,7 @@ fn render_reading(ctx: &Context<Entry>, reading: &OwnedReadingElement, not_last:
 
     html! {
         <>
-            <span class="text kanji highlight clickable" {onclick}>{&reading.text}</span>
+            <a class="text kanji highlight" {onclick}>{&reading.text}</a>
             {for bullets}
             {for not_last.then(comma)}
         </>
@@ -548,7 +548,7 @@ fn render_combined(
 
     html! {
         <>
-            <span class="text kanji highlight clickable" {onclick}>{ruby(c.furigana())}</span>
+            <a class="text kanji highlight" {onclick} title={romaji(c.furigana())}>{ruby(c.furigana())}</a>
             {for bullets}
             {for not_last.then(comma)}
         </>

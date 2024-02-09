@@ -168,8 +168,10 @@ body {
     }
 }
 
-.text.kanji {
-    font-size: 1.5em;
+.text {
+    &.kanji {
+        font-size: 1.5em;
+    }
 }
 
 .columns {
@@ -474,18 +476,22 @@ h5, h6 {
         color: var(--inflection-color);
         background-color: var(--inflection-active-bg);
     }
+
+    &.clickable {
+        color: inherit;
+    }
 }
 
 .clickable {
     cursor: pointer;
 
-    &:not(.inflection) {
-        color: var(--link-color);
-    }
-
     &:hover {
         color: var(--link-hover);
     }
+}
+
+.link {
+    color: var(--link-color);
 }
 
 a {

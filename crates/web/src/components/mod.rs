@@ -1,6 +1,6 @@
 #[macro_use]
 mod tools;
-use self::tools::{colon, comma, iter, ruby, seq, spacing};
+use self::tools::{colon, comma, iter, romaji, ruby, seq, spacing};
 
 pub(crate) mod entry;
 pub(crate) use self::entry::Entry;

@@ -1,7 +1,7 @@
 use lib::{jmnedict, kana};
 use yew::prelude::*;
 
-use super::{comma, ruby, seq};
+use super::{comma, romaji, ruby, seq};
 
 pub enum Msg {}
 
@@ -40,7 +40,7 @@ impl Component for Name {
                     let furigana = kana::Full::new(kanji, &reading.text, "").furigana();
 
                     html! {
-                        <span class="text kanji highlight">{ruby(furigana)}</span>
+                        <span class="text kanji highlight" title={romaji(furigana)}>{ruby(furigana)}</span>
                     }
                 })
             });

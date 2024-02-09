@@ -61,6 +61,18 @@ where
     first.map(move |first| render([first].into_iter().chain(iter)))
 }
 
+pub(super) fn romaji<const N: usize, const S: usize>(furigana: lib::Furigana<N, S>) -> String {
+    let mut romaji = String::new();
+
+    for string in furigana.reading().as_slice() {
+        for segment in lib::romaji::analyze(string) {
+            romaji.push_str(segment.romanize());
+        }
+    }
+
+    romaji
+}
+
 pub(super) fn ruby<const N: usize, const S: usize>(furigana: lib::Furigana<N, S>) -> Html {
     let elements = furigana.iter().map(|group| match group {
         lib::FuriganaGroup::Kanji(kanji, kana) => {
@@ -71,13 +83,5 @@ pub(super) fn ruby<const N: usize, const S: usize>(furigana: lib::Furigana<N, S>
         }
     });
 
-    let mut romaji = String::new();
-
-    for string in furigana.reading().as_slice() {
-        for segment in lib::romaji::analyze(string) {
-            romaji.push_str(segment.romanize());
-        }
-    }
-
-    html!(<span title={romaji}>{for elements}</span>)
+    html!(<>{for elements}</>)
 }

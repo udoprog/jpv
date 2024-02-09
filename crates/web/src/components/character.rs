@@ -1,9 +1,7 @@
 use lib::kanjidic2::OwnedCharacter;
 use yew::prelude::*;
 
-use crate::components::tools::ruby;
-
-use super::{colon, comma, seq};
+use super::{colon, comma, romaji, ruby, seq};
 
 const ONYOMI: lib::Furigana<'static, 1, 1> = lib::Furigana::new("音読み", "おんよみ", "");
 const KUNYOMI: lib::Furigana<'static, 1, 1> = lib::Furigana::new("訓読み", "くんよみ", "");
@@ -44,7 +42,7 @@ impl Component for Character {
         let onyomi = onyomi
             .peek()
             .is_some()
-            .then(move || html!(<div class="readings row row-bottom"><span class="clickable">{ruby(ONYOMI)}</span>{colon()}{for onyomi}</div>));
+            .then(move || html!(<div class="readings row row-bottom"><span class="highlight clickable" title={romaji(ONYOMI)}>{ruby(ONYOMI)}</span>{colon()}{for onyomi}</div>));
 
         let mut kunyomi = seq(
             c.reading_meaning
@@ -61,7 +59,7 @@ impl Component for Character {
         let kunyomi = kunyomi
             .peek()
             .is_some()
-            .then(move || html!(<div class="readings row row-bottom"><span class="clickable">{ruby(KUNYOMI)}</span>{colon()}{for kunyomi}</div>));
+            .then(move || html!(<div class="readings row row-bottom"><span class="highlight clickable" title={romaji(ONYOMI)}>{ruby(KUNYOMI)}</span>{colon()}{for kunyomi}</div>));
 
         let mut meanings = seq(
             c.reading_meaning
