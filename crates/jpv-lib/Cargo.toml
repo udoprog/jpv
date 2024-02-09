@@ -15,7 +15,6 @@ categories = ["development-tools"]
 
 [dependencies]
 anyhow = "1.0.75"
-arrayvec = "0.7.4"
 fixed-map = { version = "0.9.3", features = ["serde"] }
 log = "0.4.20"
 musli = "0.0.92"
