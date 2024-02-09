@@ -454,6 +454,7 @@ fn render_inflection<'a>(
 
         let class = classes! {
             "inflection",
+            "clickable",
             this.contains(f).then_some("active"),
         };
 
@@ -469,7 +470,7 @@ fn render_inflection<'a>(
         .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
     let reset = (!filter.is_empty())
-        .then(|| html!(<span class="inflection danger" {onclick}>{"Reset"}</span>));
+        .then(|| html!(<span class="inflection clickable danger" {onclick}>{"Reset"}</span>));
 
     form.chain(reset)
 }

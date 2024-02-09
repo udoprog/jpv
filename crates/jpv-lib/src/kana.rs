@@ -77,9 +77,9 @@ impl<'a> Fragments<'a> {
         C: IntoIterator<Item = &'a str>,
     {
         Fragments {
-            text: Concat::new(text),
-            reading: Concat::new(reading),
-            suffix: Concat::new(suffix),
+            text: Concat::from_iter(text),
+            reading: Concat::from_iter(reading),
+            suffix: Concat::from_iter(suffix),
         }
     }
 
@@ -104,7 +104,7 @@ impl<'a> Fragments<'a> {
     }
 
     pub fn furigana(&self) -> Furigana<'a, 3, 4> {
-        Furigana::inner(self.text.clone(), self.reading.clone(), self.suffix.clone())
+        Furigana::inner(self.text, self.reading, self.suffix)
     }
 
     /// Append suffixes to this pair.
@@ -113,15 +113,15 @@ impl<'a> Fragments<'a> {
         I: IntoIterator<Item = &'a T>,
         T: 'a + ?Sized + AsRef<str>,
     {
-        let mut suffix = self.suffix.clone();
+        let mut suffix = self.suffix;
 
         for string in strings {
-            suffix.push_str(string.as_ref());
+            suffix.push(string.as_ref());
         }
 
         Self {
-            text: self.text.clone(),
-            reading: self.reading.clone(),
+            text: self.text,
+            reading: self.reading,
             suffix,
         }
     }

@@ -1,46 +1,80 @@
 use core::fmt;
 use std::hash::{Hash, Hasher};
 
-/// Into iterator alias.
-pub type IntoIter<'a, const N: usize> = arrayvec::IntoIter<&'a str, N>;
-
 /// A concatenation of multiple borrowed strings with fixed size storage.
-#[derive(Default, Clone)]
+#[derive(Clone, Copy)]
 pub struct Concat<'a, const N: usize> {
-    storage: arrayvec::ArrayVec<&'a str, N>,
+    storage: [&'a str; N],
+    len: usize,
+}
+
+impl<'a, const N: usize> Default for Concat<'a, N> {
+    fn default() -> Self {
+        Self::empty()
+    }
 }
 
 impl<'a, const N: usize> Concat<'a, N> {
     /// Concatenate the given strings together into a single composite string.
-    pub fn new<I>(iter: I) -> Concat<'a, N>
-    where
-        I: IntoIterator<Item = &'a str>,
-    {
+    pub const fn new(string: &'a str) -> Concat<'a, N> {
+        let mut this = Concat {
+            storage: [""; N],
+            len: 0,
+        };
+
+        if !string.is_empty() {
+            this.storage[0] = string;
+            this.len = 1;
+        }
+
+        this
+    }
+
+    /// Concatenate the given strings together into a single composite string.
+    pub const fn empty() -> Concat<'a, N> {
         Concat {
-            storage: iter.into_iter().filter(|s| !s.is_empty()).collect(),
+            storage: [""; N],
+            len: 0,
         }
     }
 
     /// Push the given string onto storage.
-    pub fn push_str(&mut self, string: &'a str) {
+    pub fn push(&mut self, string: &'a str) {
         if !string.is_empty() {
-            self.storage.push(string);
+            assert!(self.len < N, "Capacity overflow");
+            self.storage[self.len] = string;
+            self.len += 1;
         }
     }
 
     /// Iterate over strings.
     pub fn as_slice(&self) -> &[&'a str] {
-        self.storage.as_slice()
+        &self.storage[..self.len]
     }
 
     /// Iterate over characters in the composite word.
     pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
-        self.storage.iter().flat_map(|s| s.chars())
+        self.as_slice().iter().flat_map(|s| s.chars())
     }
 
     /// Test if concat is empty.
     pub fn is_empty(&self) -> bool {
-        self.storage.iter().all(|s| s.is_empty())
+        self.len == 0
+    }
+}
+
+/// Concatenate the given strings together into a single composite string.
+impl<'a, const N: usize> FromIterator<&'a str> for Concat<'a, N> {
+    fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> Self {
+        let mut this = Self::empty();
+
+        for string in iter {
+            if !string.is_empty() {
+                this.push(string);
+            }
+        }
+
+        this
     }
 }
 
@@ -91,6 +125,22 @@ impl<'a, const N: usize> IntoIterator for Concat<'a, N> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        self.storage.into_iter()
+        IntoIter {
+            iter: self.storage.into_iter().take(self.len),
+        }
+    }
+}
+
+/// Iterator over a concat string.
+pub struct IntoIter<'a, const N: usize> {
+    iter: std::iter::Take<std::array::IntoIter<&'a str, N>>,
+}
+
+impl<'a, const N: usize> Iterator for IntoIter<'a, N> {
+    type Item = &'a str;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
     }
 }

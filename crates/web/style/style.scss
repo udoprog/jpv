@@ -291,6 +291,12 @@ h5, h6 {
         align-self: center;
     }
 
+    &.row-bottom {
+        & > * {
+            align-self: end;
+        }
+    }
+
     &.row-spaced {
         gap: 0.5rem;
     }
@@ -472,7 +478,10 @@ h5, h6 {
 
 .clickable {
     cursor: pointer;
-    color: var(--link-color);
+
+    &:not(.inflection) {
+        color: var(--link-color);
+    }
 
     &:hover {
         color: var(--link-hover);

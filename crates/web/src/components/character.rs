@@ -1,7 +1,12 @@
 use lib::kanjidic2::OwnedCharacter;
 use yew::prelude::*;
 
+use crate::components::tools::ruby;
+
 use super::{colon, comma, seq};
+
+const ONYOMI: lib::Furigana<'static, 1, 1> = lib::Furigana::new("音読み", "おんよみ", "");
+const KUNYOMI: lib::Furigana<'static, 1, 1> = lib::Furigana::new("訓読み", "くんよみ", "");
 
 pub enum Msg {}
 
@@ -31,7 +36,7 @@ impl Component for Character {
                 .filter(|r| r.ty == "ja_on"),
             |r, not_last| {
                 let sep = not_last.then(comma);
-                html!(<>{r.text.clone()}{for sep}</>)
+                html!(<><span>{r.text.clone()}</span>{for sep}</>)
             },
         )
         .peekable();
@@ -39,7 +44,7 @@ impl Component for Character {
         let onyomi = onyomi
             .peek()
             .is_some()
-            .then(move || html!(<div class="readings row">{"On"}{colon()}{for onyomi}</div>));
+            .then(move || html!(<div class="readings row row-bottom"><span class="clickable">{ruby(ONYOMI)}</span>{colon()}{for onyomi}</div>));
 
         let mut kunyomi = seq(
             c.reading_meaning
@@ -48,7 +53,7 @@ impl Component for Character {
                 .filter(|r| r.ty == "ja_kun"),
             |r, not_last| {
                 let sep = not_last.then(comma);
-                html!(<>{r.text.clone()}{for sep}</>)
+                html!(<><span>{r.text.clone()}</span>{for sep}</>)
             },
         )
         .peekable();
@@ -56,22 +61,31 @@ impl Component for Character {
         let kunyomi = kunyomi
             .peek()
             .is_some()
-            .then(move || html!(<div class="readings row">{"Kun"}{colon()}{for kunyomi}</div>));
+            .then(move || html!(<div class="readings row row-bottom"><span class="clickable">{ruby(KUNYOMI)}</span>{colon()}{for kunyomi}</div>));
 
-        let meanings = seq(
+        let mut meanings = seq(
             c.reading_meaning
                 .meanings
                 .iter()
                 .filter(|r| r.lang.is_none()),
-            |r, _| html!(<li>{r.text.clone()}</li>),
-        );
+            |r, not_last| {
+                let sep = not_last.then(comma);
+                html!(<>{r.text.clone()}{for sep}</>)
+            },
+        )
+        .peekable();
+
+        let meanings = meanings
+            .peek()
+            .is_some()
+            .then(move || html!(<div class="readings row">{for meanings}</div>));
 
         html! {
             <div class="character">
                 <div class="literal text highlight"><a href={format!("/api/kanji/{}", c.literal)} target="_api">{c.literal.clone()}</a></div>
+                {for meanings}
                 {for onyomi}
                 {for kunyomi}
-                <div class="meanings row">{"Meanings"}{colon()}<ul>{for meanings}</ul></div>
             </div>
         }
     }

@@ -10,6 +10,7 @@ use crate::{
 };
 
 /// An iterator over furigana groups.
+#[derive(Clone, Copy)]
 pub struct Furigana<'a, const N: usize, const S: usize> {
     kanji: Concat<'a, N>,
     reading: Concat<'a, N>,
@@ -19,17 +20,17 @@ pub struct Furigana<'a, const N: usize, const S: usize> {
 impl<'a> Furigana<'a, 1, 1> {
     /// Construct a new furigana wrapper based on an exact combo of kanji and
     /// reading.
-    pub fn new(kanji: &'a str, reading: &'a str, suffix: &'a str) -> Self {
+    pub const fn new(kanji: &'a str, reading: &'a str, suffix: &'a str) -> Self {
         Self {
-            kanji: Concat::new([kanji]),
-            reading: Concat::new([reading]),
-            suffix: Concat::new([suffix]),
+            kanji: Concat::new(kanji),
+            reading: Concat::new(reading),
+            suffix: Concat::new(suffix),
         }
     }
 }
 
 impl<'a, const N: usize, const S: usize> Furigana<'a, N, S> {
-    pub(crate) fn inner(
+    pub(crate) const fn inner(
         kanji: Concat<'a, N>,
         reading: Concat<'a, N>,
         suffix: Concat<'a, S>,
@@ -43,16 +44,12 @@ impl<'a, const N: usize, const S: usize> Furigana<'a, N, S> {
 
     /// Construct an iterator over furigana groups.
     pub fn iter(&self) -> Iter<'_, 'a, N, S> {
-        Iter::new(
-            self.kanji.as_slice(),
-            self.reading.as_slice(),
-            self.suffix.clone(),
-        )
+        Iter::new(self.kanji.as_slice(), self.reading.as_slice(), self.suffix)
     }
 
     /// Access underlying kanji.
     pub fn kanji(&self) -> Concat<'a, 6> {
-        Concat::new(
+        Concat::from_iter(
             self.kanji
                 .as_slice()
                 .iter()
@@ -63,7 +60,7 @@ impl<'a, const N: usize, const S: usize> Furigana<'a, N, S> {
 
     /// Access underlying reading.
     pub fn reading(&self) -> Concat<'a, 6> {
-        Concat::new(
+        Concat::from_iter(
             self.reading
                 .as_slice()
                 .iter()
