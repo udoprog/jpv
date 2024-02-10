@@ -124,7 +124,7 @@ where
     }
 
     /// Send a client message.
-    fn send_message(&mut self, message: api::ClientRequestEnvelope) -> Result<(), Error> {
+    fn send_message(&mut self, message: api::ClientRequestEnvelope) -> Result<()> {
         let Some(socket) = &self.socket else {
             return Err(anyhow!("Socket is not connected").into());
         };
@@ -394,7 +394,7 @@ impl Drop for StateListener {
 
 struct Pending {
     serial: u32,
-    callback: Callback<Result<serde_json::Value, Error>>,
+    callback: Callback<Result<serde_json::Value>>,
 }
 
 /// The state of the connection.
@@ -420,11 +420,7 @@ pub(crate) struct Handle {
 }
 
 impl Handle {
-    pub(crate) fn request<T>(
-        &self,
-        request: T,
-        callback: Callback<Result<T::Response, Error>>,
-    ) -> Request
+    pub(crate) fn request<T>(&self, request: T, callback: Callback<Result<T::Response>>) -> Request
     where
         T: api::Request,
     {
