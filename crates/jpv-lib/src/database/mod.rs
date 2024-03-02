@@ -684,9 +684,19 @@ fn populate_analyzed<'a>(
 
         // Skip overly common prefixes which would mostly just be
         // unhelpful to index.
-        if !is_common(phrase) {
-            lookup.push((Cow::Borrowed(phrase), id));
+        if is_common(phrase) {
+            continue;
         }
+
+        let lowercase = phrase.to_lowercase();
+
+        let key = if phrase == lowercase {
+            Cow::Borrowed(phrase)
+        } else {
+            Cow::Owned(lowercase)
+        };
+
+        lookup.push((key, id));
     }
 }
 
