@@ -8,7 +8,7 @@
 /// Dictionary magic `JPVD`.
 pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44;
 /// Current database version in use.
-pub const DICTIONARY_VERSION: u32 = 6;
+pub const DICTIONARY_VERSION: u32 = 7;
 
 /// Helper to convert a type to its owned variant.
 pub use ::borrowme::to_owned;
@@ -46,6 +46,7 @@ mod sort_key;
 pub mod jmdict;
 pub mod jmnedict;
 pub mod kanjidic2;
+pub mod kradfile;
 
 pub mod entities;
 pub use self::entities::{Entity, PartOfSpeech};

@@ -27,6 +27,7 @@ use crate::inflection::{self, Inflection};
 use crate::jmdict;
 use crate::jmnedict;
 use crate::kanjidic2;
+use crate::kradfile;
 use crate::reporter::Reporter;
 use crate::romaji::{self, is_hiragana, is_katakana, Segment};
 use crate::token::Token;
@@ -288,6 +289,7 @@ pub enum Input<'a> {
     Jmdict(&'a str),
     Kanjidic2(&'a str),
     Jmnedict(&'a str),
+    Kradfile(&'a [u8]),
 }
 
 impl Input<'_> {
@@ -296,6 +298,7 @@ impl Input<'_> {
             Input::Jmdict(..) => "JMdict",
             Input::Kanjidic2(..) => "Kanjidic2",
             Input::Jmnedict(..) => "JMnedict",
+            Input::Kradfile(..) => "Kradfile",
         }
     }
 }
@@ -327,6 +330,8 @@ pub fn build(
     let mut by_sequence = HashMap::new();
     let mut by_pos = HashMap::<_, HashSet<_>>::new();
     let mut kanji_literals = HashMap::new();
+    let mut input_radicals = HashMap::new();
+    let mut input_radicals_to_kanji = HashMap::<_, Vec<_>>::new();
     let mut inflections = Vec::new();
     let mut inflections_index = HashMap::new();
 
@@ -536,6 +541,32 @@ pub fn build(
                 }
             }
         }
+        Input::Kradfile(data) => {
+            let mut parser = kradfile::Parser::new(data);
+
+            while let Some(entry) = parser.parse() {
+                ensure!(!shutdown.is_set(), "Task shut down");
+
+                if count % 1000 == 0 {
+                    reporter.instrument_progress(1000);
+                }
+
+                count += 1;
+
+                output.clear();
+                ENCODING.to_writer(&mut output, &entry)?;
+
+                let radicals_ref = buf.store_slice(&output).offset() as u32;
+                input_radicals.insert(entry.kanji, radicals_ref);
+
+                for radical in entry.radicals {
+                    input_radicals_to_kanji
+                        .entry(radical)
+                        .or_default()
+                        .push(radicals_ref);
+                }
+            }
+        }
     }
 
     reporter.instrument_end(count);
@@ -545,6 +576,8 @@ pub fn build(
 
     let mut readings2 = Vec::with_capacity(lookup.len());
     let by_kanji_literal;
+    let radicals;
+    let radicals_to_kanji;
 
     {
         let mut indexer = StringIndexer::new();
@@ -570,6 +603,28 @@ pub fn build(
             for (key, value) in kanji_literals {
                 let s = indexer.store(&mut buf, key.as_ref())?;
                 output.insert(s, value);
+            }
+
+            output
+        };
+
+        radicals = {
+            let mut output = HashMap::new();
+
+            for (key, value) in &input_radicals {
+                let s = indexer.store(&mut buf, key)?;
+                output.insert(s, *value);
+            }
+
+            output
+        };
+
+        radicals_to_kanji = {
+            let mut output = HashMap::new();
+
+            for (key, values) in &input_radicals_to_kanji {
+                let s = indexer.store(&mut buf, key)?;
+                output.insert(s, values);
             }
 
             output
@@ -631,6 +686,24 @@ pub fn build(
         swiss::store_map(&mut buf, by_kanji_literal)?
     };
 
+    let radicals = {
+        tracing::info!("Storing radicals: {}...", radicals.len());
+        swiss::store_map(&mut buf, radicals)?
+    };
+
+    let radicals_to_kanji = {
+        tracing::info!("Storing radicals_to_kanji: {}...", radicals_to_kanji.len());
+
+        let mut intermediate = Vec::new();
+
+        for (key, values) in radicals_to_kanji {
+            let values = buf.store_slice(values);
+            intermediate.push((key, values));
+        }
+
+        swiss::store_map(&mut buf, intermediate)?
+    };
+
     let by_sequence = {
         tracing::info!("Storing by_sequence: {}...", by_sequence.len());
         swiss::store_map(&mut buf, by_sequence)?
@@ -643,6 +716,8 @@ pub fn build(
         lookup,
         by_pos,
         by_kanji_literal,
+        radicals,
+        radicals_to_kanji,
         by_sequence,
         inflections,
     });
@@ -939,6 +1014,23 @@ impl Database {
         Ok(None)
     }
 
+    /// Get radicals by character.
+    pub fn literal_to_radicals(&self, literal: &str) -> Result<Option<kradfile::Entry<'_>>> {
+        for d in self.indexes.iter() {
+            let Some(index) = d.header.radicals.get(d.data.as_buf(), literal)? else {
+                continue;
+            };
+
+            let Some(bytes) = d.data.as_buf().get(*index as usize..) else {
+                return Err(anyhow!("Missing entry at {}", *index));
+            };
+
+            return Ok(Some(ENCODING.from_slice(bytes)?));
+        }
+
+        Ok(None)
+    }
+
     /// Get identifier by sequence.
     pub fn sequence_to_entry(&self, sequence: u32) -> Result<Option<jmdict::Entry<'_>>> {
         for d in self.indexes.iter() {
@@ -1083,6 +1175,7 @@ impl Database {
     }
 
     /// Perform the given search.
+    #[tracing::instrument(skip_all)]
     pub fn search(&self, input: &str) -> Result<Search<'_>> {
         let mut phrases = Vec::new();
         let mut names = Vec::new();

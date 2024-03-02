@@ -1353,6 +1353,7 @@ dependencies = [
  "anyhow",
  "borrowme",
  "directories",
+ "encoding_rs",
  "fixed-map",
  "log",
  "memmap",

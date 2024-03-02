@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::str;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -382,9 +383,10 @@ pub(crate) async fn build(
         let shutdown_token = shutdown_token.clone();
         move || {
             let input = match kind {
-                IndexFormat::Jmdict => Input::Jmdict(&data[..]),
-                IndexFormat::Kanjidic2 => Input::Kanjidic2(&data[..]),
-                IndexFormat::Jmnedict => Input::Jmnedict(&data[..]),
+                IndexFormat::Jmdict => Input::Jmdict(str::from_utf8(&data[..])?),
+                IndexFormat::Kanjidic2 => Input::Kanjidic2(str::from_utf8(&data[..])?),
+                IndexFormat::Jmnedict => Input::Jmnedict(str::from_utf8(&data[..])?),
+                IndexFormat::Kradfile => Input::Kradfile(&data[..]),
             };
 
             database::build(&*reporter, &shutdown_token, &name, input)
@@ -427,7 +429,7 @@ async fn read_or_download(
     path: Option<&Path>,
     dirs: &Dirs,
     url: &str,
-) -> Result<(PathBuf, String), anyhow::Error> {
+) -> Result<(PathBuf, Vec<u8>), anyhow::Error> {
     let (path, bytes) = match path {
         Some(path) => (path.to_owned(), fs::read(path).await?),
         None => {
@@ -453,11 +455,11 @@ async fn read_or_download(
     reporter.instrument_end(bytes.len());
 
     let mut input = GzDecoder::new(&bytes[..]);
-    let mut string = String::new();
+    let mut bytes = Vec::new();
     input
-        .read_to_string(&mut string)
+        .read_to_end(&mut bytes)
         .with_context(|| path.display().to_string())?;
-    Ok((path, string))
+    Ok((path, bytes))
 }
 
 #[cfg(not(feature = "reqwest"))]
@@ -490,7 +492,7 @@ async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec
     let mut f = fs::File::create(path).await?;
     let mut data = Vec::new();
 
-    reporter.instrument_start(module_path!(), &format!("Downloading {}", url), total);
+    reporter.instrument_start(module_path!(), &format!("Downloading {url}"), total);
 
     while let Some(chunk) = response.chunk().await? {
         f.write_all(chunk.as_ref()).await?;

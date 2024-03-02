@@ -896,8 +896,10 @@ fn copyright() -> Html {
                 <a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">{"JMDICT"}</a>
                 <span>{", "}</span>
                 <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">{"KANJIDIC2"}</a>
-                <span>{", and "}</span>
+                <span>{", "}</span>
                 <a href="http://edrdg.org/enamdict/enamdict_doc.html">{"ENAMDICT"}</a>
+                <span>{", and "}</span>
+                <a href="http://nihongo.monash.edu/kradinf.html">{"KRADFILE"}</a>
                 <span>{" which is the property of the "}</span>
                 <a href="https://www.edrdg.org">{"EDRDG"}</a>
                 <span>{" and is used in conformance with its "}</span>

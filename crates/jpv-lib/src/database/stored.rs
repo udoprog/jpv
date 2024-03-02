@@ -28,6 +28,8 @@ pub(super) struct IndexHeader {
     pub(super) lookup: trie::TrieRef<Id, CompactTrie>,
     pub(super) by_pos: swiss::MapRef<PartOfSpeech, Ref<[PhrasePos]>>,
     pub(super) by_kanji_literal: swiss::MapRef<Ref<str>, u32>,
+    pub(super) radicals: swiss::MapRef<Ref<str>, u32>,
+    pub(super) radicals_to_kanji: swiss::MapRef<Ref<str>, Ref<[u32]>>,
     pub(super) by_sequence: swiss::MapRef<u32, PhrasePos>,
     pub(super) inflections: Ref<[InflectionData]>,
 }

@@ -40,6 +40,8 @@ pub(crate) async fn run(
 
     let to_download = crate::background::config_to_download(&config, dirs, overrides);
 
+    let force_all = build_args.force.first().map_or(false, |v| v == "all");
+
     for to_download in to_download {
         let tracing_reporter = Arc::new(EmptyReporter);
         let (_sender, shutdown) = oneshot::channel();
@@ -49,7 +51,7 @@ pub(crate) async fn run(
             shutdown,
             dirs,
             &to_download,
-            build_args.force.contains(&to_download.name),
+            force_all || build_args.force.contains(&to_download.name),
         )
         .await?;
     }

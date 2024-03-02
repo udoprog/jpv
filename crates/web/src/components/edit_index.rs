@@ -218,14 +218,18 @@ impl Component for EditIndex {
             .as_ref()
             .map(|error| html!(<p class="form-error">{error.clone()}</p>));
 
+        let options = IndexFormat::all().into_iter().map(|format| {
+            html! {
+                <option value={format.id()} selected={self.format == format}>{format.description()}</option>
+            }
+        });
+
         html! {
             <div {class}>
                 <div class="block form">
                     <h6>{"Format"}</h6>
                     <select onchange={onchangeformat}>
-                        <option value="jmdict" selected={self.format == IndexFormat::Jmdict}>{"JMDict"}</option>
-                        <option value="jmnedict" selected={self.format == IndexFormat::Jmnedict}>{"JMnedict"}</option>
-                        <option value="kanjidic2" selected={self.format == IndexFormat::Kanjidic2}>{"Kanjidic2"}</option>
+                        {for options}
                     </select>
                 </div>
                 {id}
