@@ -256,7 +256,7 @@ async fn handle_image(
     let data = image.as_bytes();
     let width = usize::try_from(image.width())?;
     let height = usize::try_from(image.height())?;
-    let bytes_per_pixel = usize::try_from(image.color().bytes_per_pixel())?;
+    let bytes_per_pixel = usize::from(image.color().bytes_per_pixel());
 
     tracing::trace!(len = data.len(), width, height, bytes_per_pixel);
 

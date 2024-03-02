@@ -140,8 +140,13 @@ async fn kanji(
         )));
     };
 
+    let radicals = db.literal_to_radicals(&literal)?;
+
     Ok(Json(api::OwnedKanjiResponse {
-        entry: lib::to_owned(entry),
+        kanji: lib::to_owned(entry),
+        radicals: radicals
+            .map(|e| lib::to_owned(e.radicals))
+            .unwrap_or_default(),
     }))
 }
 

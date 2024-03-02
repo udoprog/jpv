@@ -79,5 +79,6 @@ pub(super) enum ErrorKind {
     MissingLanguage(Box<Path>),
     #[error("Platform is not supported")]
     #[cfg(any(windows, not(feature = "linked")))]
+    #[allow(unused)]
     Unsupported,
 }

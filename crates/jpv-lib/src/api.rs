@@ -271,7 +271,10 @@ pub struct EntryResponse<'a> {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KanjiResponse<'a> {
     #[borrowed_attr(serde(borrow))]
-    pub entry: kanjidic2::Character<'a>,
+    pub kanji: kanjidic2::Character<'a>,
+    #[borrowed_attr(serde(borrow))]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub radicals: Vec<&'a str>,
 }
 
 #[borrowme::borrowme]
