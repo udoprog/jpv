@@ -231,8 +231,16 @@ where
         Entry::Kanji(kanji) => {
             writeln!(o, "Kanji: {}", kanji.literal)?;
 
-            for reading in kanji.reading_meaning.readings {
+            for reading in kanji.readings {
                 writeln!(o, "{}: {}", reading.ty, reading.text)?;
+            }
+
+            for meaning in kanji.meanings {
+                if let Some(lang) = meaning.lang {
+                    writeln!(o, "{lang}: {}", meaning.text)?;
+                } else {
+                    writeln!(o, "{}", meaning.text)?;
+                }
             }
         }
         Entry::Name(entry) => {

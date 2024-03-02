@@ -463,7 +463,7 @@ pub fn build(
                     stored::Id::kanji(kanji_ref, KanjiIndex::Literal),
                 ));
 
-                for reading in &c.reading_meaning.readings {
+                for reading in &c.readings {
                     match reading.ty {
                         "ja_kun" => {
                             if let Some((prefix, _)) = reading.text.split_once('.') {
@@ -495,7 +495,7 @@ pub fn build(
                     };
                 }
 
-                for meaning in &c.reading_meaning.meanings {
+                for meaning in &c.meanings {
                     let id = stored::Id::kanji(kanji_ref, KanjiIndex::Meaning);
                     populate_analyzed(meaning.text, &mut lookup, id);
                 }

@@ -18,8 +18,8 @@ pub(crate) struct BuildArgs {
     #[arg(long, value_name = "path")]
     path: Vec<String>,
     /// Force a dictionary rebuild.
-    #[arg(long, short = 'f')]
-    force: bool,
+    #[arg(long, short = 'f', value_name = "name")]
+    force: Vec<String>,
 }
 
 pub(crate) async fn run(
@@ -49,7 +49,7 @@ pub(crate) async fn run(
             shutdown,
             dirs,
             &to_download,
-            build_args.force,
+            build_args.force.contains(&to_download.name),
         )
         .await?;
     }

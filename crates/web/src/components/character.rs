@@ -28,10 +28,7 @@ impl Component for Character {
         let c = &ctx.props().character;
 
         let mut onyomi = seq(
-            c.reading_meaning
-                .readings
-                .iter()
-                .filter(|r| r.ty == "ja_on"),
+            c.readings.iter().filter(|r| r.ty == "ja_on"),
             |r, not_last| {
                 let sep = not_last.then(comma);
                 html!(<><span>{r.text.clone()}</span>{for sep}</>)
@@ -45,10 +42,7 @@ impl Component for Character {
             .then(move || html!(<div class="readings row row-bottom"><span class="highlight clickable" title={romaji(ONYOMI)}>{ruby(ONYOMI)}</span>{colon()}{for onyomi}</div>));
 
         let mut kunyomi = seq(
-            c.reading_meaning
-                .readings
-                .iter()
-                .filter(|r| r.ty == "ja_kun"),
+            c.readings.iter().filter(|r| r.ty == "ja_kun"),
             |r, not_last| {
                 let sep = not_last.then(comma);
                 html!(<><span>{r.text.clone()}</span>{for sep}</>)
@@ -62,10 +56,7 @@ impl Component for Character {
             .then(move || html!(<div class="readings row row-bottom"><span class="highlight clickable" title={romaji(ONYOMI)}>{ruby(KUNYOMI)}</span>{colon()}{for kunyomi}</div>));
 
         let mut meanings = seq(
-            c.reading_meaning
-                .meanings
-                .iter()
-                .filter(|r| r.lang.is_none()),
+            c.meanings.iter().filter(|r| r.lang.is_none()),
             |r, not_last| {
                 let sep = not_last.then(comma);
                 html!(<>{r.text.clone()}{for sep}</>)
