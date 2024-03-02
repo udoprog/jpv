@@ -1,3 +1,6 @@
+lib_badges = ["-crates.io", "+discord"]
+readme_badges = ["-crates.io", "+discord"]
+
 [[package.files]]
 source = "desktop/se.tedro.JapaneseDictionary.desktop"
 dest = "/usr/share/applications/"
