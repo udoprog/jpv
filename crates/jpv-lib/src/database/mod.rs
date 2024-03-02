@@ -1,6 +1,7 @@
 //! Database that can be used as a dictionary.
 
 mod analyze_glossary;
+mod search_parser;
 mod stored;
 mod string_indexer;
 
@@ -32,6 +33,7 @@ use crate::token::Token;
 use crate::{PartOfSpeech, Weight};
 use crate::{DICTIONARY_MAGIC, DICTIONARY_VERSION};
 
+use self::search_parser::SearchParser;
 use self::string_indexer::StringIndexer;
 
 /// Encoding used for storing database.
@@ -1071,7 +1073,7 @@ impl Database {
     }
 
     /// Perform the given search.
-    pub fn search(&self, mut input: &str) -> Result<Search<'_>> {
+    pub fn search(&self, input: &str) -> Result<Search<'_>> {
         let mut phrases = Vec::new();
         let mut names = Vec::new();
         let mut characters = Vec::new();
@@ -1079,30 +1081,35 @@ impl Database {
         let mut dedup_names = HashMap::new();
         let mut seen = HashSet::new();
 
-        let mut tags = fixed_map::Set::new();
+        let mut parser = SearchParser::new(input);
 
-        input = input.trim();
+        let query = parser.parse();
 
-        while let Some(n) = input.rfind('#') {
-            let (prefix, suffix) = input.split_at(n);
+        let mut inputs = query.phrases.into_iter();
 
-            input = prefix.trim();
-
-            if let Some(suffix) = suffix.strip_prefix('#') {
-                if let Some(pos) = PartOfSpeech::parse_keyword(suffix) {
-                    tags.insert(pos);
-                }
-            }
-        }
-
-        let results = if input.is_empty() || input.chars().all(|c| matches!(c, '*' | '＊')) {
-            self.by_pos(tags)?
-        } else {
-            self.populate_kanji(input, &mut seen, &mut characters)?;
-            self.lookup(input)?
+        let Some(first) = inputs.next() else {
+            return Ok(Search {
+                phrases,
+                names,
+                characters,
+            });
         };
 
-        for id in results {
+        let mut ids = self.lookup(first)?;
+
+        for remainder in inputs {
+            let current = self
+                .lookup(remainder)?
+                .into_iter()
+                .map(|i| (i.index, i.offset))
+                .collect::<HashSet<_>>();
+
+            ids.retain(|id| current.contains(&(id.index, id.offset)));
+        }
+
+        let expected = query.entities.into_iter().collect::<HashSet<_>>();
+
+        for id in ids {
             match self.entry_at(id)? {
                 Entry::Kanji(kanji) => {
                     if seen.insert(kanji.literal) {
@@ -1112,16 +1119,15 @@ impl Database {
                     continue;
                 }
                 Entry::Phrase(entry) => {
-                    if !tags.is_empty() {
-                        let mut matched = tags;
+                    if !expected.is_empty() {
+                        let entities = entry.entities();
+                        let mut expected = expected.clone();
 
-                        entry.senses.iter().for_each(|sense| {
-                            for p in sense.pos.iter() {
-                                matched.remove(p);
-                            }
-                        });
+                        for entity in &entities {
+                            expected.remove(entity);
+                        }
 
-                        if !matched.is_empty() {
+                        if !expected.is_empty() {
                             continue;
                         }
                     }

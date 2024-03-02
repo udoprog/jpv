@@ -3,65 +3,114 @@ use musli::{Decode, Encode};
 use musli_zerocopy::{Visit, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
+macro_rules! pick {
+    ($entity:literal,) => {
+        $entity
+    };
+
+    ($entity:literal, $parse:literal) => {
+        $parse
+    };
+}
+
 macro_rules! entity {
     (
-        $(#[$($meta:meta)*])*
-        $vis:vis enum $name:ident {
-        $(<$variant:ident $entity:literal $doc:literal>)*
-    }) => {
-        $(#[$($meta)*])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Key, ZeroCopy, Visit)]
-        #[key(bitset)]
-        #[repr(u8)]
-        $vis enum $name {
+        $enum_name:ident, $test:ident,
+
+        $(
+            $(#[$($meta:meta)*])*
+            $vis:vis enum $name:ident {
+                $(<$variant:ident $entity:literal $(($parse:literal))? $doc:literal>)*
+            }
+        )*
+    ) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[non_exhaustive]
+        pub enum $enum_name {
             $(
-                #[doc = $doc]
-                #[serde(rename = $entity)]
-                $variant,
+                $name($name),
             )*
         }
 
-        impl $name {
-            $vis const VALUES: &'static [$name] = &[
-                $($name::$variant,)*
-            ];
-
-            $vis fn variant(&self) -> &str {
-                match self {
-                    $($name::$variant => stringify!($variant),)*
-                }
-            }
-
-            $vis fn ident(&self) -> &str {
-                match self {
-                    $($name::$variant => $entity,)*
-                }
-            }
-
-            $vis fn help(&self) -> &'static str {
-                match self {
-                    $($name::$variant => $doc,)*
-                }
-            }
-
-            $vis fn parse(string: &str) -> Option<$name> {
+        impl $enum_name {
+            #[allow(unused)]
+            pub(crate) fn parse_keyword(string: &str) -> Option<$enum_name> {
                 match string {
-                    $(concat!("&", $entity, ";") => Some($name::$variant),)*
-                    _ => None,
-                }
-            }
-
-            $vis fn parse_keyword(string: &str) -> Option<$name> {
-                match string {
-                    $($entity => Some($name::$variant),)*
+                    $(
+                        $(pick!($entity, $($parse)*) => Some($enum_name::$name($name::$variant)),)*
+                    )*
                     _ => None,
                 }
             }
         }
+
+        #[test]
+        fn $test() {
+            $(
+                $(
+                    assert_eq!($enum_name::parse_keyword(pick!($entity, $($parse)*)), Some($enum_name::$name($name::$variant)), "Failed to parse `{}`", pick!($entity, $($parse)*));
+                )*
+            )*
+        }
+
+        $(
+            $(#[$($meta)*])*
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Key, ZeroCopy, Visit)]
+            #[key(bitset)]
+            #[repr(u8)]
+            #[non_exhaustive]
+            $vis enum $name {
+                $(
+                    #[doc = $doc]
+                    #[serde(rename = $entity)]
+                    $variant,
+                )*
+            }
+
+            impl $name {
+                $vis const VALUES: &'static [$name] = &[
+                    $($name::$variant,)*
+                ];
+
+                $vis fn variant(&self) -> &str {
+                    match self {
+                        $($name::$variant => stringify!($variant),)*
+                    }
+                }
+
+                $vis fn ident(&self) -> &str {
+                    match self {
+                        $($name::$variant => $entity,)*
+                    }
+                }
+
+                $vis fn help(&self) -> &'static str {
+                    match self {
+                        $($name::$variant => $doc,)*
+                    }
+                }
+
+                $vis fn parse(string: &str) -> Option<$name> {
+                    match string {
+                        $(concat!("&", $entity, ";") => Some($name::$variant),)*
+                        _ => None,
+                    }
+                }
+
+                $vis fn parse_keyword(string: &str) -> Option<$name> {
+                    match string {
+                        $($entity => Some($name::$variant),)*
+                        _ => None,
+                    }
+                }
+            }
+        )*
     }
 }
 
 entity! {
+    Entity, test_entity,
+
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum Miscellaneous {
         <Abbreviation "abbr" "abbreviation">
@@ -120,9 +169,7 @@ entity! {
         <X "X" "rude or X-rated term (not displayed in educational software)">
         <Yojijukugo "yoji" "yojijukugo">
     }
-}
 
-entity! {
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum PartOfSpeech {
         <AdjectiveF "adj-f" "noun or verb acting prenominally">
@@ -218,9 +265,7 @@ entity! {
         <VerbTransitive "vt" "transitive verb">
         <VerbZuru "vz" "Ichidan verb - zuru verb (alternative form of -jiru verbs)">
     }
-}
 
-entity! {
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum KanjiInfo {
         <Ateji "ateji" "ateji (phonetic) reading">
@@ -231,20 +276,16 @@ entity! {
         <RareKanji "rK" "rarely-used kanji form">
         <SearchOnlyKanji "sK" "search-only kanji form">
     }
-}
 
-entity! {
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum ReadingInfo {
         <Gikun "gikun" "gikun (meaning as reading) or jukujikun (special kanji reading)">
-        <IrregularKana "ik" "word containing irregular kana usage">
+        <IrregularKana "ik" ("rik") "word containing irregular kana usage">
         <ObsoleteKana "ok" "out-dated or obsolete kana usage">
         <SearchOnlyKana "sk" "search-only kana form">
         <RareKana "rk" "rarely used kana form">
     }
-}
 
-entity! {
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum Dialect {
         <Brazilian "bra" "Brazilian">
@@ -260,9 +301,7 @@ entity! {
         <TosaBen "tsb" "Tosa-ben">
         <TsugaruBen "tsug" "Tsugaru-ben">
     }
-}
 
-entity! {
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum Field {
         <Agriculture "agric" "agriculture">
@@ -361,6 +400,8 @@ entity! {
 }
 
 entity! {
+    NameEntity, test_name_entity,
+
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum NameType {
         <Character "char" "character">

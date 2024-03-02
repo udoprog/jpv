@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::{Dialect, Field, KanjiInfo, Miscellaneous, PartOfSpeech, ReadingInfo};
 use crate::priority::Priority;
-use crate::Weight;
+use crate::{Entity, Weight};
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
@@ -26,6 +26,43 @@ pub struct Entry<'a> {
 }
 
 impl Entry<'_> {
+    /// Return all unique entities associated with an entry.
+    pub fn entities(&self) -> HashSet<Entity> {
+        let mut set = HashSet::new();
+
+        for sense in &self.senses {
+            for pos in sense.pos.iter() {
+                set.insert(Entity::PartOfSpeech(pos));
+            }
+
+            for misc in sense.misc.iter() {
+                set.insert(Entity::Miscellaneous(misc));
+            }
+
+            for dialect in sense.dialect.iter() {
+                set.insert(Entity::Dialect(dialect));
+            }
+
+            for field in sense.field.iter() {
+                set.insert(Entity::Field(field));
+            }
+        }
+
+        for reading in &self.reading_elements {
+            for info in reading.info.iter() {
+                set.insert(Entity::ReadingInfo(info));
+            }
+        }
+
+        for kanji in &self.kanji_elements {
+            for info in kanji.info.iter() {
+                set.insert(Entity::KanjiInfo(info));
+            }
+        }
+
+        set
+    }
+
     /// Entry weight.
     pub fn weight(&self, input: &str, conjugation: bool) -> Weight {
         // Boost based on exact query.

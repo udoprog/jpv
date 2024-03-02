@@ -48,7 +48,7 @@ pub mod jmnedict;
 pub mod kanjidic2;
 
 pub mod entities;
-pub use self::entities::PartOfSpeech;
+pub use self::entities::{Entity, PartOfSpeech};
 
 mod furigana;
 pub use self::furigana::{Furigana, FuriganaGroup};
