@@ -1095,11 +1095,14 @@ impl Database {
             });
         };
 
+        self.populate_kanji(first, &mut seen, &mut characters)?;
         let mut ids = self.lookup(first)?;
 
         for remainder in inputs {
-            let current = self
-                .lookup(remainder)?
+            self.populate_kanji(remainder, &mut seen, &mut characters)?;
+            let current = self.lookup(remainder)?;
+
+            let current = current
                 .into_iter()
                 .map(|i| (i.index, i.offset))
                 .collect::<HashSet<_>>();
