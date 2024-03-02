@@ -106,12 +106,12 @@ impl<'a> SearchParser<'a> {
 }
 
 #[test]
-fn test_parse() -> Result<(), Error> {
+fn test_parse() {
     use crate::entities::PartOfSpeech;
 
     let mut parser =
         SearchParser::new("\t\thello world #v5s first tail phrase*, , ,,, second tail phrase\n\n");
-    let query = parser.parse()?;
+    let query = parser.parse();
 
     assert_eq!(query.entities.len(), 1);
     assert_eq!(
@@ -122,5 +122,4 @@ fn test_parse() -> Result<(), Error> {
     assert_eq!(query.phrases[0], "hello world");
     assert_eq!(query.phrases[1], "first tail phrase*");
     assert_eq!(query.phrases[2], "second tail phrase");
-    Ok(())
 }
