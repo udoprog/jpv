@@ -242,7 +242,7 @@ impl Component for Prompt {
             }
             Msg::Tab(tab) => {
                 self.query.tab = tab;
-                self.save_query(ctx, History::Replace);
+                self.save_query(ctx, History::Push);
                 true
             }
             Msg::Change(input) => {
@@ -408,23 +408,6 @@ impl Component for Prompt {
             Some(Msg::Change(value))
         });
 
-        let onromanize = ctx
-            .link()
-            .batch_callback(|_: Event| Some(Msg::Mode(Mode::Unfiltered)));
-
-        let onhiragana = ctx
-            .link()
-            .batch_callback(|_: Event| Some(Msg::Mode(Mode::Hiragana)));
-
-        let onkatakana = ctx
-            .link()
-            .batch_callback(|_: Event| Some(Msg::Mode(Mode::Katakana)));
-
-        let oncaptureclipboard = ctx.link().batch_callback({
-            let capture_clipboard = self.query.capture_clipboard;
-            move |_: Event| Some(Msg::CaptureClipboard(!capture_clipboard))
-        });
-
         let analyze = if self.query.text.is_empty() {
             let text = if self.query.embed {
                 "Nothing to analyze"
@@ -496,10 +479,14 @@ impl Component for Prompt {
         });
 
         let names = (!self.names.is_empty()).then(|| {
+            let onclick = ctx.link().callback({
+                move |phrase: String| Msg::ForceChange(phrase, None)
+            });
+
             let names = self
                 .names
                 .iter()
-                .map(|e| html!(<c::Name embed={self.query.embed} entry={e.name.clone()} />));
+                .map(|e| html!(<c::Name embed={self.query.embed} entry={e.name.clone()} onclick={onclick.clone()} />));
 
             let header = (!self.query.embed).then(|| html!(<h4>{"Names"}</h4>));
 
@@ -515,9 +502,17 @@ impl Component for Prompt {
             let iter = seq(self.characters.iter().take(self.limit_characters), |c, not_last| {
                 let separator = not_last.then(|| html!(<div class="character-separator" />));
 
+                let onclick = ctx.link().callback({
+                    let literal = Rc::<str>::from(c.literal.as_str());
+                    move |_| Msg::Tab(Tab::KanjiDetails(literal.clone()))
+                });
+
                 html! {
                     <>
-                        <c::Character embed={self.query.embed} character={c.clone()} />
+                        <div class="character">
+                            <c::Character embed={self.query.embed} character={c.clone()} {onclick} />
+                        </div>
+
                         {for separator}
                     </>
                 }
@@ -559,7 +554,8 @@ impl Component for Prompt {
                     (len == 0).then_some("disabled")
                 );
 
-                let onclick = (!is_tab).then(|| ctx.link().callback(move |_| Msg::Tab(tab)));
+                let onclick =
+                    (!is_tab).then(|| ctx.link().callback(move |_| Msg::Tab(tab.clone())));
 
                 let text = format!("{title} ({len})");
 
@@ -574,7 +570,26 @@ impl Component for Prompt {
                 tab("Kanji", self.characters.len(), Tab::Kanji),
             ];
 
-            let content = match self.query.tab {
+            let active_tab = match &self.query.tab {
+                Tab::KanjiDetails(kanji) => {
+                    Some(html!(<a class="tab active">{format!("Kanji details: {kanji}")}</a>))
+                }
+                Tab::Settings => Some(html!(<a class="tab active">{"Settings"}</a>)),
+                _ => None,
+            };
+
+            let content = match &self.query.tab {
+                Tab::KanjiDetails(kanji) => {
+                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                    let onclick = ctx
+                        .link()
+                        .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
+                    html!(<div class="block block-lg"><c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} /></div>)
+                }
+                Tab::Settings => {
+                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
+                }
                 Tab::Phrases => {
                     html!(<div class="block block-lg">{phrases}</div>)
                 }
@@ -584,27 +599,50 @@ impl Component for Prompt {
                 Tab::Kanji => {
                     html!(<div class="block block-lg kanjis">{kanjis}</div>)
                 }
-                Tab::Settings => {
-                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
-                }
             };
 
             html! {
                 <>
                     <div class="block block-lg">{analyze}</div>
                     {for translation}
-                    <div class="tabs">{for tabs}</div>
+                    <div class="tabs">
+                        {for tabs}
+                        {for active_tab}
+                    </div>
                     {content}
                 </>
             }
         } else {
-            match self.query.tab {
+            match &self.query.tab {
+                Tab::KanjiDetails(kanji) => {
+                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                    let onclick = ctx
+                        .link()
+                        .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
+                    html!(<div class="block block-lg"><c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} /></div>)
+                }
                 Tab::Settings => {
                     let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
                     html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
                 }
                 _ => {
+                    let onromanize = ctx
+                        .link()
+                        .batch_callback(|_: Event| Some(Msg::Mode(Mode::Unfiltered)));
+
+                    let onhiragana = ctx
+                        .link()
+                        .batch_callback(|_: Event| Some(Msg::Mode(Mode::Hiragana)));
+
+                    let onkatakana = ctx
+                        .link()
+                        .batch_callback(|_: Event| Some(Msg::Mode(Mode::Katakana)));
+
+                    let oncaptureclipboard = ctx.link().batch_callback({
+                        let capture_clipboard = self.query.capture_clipboard;
+                        move |_: Event| Some(Msg::CaptureClipboard(!capture_clipboard))
+                    });
+
                     let onclick = ctx.link().callback(|_| Msg::OpenConfig);
 
                     let prompt = html! {

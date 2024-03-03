@@ -11,12 +11,13 @@ pub(crate) enum Mode {
 }
 
 /// The current tab.
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub enum Tab {
     #[default]
     Phrases,
     Names,
     Kanji,
+    KanjiDetails(Rc<str>),
     Settings,
 }
 
@@ -94,12 +95,19 @@ impl Query {
                     embed = value == "yes";
                 }
                 "tab" => {
-                    tab = match value.as_str() {
-                        "phrases" => Tab::Phrases,
-                        "names" => Tab::Names,
-                        "kanji" => Tab::Kanji,
-                        "settings" => Tab::Settings,
-                        _ => Tab::default(),
+                    tab = if let Some((first, second)) = value.split_once('/') {
+                        match (first, second) {
+                            ("kanji", kanji) => Tab::KanjiDetails(kanji.into()),
+                            _ => Tab::default(),
+                        }
+                    } else {
+                        match value.as_str() {
+                            "phrases" => Tab::Phrases,
+                            "names" => Tab::Names,
+                            "kanji" => Tab::Kanji,
+                            "settings" => Tab::Settings,
+                            _ => Tab::default(),
+                        }
                     };
                 }
                 "at" => {
@@ -168,13 +176,16 @@ impl Query {
             out.push(("at", Cow::Owned(analyze_at.to_string())));
         }
 
-        match self.tab {
+        match &self.tab {
             Tab::Phrases => {}
             Tab::Names => {
                 out.push(("tab", Cow::Borrowed("names")));
             }
             Tab::Kanji => {
                 out.push(("tab", Cow::Borrowed("kanji")));
+            }
+            Tab::KanjiDetails(kanji) => {
+                out.push(("tab", Cow::Owned(format!("kanji/{kanji}"))));
             }
             Tab::Settings => {
                 out.push(("tab", Cow::Borrowed("settings")));

@@ -132,17 +132,25 @@ async fn kanji(
     Path(literal): Path<String>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedKanjiResponse>> {
-    let db = bg.database();
-
-    let Some(entry) = db.literal_to_kanji(&literal)? else {
+    let Some(kanji) = handle_kanji(&bg, &literal)? else {
         return Err(RequestError::not_found(format!(
             "Missing kanji by literal `{literal}`",
         )));
     };
 
-    let radicals = db.literal_to_radicals(&literal)?;
+    Ok(Json(kanji))
+}
 
-    Ok(Json(api::OwnedKanjiResponse {
+fn handle_kanji(bg: &Background, literal: &str) -> Result<Option<api::OwnedKanjiResponse>> {
+    let db = bg.database();
+
+    let Some(entry) = db.literal_to_kanji(literal)? else {
+        return Ok(None);
+    };
+
+    let radicals = db.literal_to_radicals(literal)?;
+
+    Ok(Some(api::OwnedKanjiResponse {
         kanji: lib::to_owned(entry),
         radicals: radicals
             .map(|e| lib::to_owned(e.radicals))

@@ -9,6 +9,7 @@ pub enum Msg {}
 pub struct Props {
     pub embed: bool,
     pub entry: jmnedict::OwnedEntry,
+    pub onclick: Callback<String>,
 }
 
 pub struct Name;
@@ -39,8 +40,13 @@ impl Component for Name {
                 entry.kanji.iter().map(|kanji| {
                     let furigana = kana::Full::new(kanji, &reading.text, "").furigana();
 
+                    let onclick = ctx.props().onclick.reform({
+                        let kanji = kanji.clone();
+                        move |_| kanji.clone()
+                    });
+
                     html! {
-                        <span class="text kanji highlight" title={romaji(furigana)}>{ruby(furigana)}</span>
+                        <a class="text kanji highlight" title={romaji(furigana)} {onclick}>{ruby(furigana)}</a>
                     }
                 })
             });

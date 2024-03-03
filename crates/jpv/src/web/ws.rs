@@ -393,6 +393,11 @@ async fn run(
                                     Ok(serde_json::Value::Null)
                                 }
                             }
+                            api::GetKanji::KIND => {
+                                let request: api::GetKanji = serde_json::from_value(request.body)?;
+                                let response = super::handle_kanji(bg, &request.kanji)?;
+                                Ok(serde_json::to_value(&response)?)
+                            }
                             _ => {
                                 Err(anyhow!("Unsupported request"))
                             }
