@@ -389,9 +389,11 @@ async fn run(
 
                                 'out: {
                                     if !request.update_indexes.is_empty() {
-                                        let mut install = Install::default();
-                                        install.filter = Some(request.update_indexes);
-                                        install.force = true;
+                                        let install = Install {
+                                            filter: Some(request.update_indexes),
+                                            force: true,
+                                        };
+
                                         bg.install(install);
                                     }
 
