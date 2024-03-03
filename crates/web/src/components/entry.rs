@@ -424,8 +424,8 @@ fn render_extra(
     let tutorials = render_tutorials(inflection, filter);
 
     Some(html! {
-        <div class="block notice">
-            <div class="block block-sm title">{"Result based on inflection:"}</div>
+        <div class="block block-notice">
+            <div class="block block-sm block-title">{"Result based on inflection:"}</div>
             <div class="block block-sm row bullets">{for inflection_html}</div>
             {tutorials}
             {for word}
@@ -469,8 +469,9 @@ fn render_inflection<'a>(
         .link()
         .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
-    let reset = (!filter.is_empty())
-        .then(|| html!(<span class="inflection clickable danger" {onclick}>{"Reset"}</span>));
+    let reset = (!filter.is_empty()).then(
+        || html!(<span class="inflection inflection-danger clickable" {onclick}>{"Reset"}</span>),
+    );
 
     form.chain(reset)
 }

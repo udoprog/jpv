@@ -192,7 +192,7 @@ impl Component for EditIndex {
 
         let delete = ctx.props().ondelete.as_ref().map(|ondelete| {
             html! {
-                <button class="btn end danger" disabled={ctx.props().pending} onclick={ondelete.reform(|_| ())}>{"Delete"}</button>
+                <button class="btn btn-danger" disabled={ctx.props().pending} onclick={ondelete.reform(|_| ())}>{"Delete"}</button>
             }
         });
 
@@ -200,7 +200,6 @@ impl Component for EditIndex {
             let class = classes! {
                 "btn",
                 (!ctx.props().isupdate).then_some("primary"),
-                delete.is_none().then_some("end"),
             };
 
             let label = if ctx.props().isupdate {
@@ -213,12 +212,6 @@ impl Component for EditIndex {
                 <button {class} disabled={ctx.props().pending} onclick={onupdate.reform(|_| ())}>{label}</button>
             }
         });
-
-        let save_classes = classes! {
-            "btn",
-            "primary",
-            (delete.is_none() && update.is_none()).then_some("end"),
-        };
 
         let url_class = classes! {
             "block",
@@ -275,9 +268,12 @@ impl Component for EditIndex {
                 </div>
                 <div class="block row row-spaced">
                     <button class="btn" disabled={ctx.props().pending} onclick={oncancel}>{"Cancel"}</button>
-                    {delete}
-                    {update}
-                    <button class={save_classes} disabled={ctx.props().pending} onclick={onsave}>{"Save"}</button>
+
+                    <div class="row row-end row-spaced">
+                        {delete}
+                        {update}
+                        <button class="btn btn-primary" disabled={ctx.props().pending} onclick={onsave}>{"Save"}</button>
+                    </div>
                 </div>
             </div>
         }

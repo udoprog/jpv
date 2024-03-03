@@ -672,7 +672,7 @@ impl Component for Prompt {
                                 {"📋"}
                             </label>
 
-                            <span class="end clickable" {onclick}>{"⚙ Config"}</span>
+                            <span class="row-end clickable" {onclick}>{"⚙ Config"}</span>
                         </div>
                         </>
                     };
@@ -764,11 +764,11 @@ impl Component for Prompt {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
             html! {
-                <div class="block block-lg danger">
+                <div class="block block-lg block-danger">
                     <div class="block block-sm row row-spaced">
                         <span class="title">{"Dictionaries missing:"}</span>
                         <span>{for missing}</span>
-                        <button class="end btn btn-lg" {onclick}>{"⚙ Fix in Settings"}</button>
+                        <button class="row-end btn btn-lg" {onclick}>{"⚙ Fix in Settings"}</button>
                     </div>
                 </div>
             }
@@ -795,14 +795,14 @@ impl Component for Prompt {
                 });
 
             html! {
-                <div class="block block-lg danger">
+                <div class="block block-lg block-danger">
                     <div class="block block-sm row row-spaced">
                         <span class="title">{"OCR support is enabled but not installed"}</span>
                     </div>
 
                     <div class="block block-sm row row-spaced">
                         {for install_url}
-                        <button class="end btn btn-lg" {onclick}>{"⚙ Disable"}</button>
+                        <button class="row-end btn btn-lg" {onclick}>{"⚙ Disable"}</button>
                     </div>
                 </div>
             }

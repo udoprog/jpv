@@ -209,6 +209,9 @@ impl Component for Config {
 
         if let Some(state) = &self.state {
             for (id, index) in &state.local.indexes {
+                let is_updated =
+                    self.update_indexes.contains(id) || Some(index) != state.remote.indexes.get(id);
+
                 let checked = match &self.state {
                     Some(state) => state.local.is_enabled(id),
                     None => false,
@@ -256,19 +259,24 @@ impl Component for Config {
                         move |_| Msg::IndexEdit(id.clone())
                     });
 
-                    let help = index.help.as_ref().map(|help| html! {
-                        <a class="index-url" title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"About"}</a>
-                    });
+                    let help = match &index.help {
+                        Some(help) => html! {
+                            <button class="btn index-url" title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"About"}</button>
+                        },
+                        None => {
+                            html!(<button disabled={true} class="btn" title="No help page specified">{"About"}</button>)
+                        }
+                    };
 
                     let not_installed = (!self.installed.contains(id)).then(|| {
                         html! {
-                            <span class="bullet danger">{"not installed"}</span>
+                            <span class="bullet bullet-danger">{"not installed"}</span>
                         }
                     });
 
-                    let updated = self.update_indexes.contains(id).then(|| {
+                    let updated = is_updated.then(|| {
                         html! {
-                            <span title="Dictionary will be updated when saved">{"＊"}</span>
+                            <span title="Has been updated and will be applied on Save">{"＊"}</span>
                         }
                     });
 
@@ -279,7 +287,7 @@ impl Component for Config {
                             <label for={id.to_owned()}>{index.description.clone()}</label>
                             {for updated}
                             {not_installed}
-                            <div class="end index-edit clickable" {onclick} title={"Change this dictionary"}>{"Edit"}</div>
+                            <button class="btn btn-primary row-end index-edit" {onclick} title={"Change this dictionary"}>{"Edit"}</button>
                             {help}
                         </div>
                     });
@@ -307,7 +315,7 @@ impl Component for Config {
                         });
 
                     html! {
-                        <div class="block block-lg danger">
+                        <div class="block block-lg block-danger">
                             <div class="block block-sm row row-spaced">
                                 <span class="title">{"OCR support is not installed"}</span>
                             </div>
@@ -347,8 +355,8 @@ impl Component for Config {
 
             html! {
                 <div class="block row row-spaced">
-                    <button class="btn end primary" disabled={self.pending} {onclick}>{"New dictionary"}</button>
-                    <button class="btn primary" disabled={self.pending} onclick={onrebuild} title="Install all missing dictionaries">{"Install all"}</button>
+                    <button class="row-end btn btn-primary" disabled={self.pending} {onclick}>{"New dictionary"}</button>
+                    <button class="btn btn-primary" disabled={self.pending} onclick={onrebuild} title="Install all missing dictionaries">{"Install all"}</button>
                 </div>
             }
         };
@@ -406,7 +414,7 @@ impl Component for Config {
             <>
                 <div class="block block-lg row row-spaced">
                     {back}
-                    <button class="btn btn-lg end primary" {disabled} onclick={onsave}>{"Save"}</button>
+                    <button class="row-end btn btn-lg btn-primary" {disabled} onclick={onsave}>{"Save"}</button>
                 </div>
 
                 {pending}

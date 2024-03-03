@@ -67,12 +67,12 @@
     border: 1px solid var(--bullet-color);
     border-radius: 3px;
 
-    &.danger {
+    &-danger {
         color: var(--danger-color);
         background-color: var(--danger-bg);
     }
 
-    &.primary {
+    &-primary {
         color: var(--primary-color);
         background-color: var(--primary-bg);
     }
@@ -254,17 +254,17 @@ h5, h6 {
         margin-right: auto;
     }
 
-    .title {
+    &-title {
         font-weight: bold;
     }
 
-    &.notice {
+    &-notice {
         font-size: var(--notice-font-size);
         background-color: var(--bg-highlight);
         padding: var(--section-margin);
     }
 
-    &.danger {
+    &-danger {
         color: var(--danger-color);
         background-color: var(--danger-bg);
         border-color: var(--danger-border);
@@ -293,22 +293,17 @@ h5, h6 {
 .row {
     display: flex;
     flex-flow: row wrap;
+    align-items: center;
 
-    & > * {
-        align-self: center;
+    &-align-bottom {
+        align-items: end;
     }
 
-    &.row-bottom {
-        & > * {
-            align-self: end;
-        }
-    }
-
-    &.row-spaced {
+    &-spaced {
         gap: 0.5rem;
     }
 
-    .end {
+    &-end {
         margin-left: auto;
     }
 }
@@ -396,7 +391,11 @@ h5, h6 {
         background-color: var(--btn-bg-darker);
     }
 
-    &.primary {
+    &:disabled {
+        opacity: 0.5;
+    }
+
+    &-primary {
         color: var(--primary-color);
         background-color: var(--primary-bg);
         border-color: var(--primary-border);
@@ -406,7 +405,7 @@ h5, h6 {
         }
     }
 
-    &.danger {
+    &-danger {
         color: var(--danger-color);
         background-color: var(--danger-bg);
         border-color: var(--danger-border);
@@ -414,10 +413,6 @@ h5, h6 {
         &:hover:not(:disabled) {
             background-color: var(--danger-bg-darker);
         }
-    }
-
-    &:disabled {
-        opacity: 0.5;
     }
 
     &-sm {
