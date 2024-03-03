@@ -19,8 +19,9 @@ pub(crate) enum Msg {
     IndexCancel(String),
     IndexSave(String, ConfigIndex),
     IndexDelete(String),
+    IndexUpdate(String),
     Save,
-    Saved,
+    Saved(Option<lib::config::Config>),
     InstallingAll,
     InstallAll,
     Error(Error),
@@ -50,6 +51,7 @@ pub(crate) struct Config {
     installed: HashSet<String>,
     missing_ocr: Option<api::MissingOcr>,
     edit_index: HashSet<String>,
+    update_indexes: HashSet<String>,
     index_add: bool,
     request: ws::Request,
 }
@@ -73,6 +75,7 @@ impl Component for Config {
             installed: HashSet::new(),
             missing_ocr: None,
             edit_index: HashSet::new(),
+            update_indexes: HashSet::new(),
             index_add: false,
             request,
         }
@@ -137,25 +140,44 @@ impl Component for Config {
                     state.local.indexes.remove(&id);
                 }
             }
+            Msg::IndexUpdate(id) => {
+                self.edit_index.remove(&id);
+
+                if self.update_indexes.contains(&id) {
+                    self.update_indexes.remove(&id);
+                } else {
+                    self.update_indexes.insert(id);
+                }
+            }
             Msg::Save => {
                 if let Some(state) = &self.state {
-                    let local = state.local.clone();
+                    let config = (state.local != state.remote).then(|| state.local.clone());
+                    let update_indexes = self.update_indexes.iter().cloned().collect();
+
                     self.pending = true;
 
                     self.request = ctx.props().ws.request(
-                        api::UpdateConfigRequest(local),
+                        api::UpdateConfigRequest {
+                            config,
+                            update_indexes,
+                        },
                         ctx.link().callback(|result| match result {
-                            Ok(api::Empty) => Msg::Saved,
+                            Ok(api::UpdateConfigResponse { config }) => Msg::Saved(config),
                             Err(error) => Msg::Error(error),
                         }),
                     );
                 }
             }
-            Msg::Saved => {
-                if let Some(state) = &mut self.state {
-                    state.remote = state.local.clone();
+            Msg::Saved(config) => {
+                if let Some(config) = config {
+                    if let Some(state) = &mut self.state {
+                        state.remote = config.clone();
+                        state.local = config;
+                    }
                 }
 
+                self.update_indexes.clear();
+                self.edit_index.clear();
                 self.pending = false;
             }
             Msg::InstallAll => {
@@ -208,7 +230,13 @@ impl Component for Config {
                         move |()| Msg::IndexDelete(id.clone())
                     });
 
-                    indexes.push(html!(<c::EditIndex index={index.clone()} pending={self.pending} {oncancel} {onsave} {ondelete} />));
+                    let onupdate = ctx.link().callback({
+                        let id = id.to_owned();
+                        move |()| Msg::IndexUpdate(id.clone())
+                    });
+
+                    let isupdate = self.update_indexes.contains(id);
+                    indexes.push(html!(<c::EditIndex index={index.clone()} pending={self.pending} {oncancel} {onsave} {ondelete} {onupdate} {isupdate} />));
                 } else {
                     let onchange = ctx.link().callback({
                         let id = id.to_owned();
@@ -238,11 +266,18 @@ impl Component for Config {
                         }
                     });
 
+                    let updated = self.update_indexes.contains(id).then(|| {
+                        html! {
+                            <span title="Dictionary will be updated when saved">{"＊"}</span>
+                        }
+                    });
+
                     indexes.push(html! {
                         <div {class}>
                             <input id={id.to_owned()} type="checkbox" {checked} disabled={self.pending} {onchange} />
                             <label for={id.to_owned()}>{id.to_owned()}</label>
                             <label for={id.to_owned()}>{index.description.clone()}</label>
+                            {for updated}
                             {not_installed}
                             <div class="end index-edit clickable" {onclick} title={"Change this dictionary"}>{"Edit"}</div>
                             {help}
@@ -355,7 +390,9 @@ impl Component for Config {
             }
         });
 
-        let disabled = self.pending || matches!(&self.state, Some(s) if s.local == s.remote);
+        let disabled = self.pending
+            || matches!(&self.state, Some(s) if s.local == s.remote)
+                && self.update_indexes.is_empty();
 
         let pending = self.pending.then(|| {
             html! {

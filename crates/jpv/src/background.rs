@@ -29,12 +29,21 @@ pub(crate) struct Mutable {
     pub(crate) tasks: HashMap<Box<str>, system::TaskProgress>,
 }
 
+/// Configuration to install.
+#[derive(Default)]
+pub struct Install {
+    /// Limit configurations to the specified indexes.
+    pub(crate) filter: Option<Vec<String>>,
+    /// Force configuration.
+    pub(crate) force: bool,
+}
+
 /// Events emitted by modifying the background service.
 pub enum BackgroundEvent {
     /// Save configuration file.
     SaveConfig(Config, oneshot::Sender<()>),
     /// Force a database rebuild.
-    InstallAll(bool),
+    Install(Install),
 }
 
 struct Shared {
@@ -96,26 +105,35 @@ impl Background {
     }
 
     /// Update current configuration.
-    pub(crate) async fn update_config(&self, config: Config) -> bool {
+    pub(crate) async fn update_config(&self, mut config: Config) -> Option<Config> {
         let (sender, receiver) = oneshot::channel();
+
+        // Complement missing index formats.
+        for format in IndexFormat::all() {
+            if !config.indexes.contains_key(format.id()) {
+                config
+                    .indexes
+                    .insert(format.id().to_string(), format.default_config(false));
+            }
+        }
 
         let _ = self
             .channel
             .send(BackgroundEvent::SaveConfig(config.clone(), sender));
 
         if receiver.await.is_err() {
-            return false;
+            return None;
         }
 
         self.shared.ocr.store(config.ocr, Ordering::SeqCst);
-        self.mutable.write().unwrap().config = config;
+        self.mutable.write().unwrap().config = config.clone();
         self.system_events.send(system::Event::Refresh);
-        true
+        Some(config)
     }
 
-    /// Trigger a rebuild.
-    pub(crate) async fn rebuild(&self) {
-        let _ = self.channel.send(BackgroundEvent::InstallAll(false));
+    /// Trigger a custom installation.
+    pub(crate) fn install(&self, install_all: Install) {
+        let _ = self.channel.send(BackgroundEvent::Install(install_all));
     }
 
     /// Access current configuration.
@@ -201,10 +219,17 @@ impl Background {
                 self.mutable.write().unwrap().database = db;
                 let _ = callback.send(());
             }
-            BackgroundEvent::InstallAll(force) => {
+            BackgroundEvent::Install(install_all) => {
                 let config = self.config();
-                let to_download =
-                    config_to_download(&config, &self.shared.dirs, Default::default());
+
+                let to_download = config_to_download(
+                    &config,
+                    &self.shared.dirs,
+                    Default::default(),
+                    install_all.filter.as_deref(),
+                );
+
+                let force = install_all.force;
 
                 for to_download in to_download {
                     let Some((shutdown, completion)) =
@@ -306,10 +331,17 @@ pub fn config_to_download(
     config: &Config,
     dirs: &Dirs,
     overrides: DownloadOverrides<'_>,
+    filter: Option<&[String]>,
 ) -> Vec<ToDownload> {
     let mut downloads = Vec::new();
 
     for (id, index) in &config.indexes {
+        if let Some(filter) = filter {
+            if !filter.contains(id) {
+                continue;
+            }
+        }
+
         let path = overrides.get(id.as_str()).map(|p| p.into());
 
         downloads.push(ToDownload {
@@ -368,9 +400,15 @@ pub(crate) async fn build(
         }
     }
 
-    let (path, data) = read_or_download(&*reporter, download.path.as_deref(), dirs, &download.url)
-        .await
-        .context("Reading dictionary")?;
+    let (path, data) = read_or_download(
+        &*reporter,
+        download.path.as_deref(),
+        dirs,
+        &download.url,
+        force,
+    )
+    .await
+    .context("Reading dictionary")?;
 
     tracing::info!("Loading `{}` from {}", download.name, path.display());
 
@@ -429,6 +467,7 @@ async fn read_or_download(
     path: Option<&Path>,
     dirs: &Dirs,
     url: &str,
+    force: bool,
 ) -> Result<(PathBuf, Vec<u8>), anyhow::Error> {
     let (path, bytes) = match path {
         Some(path) => (path.to_owned(), fs::read(path).await?),
@@ -440,7 +479,7 @@ async fn read_or_download(
             let hash = crate::hash::hash(url);
             let path = dirs.cache_dir(format!("{hash:08x}-{name}"));
 
-            let bytes = if !path.is_file() {
+            let bytes = if !path.is_file() || force {
                 download(reporter, url, &path)
                     .await
                     .with_context(|| anyhow!("Downloading {url} to {}", path.display()))?

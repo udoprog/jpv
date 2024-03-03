@@ -351,6 +351,7 @@ entity! {
         <Hanafuda "hanaf" "hanafuda">
         <Horse "horse" "horse racing">
         <Internet "internet" "internet">
+        <JapaneseMythology "jpmyth" "Japanese mythology">
         <Kabuki "kabuki" "kabuki">
         <Law "law" "law">
         <Ling "ling" "linguistics">

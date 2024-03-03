@@ -37,6 +37,10 @@ pub(crate) struct Props {
     pub(crate) onsave: Callback<ConfigIndex>,
     #[prop_or_default]
     pub(crate) ondelete: Option<Callback<()>>,
+    #[prop_or_default]
+    pub(crate) isupdate: bool,
+    #[prop_or_default]
+    pub(crate) onupdate: Option<Callback<()>>,
 }
 
 pub(crate) struct EditIndex {
@@ -192,10 +196,28 @@ impl Component for EditIndex {
             }
         });
 
+        let update = ctx.props().onupdate.as_ref().map(|onupdate| {
+            let class = classes! {
+                "btn",
+                (!ctx.props().isupdate).then_some("primary"),
+                delete.is_none().then_some("end"),
+            };
+
+            let label = if ctx.props().isupdate {
+                "Do not update"
+            } else {
+                "Update"
+            };
+
+            html! {
+                <button {class} disabled={ctx.props().pending} onclick={onupdate.reform(|_| ())}>{label}</button>
+            }
+        });
+
         let save_classes = classes! {
             "btn",
             "primary",
-            delete.is_none().then_some("end"),
+            (delete.is_none() && update.is_none()).then_some("end"),
         };
 
         let url_class = classes! {
@@ -254,6 +276,7 @@ impl Component for EditIndex {
                 <div class="block row row-spaced">
                     <button class="btn" disabled={ctx.props().pending} onclick={oncancel}>{"Cancel"}</button>
                     {delete}
+                    {update}
                     <button class={save_classes} disabled={ctx.props().pending} onclick={onsave}>{"Save"}</button>
                 </div>
             </div>

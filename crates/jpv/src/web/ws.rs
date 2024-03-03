@@ -17,7 +17,7 @@ use tokio::sync::Mutex;
 use tokio::time::Duration;
 use tracing::{Instrument, Level};
 
-use crate::background::Background;
+use crate::background::{Background, Install};
 use crate::system;
 
 pub(super) async fn entry(
@@ -364,7 +364,7 @@ async fn run(
                                 Ok(serde_json::to_value(&response)?)
                             },
                             api::InstallAllRequest::KIND => {
-                                bg.rebuild().await;
+                                bg.install(Install::default());
                                 Ok(serde_json::Value::Null)
                             }
                             api::GetConfig::KIND => {
@@ -385,12 +385,29 @@ async fn run(
                                 Ok(serde_json::to_value(&result)?)
                             }
                             api::UpdateConfigRequest::KIND => {
-                                let config = serde_json::from_value(request.body)?;
+                                let request: api::UpdateConfigRequest = serde_json::from_value(request.body)?;
 
-                                if !bg.update_config(config).await {
-                                    Err(anyhow!("Failed to update configuration"))
-                                } else {
-                                    Ok(serde_json::Value::Null)
+                                'out: {
+                                    if !request.update_indexes.is_empty() {
+                                        let mut install = Install::default();
+                                        install.filter = Some(request.update_indexes);
+                                        install.force = true;
+                                        bg.install(install);
+                                    }
+
+                                    let config = if let Some(config) = request.config {
+                                        let Some(config) = bg.update_config(config).await else {
+                                            break 'out Err(anyhow!("Failed to update configuration"));
+                                        };
+
+                                        Some(config)
+                                    } else {
+                                        None
+                                    };
+
+                                    Ok(serde_json::to_value(&api::UpdateConfigResponse {
+                                        config
+                                    })?)
                                 }
                             }
                             api::GetKanji::KIND => {

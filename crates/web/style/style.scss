@@ -71,6 +71,11 @@
         color: var(--danger-color);
         background-color: var(--danger-bg);
     }
+
+    &.primary {
+        color: var(--primary-color);
+        background-color: var(--primary-bg);
+    }
 }
 
 body {

@@ -129,12 +129,23 @@ pub struct GetConfigResult {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct UpdateConfigRequest(pub Config);
+pub struct UpdateConfigRequest {
+    /// Configuration update to save.
+    pub config: Option<Config>,
+    /// Collection of indexes to update.
+    pub update_indexes: Vec<String>,
+}
 
 impl Request for UpdateConfigRequest {
     const KIND: &'static str = "update-config";
-    type Response = Empty;
+
+    type Response = UpdateConfigResponse;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateConfigResponse {
+    /// Indicates that the configuration has been updated with the given value.
+    pub config: Option<Config>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

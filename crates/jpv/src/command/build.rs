@@ -38,7 +38,7 @@ pub(crate) async fn run(
         overrides.insert(id, path);
     }
 
-    let to_download = crate::background::config_to_download(&config, dirs, overrides);
+    let to_download = crate::background::config_to_download(&config, dirs, overrides, None);
 
     let force_all = build_args.force.first().map_or(false, |v| v == "all");
 

@@ -15,7 +15,6 @@ use anyhow::{anyhow, ensure, Context, Result};
 use fixed_map::Set;
 use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
-use musli_storage::int::Variable;
 use musli_storage::Encoding;
 use musli_zerocopy::{swiss, trie, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
@@ -38,7 +37,7 @@ use self::search_parser::SearchParser;
 use self::string_indexer::StringIndexer;
 
 /// Encoding used for storing database.
-const ENCODING: Encoding<DefaultMode, Variable, Variable> = Encoding::new();
+const ENCODING: Encoding<DefaultMode> = Encoding::new();
 
 /// An error raised while interacting with the database.
 #[derive(Debug, Error)]

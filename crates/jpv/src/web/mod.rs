@@ -27,7 +27,7 @@ use lib::config::Config;
 use serde::Serialize;
 use tower_http::cors::{AllowMethods, AllowOrigin, CorsLayer};
 
-use crate::background::Background;
+use crate::background::{Background, Install};
 use crate::system;
 
 pub(crate) fn setup(
@@ -218,7 +218,7 @@ async fn update_config(
     Extension(bg): Extension<Background>,
     Json(config): Json<Config>,
 ) -> RequestResult<Json<api::Empty>> {
-    if !bg.update_config(config).await {
+    if bg.update_config(config).await.is_none() {
         return Err(RequestError::internal("Failed to update configuration"));
     }
 
@@ -227,7 +227,7 @@ async fn update_config(
 
 /// Trigger a rebuild of the database.
 async fn rebuild(Extension(bg): Extension<Background>) -> RequestResult<Json<api::Empty>> {
-    bg.rebuild().await;
+    bg.install(Install::default());
     Ok(Json(api::Empty))
 }
 
