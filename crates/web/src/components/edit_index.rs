@@ -31,9 +31,12 @@ pub(crate) struct Props {
     #[prop_or_default]
     pub(crate) pending: bool,
     pub(crate) oncancel: Callback<()>,
-    pub(crate) onsave: Callback<(Option<String>, ConfigIndex)>,
     #[prop_or_default]
-    pub(crate) ondelete: Callback<()>,
+    pub(crate) onsavenew: Option<Callback<(String, ConfigIndex)>>,
+    #[prop_or_default]
+    pub(crate) onsave: Callback<ConfigIndex>,
+    #[prop_or_default]
+    pub(crate) ondelete: Option<Callback<()>>,
 }
 
 pub(crate) struct EditIndex {
@@ -85,7 +88,6 @@ impl Component for EditIndex {
                 self.validate(ctx);
             }
             Msg::Save => {
-                let id = ctx.props().index.is_none().then(|| self.id.clone());
                 self.validate(ctx);
 
                 if self.errors.is_empty() {
@@ -101,7 +103,11 @@ impl Component for EditIndex {
                         },
                     };
 
-                    ctx.props().onsave.emit((id, index));
+                    if let Some(onsave) = &ctx.props().onsavenew {
+                        onsave.emit((self.id.clone(), index));
+                    } else {
+                        ctx.props().onsave.emit(index);
+                    }
                 }
             }
         }
@@ -151,7 +157,7 @@ impl Component for EditIndex {
             "index"
         };
 
-        let id = ctx.props().index.is_none().then(|| {
+        let id = ctx.props().onsavenew.is_some().then(|| {
             let oninput = ctx.link().batch_callback({
                 move |e: InputEvent| {
                     let input = e.target_dyn_into::<web_sys::HtmlInputElement>()?;
@@ -180,11 +186,9 @@ impl Component for EditIndex {
             }
         });
 
-        let delete = ctx.props().index.is_some().then(|| {
-            let ondelete = ctx.props().ondelete.reform(|_| ());
-
+        let delete = ctx.props().ondelete.as_ref().map(|ondelete| {
             html! {
-                <button class="btn end danger" disabled={ctx.props().pending} onclick={ondelete}>{"Delete"}</button>
+                <button class="btn end danger" disabled={ctx.props().pending} onclick={ondelete.reform(|_| ())}>{"Delete"}</button>
             }
         });
 
@@ -259,7 +263,7 @@ impl Component for EditIndex {
 
 impl EditIndex {
     fn validate(&mut self, ctx: &Context<Self>) {
-        if let Some(id) = ctx.props().index.is_none().then_some(&self.id) {
+        if let Some(id) = ctx.props().onsavenew.is_some().then_some(&self.id) {
             if id.is_empty()
                 || !id
                     .chars()

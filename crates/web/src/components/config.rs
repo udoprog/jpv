@@ -18,6 +18,7 @@ pub(crate) enum Msg {
     IndexEdit(String),
     IndexCancel(String),
     IndexSave(String, ConfigIndex),
+    IndexDelete(String),
     Save,
     Saved,
     InstallingAll,
@@ -129,6 +130,13 @@ impl Component for Config {
                     *index = new_index;
                 }
             }
+            Msg::IndexDelete(id) => {
+                self.edit_index.remove(&id);
+
+                if let Some(state) = &mut self.state {
+                    state.local.indexes.remove(&id);
+                }
+            }
             Msg::Save => {
                 if let Some(state) = &self.state {
                     let local = state.local.clone();
@@ -192,10 +200,15 @@ impl Component for Config {
 
                     let onsave = ctx.link().callback({
                         let id = id.to_owned();
-                        move |(_, index)| Msg::IndexSave(id.clone(), index)
+                        move |index| Msg::IndexSave(id.clone(), index)
                     });
 
-                    indexes.push(html!(<c::EditIndex index={index.clone()} pending={self.pending} {oncancel} {onsave} />));
+                    let ondelete = ctx.link().callback({
+                        let id = id.to_owned();
+                        move |()| Msg::IndexDelete(id.clone())
+                    });
+
+                    indexes.push(html!(<c::EditIndex index={index.clone()} pending={self.pending} {oncancel} {onsave} {ondelete} />));
                 } else {
                     let onchange = ctx.link().callback({
                         let id = id.to_owned();
@@ -287,10 +300,10 @@ impl Component for Config {
 
             let onsave = ctx
                 .link()
-                .batch_callback(move |(id, index)| Some(Msg::IndexAddSave(id?, index)));
+                .callback(move |(id, index)| Msg::IndexAddSave(id, index));
 
             html! {
-                <c::EditIndex pending={self.pending} {oncancel} {onsave} />
+                <c::EditIndex pending={self.pending} {oncancel} onsavenew={onsave} />
             }
         } else {
             let onclick = ctx.link().callback(|_| Msg::IndexAdd);
