@@ -34,7 +34,7 @@ jobs:
     - uses: udoprog/trunk-action@v1
       with:
         args: build --release crates/web/index.html
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: dist-frontend
         path: crates/web/dist
@@ -51,7 +51,7 @@ jobs:
     steps:
     - run: cat /etc/fedora-release
     - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with: {name: dist-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
@@ -63,7 +63,7 @@ jobs:
       env:
         JPV_VERSION: ${{steps.release.outputs.version}}
     - run: kick rpm --append fc${{matrix.fedora}} --output dist
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: dist-fedora-${{matrix.fedora}}
         path: dist
@@ -76,7 +76,7 @@ jobs:
     - run: kick define --github-action --msi-version-to msi_version
       id: release
     - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with: {name: dist-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
@@ -85,7 +85,7 @@ jobs:
         JPV_VERSION: ${{steps.release.outputs.version}}
         JPV_MSI_VERSION: ${{steps.release.outputs.msi_version}}
     - run: kick msi --output dist
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: dist-windows
         path: dist
@@ -96,11 +96,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with: {name: dist-fedora-39, path: dist}
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with: {name: dist-fedora-40, path: dist}
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with: {name: dist-windows, path: dist}
     - uses: udoprog/kick@nightly
     - run: kick github-release --github-action --upload "dist/*"
