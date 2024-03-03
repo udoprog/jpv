@@ -69,6 +69,16 @@ impl Request for GetConfig {
     type Response = GetConfigResult;
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetKanji {
+    pub kanji: String,
+}
+
+impl Request for GetKanji {
+    const KIND: &'static str = "get-kanji";
+    type Response = OwnedKanjiResponse;
+}
+
 /// Missing OCR support.
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstallUrl {
@@ -268,7 +278,7 @@ pub struct EntryResponse<'a> {
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KanjiResponse<'a> {
     #[borrowed_attr(serde(borrow))]
     pub kanji: kanjidic2::Character<'a>,

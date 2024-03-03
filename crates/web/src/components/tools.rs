@@ -25,8 +25,7 @@ pub(super) fn seq<'a, I, T, B>(iter: I, builder: B) -> impl Iterator<Item = Html
 where
     I: IntoIterator<Item = T>,
     I::IntoIter: 'a,
-    B: 'a + Copy + Fn(T, bool) -> Html,
-    T: 'a,
+    B: 'a + Fn(T, bool) -> Html,
 {
     let mut it = iter.into_iter().peekable();
 

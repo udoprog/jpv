@@ -4,8 +4,9 @@ use lib::api;
 use lib::config::ConfigIndex;
 use yew::prelude::*;
 
+use crate::c;
 use crate::error::Error;
-use crate::{c, ws};
+use crate::ws;
 
 pub(crate) enum Msg {
     GetConfig(api::GetConfigResult),

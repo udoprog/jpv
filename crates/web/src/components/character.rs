@@ -12,6 +12,9 @@ pub enum Msg {}
 pub struct Props {
     pub embed: bool,
     pub character: OwnedCharacter,
+    ///  What to do when the back button has been pressed.
+    #[prop_or_default]
+    pub(crate) onclick: Callback<()>,
 }
 
 pub(crate) struct Character;
@@ -69,13 +72,15 @@ impl Component for Character {
             .is_some()
             .then(move || html!(<div class="readings row">{for meanings}</div>));
 
+        let onclick = ctx.props().onclick.reform(|_| ());
+
         html! {
-            <div class="character">
-                <div class="literal text highlight"><a href={format!("/api/kanji/{}", c.literal)} target="_api">{c.literal.clone()}</a></div>
+            <>
+                <div class="literal text highlight"><a {onclick}>{c.literal.clone()}</a></div>
                 {for meanings}
                 {for onyomi}
                 {for kunyomi}
-            </div>
+            </>
         }
     }
 }

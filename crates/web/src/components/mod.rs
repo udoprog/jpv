@@ -20,5 +20,8 @@ pub(crate) use self::config::Config;
 pub(crate) use self::analyze_toggle::AnalyzeToggle;
 mod analyze_toggle;
 
+pub(crate) mod kanji_details;
+pub(crate) use self::kanji_details::KanjiDetails;
+
 pub(crate) use self::edit_index::EditIndex;
 mod edit_index;
