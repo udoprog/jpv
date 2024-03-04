@@ -14,6 +14,8 @@ pub(crate) enum Msg {
     ToggleForm(usize, Form),
     ResetForm(usize),
     Change(String, Option<String>),
+    AddTag(&'static str),
+    AddPriority(Priority),
 }
 
 #[derive(Default)]
@@ -73,6 +75,8 @@ pub struct Props {
     pub sources: BTreeSet<Source>,
     pub entry: jmdict::OwnedEntry,
     pub onchange: Callback<(String, Option<String>), ()>,
+    pub ontag: Callback<&'static str>,
+    pub onpriority: Callback<Priority>,
 }
 
 impl PartialEq for Props {
@@ -122,6 +126,12 @@ impl Component for Entry {
             }
             Msg::Change(text, english) => {
                 ctx.props().onchange.emit((text, english));
+            }
+            Msg::AddTag(tag) => {
+                ctx.props().ontag.emit(tag);
+            }
+            Msg::AddPriority(tag) => {
+                ctx.props().onpriority.emit(tag);
             }
         }
 
@@ -303,10 +313,10 @@ impl Entry {
         });
 
         let glossary = texts(s.gloss.iter().map(|gloss| &gloss.text), None);
-        let bullets = bullets!(s.pos, "sm")
-            .chain(bullets!(s.misc, "sm"))
-            .chain(bullets!(s.dialect, "sm"))
-            .chain(bullets!(s.field, "sm"));
+        let bullets = bullets!(ctx, s.pos, "sm")
+            .chain(bullets!(ctx, s.misc, "sm"))
+            .chain(bullets!(ctx, s.dialect, "sm"))
+            .chain(bullets!(ctx, s.field, "sm"));
 
         let bullets = iter(
             bullets,
@@ -509,10 +519,10 @@ fn render_tutorials(inflection: Inflection, filter: Inflection) -> Html {
 }
 
 fn render_reading(ctx: &Context<Entry>, reading: &OwnedReadingElement, not_last: bool) -> Html {
-    let priority = reading.priority.iter().map(render_priority);
+    let priority = reading.priority.iter().map(|p| render_priority(ctx, p));
 
     let bullets = iter(
-        priority.chain(bullets!(reading.info)),
+        priority.chain(bullets!(ctx, reading.info)),
         |iter| html!(<span class="bullets">{for iter}</span>),
     );
 
@@ -535,10 +545,10 @@ fn render_combined(
     c @ Combined { kanji, .. }: &Combined,
     not_last: bool,
 ) -> Html {
-    let priority = kanji.priority.iter().map(render_priority);
+    let priority = kanji.priority.iter().map(|p| render_priority(ctx, p));
 
     let bullets = iter(
-        priority.chain(bullets!(kanji.info)),
+        priority.chain(bullets!(ctx, kanji.info)),
         |iter| html!(<span class="bullets">{for iter}</span>),
     );
 
@@ -556,8 +566,13 @@ fn render_combined(
     }
 }
 
-fn render_priority(p: &Priority) -> Html {
-    html!(<span class={format!("bullet prio-{}", p.category())} title={p.title()}>{p.category()}{p.level()}</span>)
+fn render_priority(ctx: &Context<Entry>, p: &Priority) -> Html {
+    let onclick = ctx.link().callback({
+        let p = *p;
+        move |_: MouseEvent| Msg::AddPriority(p)
+    });
+
+    html!(<a class={format!("bullet prio-{}", p.category())} title={p.title()} {onclick}>{p.category()}{p.level()}</a>)
 }
 
 /// A simple text sequence renderer.

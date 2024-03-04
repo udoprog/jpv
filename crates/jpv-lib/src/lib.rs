@@ -49,7 +49,7 @@ pub mod kanjidic2;
 pub mod kradfile;
 
 pub mod entities;
-pub use self::entities::{Entity, PartOfSpeech};
+pub use self::entities::PartOfSpeech;
 
 mod furigana;
 pub use self::furigana::{Furigana, FuriganaGroup};
@@ -62,6 +62,8 @@ mod priority;
 pub use self::priority::Priority;
 
 pub mod database;
+
+pub mod search;
 
 mod musli;
 

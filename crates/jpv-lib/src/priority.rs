@@ -1,3 +1,5 @@
+use std::fmt;
+
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -88,5 +90,11 @@ impl Priority {
             PriorityKind::Spec => range!(2.0) * 2.2,
             PriorityKind::WordFrequency => range!(50.0) * 2.0,
         }
+    }
+}
+
+impl fmt::Display for Priority {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.category(), self.level)
     }
 }

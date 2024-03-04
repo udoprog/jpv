@@ -1,7 +1,6 @@
 //! Database that can be used as a dictionary.
 
 mod analyze_glossary;
-mod search_parser;
 mod stored;
 mod string_indexer;
 
@@ -33,7 +32,6 @@ use crate::token::Token;
 use crate::{PartOfSpeech, Weight};
 use crate::{DICTIONARY_MAGIC, DICTIONARY_VERSION};
 
-use self::search_parser::SearchParser;
 use self::string_indexer::StringIndexer;
 
 /// Encoding used for storing database.
@@ -1183,9 +1181,7 @@ impl Database {
         let mut dedup_names = HashMap::new();
         let mut seen = HashSet::new();
 
-        let mut parser = SearchParser::new(input);
-
-        let query = parser.parse();
+        let query = crate::search::parse(input);
 
         let mut inputs = query.phrases.into_iter();
 
@@ -1212,7 +1208,8 @@ impl Database {
             ids.retain(|id| current.contains(&(id.index, id.offset)));
         }
 
-        let expected = query.entities.into_iter().collect::<HashSet<_>>();
+        let mut current = HashSet::new();
+        let mut buf = String::new();
 
         for id in ids {
             match self.entry_at(id)? {
@@ -1224,15 +1221,15 @@ impl Database {
                     continue;
                 }
                 Entry::Phrase(entry) => {
-                    if !expected.is_empty() {
-                        let entities = entry.entities();
-                        let mut expected = expected.clone();
+                    if !query.entities.is_empty() {
+                        current.clear();
+                        current.extend(query.entities.iter().copied());
 
-                        for entity in &entities {
-                            expected.remove(entity);
-                        }
+                        entry.visit_entities(&mut buf, |entity| {
+                            current.remove(entity);
+                        });
 
-                        if !expected.is_empty() {
+                        if !current.is_empty() {
                             continue;
                         }
                     }
@@ -1257,6 +1254,19 @@ impl Database {
                     data.sources.insert(id.source);
                 }
                 Entry::Name(entry) => {
+                    if !query.entities.is_empty() {
+                        current.clear();
+                        current.extend(query.entities.iter().copied());
+
+                        entry.visit_entities(|entity| {
+                            current.remove(entity);
+                        });
+
+                        if !current.is_empty() {
+                            continue;
+                        }
+                    }
+
                     let Some(&i) = dedup_names.get(&id.key()) else {
                         dedup_names.insert(id.key(), names.len());
 

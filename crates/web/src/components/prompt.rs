@@ -9,6 +9,7 @@ use gloo::utils::format::JsValueSerdeExt;
 use lib::api;
 use lib::kanjidic2;
 use lib::romaji;
+use lib::Priority;
 use serde::Deserialize;
 use serde::Serialize;
 use wasm_bindgen::closure::Closure;
@@ -42,6 +43,8 @@ pub(crate) enum Msg {
     Tab(Tab),
     Change(String),
     ForceChange(String, Option<String>),
+    AddTag(&'static str),
+    AddPriority(Priority),
     Analyze(usize),
     AnalyzeCycle,
     HistoryChanged(Location),
@@ -87,7 +90,7 @@ pub(crate) struct Prompt {
     pending_search: ws::Request,
     log: Vec<api::OwnedLogEntry>,
     tasks: BTreeMap<String, api::OwnedTaskProgress>,
-    analysis: Rc<[Rc<str>]>,
+    analysis: Rc<[String]>,
     ocr: bool,
     missing: BTreeSet<String>,
     missing_ocr: Option<api::MissingOcr>,
@@ -212,7 +215,7 @@ impl Component for Prompt {
             }
             Msg::AnalyzeResponse(response) => {
                 log::trace!("Analyze response");
-                self.analysis = response.data.into_iter().map(|d| d.string.into()).collect();
+                self.analysis = response.data.into_iter().map(|d| d.string).collect();
                 self.search(ctx);
                 false
             }
@@ -220,7 +223,7 @@ impl Component for Prompt {
                 self.query.mode = mode;
 
                 let new_query = match self.query.mode {
-                    Mode::Unfiltered => self.query.text.clone(),
+                    Mode::Unfiltered => process_query(&self.query.text, romaji::Segment::romanize),
                     Mode::Hiragana => process_query(&self.query.text, romaji::Segment::hiragana),
                     Mode::Katakana => process_query(&self.query.text, romaji::Segment::katakana),
                 };
@@ -249,7 +252,7 @@ impl Component for Prompt {
                 log::trace!("{:?}", input);
 
                 let input = match self.query.mode {
-                    Mode::Unfiltered => Rc::from(input),
+                    Mode::Unfiltered => input,
                     Mode::Hiragana => process_query(&input, romaji::Segment::hiragana),
                     Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
@@ -265,13 +268,25 @@ impl Component for Prompt {
             }
             Msg::ForceChange(input, translation) => {
                 let input = match self.query.mode {
-                    Mode::Unfiltered => Rc::from(input),
+                    Mode::Unfiltered => input,
                     Mode::Hiragana => process_query(&input, romaji::Segment::hiragana),
                     Mode::Katakana => process_query(&input, romaji::Segment::katakana),
                 };
 
                 self.query.set(input, translation);
                 self.analysis = Rc::from([]);
+                self.save_query(ctx, History::Push);
+                self.search(ctx);
+                true
+            }
+            Msg::AddTag(tag) => {
+                self.query.append(format_args!("#{tag}"));
+                self.save_query(ctx, History::Push);
+                self.search(ctx);
+                true
+            }
+            Msg::AddPriority(priority) => {
+                self.query.append(format_args!("#{priority}"));
                 self.save_query(ctx, History::Push);
                 self.search(ctx);
                 true
@@ -339,7 +354,7 @@ impl Component for Prompt {
                     }
                     ContentMessage::Open => {}
                     ContentMessage::Update(message) => {
-                        self.query.set(message.text.into(), None);
+                        self.query.set(message.text, None);
 
                         if let Some(analyze_at_char) = message.analyze_at_char {
                             self.query.update_analyze_at_char(analyze_at_char);
@@ -436,11 +451,13 @@ impl Component for Prompt {
             let phrases = self.phrases.iter().take(self.limit_entries).map(|e| {
                 let entry = e.phrase.clone();
 
-                let change = ctx.link().callback(|(input, translation)| {
+                let onchange = ctx.link().callback(|(input, translation)| {
                     Msg::ForceChange(input, translation)
                 });
 
-                html!(<c::Entry embed={self.query.embed} sources={e.key.sources.clone()} entry={entry} onchange={change} />)
+                let ontag = ctx.link().callback(Msg::AddTag);
+                let onpriority = ctx.link().callback(Msg::AddPriority);
+                html!(<c::Entry embed={self.query.embed} sources={e.key.sources.clone()} {entry} {onchange} {ontag} {onpriority} />)
             });
 
             let phrases = seq(phrases, |entry, not_last| {
@@ -483,10 +500,12 @@ impl Component for Prompt {
                 move |phrase: String| Msg::ForceChange(phrase, None)
             });
 
+            let ontag = ctx.link().callback(Msg::AddTag);
+
             let names = self
                 .names
                 .iter()
-                .map(|e| html!(<c::Name embed={self.query.embed} entry={e.name.clone()} onclick={onclick.clone()} />));
+                .map(|e| html!(<c::Name embed={self.query.embed} entry={e.name.clone()} onclick={onclick.clone()} ontag={ontag.clone()} />));
 
             let header = (!self.query.embed).then(|| html!(<h4>{"Names"}</h4>));
 
@@ -626,52 +645,41 @@ impl Component for Prompt {
                     html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
                 }
                 _ => {
-                    let onromanize = ctx
-                        .link()
-                        .batch_callback(|_: Event| Some(Msg::Mode(Mode::Unfiltered)));
+                    let next = match self.query.mode {
+                        Mode::Unfiltered => Mode::Hiragana,
+                        Mode::Hiragana => Mode::Katakana,
+                        Mode::Katakana => Mode::Unfiltered,
+                    };
 
-                    let onhiragana = ctx
-                        .link()
-                        .batch_callback(|_: Event| Some(Msg::Mode(Mode::Hiragana)));
+                    let ontoggle = ctx.link().callback(move |_| Msg::Mode(next));
 
-                    let onkatakana = ctx
-                        .link()
-                        .batch_callback(|_: Event| Some(Msg::Mode(Mode::Katakana)));
-
-                    let oncaptureclipboard = ctx.link().batch_callback({
+                    let oncaptureclipboard = ctx.link().callback({
                         let capture_clipboard = self.query.capture_clipboard;
-                        move |_: Event| Some(Msg::CaptureClipboard(!capture_clipboard))
+                        move |_| Msg::CaptureClipboard(!capture_clipboard)
                     });
 
                     let onclick = ctx.link().callback(|_| Msg::OpenConfig);
+
+                    let (title, description) = match self.query.mode {
+                        Mode::Unfiltered => ("default", "Do not process input at all"),
+                        Mode::Hiragana => ("ひらがな", "Process input as Hiragana"),
+                        Mode::Katakana => ("カタカナ", "Treat input as Katakana"),
+                    };
 
                     let prompt = html! {
                         <>
                         <div class="block block row" id="prompt">
                             <input value={self.query.text.clone()} type="text" oninput={oninput} />
+
+                            <button for="romanize" title={description} onclick={ontoggle}>{title}</button>
+
+                            <button title="Capture clipboard" onclick={oncaptureclipboard}>
+                                <span>{"📋"}</span>
+                                <input type="checkbox" checked={self.query.capture_clipboard} />
+                            </button>
                         </div>
 
                         <div class="block block-lg row row-spaced">
-                            <label for="romanize" title="Do not process input at all">
-                                <input type="checkbox" id="romanize" checked={self.query.mode == Mode::Unfiltered} onchange={onromanize} />
-                                {"Default"}
-                            </label>
-
-                            <label for="hiragana" title="Process input as Hiragana">
-                                <input type="checkbox" id="hiragana" checked={self.query.mode == Mode::Hiragana} onchange={onhiragana} />
-                                {"ひらがな"}
-                            </label>
-
-                            <label for="katakana" title="Treat input as Katakana">
-                                <input type="checkbox" id="katakana" checked={self.query.mode == Mode::Katakana} onchange={onkatakana} />
-                                {"カタカナ"}
-                            </label>
-
-                            <label for="clipboard" title="Capture clipboard">
-                                <input type="checkbox" id="clipboard" checked={self.query.capture_clipboard} onchange={oncaptureclipboard} />
-                                {"📋"}
-                            </label>
-
                             <span class="row-end clickable" {onclick}>{"⚙ Config"}</span>
                         </div>
                         </>
@@ -888,17 +896,33 @@ impl Prompt {
     }
 }
 
-fn process_query<'a, F>(input: &'a str, segment: F) -> Rc<str>
+fn process_query<'a, F>(input: &'a str, segment: F) -> String
 where
     F: Copy + FnOnce(&romaji::Segment<'a>) -> &'a str,
 {
+    let query = lib::search::parse(input);
+
     let mut out = String::new();
 
-    for s in romaji::analyze(input) {
-        out.push_str(segment(&s));
+    let mut current = 0;
+
+    for range in query.phrase_ranges {
+        if range.start > current {
+            out.push_str(&input[current..range.start]);
+        }
+
+        current = range.end;
+
+        for s in romaji::analyze(&input[range]) {
+            out.push_str(segment(&s));
+        }
     }
 
-    Rc::from(out)
+    if current < input.len() {
+        out.push_str(&input[current..]);
+    }
+
+    out
 }
 
 fn decode_query(location: Option<Location>) -> Query {
@@ -996,7 +1020,7 @@ impl Prompt {
 
         log::trace!("Analyze {analyze}");
 
-        let input = self.query.text.as_ref().to_owned();
+        let input = self.query.text.clone();
 
         self.pending_search = ctx.props().ws.request(
             api::AnalyzeRequest {
@@ -1041,9 +1065,9 @@ impl Prompt {
         ctx: &Context<Self>,
         json: &lib::api::SendClipboardJson,
     ) -> Result<(), Error> {
-        if self.query.capture_clipboard && self.query.text.as_ref() != json.primary.as_str() {
+        if self.query.capture_clipboard && self.query.text != json.primary.as_str() {
             self.query.set(
-                json.primary.clone().into(),
+                json.primary.clone(),
                 json.secondary.as_ref().filter(|s| !s.is_empty()).cloned(),
             );
             self.analysis = Rc::from([]);
@@ -1077,8 +1101,8 @@ impl Prompt {
 
         let data = from_utf8(data)?;
 
-        if self.query.capture_clipboard && self.query.text.as_ref() != data {
-            self.query.set(data.into(), None);
+        if self.query.capture_clipboard && self.query.text != data {
+            self.query.set(data.to_owned(), None);
             self.analysis = Rc::from([]);
             self.save_query(ctx, History::Push);
             self.search(ctx);

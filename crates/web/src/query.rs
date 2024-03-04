@@ -1,4 +1,6 @@
-use std::{borrow::Cow, rc::Rc};
+use std::borrow::Cow;
+use std::fmt::{self, Write};
+use std::rc::Rc;
 
 use web_sys::{window, Url};
 
@@ -23,7 +25,7 @@ pub enum Tab {
 
 #[derive(Debug)]
 pub(crate) struct Query {
-    pub(crate) text: Rc<str>,
+    pub(crate) text: String,
     pub(crate) translation: Option<String>,
     pub(crate) analyze_at: Option<usize>,
     pub(crate) index: usize,
@@ -34,8 +36,15 @@ pub(crate) struct Query {
 }
 
 impl Query {
+    pub(crate) fn append(&mut self, text: impl fmt::Display) {
+        if !self.text.is_empty() {
+            self.text.push(' ');
+            _ = write!(self.text, "{text}");
+        }
+    }
+
     /// Update query in the most common way.
-    pub(crate) fn set(&mut self, text: Rc<str>, translation: Option<String>) {
+    pub(crate) fn set(&mut self, text: String, translation: Option<String>) {
         self.text = text;
         self.translation = translation;
         self.analyze_at = None;
@@ -130,7 +139,7 @@ impl Query {
         }
 
         let this = Self {
-            text: text.into(),
+            text,
             translation,
             mode,
             capture_clipboard,
@@ -147,7 +156,7 @@ impl Query {
         let mut out = Vec::new();
 
         if !self.text.is_empty() {
-            out.push(("q", Cow::Borrowed(self.text.as_ref())));
+            out.push(("q", Cow::Borrowed(self.text.as_str())));
         }
 
         if let Some(t) = &self.translation {

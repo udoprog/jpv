@@ -1,5 +1,5 @@
-use core::fmt;
 use std::collections::HashSet;
+use std::fmt::{self, Write};
 
 use fixed_map::Set;
 use musli::{Decode, Encode};
@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::{Dialect, Field, KanjiInfo, Miscellaneous, PartOfSpeech, ReadingInfo};
 use crate::priority::Priority;
-use crate::{Entity, Weight};
+use crate::Weight;
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
@@ -27,40 +27,56 @@ pub struct Entry<'a> {
 
 impl Entry<'_> {
     /// Return all unique entities associated with an entry.
-    pub fn entities(&self) -> HashSet<Entity> {
-        let mut set = HashSet::new();
-
+    pub fn visit_entities(&self, buf: &mut String, mut f: impl FnMut(&str)) {
         for sense in &self.senses {
             for pos in sense.pos.iter() {
-                set.insert(Entity::PartOfSpeech(pos));
+                f(pos.ident());
+
+                if let Some(name) = pos.generic() {
+                    f(name);
+                }
             }
 
             for misc in sense.misc.iter() {
-                set.insert(Entity::Miscellaneous(misc));
+                f(misc.ident());
             }
 
             for dialect in sense.dialect.iter() {
-                set.insert(Entity::Dialect(dialect));
+                f(dialect.ident());
             }
 
             for field in sense.field.iter() {
-                set.insert(Entity::Field(field));
+                f(field.ident());
             }
         }
 
         for reading in &self.reading_elements {
+            for priority in reading.priority.iter() {
+                buf.clear();
+                _ = write!(buf, "{priority}");
+                f(buf);
+                f(priority.category());
+            }
+
             for info in reading.info.iter() {
-                set.insert(Entity::ReadingInfo(info));
+                f(info.ident());
             }
         }
 
         for kanji in &self.kanji_elements {
+            for priority in kanji.priority.iter() {
+                buf.clear();
+                _ = write!(buf, "{priority}");
+                f(buf);
+                f(priority.category());
+            }
+
             for info in kanji.info.iter() {
-                set.insert(Entity::KanjiInfo(info));
+                f(info.ident());
             }
         }
 
-        set
+        buf.clear();
     }
 
     /// Entry weight.
