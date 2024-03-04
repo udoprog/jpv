@@ -4,8 +4,10 @@ use std::iter;
 use yew::prelude::*;
 
 macro_rules! bullets {
-    ($base:ident . $name:ident $(, $($tt:tt)*)?) => {
-        $base.$name.iter().map(|d| {
+    ($ctx:expr, $base:ident . $name:ident $(, $($tt:tt)*)?) => {{
+        let onclick = $ctx.link().callback(Msg::AddTag);
+
+        $base.$name.iter().map(move |d| {
             let class = classes! {
                 "bullet",
                 stringify!($name),
@@ -13,9 +15,11 @@ macro_rules! bullets {
                 $($($tt)*)*
             };
 
-            html!(<span class={class} title={d.help()}>{d.ident()}</span>)
+            let ident = d.ident();
+            let onclick = onclick.reform(move |_| ident);
+            html!(<a {class} title={d.help()} {onclick}>{d.ident()}</a>)
         })
-    }
+    }}
 }
 
 /// Construct a convenient sequence callback which calls the given `builder`

@@ -6,8 +6,8 @@ use super::spacing;
 
 #[derive(Properties, PartialEq)]
 pub(crate) struct Props {
-    pub(crate) query: Rc<str>,
-    pub(crate) analyzed: Rc<[Rc<str>]>,
+    pub(crate) query: String,
+    pub(crate) analyzed: Rc<[String]>,
     pub(crate) index: usize,
     #[prop_or_default]
     pub(crate) analyze_at: Option<usize>,
@@ -34,7 +34,7 @@ impl Component for AnalyzeToggle {
             let sub = ctx.props().query.get(i..).unwrap_or_default();
 
             let event = if let (Some(analyze_at), Some(string)) = (ctx.props().analyze_at, string) {
-                if i == analyze_at && rem == 0 && sub.starts_with(string.as_ref()) {
+                if i == analyze_at && rem == 0 && sub.starts_with(string.as_str()) {
                     rem = string.chars().count();
                     None
                 } else {

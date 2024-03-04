@@ -3,13 +3,16 @@ use yew::prelude::*;
 
 use super::{comma, romaji, ruby, seq};
 
-pub enum Msg {}
+pub enum Msg {
+    AddTag(&'static str),
+}
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
     pub embed: bool,
     pub entry: jmnedict::OwnedEntry,
     pub onclick: Callback<String>,
+    pub ontag: Callback<&'static str>,
 }
 
 pub struct Name;
@@ -20,6 +23,16 @@ impl Component for Name {
 
     fn create(_: &Context<Self>) -> Self {
         Self
+    }
+
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+        match msg {
+            Msg::AddTag(tag) => {
+                ctx.props().ontag.emit(tag);
+            }
+        }
+
+        false
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
@@ -59,7 +72,7 @@ impl Component for Name {
             html!({for it})
         };
 
-        let bullets = bullets!(entry.name_types, "sm");
+        let bullets = bullets!(ctx, entry.name_types, "sm");
 
         html! {
             <span class="row">

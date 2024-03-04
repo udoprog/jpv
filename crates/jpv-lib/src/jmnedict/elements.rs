@@ -19,6 +19,13 @@ pub struct Entry<'a> {
 }
 
 impl Entry<'_> {
+    /// Return all unique entities associated with an entry.
+    pub fn visit_entities(&self, mut f: impl FnMut(&str)) {
+        for ty in &self.name_types {
+            f(ty.ident());
+        }
+    }
+
     /// Entry weight.
     pub fn weight(&self, input: &str) -> Weight {
         // Boost based on exact query.

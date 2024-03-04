@@ -1,21 +1,27 @@
-use crate::entities::Entity;
+use std::ops::Range;
 
 const NUL: char = '\0';
 
 /// Helper to analyze a search query.
 #[derive(Default)]
-pub(super) struct SearchQuery<'a> {
-    pub(super) phrases: Vec<&'a str>,
-    pub(super) entities: Vec<Entity>,
+pub struct SearchQuery<'a> {
+    pub phrases: Vec<&'a str>,
+    pub phrase_ranges: Vec<Range<usize>>,
+    pub entities: Vec<&'a str>,
 }
 
-pub(super) struct SearchParser<'a> {
+/// Parse an input.
+pub fn parse(input: &str) -> SearchQuery<'_> {
+    SearchParser::new(input).parse()
+}
+
+struct SearchParser<'a> {
     input: &'a str,
     pos: usize,
 }
 
 impl<'a> SearchParser<'a> {
-    pub(super) fn new(input: &'a str) -> Self {
+    fn new(input: &'a str) -> Self {
         Self { input, pos: 0 }
     }
 
@@ -52,7 +58,7 @@ impl<'a> SearchParser<'a> {
         &self.input[start..self.pos]
     }
 
-    pub(super) fn parse(&mut self) -> SearchQuery<'a> {
+    fn parse(&mut self) -> SearchQuery<'a> {
         let mut query = SearchQuery::default();
 
         let mut start = None;
@@ -69,18 +75,16 @@ impl<'a> SearchParser<'a> {
                 }
                 '#' => {
                     if let Some(start) = start.take() {
+                        query.phrase_ranges.push(start..end);
                         query.phrases.push(&self.input[start..end]);
                     }
 
                     self.step();
-                    let ident = self.ident();
-
-                    if let Some(entity) = Entity::parse_keyword(ident) {
-                        query.entities.push(entity);
-                    }
+                    query.entities.push(self.ident());
                 }
                 ',' | '、' | '.' | '。' => {
                     if let Some(start) = start.take() {
+                        query.phrase_ranges.push(start..end);
                         query.phrases.push(&self.input[start..end]);
                     }
 
@@ -98,6 +102,7 @@ impl<'a> SearchParser<'a> {
         }
 
         if let Some(start) = start.take() {
+            query.phrase_ranges.push(start..end);
             query.phrases.push(&self.input[start..end]);
         }
 
@@ -107,17 +112,12 @@ impl<'a> SearchParser<'a> {
 
 #[test]
 fn test_parse() {
-    use crate::entities::PartOfSpeech;
-
     let mut parser =
         SearchParser::new("\t\thello world #v5s first tail phrase*, , ,,, second tail phrase\n\n");
     let query = parser.parse();
 
     assert_eq!(query.entities.len(), 1);
-    assert_eq!(
-        query.entities[0],
-        Entity::PartOfSpeech(PartOfSpeech::VerbGodanS)
-    );
+    assert_eq!(query.entities[0], "v5s");
     assert_eq!(query.phrases.len(), 3);
     assert_eq!(query.phrases[0], "hello world");
     assert_eq!(query.phrases[1], "first tail phrase*");

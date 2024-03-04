@@ -3,20 +3,8 @@ use musli::{Decode, Encode};
 use musli_zerocopy::{Visit, ZeroCopy};
 use serde::{Deserialize, Serialize};
 
-macro_rules! pick {
-    ($entity:literal,) => {
-        $entity
-    };
-
-    ($entity:literal, $parse:literal) => {
-        $parse
-    };
-}
-
 macro_rules! entity {
     (
-        $enum_name:ident, $test:ident,
-
         $(
             $(#[$($meta:meta)*])*
             $vis:vis enum $name:ident {
@@ -24,35 +12,6 @@ macro_rules! entity {
             }
         )*
     ) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        #[non_exhaustive]
-        pub enum $enum_name {
-            $(
-                $name($name),
-            )*
-        }
-
-        impl $enum_name {
-            #[allow(unused)]
-            pub(crate) fn parse_keyword(string: &str) -> Option<$enum_name> {
-                match string {
-                    $(
-                        $(pick!($entity, $($parse)*) => Some($enum_name::$name($name::$variant)),)*
-                    )*
-                    _ => None,
-                }
-            }
-        }
-
-        #[test]
-        fn $test() {
-            $(
-                $(
-                    assert_eq!($enum_name::parse_keyword(pick!($entity, $($parse)*)), Some($enum_name::$name($name::$variant)), "Failed to parse `{}`", pick!($entity, $($parse)*));
-                )*
-            )*
-        }
-
         $(
             $(#[$($meta)*])*
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Key, ZeroCopy, Visit)]
@@ -72,13 +31,13 @@ macro_rules! entity {
                     $($name::$variant,)*
                 ];
 
-                $vis fn variant(&self) -> &str {
+                $vis fn variant(&self) -> &'static str {
                     match self {
                         $($name::$variant => stringify!($variant),)*
                     }
                 }
 
-                $vis fn ident(&self) -> &str {
+                $vis fn ident(&self) -> &'static str {
                     match self {
                         $($name::$variant => $entity,)*
                     }
@@ -109,8 +68,6 @@ macro_rules! entity {
 }
 
 entity! {
-    Entity, test_entity,
-
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum Miscellaneous {
         <Abbreviation "abbr" "abbreviation">
@@ -398,10 +355,6 @@ entity! {
         <VideoGames "vidg" "video games">
         <Zoology "zool" "zoology">
     }
-}
-
-entity! {
-    NameEntity, test_name_entity,
 
     #[derive(Encode, Decode, Serialize, Deserialize)]
     pub enum NameType {
@@ -431,5 +384,105 @@ entity! {
         <Surname "surname" "family or surname">
         <Unclassified "unclass" "unclassified name">
         <Work "work" "work of art, literature, music, etc. name">
+    }
+}
+
+impl PartOfSpeech {
+    /// Get a generic category for this part of speech.
+    pub(crate) fn generic(&self) -> Option<&'static str> {
+        match self {
+            PartOfSpeech::AdjectiveF => Some("adjective"),
+            PartOfSpeech::AdjectiveI => Some("adjective"),
+            PartOfSpeech::AdjectiveIx => Some("adjective"),
+            PartOfSpeech::AdjectiveKari => Some("adjective"),
+            PartOfSpeech::AdjectiveKu => Some("adjective"),
+            PartOfSpeech::AdjectiveNa => Some("adjective"),
+            PartOfSpeech::AdjectiveNari => Some("adjective"),
+            PartOfSpeech::AdjectiveNo => Some("adjective"),
+            PartOfSpeech::AdjectivePn => Some("adjective"),
+            PartOfSpeech::AdjectiveShiku => Some("adjective"),
+            PartOfSpeech::AdjectiveT => Some("adjective"),
+            PartOfSpeech::Adverb => Some("adverb"),
+            PartOfSpeech::AdverbTo => Some("adverb"),
+            PartOfSpeech::Auxiliary => Some("auxiliary"),
+            PartOfSpeech::AuxiliaryAdjective => Some("auxiliary"),
+            PartOfSpeech::AuxiliaryVerb => Some("auxiliary"),
+            PartOfSpeech::Conjunction => Some("conjunction"),
+            PartOfSpeech::Copular => Some("copular"),
+            PartOfSpeech::Counter => Some("counter"),
+            PartOfSpeech::Expression => Some("expression"),
+            PartOfSpeech::Interjection => Some("interjection"),
+            PartOfSpeech::Noun => Some("noun"),
+            PartOfSpeech::NounAdverbial => Some("noun"),
+            PartOfSpeech::NounProper => Some("noun"),
+            PartOfSpeech::NounPrefix => Some("noun"),
+            PartOfSpeech::NounSuffix => Some("noun"),
+            PartOfSpeech::NounTemporal => Some("noun"),
+            PartOfSpeech::Numeric => Some("numeric"),
+            PartOfSpeech::Pronoun => Some("pronoun"),
+            PartOfSpeech::Prefix => Some("prefix"),
+            PartOfSpeech::Particle => Some("particle"),
+            PartOfSpeech::Suffix => Some("suffix"),
+            PartOfSpeech::Unclassified => None,
+            PartOfSpeech::VerbUnspecified => Some("verb"),
+            PartOfSpeech::VerbIchidan => Some("verb"),
+            PartOfSpeech::VerbIchidanS => Some("verb"),
+            PartOfSpeech::VerbNidanAS => Some("verb"),
+            PartOfSpeech::VerbNidanBK => Some("verb"),
+            PartOfSpeech::VerbNidanBS => Some("verb"),
+            PartOfSpeech::VerbNidanDK => Some("verb"),
+            PartOfSpeech::VerbNidanDS => Some("verb"),
+            PartOfSpeech::VerbNidanGK => Some("verb"),
+            PartOfSpeech::VerbNidanGS => Some("verb"),
+            PartOfSpeech::VerbNidanHK => Some("verb"),
+            PartOfSpeech::VerbNidanHS => Some("verb"),
+            PartOfSpeech::VerbNidanKK => Some("verb"),
+            PartOfSpeech::VerbNidanKS => Some("verb"),
+            PartOfSpeech::VerbNidanMK => Some("verb"),
+            PartOfSpeech::VerbNidanMS => Some("verb"),
+            PartOfSpeech::VerbNidanNS => Some("verb"),
+            PartOfSpeech::VerbNidanRK => Some("verb"),
+            PartOfSpeech::VerbNidanRS => Some("verb"),
+            PartOfSpeech::VerbNidanSS => Some("verb"),
+            PartOfSpeech::VerbNidanTK => Some("verb"),
+            PartOfSpeech::VerbNidanTS => Some("verb"),
+            PartOfSpeech::VerbNidanWS => Some("verb"),
+            PartOfSpeech::VerbNidanYK => Some("verb"),
+            PartOfSpeech::VerbNidanYS => Some("verb"),
+            PartOfSpeech::VerbNidanZS => Some("verb"),
+            PartOfSpeech::VerbYodanB => Some("verb"),
+            PartOfSpeech::VerbYodanG => Some("verb"),
+            PartOfSpeech::VerbYodanH => Some("verb"),
+            PartOfSpeech::VerbYodanK => Some("verb"),
+            PartOfSpeech::VerbYodanM => Some("verb"),
+            PartOfSpeech::VerbYodanN => Some("verb"),
+            PartOfSpeech::VerbYodanR => Some("verb"),
+            PartOfSpeech::VerbYodanS => Some("verb"),
+            PartOfSpeech::VerbYodanT => Some("verb"),
+            PartOfSpeech::VerbGodanAru => Some("verb"),
+            PartOfSpeech::VerbGodanB => Some("verb"),
+            PartOfSpeech::VerbGodanG => Some("verb"),
+            PartOfSpeech::VerbGodanK => Some("verb"),
+            PartOfSpeech::VerbGodanKS => Some("verb"),
+            PartOfSpeech::VerbGodanM => Some("verb"),
+            PartOfSpeech::VerbGodanN => Some("verb"),
+            PartOfSpeech::VerbGodanR => Some("verb"),
+            PartOfSpeech::VerbGodanRI => Some("verb"),
+            PartOfSpeech::VerbGodanS => Some("verb"),
+            PartOfSpeech::VerbGodanT => Some("verb"),
+            PartOfSpeech::VerbGodanU => Some("verb"),
+            PartOfSpeech::VerbGodanUS => Some("verb"),
+            PartOfSpeech::VerbGodanUru => Some("verb"),
+            PartOfSpeech::VerbIntransitive => Some("verb"),
+            PartOfSpeech::VerbKuru => Some("verb"),
+            PartOfSpeech::VerbNu => Some("verb"),
+            PartOfSpeech::VerbRu => Some("verb"),
+            PartOfSpeech::VerbSuru => Some("verb"),
+            PartOfSpeech::VerbSuC => Some("verb"),
+            PartOfSpeech::VerbSuruIncluded => Some("verb"),
+            PartOfSpeech::VerbSuruSpecial => Some("verb"),
+            PartOfSpeech::VerbTransitive => Some("verb"),
+            PartOfSpeech::VerbZuru => Some("verb"),
+        }
     }
 }
