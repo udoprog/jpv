@@ -3,23 +3,23 @@ readme_badges = ["-crates.io", "+discord"]
 
 [[package.files]]
 source = "desktop/se.tedro.JapaneseDictionary.desktop"
-dest = "/usr/share/applications/"
+dest = "usr/share/applications/"
 
 [[package.files]]
 source = "desktop/se.tedro.JapaneseDictionary.png"
-dest = "/usr/share/icons/hicolor/256x256/apps/"
+dest = "usr/share/icons/hicolor/256x256/apps/"
 
 [[package.files]]
 source = "desktop/se.tedro.JapaneseDictionary.service"
-dest = "/usr/share/dbus-1/services/"
+dest = "usr/share/dbus-1/services/"
 
 [[package.files]]
 source = "desktop/se.tedro.japanese-dictionary.plugins.gschema.xml"
-dest = "/usr/share/glib-2.0/schemas/"
+dest = "usr/share/glib-2.0/schemas/"
 
 [[package.files]]
 source = "gnome/jpv@tedro.se/*"
-dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/"
+dest = "usr/share/gnome-shell/extensions/jpv@tedro.se/"
 
 [package.rpm]
 requires = [
