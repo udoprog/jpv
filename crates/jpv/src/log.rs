@@ -17,7 +17,7 @@ const LIMIT: usize = 100;
 static THREAD_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 thread_local! {
-    static THREAD_INDEX_THREAD: Cell<Option<usize>> = Cell::new(None);
+    static THREAD_INDEX_THREAD: Cell<Option<usize>> = const { Cell::new(None) };
 }
 
 pub fn new(system_events: system::SystemEvents) -> (Layer, Capture) {

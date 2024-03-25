@@ -406,11 +406,7 @@ fn find_inflection<'a>(
 ) -> Option<(Inflection, &'a OwnedInflections)> {
     match source {
         Source::Inflection { data } => {
-            let Some((_, inflections)) = inflections.iter().find(|(r, _)| *r == data.reading)
-            else {
-                return None;
-            };
-
+            let (_, inflections) = inflections.iter().find(|(r, _)| *r == data.reading)?;
             Some((data.inflection, inflections))
         }
         _ => None,

@@ -5,34 +5,28 @@ pub mod set {
     use fixed_map::{Key, Set};
     use musli::de::{Decode, Decoder};
     use musli::en::{Encode, Encoder};
-    use musli::mode::Mode;
-    use musli::Context;
 
     #[inline]
-    pub fn encode<M, C, E, T>(set: &Set<T>, cx: &mut C, encoder: E) -> Result<E::Ok, C::Error>
+    pub fn encode<E, T>(set: &Set<T>, _: &E::Cx, encoder: E) -> Result<E::Ok, E::Error>
     where
-        C: Context<Input = E::Error>,
-        M: Mode,
         E: Encoder,
         T: Key,
         T::SetStorage: RawStorage,
-        <T::SetStorage as RawStorage>::Value: Encode,
+        <T::SetStorage as RawStorage>::Value: Encode<E::Mode>,
     {
-        set.as_raw().encode(cx, encoder)
+        encoder.encode(set.as_raw())
     }
 
     #[inline]
-    pub fn decode<'de, M, C, D, T>(cx: &mut C, decoder: D) -> Result<Set<T>, C::Error>
+    pub fn decode<'de, D, T>(_: &D::Cx, decoder: D) -> Result<Set<T>, D::Error>
     where
-        C: Context<Input = D::Error>,
-        M: Mode,
         D: Decoder<'de>,
         T: Key,
         T::SetStorage: RawStorage,
-        <T::SetStorage as RawStorage>::Value: Decode<'de, M>,
+        <T::SetStorage as RawStorage>::Value: Decode<'de, D::Mode>,
     {
-        Ok(Set::from_raw(<T::SetStorage as RawStorage>::Value::decode(
-            cx, decoder,
-        )?))
+        Ok(Set::from_raw(
+            decoder.decode::<<T::SetStorage as RawStorage>::Value>()?,
+        ))
     }
 }

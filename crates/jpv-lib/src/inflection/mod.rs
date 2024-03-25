@@ -111,7 +111,7 @@ form! {
 #[musli(transparent)]
 #[repr(transparent)]
 pub struct Inflection {
-    #[musli(with = crate::musli::set::<_>)]
+    #[musli(with = crate::musli::set)]
     form: Set<Form>,
 }
 

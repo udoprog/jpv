@@ -6,9 +6,9 @@
 #![allow(clippy::match_like_matches_macro)]
 
 /// Dictionary magic `JPVD`.
-pub const DICTIONARY_MAGIC: u32 = 0x4a_50_56_44;
+pub const DATABASE_MAGIC: u32 = 0x4a_50_56_44;
 /// Current database version in use.
-pub const DICTIONARY_VERSION: u32 = 7;
+pub const DATABASE_VERSION: u32 = 8;
 
 /// Helper to convert a type to its owned variant.
 pub use ::borrowme::to_owned;

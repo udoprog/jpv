@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: ["1.74", stable]
+        rust: ["1.76", stable]
         os: [ubuntu-latest, windows-latest]
     steps:
     - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@1.74.1
+    - uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
     - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev

@@ -114,9 +114,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
                 }
                 PartOfSpeech::VerbGodanKS => {
-                    let Some((mode, kanji_stem, reading_stem)) =
-                        extract_iku(kanji_text, reading_text)
-                    else {
+                    let Some((k, r)) = match_char(kanji_text, reading_text, 'く') else {
                         allowlist!();
                         continue;
                     };
@@ -125,23 +123,12 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         inflections.insert(
                             inflect,
                             &[],
-                            Fragments::new(
-                                [kanji_stem, mode.apply(prefix)],
-                                [reading_stem, prefix],
-                                [suffix],
-                            ),
+                            Fragments::new([k], [r], [prefix, suffix]),
                         );
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((
-                        Fragments::new(
-                            [kanji_stem, mode.apply("き")],
-                            [reading_stem, "き"],
-                            ["っ"],
-                        ),
-                        false,
-                    ));
+                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
                 }
                 PartOfSpeech::VerbGodanU | PartOfSpeech::VerbGodanUS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'う') else {
@@ -525,18 +512,6 @@ fn extract_ii<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a s
     match s2(kanji)? {
         ('好' | '良', 'い', k, _) => Some((SuffixMode::Excluded, k, r)),
         ('い' | 'よ', 'い', _, k) => Some((SuffixMode::Included, k, r)),
-        _ => None,
-    }
-}
-
-fn extract_iku<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a str, &'a str)> {
-    let ('い' | 'ゆ', 'く', r) = s(reading)? else {
-        return None;
-    };
-
-    match s2(kanji)? {
-        ('行' | '往' | '逝', 'く', k, _) => Some((SuffixMode::Excluded, k, r)),
-        ('い' | 'ゆ', 'く', _, k) => Some((SuffixMode::Included, k, r)),
         _ => None,
     }
 }

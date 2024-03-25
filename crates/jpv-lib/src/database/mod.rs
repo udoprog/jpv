@@ -30,7 +30,7 @@ use crate::reporter::Reporter;
 use crate::romaji::{self, is_hiragana, is_katakana, Segment};
 use crate::token::Token;
 use crate::{PartOfSpeech, Weight};
-use crate::{DICTIONARY_MAGIC, DICTIONARY_VERSION};
+use crate::{DATABASE_MAGIC, DATABASE_VERSION};
 
 use self::string_indexer::StringIndexer;
 
@@ -720,8 +720,8 @@ pub fn build(
     });
 
     buf.load_uninit_mut(header).write(&stored::GlobalHeader {
-        magic: DICTIONARY_MAGIC,
-        version: DICTIONARY_VERSION,
+        magic: DATABASE_MAGIC,
+        version: DATABASE_VERSION,
         index: index.assume_init(),
     });
 
@@ -886,11 +886,11 @@ impl Index {
         let buf = data.as_buf();
         let header = buf.load(Ref::<stored::GlobalHeader>::zero())?;
 
-        if header.magic != DICTIONARY_MAGIC {
+        if header.magic != DATABASE_MAGIC {
             return Err(IndexOpenError::MagicMismatch);
         }
 
-        if header.version != DICTIONARY_VERSION {
+        if header.version != DATABASE_VERSION {
             return Err(IndexOpenError::Outdated);
         }
 

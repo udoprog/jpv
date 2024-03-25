@@ -136,7 +136,7 @@ pub struct KanjiElement<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub priority: Vec<Priority>,
     #[serde(default, skip_serializing_if = "Set::is_empty")]
-    #[musli(with = crate::musli::set::<_>)]
+    #[musli(with = crate::musli::set)]
     #[copy]
     pub info: Set<KanjiInfo>,
 }
@@ -190,7 +190,7 @@ pub struct ReadingElement<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub priority: Vec<Priority>,
     #[serde(default, skip_serializing_if = "Set::is_empty")]
-    #[musli(with = crate::musli::set::<_>)]
+    #[musli(with = crate::musli::set)]
     #[copy]
     pub info: Set<ReadingInfo>,
 }
@@ -340,19 +340,19 @@ pub struct Sense<'a> {
     pub antonym: Vec<&'a str>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<Example<'a>>,
-    #[musli(with = crate::musli::set::<_>)]
+    #[musli(with = crate::musli::set)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]
     #[copy]
     pub pos: Set<PartOfSpeech>,
-    #[musli(with = crate::musli::set::<_>)]
+    #[musli(with = crate::musli::set)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]
     #[copy]
     pub misc: Set<Miscellaneous>,
-    #[musli(with = crate::musli::set::<_>)]
+    #[musli(with = crate::musli::set)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]
     #[copy]
     pub dialect: Set<Dialect>,
-    #[musli(with = crate::musli::set::<_>)]
+    #[musli(with = crate::musli::set)]
     #[serde(default, skip_serializing_if = "Set::is_empty")]
     #[copy]
     pub field: Set<Field>,
