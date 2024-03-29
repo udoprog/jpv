@@ -10,10 +10,9 @@ pub(crate) struct Godan {
     pub(super) te: &'static str,
     pub(super) te_stem: &'static str,
     pub(super) past: &'static str,
-    pub(super) past_conditional: &'static str,
-    pub(super) hypothetical_conversational: Option<(&'static str, &'static str)>,
-    // If で verb, else て.
-    pub(super) de: bool,
+    pub(super) tara: &'static str,
+    pub(super) kya: Option<&'static str>,
+    pub(super) nake_kya: Option<&'static str>,
 }
 
 /// The U godan table.
@@ -26,9 +25,9 @@ pub(super) static U: &Godan = &Godan {
     te: "って",
     te_stem: "っ",
     past: "った",
-    past_conditional: "ったら",
-    hypothetical_conversational: Some(("やぁ", "なけやぁ")),
-    de: false,
+    tara: "ったら",
+    kya: Some("やぁ"),
+    nake_kya: Some("なけやぁ"),
 };
 
 /// The TSU godan table.
@@ -41,9 +40,9 @@ pub(super) static TSU: &Godan = &Godan {
     te: "って",
     te_stem: "っ",
     past: "った",
-    past_conditional: "ったら",
-    hypothetical_conversational: None,
-    de: false,
+    tara: "ったら",
+    kya: None,
+    nake_kya: None,
 };
 
 /// The RU godan table.
@@ -56,9 +55,9 @@ pub(super) static RU: &Godan = &Godan {
     te: "って",
     te_stem: "っ",
     past: "った",
-    past_conditional: "ったら",
-    hypothetical_conversational: Some(("りゃ", "なけりゃ")),
-    de: false,
+    tara: "ったら",
+    kya: Some("りゃ"),
+    nake_kya: Some("なけりゃ"),
 };
 /// The KU godan table.
 pub(super) static KU: &Godan = &Godan {
@@ -70,9 +69,9 @@ pub(super) static KU: &Godan = &Godan {
     te: "いて",
     te_stem: "い",
     past: "いた",
-    past_conditional: "いたら",
-    hypothetical_conversational: Some(("きゃ", "なけきゃ")),
-    de: false,
+    tara: "いたら",
+    kya: Some("きゃ"),
+    nake_kya: Some("なけきゃ"),
 };
 /// The GU godan table.
 pub(super) static GU: &Godan = &Godan {
@@ -84,9 +83,9 @@ pub(super) static GU: &Godan = &Godan {
     te: "いで",
     te_stem: "い",
     past: "いだ",
-    past_conditional: "いだら",
-    hypothetical_conversational: None,
-    de: true,
+    tara: "いだら",
+    kya: None,
+    nake_kya: None,
 };
 /// The MU godan table.
 pub(super) static MU: &Godan = &Godan {
@@ -98,9 +97,9 @@ pub(super) static MU: &Godan = &Godan {
     te: "んで",
     te_stem: "ん",
     past: "んだ",
-    past_conditional: "んだら",
-    hypothetical_conversational: None,
-    de: true,
+    tara: "んだら",
+    kya: None,
+    nake_kya: None,
 };
 /// The BU godan table.
 pub(super) static BU: &Godan = &Godan {
@@ -112,9 +111,9 @@ pub(super) static BU: &Godan = &Godan {
     te: "んで",
     te_stem: "ん",
     past: "んだ",
-    past_conditional: "んだら",
-    hypothetical_conversational: None,
-    de: true,
+    tara: "んだら",
+    kya: None,
+    nake_kya: None,
 };
 /// The NU godan table.
 pub(super) static NU: &Godan = &Godan {
@@ -126,9 +125,9 @@ pub(super) static NU: &Godan = &Godan {
     te: "んで",
     te_stem: "ん",
     past: "んだ",
-    past_conditional: "んだら",
-    hypothetical_conversational: None,
-    de: true,
+    tara: "んだら",
+    kya: None,
+    nake_kya: None,
 };
 /// The SU godan table.
 pub(super) static SU: &Godan = &Godan {
@@ -140,9 +139,9 @@ pub(super) static SU: &Godan = &Godan {
     te: "して",
     te_stem: "し",
     past: "した",
-    past_conditional: "したら",
-    hypothetical_conversational: None,
-    de: false,
+    tara: "したら",
+    kya: None,
+    nake_kya: None,
 };
 /// The IKU/YUKU godan table.
 pub(super) static IKU: &Godan = &Godan {
@@ -154,7 +153,7 @@ pub(super) static IKU: &Godan = &Godan {
     te: "って",
     te_stem: "っ",
     past: "った",
-    past_conditional: "ったら",
-    hypothetical_conversational: Some(("きゃ", "なけきゃ")),
-    de: false,
+    tara: "ったら",
+    kya: Some("きゃ"),
+    nake_kya: Some("なけきゃ"),
 };

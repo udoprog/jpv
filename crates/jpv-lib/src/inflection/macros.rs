@@ -65,7 +65,7 @@ pub fn ichidan_te(mut r: impl FnMut(&'static str, &[Form])) {
 pub(crate) fn godan_lit(g: &'static Godan, mut r: impl FnMut(&'static str, &'static str, &[Form])) {
     r("", g.u, &[]);
     r("", g.past, &[Past]);
-    r("", g.past_conditional, &[Conditional]);
+    r("", g.tara, &[Conditional]);
     r("", g.e, &[Command]);
     r(g.i, "ます", &[Honorific]);
     r(g.a, "ない", &[Negative]);
@@ -79,9 +79,12 @@ pub(crate) fn godan_lit(g: &'static Godan, mut r: impl FnMut(&'static str, &'sta
     r(g.u, "な", &[Command, Negative]);
     r(g.a, "ないでください", &[Command, Negative, Honorific]);
 
-    if let Some((regular, negative)) = g.hypothetical_conversational {
-        r("", regular, &[Hypothetical, Conversation]);
-        r("", negative, &[Hypothetical, Negative, Conversation]);
+    if let Some(kya) = g.kya {
+        r("", kya, &[Hypothetical, Conversation]);
+    }
+
+    if let Some(nake_kya) = g.nake_kya {
+        r("", nake_kya, &[Hypothetical, Negative, Conversation]);
     }
 
     r(g.e, "ば", &[Hypothetical]);
