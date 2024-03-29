@@ -83,7 +83,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             let mut inflections = Inflections::new(Full::new(kanji_text, reading_text, ""));
 
             let kind;
-            let chau_stem: Option<(Fragments<'_>, bool)>;
+            let chau_stem: Option<Fragments<'_>>;
 
             macro_rules! allowlist {
                 ($($expected:literal),*) => {
@@ -111,7 +111,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
+                    chau_stem = Some(Fragments::new([k], [r], ["っちゃ"]));
                 }
                 PartOfSpeech::VerbGodanKS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'く') else {
@@ -128,7 +128,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
+                    chau_stem = Some(Fragments::new([k], [r], ["っちゃ"]));
                 }
                 PartOfSpeech::VerbGodanU | PartOfSpeech::VerbGodanUS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'う') else {
@@ -145,7 +145,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
+                    chau_stem = Some(Fragments::new([k], [r], ["っちゃ"]));
                 }
                 PartOfSpeech::VerbGodanT => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'つ') else {
@@ -162,7 +162,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
+                    chau_stem = Some(Fragments::new([k], [r], ["っちゃ"]));
                 }
                 PartOfSpeech::VerbGodanR
                 | PartOfSpeech::VerbGodanRI
@@ -182,7 +182,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["っ"]), false));
+                    chau_stem = Some(Fragments::new([k], [r], ["っちゃ"]));
                 }
                 PartOfSpeech::VerbGodanK => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'く') else {
@@ -199,7 +199,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["い"]), false));
+                    chau_stem = Some(Fragments::new([k], [r], ["いちゃ"]));
                 }
                 PartOfSpeech::VerbGodanG => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぐ') else {
@@ -216,7 +216,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["い"]), true));
+                    chau_stem = Some(Fragments::new([k], [r], ["いじゃ"]));
                 }
                 PartOfSpeech::VerbGodanM => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'む') else {
@@ -233,7 +233,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["ん"]), true));
+                    chau_stem = Some(Fragments::new([k], [r], ["んじゃ"]));
                 }
                 PartOfSpeech::VerbGodanB => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぶ') else {
@@ -250,7 +250,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["ん"]), true));
+                    chau_stem = Some(Fragments::new([k], [r], ["んじゃ"]));
                 }
                 PartOfSpeech::VerbGodanN => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'ぬ') else {
@@ -267,7 +267,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["ん"]), true));
+                    chau_stem = Some(Fragments::new([k], [r], ["んじゃ"]));
                 }
                 PartOfSpeech::VerbGodanS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'す') else {
@@ -284,7 +284,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([k], [r], ["し"]), false));
+                    chau_stem = Some(Fragments::new([k], [r], ["しちゃ"]));
                 }
                 PartOfSpeech::VerbSuruSpecial | PartOfSpeech::VerbSuruIncluded => {
                     let Some((mode, kanji_stem, reading_stem)) =
@@ -307,7 +307,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     });
 
                     kind = Kind::Verb;
-                    chau_stem = Some((Fragments::new([kanji_stem], [reading_stem], ["し"]), false));
+                    chau_stem = Some(Fragments::new([kanji_stem], [reading_stem], ["しちゃ"]));
                 }
                 PartOfSpeech::VerbKuru => {
                     let Some((mode, kanji_stem, reading_prefix)) =
@@ -428,21 +428,15 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
 
                 inflections.insert(&[Te, TeOku, Short], &[], te.concat(["く"]));
 
-                macros::kuru(|r, suffix, inflect| {
-                    inflections.insert(inflect, &[TeKuru, Te], te.concat([r, suffix]));
+                macros::kuru(|prefix, suffix, inflect| {
+                    inflections.insert(inflect, &[TeKuru, Te], te.concat([prefix, suffix]));
                 });
             }
 
-            if let Some((stem, de)) = chau_stem {
-                if de {
-                    macros::godan_u(|prefix, suffix, inflect| {
-                        inflections.insert(inflect, &[Chau], stem.concat(["じゃ", prefix, suffix]));
-                    });
-                } else {
-                    macros::godan_u(|prefix, suffix, inflect| {
-                        inflections.insert(inflect, &[Chau], stem.concat(["ちゃ", prefix, suffix]));
-                    });
-                }
+            if let Some(stem) = chau_stem {
+                macros::godan_u(|prefix, suffix, inflect| {
+                    inflections.insert(inflect, &[Chau], stem.concat([prefix, suffix]));
+                });
             }
 
             if let Some(kanji) = kanji {
