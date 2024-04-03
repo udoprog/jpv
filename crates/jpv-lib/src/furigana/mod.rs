@@ -4,10 +4,8 @@ mod tests;
 use core::fmt;
 use std::slice;
 
-use crate::{
-    concat::{self, Concat},
-    romaji::{is_hiragana, is_katakana},
-};
+use crate::concat::{self, Concat};
+use crate::kana::{is_hiragana, is_katakana};
 
 /// An iterator over furigana groups.
 #[derive(Clone, Copy)]

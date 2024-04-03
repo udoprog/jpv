@@ -2,7 +2,7 @@ mod godan;
 #[macro_use]
 mod macros;
 
-pub use self::conjugate::{conjugate, Kind, Reading};
+pub use self::conjugate::{conjugate, reading_permutations, Kind, Reading};
 mod conjugate;
 
 use std::fmt;

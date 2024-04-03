@@ -54,9 +54,9 @@ pub use self::entities::PartOfSpeech;
 mod furigana;
 pub use self::furigana::{Furigana, FuriganaGroup};
 
-pub mod romaji;
-
 pub mod kana;
+pub mod morae;
+pub mod romaji;
 
 mod priority;
 pub use self::priority::Priority;

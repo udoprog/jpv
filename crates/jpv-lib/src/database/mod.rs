@@ -24,10 +24,11 @@ use crate::data::Data;
 use crate::inflection::{self, Inflection};
 use crate::jmdict;
 use crate::jmnedict;
+use crate::kana;
 use crate::kanjidic2;
 use crate::kradfile;
 use crate::reporter::Reporter;
-use crate::romaji::{self, is_hiragana, is_katakana, Segment};
+use crate::romaji::{self, Segment};
 use crate::token::Token;
 use crate::{PartOfSpeech, Weight};
 use crate::{DATABASE_MAGIC, DATABASE_VERSION};
@@ -1092,6 +1093,27 @@ impl Database {
         Ok(output)
     }
 
+    /// Lookup any entries matching a custom filter.
+    #[tracing::instrument(skip_all)]
+    pub fn filter<F>(&self, mut filter: F) -> Result<Vec<Id>>
+    where
+        F: FnMut(&[u8]) -> bool,
+    {
+        let mut output = Vec::new();
+
+        for (index, d) in self.indexes.iter().enumerate() {
+            for result in d.header.lookup.iter(d.data.as_buf()) {
+                let (key, id) = result?;
+
+                if filter(key) {
+                    output.push(self.convert_id(index, *id)?);
+                }
+            }
+        }
+
+        Ok(output)
+    }
+
     /// Perform a free text lookup.
     #[tracing::instrument(skip_all)]
     pub fn lookup(&self, query: &str) -> Result<Vec<Id>> {
@@ -1323,7 +1345,7 @@ impl Database {
         out: &mut Vec<kanjidic2::Character<'this>>,
     ) -> Result<()> {
         for c in input.chars() {
-            if is_katakana(c) || is_hiragana(c) || c.is_ascii_alphabetic() {
+            if kana::is_katakana(c) || kana::is_hiragana(c) || c.is_ascii_alphabetic() {
                 continue;
             }
 

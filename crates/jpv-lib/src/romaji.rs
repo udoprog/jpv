@@ -9,18 +9,7 @@ mod chars;
 #[cfg(test)]
 mod tests;
 
-#[derive(PartialEq, Eq)]
-#[repr(u8)]
-enum Class {
-    U,
-    L,
-    P,
-    X,
-}
-
 use std::array::from_fn;
-
-use Class::*;
 
 #[allow(unused)]
 macro_rules! hira {
@@ -209,96 +198,4 @@ impl PartialEq<&str> for Segment<'_> {
     fn eq(&self, other: &&str) -> bool {
         self.string == *other
     }
-}
-
-const HIRA_B: usize = 0x3040;
-
-#[rustfmt::skip]
-const HIRA_T: [Class; 0x60] = [
-    /*U+304x*/
-    /*　*/ X, /*ぁ*/ U, /*あ*/ U, /*ぃ*/ U, /*い*/ U, /*ぅ*/ U, /*う*/ U, /*ぇ*/ U,
-    /*え*/ U, /*ぉ*/ U, /*お*/ U, /*か*/ U, /*が*/ U, /*き*/ U, /*ぎ*/ U, /*く*/ U,
-    /*U+305x*/
-    /*ぐ*/ U, /*け*/ U, /*げ*/ U, /*こ*/ U, /*ご*/ U, /*さ*/ U, /*ざ*/ U, /*し*/ U,
-    /*じ*/ U, /*す*/ U, /*ず*/ U, /*せ*/ U, /*ぜ*/ U, /*そ*/ U, /*ぞ*/ U, /*た*/ U,
-    /*U+306x*/
-    /*だ*/ U, /*ち*/ U, /*ぢ*/ U, /*っ*/ U, /*つ*/ U, /*づ*/ U, /*て*/ U, /*で*/ U,
-    /*と*/ U, /*ど*/ U, /*な*/ U, /*に*/ U, /*ぬ*/ U, /*ね*/ U, /*の*/ U, /*は*/ U,
-    /*U+307x*/
-    /*ば*/ U, /*ぱ*/ U, /*ひ*/ U, /*び*/ U, /*ぴ*/ U, /*ふ*/ U, /*ぶ*/ U, /*ぷ*/ U,
-    /*へ*/ U, /*べ*/ U, /*ぺ*/ U, /*ほ*/ U, /*ぼ*/ U, /*ぽ*/ U, /*ま*/ U, /*み*/ U,
-    /*U+308x*/
-    /*む*/ U, /*め*/ U, /*も*/ U, /*ゃ*/ L, /*や*/ U, /*ゅ*/ L, /*ゆ*/ U, /*ょ*/ L,
-    /*よ*/ U, /*ら*/ U, /*り*/ U, /*る*/ U, /*れ*/ U, /*ろ*/ U, /*ゎ*/ U, /*わ*/ U,
-    /*U+309x*/
-    /*ゐ*/ U, /*ゑ*/ U, /*を*/ U, /*ん*/ U, /*ゔ*/ U, /*ゕ*/ U, /*ゖ*/ U, /*　*/ X,
-    /*　*/ X, /*　*/ P, /*　*/ P, /*　*/ P, /*　*/ P, /*ゝ*/ P, /*ゞ*/ P, /*ゟ*/ P,
-];
-
-const KATA_B: usize = 0x30a0;
-
-#[rustfmt::skip]
-const KATA_T: [Class; 0x60] = [
-    /*U+30Ax */
-    /*゠*/ P, /*ァ*/ L, /*ア*/ U, /*ィ*/ L, /*イ*/ U, /*ゥ*/ L, /*ウ*/ U, /*ェ*/ L,
-    /*エ*/ U, /*ォ*/ L, /*オ*/ U, /*カ*/ U, /*ガ*/ U, /*キ*/ U, /*ギ*/ U, /*ク*/ U,
-    /*U+30Bx */
-    /*グ*/ U, /*ケ*/ U, /*ゲ*/ U, /*コ*/ U, /*ゴ*/ U, /*サ*/ U, /*ザ*/ U, /*シ*/ U,
-    /*ジ*/ U, /*ス*/ U, /*ズ*/ U, /*セ*/ U, /*ゼ*/ U, /*ソ*/ U, /*ゾ*/ U, /*タ*/ U,
-    /*U+30Cx */
-    /*ダ*/ U, /*チ*/ U, /*ヂ*/ U, /*ッ*/ L, /*ツ*/ U, /*ヅ*/ U, /*テ*/ U, /*デ*/ U,
-    /*ト*/ U, /*ド*/ U, /*ナ*/ U, /*ニ*/ U, /*ヌ*/ U, /*ネ*/ U, /*ノ*/ U, /*ハ*/ U,
-    /*U+30Dx */
-    /*バ*/ U, /*パ*/ U, /*ヒ*/ U, /*ビ*/ U, /*ピ*/ U, /*フ*/ U, /*ブ*/ U, /*プ*/ U,
-    /*ヘ*/ U, /*ベ*/ U, /*ペ*/ U, /*ホ*/ U, /*ボ*/ U, /*ポ*/ U, /*マ*/ U, /*ミ*/ U,
-    /*U+30Ex */
-    /*ム*/ U, /*メ*/ U, /*モ*/ U, /*ャ*/ L, /*ヤ*/ U, /*ュ*/ L, /*ユ*/ U, /*ョ*/ L,
-    /*ヨ*/ U, /*ラ*/ U, /*リ*/ U, /*ル*/ U, /*レ*/ U, /*ロ*/ U, /*ヮ*/ L, /*ワ*/ U,
-    /*U+30Fx */
-    /*ヰ*/ U, /*ヱ*/ U, /*ヲ*/ U, /*ン*/ U, /*ヴ*/ U, /*ヵ*/ U, /*ヶ*/ U, /*ヷ*/ U,
-    /*ヸ*/ U, /*ヹ*/ U, /*ヺ*/ U, /*・*/ P, /*ー*/ P, /*ヽ*/ P, /*ヾ*/ P, /*ヿ*/ P,
-];
-
-pub(crate) fn is_katakana(c: char) -> bool {
-    test_katakana(c, U)
-}
-
-#[inline]
-#[allow(unused)]
-fn test_katakana(c: char, class: Class) -> bool {
-    let Ok(c) = usize::try_from(c as u32) else {
-        return false;
-    };
-
-    let Some(c) = c.checked_sub(KATA_B) else {
-        return false;
-    };
-
-    let Some(c) = KATA_T.get(c) else {
-        return false;
-    };
-
-    *c == class
-}
-
-pub(crate) fn is_hiragana(c: char) -> bool {
-    test_hiragana(c, U)
-}
-
-#[inline]
-#[allow(unused)]
-fn test_hiragana(c: char, class: Class) -> bool {
-    let Ok(c) = usize::try_from(c as u32) else {
-        return false;
-    };
-
-    let Some(c) = c.checked_sub(HIRA_B) else {
-        return false;
-    };
-
-    let Some(c) = HIRA_T.get(c) else {
-        return false;
-    };
-
-    *c == class
 }

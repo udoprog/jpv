@@ -2,8 +2,10 @@
 
 use std::collections::{BTreeSet, HashSet};
 use std::fmt;
+use std::fs;
 use std::io::Write;
 use std::mem;
+use std::path::PathBuf;
 
 use anyhow::{bail, Result};
 use clap::Parser;
@@ -17,6 +19,8 @@ use crate::Args;
 
 #[derive(Parser)]
 pub(crate) struct CliArgs {
+    #[arg(long)]
+    long: Option<PathBuf>,
     /// Filter by parts of speech. If no arguments are specified, will filter by
     /// entries which matches all specified parts of speech.
     #[arg(long = "pos", name = "pos")]
@@ -88,6 +92,48 @@ pub(crate) async fn run(
     // SAFETY: we know this is only initialized once here exclusively.
     let indexes = data::open_from_args(&args.index[..], dirs)?;
     let db = Database::open(indexes, &config)?;
+
+    if let Some(path) = &cli_args.long {
+        let ids = db.filter(|bytes| {
+            let Ok(string) = std::str::from_utf8(bytes) else {
+                return false;
+            };
+
+            string.chars().count() == 1
+        })?;
+
+        let mut f = fs::File::create(path)?;
+
+        let mut uniq = HashSet::new();
+
+        for id in ids {
+            let Entry::Phrase(entry) = db.entry_at(id)? else {
+                continue;
+            };
+
+            for (kanji, (_, reading), _) in lib::inflection::reading_permutations(&entry) {
+                let Some((_, kanji)) = kanji else {
+                    continue;
+                };
+
+                for group in lib::Furigana::new(kanji, reading, "").iter() {
+                    let lib::FuriganaGroup::Kanji(kanji, reading) = group else {
+                        continue;
+                    };
+
+                    if kanji.chars().count() == 1 && lib::morae::iter(reading).count() < 4 {
+                        continue;
+                    }
+
+                    if uniq.insert((kanji, reading)) {
+                        writeln!(f, "#{}: {kanji}: {reading}", entry.sequence)?;
+                    }
+                }
+            }
+        }
+
+        return Ok(());
+    }
 
     let mut to_look_up = BTreeSet::new();
 
