@@ -2,7 +2,7 @@
 mod tests;
 
 use core::fmt;
-use std::slice;
+use core::slice;
 
 use crate::concat::{self, Concat};
 use crate::kana::{is_hiragana, is_katakana};
@@ -155,7 +155,7 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
 
         match kanji.find(is_not_kana) {
             Some(0) => {
-                // Kanji found in the first position, so we process the
+                // Kanji found in the leading position, so we process the
                 // remaining string to test if it's all kanji or not.
                 let Some((n, _)) = kanji.char_indices().find(|(_, c)| is_kana(*c)) else {
                     // Remainder is all kanji, output it as a furigana group.
@@ -170,7 +170,7 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
                 let (group_kanji, trailing) = kanji.split_at(n);
 
                 let Some(suffix) = trailing.find(is_not_kana) else {
-                    // Trailing is *all* kanji, so simply find its offset in the
+                    // Trailing is *all* kana, so simply find its offset in the
                     // reading group and extract it.
                     let group_kana =
                         reading.get(..reading.rfind(trailing).unwrap_or(reading.len()))?;
@@ -183,7 +183,7 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
                 let (kana_suffix, remaining_kanji) = trailing.split_at(suffix);
 
                 let (group_kana, remaining_kana) =
-                    reading.split_at(reading.rfind(kana_suffix).unwrap_or(reading.len()));
+                    reading.split_at(reading.find(kana_suffix).unwrap_or(reading.len()));
 
                 // Store the immediate kana suffix to avoid having to do that
                 // work again, this will be emitted in the next iteration.
@@ -206,4 +206,93 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
             }
         }
     }
+}
+
+/// Analyze the given inputs as furigana.
+///
+/// This is more accurate than [`Furigana`], but allocates and requires that the
+/// inputs are contiguous strings.
+pub fn furigana2<'a>(
+    kanji: &'a str,
+    reading: &'a str,
+    mut suffix: &'a str,
+) -> impl Iterator<Item = FuriganaGroup<'a>> {
+    use core::mem;
+
+    use FuriganaGroup::*;
+
+    let mut it = kanji.chars().rev();
+    let mut s = None;
+    let mut i = kanji.len();
+
+    let groups = core::iter::from_fn(|| loop {
+        let Some(c) = it.next() else {
+            return s.take().map(|s| 0..s);
+        };
+
+        let old = i;
+        i = i - c.len_utf8();
+
+        if is_kana(c) {
+            if s.is_none() {
+                s = Some(old);
+            }
+
+            continue;
+        }
+
+        if let Some(s) = s.take() {
+            return Some(old..s);
+        }
+    });
+
+    let mut positions = Vec::new();
+    let mut p = reading.len();
+
+    for g in groups {
+        let kana = &kanji[g.clone()];
+
+        let Some(at) = memchr::memmem::rfind(reading[..p].as_bytes(), kana.as_bytes()) else {
+            positions.clear();
+            break;
+        };
+
+        positions.push((kana, at, g));
+        p = at;
+    }
+
+    let mut last = (0, 0);
+    let mut it = positions.into_iter().rev();
+    let mut deferred = None;
+
+    core::iter::from_fn(move || {
+        if let Some(group) = deferred.take() {
+            return Some(group);
+        }
+
+        let (k, r) = last;
+
+        let Some((kana, at, g)) = it.next() else {
+            if !kanji[k..].is_empty() {
+                last = (kanji.len(), reading.len());
+                return Some(Kanji(&kanji[k..], &reading[r..]));
+            }
+
+            if !suffix.is_empty() {
+                return Some(Kana(mem::take(&mut suffix)));
+            }
+
+            return None;
+        };
+
+        let ret = if kanji[k..].starts_with(kana) {
+            Some(Kana(kana))
+        } else {
+            deferred = Some(Kana(kana));
+            Some(Kanji(&kanji[k..g.start], &reading[r..at]))
+        };
+
+        last = (g.end, at + kana.len());
+        ret
+    })
 }

@@ -94,13 +94,7 @@ pub(crate) async fn run(
     let db = Database::open(indexes, &config)?;
 
     if let Some(path) = &cli_args.long {
-        let ids = db.filter(|bytes| {
-            let Ok(string) = std::str::from_utf8(bytes) else {
-                return false;
-            };
-
-            string.chars().count() == 1
-        })?;
+        let ids = db.filter(|_| true)?;
 
         let mut f = fs::File::create(path)?;
 
@@ -121,7 +115,7 @@ pub(crate) async fn run(
                         continue;
                     };
 
-                    if kanji.chars().count() == 1 && lib::morae::iter(reading).count() < 4 {
+                    if kanji.chars().count() != 1 || lib::morae::iter(reading).count() < 4 {
                         continue;
                     }
 

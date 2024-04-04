@@ -47,4 +47,8 @@ fn count_morae() {
     let input = "とうきょう";
     let morae: Vec<_> = iter(input).collect();
     assert_eq!(morae, vec!["と", "う", "きょ", "う"]);
+
+    let input = "モーラ";
+    let morae: Vec<_> = iter(input).collect();
+    assert_eq!(morae, vec!["モ", "ー", "ラ"]);
 }

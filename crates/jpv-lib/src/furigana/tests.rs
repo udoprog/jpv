@@ -1,123 +1,75 @@
-use crate::furigana::FuriganaGroup;
+use super::*;
 
-use super::Furigana;
+use FuriganaGroup::Kana as Kn;
+use FuriganaGroup::Kanji as K;
 
-#[test]
-fn test_mixed_furigana() {
-    let furigana = Furigana::new("私はお金がない星", "わたしはおかねがないほし", "");
-    assert_eq!(furigana.to_string(), "私[わたし]はお金[かね]がない星[ほし]");
+macro_rules! test_case {
+    ($kanji:expr, $kana:expr, $expected:expr) => {
+        test_case!($kanji, $kana, $expected, "");
+    };
 
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
-        &[
-            FuriganaGroup::Kanji("私", "わたし"),
-            FuriganaGroup::Kana("はお"),
-            FuriganaGroup::Kanji("金", "かね"),
-            FuriganaGroup::Kana("がない"),
-            FuriganaGroup::Kanji("星", "ほし"),
-        ]
-    );
+    ($kanji:expr, $kana:expr, $expected:expr, $suffix:expr) => {
+        assert_eq!(
+            furigana2($kanji, $kana, $suffix).collect::<Vec<_>>(),
+            $expected
+        );
+    };
 }
 
 #[test]
-fn test_heading_furigana() {
-    let furigana = Furigana::new("お金がない星", "おかねがないほし", "");
+fn test_kana_prefix() {
+    test_case!("お金", "おかね", [Kn("お"), K("金", "かね")]);
 
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
-        &[
-            FuriganaGroup::Kana("お"),
-            FuriganaGroup::Kanji("金", "かね"),
-            FuriganaGroup::Kana("がない"),
-            FuriganaGroup::Kanji("星", "ほし"),
-        ]
-    );
-
-    assert_eq!(furigana.to_string(), "お金[かね]がない星[ほし]");
-}
-
-#[test]
-fn test_trailing_kana() {
-    let furigana = Furigana::new("私はお金がない", "わたしはおかねがない", "");
-    assert_eq!(furigana.to_string(), "私[わたし]はお金[かね]がない");
-
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
-        &[
-            FuriganaGroup::Kanji("私", "わたし"),
-            FuriganaGroup::Kana("はお"),
-            FuriganaGroup::Kanji("金", "かね"),
-            FuriganaGroup::Kana("がない"),
-        ]
-    );
-}
-
-#[test]
-fn no_matching_hiragana() {
-    let furigana = Furigana::new("十八禁", "じゅうはちきん", "");
-    assert_eq!(furigana.to_string(), "十八禁[じゅうはちきん]");
-
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
-        &[FuriganaGroup::Kanji("十八禁", "じゅうはちきん")]
-    );
-
-    let furigana = Furigana::new("18禁", "じゅうはちきん", "");
-    assert_eq!(furigana.to_string(), "18禁[じゅうはちきん]");
-
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
-        &[FuriganaGroup::Kanji("18禁", "じゅうはちきん")]
-    );
-}
-
-#[test]
-fn test_common_suffix() {
-    // 見失う -> 見失[みうしな]う
-    let furigana = Furigana::new("見失", "みうしな", "う");
-
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
+    test_case!(
+        "私はお金がない星",
+        "わたしはおかねがないほし",
         [
-            FuriganaGroup::Kanji("見失", "みうしな"),
-            FuriganaGroup::Kana("う"),
+            K("私", "わたし"),
+            Kn("はお"),
+            K("金", "かね"),
+            Kn("がない"),
+            K("星", "ほし")
         ]
     );
 
-    assert_eq!(furigana.to_string(), "見失[みうしな]う");
+    test_case!(
+        "お金がない星",
+        "おかねがないほし",
+        [Kn("お"), K("金", "かね"), Kn("がない"), K("星", "ほし")]
+    );
 
-    let furigana = Furigana::new("見失う", "みうしなう", "");
+    test_case!(
+        "私はお金がない",
+        "わたしはおかねがない",
+        [K("私", "わたし"), Kn("はお"), K("金", "かね"), Kn("がない")]
+    );
 
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
+    test_case!("十八禁", "じゅうはちきん", [K("十八禁", "じゅうはちきん")]);
+    test_case!("18禁", "じゅうはちきん", [K("18禁", "じゅうはちきん")]);
+    test_case!("見失", "みうしな", [K("見失", "みうしな"), Kn("う")], "う");
+    test_case!("見失う", "みうしなう", [K("見失", "みうしな"), Kn("う")]);
+
+    test_case!("愛する", "あいする", [K("愛", "あい"), Kn("する")]);
+    test_case!("愛", "あい", [K("愛", "あい"), Kn("する")], "する");
+
+    test_case!(
+        "兄たり難く弟たり難し",
+        "けいたりがたくていたりがたし",
         [
-            FuriganaGroup::Kanji("見失", "みうしな"),
-            FuriganaGroup::Kana("う"),
+            K("兄", "けい"),
+            Kn("たり"),
+            K("難", "がた"),
+            Kn("く"),
+            K("弟", "てい"),
+            Kn("たり"),
+            K("難", "がた"),
+            Kn("し")
         ]
     );
 
-    assert_eq!(furigana.to_string(), "見失[みうしな]う");
-}
-
-#[test]
-fn test_long_suffix() {
-    let furigana = Furigana::new("愛する", "あいする", "");
-
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
-        [
-            FuriganaGroup::Kanji("愛", "あい"),
-            FuriganaGroup::Kana("する"),
-        ]
-    );
-
-    let furigana = Furigana::new("愛", "あい", "する");
-
-    assert_eq!(
-        furigana.iter().collect::<Vec<_>>(),
-        [
-            FuriganaGroup::Kanji("愛", "あい"),
-            FuriganaGroup::Kana("する"),
-        ]
+    test_case!(
+        "月とすっぽん",
+        "つきとすっぽん",
+        [K("月", "つき"), Kn("とすっぽん")]
     );
 }
