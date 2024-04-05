@@ -52,7 +52,7 @@ pub mod entities;
 pub use self::entities::PartOfSpeech;
 
 mod furigana;
-pub use self::furigana::{furigana2, Furigana, FuriganaGroup};
+pub use self::furigana::{Furigana, FuriganaGroup, OwnedFurigana};
 
 pub mod kana;
 pub mod morae;

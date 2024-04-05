@@ -7,7 +7,7 @@ pub use self::classify::{
 use core::fmt;
 
 use crate::concat::Concat;
-use crate::furigana::Furigana;
+use crate::furigana::{Furigana, OwnedFurigana};
 
 /// A kana pair made up of complete text fragments.
 #[borrowme::borrowme]
@@ -31,14 +31,14 @@ impl<'a> Full<'a> {
     }
 
     /// Display the given combination as furigana.
-    pub fn furigana(&self) -> Furigana<'a, 1, 1> {
+    pub fn furigana(&self) -> Furigana<'a> {
         Furigana::new(self.text, self.reading, self.suffix)
     }
 }
 
 impl OwnedFull {
     /// Display the given combination as furigana.
-    pub fn furigana(&self) -> Furigana<'_, 1, 1> {
+    pub fn furigana(&self) -> Furigana<'_> {
         Furigana::new(
             self.text.as_str(),
             self.reading.as_str(),
@@ -109,8 +109,8 @@ impl<'a> Fragments<'a> {
         &self.suffix
     }
 
-    pub fn furigana(&self) -> Furigana<'a, 3, 4> {
-        Furigana::inner(self.text, self.reading, self.suffix)
+    pub fn furigana(&self) -> OwnedFurigana {
+        OwnedFurigana::new(self.text, self.reading, self.suffix)
     }
 
     /// Append suffixes to this pair.

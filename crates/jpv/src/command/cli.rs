@@ -249,22 +249,28 @@ where
 
             let p = "  ";
 
-            let dis0 = |furigana| maybe_furigana(furigana, !cli_args.no_furigana);
-            let dis = |furigana| maybe_furigana(furigana, !cli_args.no_furigana);
-
             for (_, c, _) in inflection::conjugate(&d) {
                 writeln!(o, "{p}# Inflections:")?;
 
                 writeln!(o, "{p}  Dictionary:")?;
-                writeln!(o, "{p}  - {}", dis0(c.dictionary.furigana()))?;
+                writeln!(
+                    o,
+                    "{p}  - {}",
+                    maybe_furigana(c.dictionary.furigana(), !cli_args.no_furigana)
+                )?;
 
                 for (c, form) in c.inflections {
                     if cli_args.polite != c.contains(Form::Honorific) {
                         continue;
                     }
 
+                    let fur = form.furigana();
                     writeln!(o, "{p}  {c:?}:")?;
-                    writeln!(o, "{p}  - {}", dis(form.furigana()))?;
+                    writeln!(
+                        o,
+                        "{p}  - {}",
+                        maybe_furigana(fur.borrow(), !cli_args.no_furigana)
+                    )?;
                 }
             }
         }
@@ -324,16 +330,13 @@ where
     Ok(())
 }
 
-fn maybe_furigana<const N: usize, const S: usize>(
-    furigana: Furigana<'_, N, S>,
-    do_furigana: bool,
-) -> impl fmt::Display + '_ {
-    struct Display<'a, const N: usize, const S: usize> {
-        furigana: Furigana<'a, N, S>,
+fn maybe_furigana(furigana: Furigana<'_>, do_furigana: bool) -> impl fmt::Display + '_ {
+    struct Display<'a> {
+        furigana: Furigana<'a>,
         do_furigana: bool,
     }
 
-    impl<const N: usize, const S: usize> fmt::Display for Display<'_, N, S> {
+    impl fmt::Display for Display<'_> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             if self.do_furigana {
                 self.furigana.fmt(f)

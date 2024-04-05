@@ -92,3 +92,17 @@ fn test_groups() {
     test_case!("お金がない星", [6..15, 0..3]);
     test_case!("兄たり難く弟たり難し", [27..30, 18..24, 12..15, 3..9]);
 }
+
+#[test]
+fn pair() {
+    macro_rules! test_case {
+        (($a_pre:expr, $a_suf:expr), ($b_pre:expr, $b_suf:expr)) => {
+            assert_eq!(Pair::new($a_pre, $a_suf), Pair::new($b_pre, $b_suf));
+            assert_eq!(Pair::new($b_pre, $b_suf), Pair::new($a_pre, $a_suf));
+        };
+    }
+
+    test_case!(("ab", ""), ("", "ab"));
+    test_case!(("a", "bc"), ("ab", "c"));
+    test_case!(("ab", "cd"), ("ab", "cd"));
+}
