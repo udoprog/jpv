@@ -3,21 +3,21 @@ use super::*;
 use FuriganaGroup::Kana as Kn;
 use FuriganaGroup::Kanji as K;
 
-macro_rules! test_case {
-    ($kanji:expr, $kana:expr, $expected:expr) => {
-        test_case!($kanji, $kana, $expected, "");
-    };
-
-    ($kanji:expr, $kana:expr, $expected:expr, $suffix:expr) => {
-        assert_eq!(
-            furigana2($kanji, $kana, $suffix).collect::<Vec<_>>(),
-            $expected
-        );
-    };
-}
-
 #[test]
-fn test_kana_prefix() {
+fn test_furigana2() {
+    macro_rules! test_case {
+        ($kanji:expr, $kana:expr, $expected:expr) => {
+            test_case!($kanji, $kana, $expected, "");
+        };
+
+        ($kanji:expr, $kana:expr, $expected:expr, $suffix:expr) => {
+            assert_eq!(
+                furigana2($kanji, $kana, $suffix).collect::<Vec<_>>(),
+                $expected
+            );
+        };
+    }
+
     test_case!("お金", "おかね", [Kn("お"), K("金", "かね")]);
 
     test_case!(
@@ -72,4 +72,23 @@ fn test_kana_prefix() {
         "つきとすっぽん",
         [K("月", "つき"), Kn("とすっぽん")]
     );
+
+    // Reading does not match.
+    test_case!(
+        "月とすっぽん",
+        "つきてすっぽん",
+        [K("月とすっぽん", "つきてすっぽん")]
+    );
+}
+
+#[test]
+fn test_groups() {
+    macro_rules! test_case {
+        ($kanji:expr, $expected:expr) => {
+            assert_eq!(groups($kanji).collect::<Vec<_>>(), $expected);
+        };
+    }
+
+    test_case!("お金がない星", [6..15, 0..3]);
+    test_case!("兄たり難く弟たり難し", [27..30, 18..24, 12..15, 3..9]);
 }

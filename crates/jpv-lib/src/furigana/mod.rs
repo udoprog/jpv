@@ -2,6 +2,7 @@
 mod tests;
 
 use core::fmt;
+use core::ops::Range;
 use core::slice;
 
 use crate::concat::{self, Concat};
@@ -208,6 +209,51 @@ impl<'this, 'a, const N: usize, const S: usize> Iter<'this, 'a, N, S> {
     }
 }
 
+/// Partition a string by kanji and kana.
+///
+/// The produced iterator will yield the ranges for each kana group inside of a
+/// string.
+fn groups(kanji: &str) -> impl Iterator<Item = Range<usize>> + '_ {
+    let mut it = kanji.chars();
+    let mut e = None;
+    let mut len = kanji.len();
+
+    core::iter::from_fn(move || loop {
+        let Some(c) = it.next_back() else {
+            return e.take().map(|s| 0..s);
+        };
+
+        let s = len;
+        len = len - c.len_utf8();
+
+        if is_kana(c) {
+            if e.is_none() {
+                e = Some(s);
+            }
+        } else if let Some(e) = e.take() {
+            return Some(s..e);
+        }
+    })
+}
+
+fn reverse_find<'a>(
+    kanji: &'a str,
+    reading: &'a str,
+) -> impl Iterator<Item = (&'a str, usize, Range<usize>)> {
+    use memchr::memmem::rfind;
+
+    let mut p = reading.len();
+
+    let mut it = groups(kanji);
+
+    core::iter::from_fn(move || {
+        let g = it.next()?;
+        let kana = &kanji[g.start..g.end];
+        p = rfind(reading[..p].as_bytes(), kana.as_bytes())?;
+        Some((kana, p, g))
+    })
+}
+
 /// Analyze the given inputs as furigana.
 ///
 /// This is more accurate than [`Furigana`], but allocates and requires that the
@@ -218,48 +264,9 @@ pub fn furigana2<'a>(
     mut suffix: &'a str,
 ) -> impl Iterator<Item = FuriganaGroup<'a>> {
     use core::mem;
-
     use FuriganaGroup::*;
 
-    let mut it = kanji.chars().rev();
-    let mut s = None;
-    let mut i = kanji.len();
-
-    let groups = core::iter::from_fn(|| loop {
-        let Some(c) = it.next() else {
-            return s.take().map(|s| 0..s);
-        };
-
-        let old = i;
-        i = i - c.len_utf8();
-
-        if is_kana(c) {
-            if s.is_none() {
-                s = Some(old);
-            }
-
-            continue;
-        }
-
-        if let Some(s) = s.take() {
-            return Some(old..s);
-        }
-    });
-
-    let mut positions = Vec::new();
-    let mut p = reading.len();
-
-    for g in groups {
-        let kana = &kanji[g.clone()];
-
-        let Some(at) = memchr::memmem::rfind(reading[..p].as_bytes(), kana.as_bytes()) else {
-            positions.clear();
-            break;
-        };
-
-        positions.push((kana, at, g));
-        p = at;
-    }
+    let positions = reverse_find(kanji, reading).collect::<Vec<_>>();
 
     let mut last = (0, 0);
     let mut it = positions.into_iter().rev();
