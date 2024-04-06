@@ -9,18 +9,30 @@ pub fn is_katakana(c: char) -> bool {
     matches!(get_katakana(c), Some(c) if matches!(c, Class::U | Class::L))
 }
 
+/// Test if something belongs to the upper katakana class.
+#[inline]
+pub fn is_katakana_upper(c: char) -> bool {
+    matches!(get_katakana(c), Some(c) if matches!(c, Class::U))
+}
+
+/// Test if something belongs to the lower katakana class.
+#[inline]
+pub fn is_katakana_lower(c: char) -> bool {
+    matches!(get_katakana(c), Some(c) if matches!(c, Class::L))
+}
+
 /// Test if a character is hiragana.
 pub fn is_hiragana(c: char) -> bool {
     matches!(get_hiragana(c), Some(c) if matches!(c, Class::U | Class::L))
 }
 
-/// Test if something belongs to the upper hirgana class.
+/// Test if something belongs to the upper hiragana class.
 #[inline]
 pub fn is_hiragana_upper(c: char) -> bool {
     matches!(get_hiragana(c), Some(c) if matches!(c, Class::U))
 }
 
-/// Test if something belongs to the lower hirgana class.
+/// Test if something belongs to the lower hiragana class.
 #[inline]
 pub fn is_hiragana_lower(c: char) -> bool {
     matches!(get_hiragana(c), Some(c) if matches!(c, Class::L))

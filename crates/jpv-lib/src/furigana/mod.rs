@@ -5,6 +5,7 @@ use core::fmt;
 use core::ops::Range;
 
 use crate::kana::{is_hiragana, is_katakana};
+use crate::morae;
 
 /// A string pair.
 #[derive(Debug)]
@@ -75,7 +76,7 @@ impl<'a> Furigana<'a> {
 
     /// Construct an iterator over furigana groups.
     pub fn iter(&self) -> impl Iterator<Item = FuriganaGroup<'a>> {
-        furigana2(self.kanji, self.reading, self.suffix)
+        furigana(self.kanji, self.reading, self.suffix)
     }
 
     /// Access underlying kanji.
@@ -128,7 +129,7 @@ impl OwnedFurigana {
 
     /// Construct an iterator over furigana groups.
     pub fn iter(&self) -> impl Iterator<Item = FuriganaGroup<'_>> {
-        furigana2(&self.kanji, &self.reading, &self.suffix)
+        furigana(&self.kanji, &self.reading, &self.suffix)
     }
 
     /// Access underlying kanji.
@@ -210,15 +211,32 @@ fn reverse_find<'a>(
 ) -> impl Iterator<Item = (&'a str, usize, Range<usize>)> {
     use memchr::memmem::rfind;
 
-    let mut p = reading.len();
+    let mut reading_len = reading.len();
+    let mut kanji_len = kanji.len();
 
-    let mut it = groups(kanji);
-
-    core::iter::from_fn(move || {
-        let g = it.next()?;
+    groups(kanji).flat_map(move |g| {
         let kana = &kanji[g.start..g.end];
-        p = rfind(reading[..p].as_bytes(), kana.as_bytes())?;
-        Some((kana, p, g))
+        let kanji_count = kanji[g.end..kanji_len].chars().count();
+        let mut morae_count = 0;
+
+        let mut current = reading_len;
+
+        loop {
+            let next = rfind(reading[..current].as_bytes(), kana.as_bytes())?;
+            morae_count += morae::iter(&reading[next..current]).count();
+
+            // Process until we have at least as many kanji characters as we
+            // have morae, since Kanji are *usually* read with at least one
+            // mora unless they are silent.
+            if morae_count < kanji_count {
+                current = next;
+                continue;
+            }
+
+            reading_len = next;
+            kanji_len = g.start;
+            return Some((kana, reading_len, g));
+        }
     })
 }
 
@@ -226,7 +244,7 @@ fn reverse_find<'a>(
 ///
 /// This is more accurate than [`Furigana`], but allocates and requires that the
 /// inputs are contiguous strings.
-pub fn furigana2<'a>(
+fn furigana<'a>(
     kanji: &'a str,
     reading: &'a str,
     mut suffix: &'a str,

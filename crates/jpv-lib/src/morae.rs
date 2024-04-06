@@ -17,9 +17,11 @@ impl<'a> Iterator for Morae<'a> {
         let mut it = self.input.chars();
 
         let a = it.next()?;
-        let b = it.next().map(|c| (c, kana::is_hiragana_lower(c)));
+        let b = it
+            .next()
+            .map(|c| (c, kana::is_hiragana_lower(c) || kana::is_katakana_lower(c)));
 
-        let head = match (kana::is_hiragana_upper(a), b) {
+        let head = match (kana::is_hiragana_upper(a) || kana::is_katakana_upper(a), b) {
             (true, Some((b, true))) => {
                 let end = a.len_utf8() + b.len_utf8();
                 let (head, tail) = self.input.split_at(end);

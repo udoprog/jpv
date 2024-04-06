@@ -1,7 +1,8 @@
 mod classify;
 #[doc(inline)]
 pub use self::classify::{
-    is_hiragana, is_hiragana_lower, is_hiragana_upper, is_kanji, is_katakana,
+    is_hiragana, is_hiragana_lower, is_hiragana_upper, is_kanji, is_katakana, is_katakana_lower,
+    is_katakana_upper,
 };
 
 use core::fmt;

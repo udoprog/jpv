@@ -4,7 +4,7 @@ use FuriganaGroup::Kana as Kn;
 use FuriganaGroup::Kanji as K;
 
 #[test]
-fn test_furigana2() {
+fn test_furigana() {
     macro_rules! test_case {
         ($kanji:expr, $kana:expr, $expected:expr) => {
             test_case!($kanji, $kana, $expected, "");
@@ -12,13 +12,19 @@ fn test_furigana2() {
 
         ($kanji:expr, $kana:expr, $expected:expr, $suffix:expr) => {
             assert_eq!(
-                furigana2($kanji, $kana, $suffix).collect::<Vec<_>>(),
+                furigana($kanji, $kana, $suffix).collect::<Vec<_>>(),
                 $expected
             );
         };
     }
 
     test_case!("お金", "おかね", [Kn("お"), K("金", "かね")]);
+
+    test_case!(
+        "使い放題",
+        "つかいほうだい",
+        [K("使", "つか"), Kn("い"), K("放題", "ほうだい"),]
+    );
 
     test_case!(
         "私はお金がない星",
