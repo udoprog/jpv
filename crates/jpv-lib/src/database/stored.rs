@@ -26,12 +26,18 @@ pub(super) struct GlobalHeader {
 pub(super) struct IndexHeader {
     pub(super) name: Ref<str>,
     pub(super) lookup: trie::TrieRef<Id, CompactTrie>,
+    /// Phrases by position.
     pub(super) by_pos: swiss::MapRef<PartOfSpeech, Ref<[PhrasePos]>>,
+    /// Kanjis by literal.
     pub(super) by_kanji_literal: swiss::MapRef<Ref<str>, u32>,
     pub(super) radicals: swiss::MapRef<Ref<str>, u32>,
     pub(super) radicals_to_kanji: swiss::MapRef<Ref<str>, Ref<[u32]>>,
     pub(super) by_sequence: swiss::MapRef<u32, PhrasePos>,
     pub(super) inflections: Ref<[InflectionData]>,
+    /// The offset of all phrases stored in the index.
+    pub(super) phrases: Ref<[u32]>,
+    /// The offset of all kanji stored in the index.
+    pub(super) kanji: Ref<[u32]>,
 }
 
 /// Extra information about an index.

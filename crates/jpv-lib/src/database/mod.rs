@@ -111,6 +111,8 @@ pub struct EntryResultKey {
 #[serde(tag = "type")]
 #[repr(u8)]
 pub enum KanjiIndex {
+    /// Indexed by entry.
+    Entry,
     /// The literal reading.
     Literal,
     /// Kunyomi readings only.
@@ -332,6 +334,8 @@ pub fn build(
     let mut input_radicals_to_kanji = HashMap::<_, Vec<_>>::new();
     let mut inflections = Vec::new();
     let mut inflections_index = HashMap::new();
+    let mut phrases = Vec::new();
+    let mut kanji = Vec::new();
 
     reporter.instrument_start(
         module_path!(),
@@ -358,6 +362,8 @@ pub fn build(
                 ENCODING.to_writer(&mut output, &entry)?;
 
                 let entry_ref = buf.store_slice(&output).offset() as u32;
+                phrases.push(entry_ref);
+
                 by_sequence.insert(
                     entry.sequence as u32,
                     stored::PhrasePos {
@@ -458,6 +464,7 @@ pub fn build(
                 ENCODING.to_writer(&mut output, &c)?;
 
                 let kanji_ref = buf.store_slice(&output).offset() as u32;
+                kanji.push(kanji_ref);
 
                 kanji_literals.insert(c.literal, kanji_ref);
 
@@ -566,6 +573,9 @@ pub fn build(
             }
         }
     }
+
+    let phrases = buf.store_slice(&phrases);
+    let kanji = buf.store_slice(&kanji);
 
     reporter.instrument_end(count);
 
@@ -718,6 +728,8 @@ pub fn build(
         radicals_to_kanji,
         by_sequence,
         inflections,
+        phrases,
+        kanji,
     });
 
     buf.load_uninit_mut(header).write(&stored::GlobalHeader {
@@ -1095,19 +1107,20 @@ impl Database {
 
     /// Lookup any entries matching a custom filter.
     #[tracing::instrument(skip_all)]
-    pub fn filter<F>(&self, mut filter: F) -> Result<Vec<Id>>
-    where
-        F: FnMut(&[u8]) -> bool,
-    {
+    pub fn all(&self) -> Result<Vec<Id>> {
         let mut output = Vec::new();
 
         for (index, d) in self.indexes.iter().enumerate() {
-            for result in d.header.lookup.iter(d.data.as_buf()) {
-                let (key, id) = result?;
+            for result in d.header.phrases.iter() {
+                let id = *d.data.as_buf().load(result)?;
+                let id = stored::Id::phrase(id, PhraseIndex::Entry);
+                output.push(self.convert_id(index, id)?);
+            }
 
-                if filter(key) {
-                    output.push(self.convert_id(index, *id)?);
-                }
+            for result in d.header.kanji.iter() {
+                let id = *d.data.as_buf().load(result)?;
+                let id = stored::Id::kanji(id, KanjiIndex::Entry);
+                output.push(self.convert_id(index, id)?);
             }
         }
 

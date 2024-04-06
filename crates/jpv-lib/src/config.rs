@@ -79,6 +79,7 @@ impl IndexFormat {
                 format: self,
                 url: JMDICT_URL.to_owned(),
                 enabled,
+                installing: false,
                 description: Some(JMDICT_DESCRIPTION.to_owned()),
                 help: Some(JMDICT_HELP.to_owned()),
             },
@@ -86,6 +87,7 @@ impl IndexFormat {
                 format: self,
                 url: JMNEDICT_URL.to_owned(),
                 enabled,
+                installing: false,
                 description: Some(JMNEDICT_DESCRIPTION.to_owned()),
                 help: Some(JMNEDICT_HELP.to_owned()),
             },
@@ -93,6 +95,7 @@ impl IndexFormat {
                 format: self,
                 url: KANJIDIC2_URL.to_owned(),
                 enabled,
+                installing: false,
                 description: Some(KANJIDIC2_DESCRIPTION.to_owned()),
                 help: Some(KANJIDIC2_HELP.to_owned()),
             },
@@ -100,6 +103,7 @@ impl IndexFormat {
                 format: self,
                 url: KRADFILE_URL.to_owned(),
                 enabled,
+                installing: false,
                 description: Some(KRADFILE_DESCRIPTION.to_owned()),
                 help: Some(KRADFILE_HELP.to_owned()),
             },
@@ -127,10 +131,16 @@ pub struct ConfigIndex {
     pub format: IndexFormat,
     pub url: String,
     pub enabled: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub installing: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub help: Option<String>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// A configuration used for the application.
@@ -183,7 +193,25 @@ impl Config {
             return false;
         };
 
-        index.enabled
+        index.enabled && !index.installing
+    }
+
+    /// Test if the given index is installing.
+    pub fn is_installing(&self, id: &str) -> bool {
+        let Some(index) = self.indexes.get(id) else {
+            return false;
+        };
+
+        index.installing
+    }
+
+    /// Set installing.
+    pub fn set_installing(&mut self, id: &str, installing: bool) {
+        let Some(index) = self.indexes.get_mut(id) else {
+            return;
+        };
+
+        index.installing = installing;
     }
 }
 

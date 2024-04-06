@@ -355,12 +355,12 @@ async fn run(
                         let result: Result<serde_json::Value> = match request.kind.as_str() {
                             api::SearchRequest::KIND => {
                                 let request = serde_json::from_value(request.body)?;
-                                let response = super::handle_search_request(bg, request)?;
+                                let response = super::handle_search_request(bg, request).await?;
                                 Ok(serde_json::to_value(&response)?)
                             },
                             api::AnalyzeRequest::KIND => {
                                 let request = serde_json::from_value(request.body)?;
-                                let response = super::handle_analyze_request(bg, request)?;
+                                let response = super::handle_analyze_request(bg, request).await?;
                                 Ok(serde_json::to_value(&response)?)
                             },
                             api::InstallAllRequest::KIND => {
@@ -368,7 +368,7 @@ async fn run(
                                 Ok(serde_json::Value::Null)
                             }
                             api::GetConfig::KIND => {
-                                let database = bg.database();
+                                let database = bg.database().await;
 
                                 let missing_ocr = if bg.tesseract().is_none() {
                                     Some(api::MissingOcr::for_platform())
@@ -377,7 +377,7 @@ async fn run(
                                 };
 
                                 let result = api::GetConfigResult {
-                                    config: bg.config(),
+                                    config: bg.config().await,
                                     installed: database.installed()?,
                                     missing_ocr,
                                 };
@@ -414,7 +414,7 @@ async fn run(
                             }
                             api::GetKanji::KIND => {
                                 let request: api::GetKanji = serde_json::from_value(request.body)?;
-                                let response = super::handle_kanji(bg, &request.kanji)?;
+                                let response = super::handle_kanji(bg, &request.kanji).await?;
                                 Ok(serde_json::to_value(&response)?)
                             }
                             _ => {

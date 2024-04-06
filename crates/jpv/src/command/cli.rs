@@ -94,7 +94,7 @@ pub(crate) async fn run(
     let db = Database::open(indexes, &config)?;
 
     if let Some(path) = &cli_args.long {
-        let ids = db.filter(|_| true)?;
+        let ids = db.all()?;
 
         let mut f = fs::File::create(path)?;
 

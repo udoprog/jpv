@@ -3,7 +3,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use std::time::Instant;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -16,17 +17,32 @@ use lib::{api, data, Dirs};
 use tempfile::NamedTempFile;
 use tokio::fs;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{oneshot, Mutex, RwLock};
 
 use crate::reporter::EventsReporter;
 use crate::system::{self, SystemEvents};
-use crate::tasks::{CompletedTask, TaskCompletion, Tasks};
+use crate::tasks::{CompletedTask, TaskCompletion, TaskName, Tasks};
 use crate::Args;
+
+#[derive(Default)]
+pub(crate) struct BackgroundTasks {
+    pub(crate) progress: HashMap<TaskName, system::TaskProgress>,
+}
 
 pub(crate) struct Mutable {
     config: Config,
     database: Database,
-    pub(crate) tasks: HashMap<Box<str>, system::TaskProgress>,
+}
+
+impl Mutable {
+    /// Re-open the underlying database.
+    pub(crate) fn reopen_database(&mut self, indexes: &[PathBuf], dirs: &Dirs) -> Result<()> {
+        let indexes = data::open_from_args(indexes, dirs).context("Opening database files")?;
+        let db =
+            lib::database::Database::open(indexes, &self.config).context("Opening the database")?;
+        self.database = db;
+        Ok(())
+    }
 }
 
 /// Configuration to install.
@@ -58,6 +74,7 @@ pub struct Background {
     channel: UnboundedSender<BackgroundEvent>,
     system_events: SystemEvents,
     mutable: Arc<RwLock<Mutable>>,
+    tasks: Arc<StdMutex<BackgroundTasks>>,
     log: crate::log::Capture,
 }
 
@@ -81,11 +98,8 @@ impl Background {
             }),
             channel,
             system_events,
-            mutable: Arc::new(RwLock::new(Mutable {
-                config,
-                database,
-                tasks: HashMap::new(),
-            })),
+            mutable: Arc::new(RwLock::new(Mutable { config, database })),
+            tasks: Arc::new(StdMutex::new(BackgroundTasks::default())),
             log,
         })
     }
@@ -126,7 +140,7 @@ impl Background {
         }
 
         self.shared.ocr.store(config.ocr, Ordering::SeqCst);
-        self.mutable.write().unwrap().config = config.clone();
+        self.mutable.write().await.config = config.clone();
         self.system_events.send(system::Event::Refresh);
         Some(config)
     }
@@ -137,13 +151,13 @@ impl Background {
     }
 
     /// Access current configuration.
-    pub(crate) fn config(&self) -> Config {
-        self.mutable.read().unwrap().config.clone()
+    pub(crate) async fn config(&self) -> Config {
+        self.mutable.read().await.config.clone()
     }
 
     /// Access the database currently in use.
-    pub(crate) fn database(&self) -> Database {
-        self.mutable.read().unwrap().database.clone()
+    pub(crate) async fn database(&self) -> Database {
+        self.mutable.read().await.database.clone()
     }
 
     /// Mark the given task as completed.
@@ -152,12 +166,12 @@ impl Background {
             return;
         };
 
-        let mut inner = self.mutable.write().unwrap();
+        let mut inner = self.tasks.lock().unwrap();
 
-        inner.tasks.insert(
-            name.into(),
+        inner.progress.insert(
+            name.clone(),
             system::TaskProgress {
-                name: name.into(),
+                name: name.to_string().into(),
                 value: 0,
                 total: None,
                 text: String::new(),
@@ -173,9 +187,9 @@ impl Background {
             return;
         };
 
-        let mut inner = self.mutable.write().unwrap();
+        let mut inner = self.tasks.lock().unwrap();
 
-        let Some(task) = inner.tasks.remove(name) else {
+        let Some(task) = inner.progress.remove(name) else {
             return;
         };
 
@@ -192,35 +206,55 @@ impl Background {
         args: &Args,
         tasks: &mut Tasks,
     ) -> Result<()> {
+        macro_rules! report {
+            ($($result:expr),* $(,)?) => {{
+                $(
+                    if let Err(error) = $result {
+                        tracing::error!("{error}");
+
+                        for error in error.chain().skip(1) {
+                            tracing::error!("Caused by: {error}");
+                        }
+                    }
+                )*
+            }};
+        }
+
         match event {
             BackgroundEvent::SaveConfig(config, callback) => {
                 let path = self.shared.dirs.config_path();
-                ensure_parent_dir(&path).await?;
 
                 let config_dir = self.shared.dirs.config_dir().to_owned();
                 let new_config = config.clone();
 
-                let task = tokio::task::spawn_blocking(move || {
-                    let config = lib::toml::to_string_pretty(&config)?;
+                let task = async {
+                    ensure_parent_dir(&path).await?;
 
-                    let mut tempfile = NamedTempFile::new_in(config_dir)?;
-                    std::io::copy(&mut config.as_bytes(), &mut tempfile)?;
-                    tempfile.persist(&path)?;
-                    tracing::info!("Wrote new configuration to {}", path.display());
-                    Ok::<_, anyhow::Error>(())
-                });
+                    tokio::task::spawn_blocking(move || {
+                        let config = lib::toml::to_string_pretty(&config)?;
 
-                task.await??;
+                        let mut tempfile = NamedTempFile::new_in(config_dir)?;
+                        std::io::copy(&mut config.as_bytes(), &mut tempfile)?;
+                        tempfile.persist(&path)?;
+                        tracing::info!("Wrote new configuration to {}", path.display());
+                        Ok::<_, anyhow::Error>(())
+                    })
+                    .await?
+                };
 
-                let indexes = data::open_from_args(&args.index[..], &self.shared.dirs)
-                    .context("Opening database files")?;
-                let db = lib::database::Database::open(indexes, &new_config)
-                    .context("Opening the database")?;
-                self.mutable.write().unwrap().database = db;
+                let task1 = task.await.context("Saving configuration to disk");
+
+                let mut mutable = self.mutable.write().await;
+                mutable.config = new_config;
+                let task2 = mutable
+                    .reopen_database(&args.index[..], &self.shared.dirs)
+                    .context("Re-opening database");
+
+                report!(task1, task2);
                 let _ = callback.send(());
             }
             BackgroundEvent::Install(install_all) => {
-                let config = self.config();
+                let config = self.config().await;
 
                 let to_download = config_to_download(
                     &config,
@@ -231,63 +265,70 @@ impl Background {
 
                 let force = install_all.force;
 
+                let mut installing = Vec::new();
+
                 for to_download in to_download {
                     let Some((shutdown, completion)) =
-                        tasks.unique_task(format!("Building {}", to_download.name))
+                        tasks.unique_task(TaskName::Build(to_download.name.clone()))
                     else {
                         return Ok(());
                     };
 
+                    installing.push(to_download.name.clone());
+
                     self.start_task(&completion, 6);
 
-                    let inner = self.mutable.clone();
+                    let mutable = self.mutable.clone();
                     let index = args.index.clone();
 
                     let reporter = Arc::new(EventsReporter {
-                        inner: inner.clone(),
+                        tasks: self.tasks.clone(),
                         system_events: self.system_events.clone(),
-                        name: completion.name().map(Box::from),
+                        name: completion.name().cloned(),
                     });
 
                     tokio::spawn({
-                        let immutable = self.shared.clone();
+                        let shared = self.shared.clone();
                         let system_events = self.system_events.clone();
 
                         async move {
                             // Capture the completion handler so that it is dropped with the task.
                             let _completion = completion;
 
-                            let future = async {
-                                if !build(
-                                    reporter.clone(),
-                                    shutdown,
-                                    &immutable.dirs,
-                                    &to_download,
-                                    force,
-                                )
-                                .await?
-                                {
-                                    return Ok(());
-                                }
+                            let task1 = build(
+                                reporter.clone(),
+                                shutdown,
+                                &shared.dirs,
+                                &to_download,
+                                force,
+                            )
+                            .await
+                            .context("Re-building database");
 
-                                let indexes = data::open_from_args(&index[..], &immutable.dirs)?;
-                                let mut inner = inner.write().unwrap();
-                                let db = lib::database::Database::open(indexes, &inner.config)?;
-                                inner.database = db;
-                                Ok::<_, anyhow::Error>(())
-                            };
+                            let mut mutable = mutable.write().await;
+                            mutable.config.set_installing(&to_download.name, false);
+                            let task2 = mutable
+                                .reopen_database(&index[..], &shared.dirs)
+                                .context("Re-opening database");
 
-                            if let Err(error) = future.await {
-                                tracing::error!("Failed to build index");
-
-                                for error in error.chain() {
-                                    tracing::error!("Caused by: {error}");
-                                }
-                            }
-
+                            report!(task1, task2);
                             system_events.send(system::Event::Refresh);
                         }
                     });
+                }
+
+                if !installing.is_empty() {
+                    let mut mutable = self.mutable.write().await;
+
+                    for id in installing {
+                        mutable.config.set_installing(&id, true);
+                    }
+
+                    mutable
+                        .reopen_database(&args.index[..], &self.shared.dirs)
+                        .context("Re-opening database")?;
+
+                    self.system_events.send(system::Event::Refresh);
                 }
             }
         }
