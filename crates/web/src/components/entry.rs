@@ -5,7 +5,7 @@ use lib::entities::KanjiInfo;
 use lib::jmdict::{
     OwnedExample, OwnedExampleSentence, OwnedKanjiElement, OwnedReadingElement, OwnedSense,
 };
-use lib::{inflection, jmdict, kana, Form, Furigana, Inflection, OwnedInflections, Priority};
+use lib::{inflection, jmdict, Form, Furigana, Inflection, OwnedInflections, Priority};
 use yew::prelude::*;
 
 use super::{colon, comma, iter, romaji, ruby, seq, spacing};
@@ -52,8 +52,8 @@ impl Combined {
     }
 
     /// Provide furigana iterator for the combined reading.
-    fn furigana(&self) -> Furigana<'_, 1, 1> {
-        kana::Full::new(&self.kanji.text, &self.reading.text, "").furigana()
+    fn furigana(&self) -> Furigana<'_> {
+        Furigana::new(&self.kanji.text, &self.reading.text, "")
     }
 
     /// Test if this contains the given text.

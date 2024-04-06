@@ -114,7 +114,7 @@ async fn entry(
     Path(sequence): Path<u32>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedEntryResponse>> {
-    let db = bg.database();
+    let db = bg.database().await;
 
     let Some(entry) = db.sequence_to_entry(sequence)? else {
         return Err(RequestError::not_found(format!(
@@ -132,7 +132,7 @@ async fn kanji(
     Path(literal): Path<String>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedKanjiResponse>> {
-    let Some(kanji) = handle_kanji(&bg, &literal)? else {
+    let Some(kanji) = handle_kanji(&bg, &literal).await? else {
         return Err(RequestError::not_found(format!(
             "Missing kanji by literal `{literal}`",
         )));
@@ -141,8 +141,8 @@ async fn kanji(
     Ok(Json(kanji))
 }
 
-fn handle_kanji(bg: &Background, literal: &str) -> Result<Option<api::OwnedKanjiResponse>> {
-    let db = bg.database();
+async fn handle_kanji(bg: &Background, literal: &str) -> Result<Option<api::OwnedKanjiResponse>> {
+    let db = bg.database().await;
 
     let Some(entry) = db.literal_to_kanji(literal)? else {
         return Ok(None);
@@ -162,14 +162,14 @@ async fn search(
     Query(request): Query<api::SearchRequest>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedSearchResponse>> {
-    Ok(Json(handle_search_request(&bg, request)?))
+    Ok(Json(handle_search_request(&bg, request).await?))
 }
 
-fn handle_search_request(
+async fn handle_search_request(
     bg: &Background,
     request: api::SearchRequest,
 ) -> Result<api::OwnedSearchResponse> {
-    let db = bg.database();
+    let db = bg.database().await;
     let search = db.search(&request.q)?;
 
     let mut phrases = Vec::new();
@@ -210,7 +210,7 @@ async fn version() -> RequestResult<Json<VersionResponse>> {
 
 /// Read the current service configuration.
 async fn config(Extension(bg): Extension<Background>) -> RequestResult<Json<Config>> {
-    Ok(Json(bg.config()))
+    Ok(Json(bg.config().await))
 }
 
 /// Read the current service configuration.
@@ -236,16 +236,16 @@ async fn analyze(
     Query(request): Query<api::AnalyzeRequest>,
     Extension(bg): Extension<Background>,
 ) -> RequestResult<Json<api::OwnedAnalyzeResponse>> {
-    Ok(Json(handle_analyze_request(&bg, request)?))
+    Ok(Json(handle_analyze_request(&bg, request).await?))
 }
 
-fn handle_analyze_request(
+async fn handle_analyze_request(
     bg: &Background,
     request: api::AnalyzeRequest,
 ) -> Result<api::OwnedAnalyzeResponse> {
     let mut data = Vec::new();
 
-    let db = bg.database();
+    let db = bg.database().await;
 
     for (key, string) in db.analyze(&request.q, request.start)? {
         data.push(api::OwnedAnalyzeEntry {

@@ -97,6 +97,7 @@ impl Component for EditIndex {
                 if self.errors.is_empty() {
                     let index = ConfigIndex {
                         enabled: true,
+                        installing: false,
                         format: self.format,
                         description: Some(self.description.clone()),
                         url: self.url.clone(),

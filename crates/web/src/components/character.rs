@@ -3,8 +3,8 @@ use yew::prelude::*;
 
 use super::{colon, comma, romaji, ruby, seq};
 
-const ONYOMI: lib::Furigana<'static, 1, 1> = lib::Furigana::new("音読み", "おんよみ", "");
-const KUNYOMI: lib::Furigana<'static, 1, 1> = lib::Furigana::new("訓読み", "くんよみ", "");
+const ONYOMI: lib::Furigana<'static> = lib::Furigana::new("音読み", "おんよみ", "");
+const KUNYOMI: lib::Furigana<'static> = lib::Furigana::new("訓読み", "くんよみ", "");
 
 pub enum Msg {}
 

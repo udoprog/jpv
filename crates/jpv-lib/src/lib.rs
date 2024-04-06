@@ -8,7 +8,7 @@
 /// Dictionary magic `JPVD`.
 pub const DATABASE_MAGIC: u32 = 0x4a_50_56_44;
 /// Current database version in use.
-pub const DATABASE_VERSION: u32 = 8;
+pub const DATABASE_VERSION: u32 = 9;
 
 /// Helper to convert a type to its owned variant.
 pub use ::borrowme::to_owned;
@@ -52,11 +52,11 @@ pub mod entities;
 pub use self::entities::PartOfSpeech;
 
 mod furigana;
-pub use self::furigana::{Furigana, FuriganaGroup};
-
-pub mod romaji;
+pub use self::furigana::{Furigana, FuriganaGroup, OwnedFurigana};
 
 pub mod kana;
+pub mod morae;
+pub mod romaji;
 
 mod priority;
 pub use self::priority::Priority;

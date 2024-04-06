@@ -5,11 +5,25 @@ use anyhow::{Context, Result};
 use slab::Slab;
 use tokio::sync::{mpsc, oneshot};
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum TaskName {
+    /// Rebuilding the specified database.
+    Build(String),
+}
+
+impl fmt::Display for TaskName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TaskName::Build(name) => write!(f, "Building {name}"),
+        }
+    }
+}
+
 pub(crate) struct Tasks {
     tasks: Slab<oneshot::Sender<()>>,
-    completion: mpsc::UnboundedReceiver<(usize, Option<Box<str>>)>,
-    sender: mpsc::UnboundedSender<(usize, Option<Box<str>>)>,
-    unique: HashMap<Box<str>, usize>,
+    completion: mpsc::UnboundedReceiver<(usize, Option<TaskName>)>,
+    sender: mpsc::UnboundedSender<(usize, Option<TaskName>)>,
+    unique: HashMap<TaskName, usize>,
 }
 
 impl Tasks {
@@ -28,15 +42,10 @@ impl Tasks {
     /// This returns a tuple of a oneshot that will be signalled if the task
     /// needs to be cancelled, or a completion handler that must be dropped once
     /// the task has completed.
-    pub(crate) fn unique_task<N>(
+    pub(crate) fn unique_task(
         &mut self,
-        name: N,
-    ) -> Option<(oneshot::Receiver<()>, TaskCompletion)>
-    where
-        N: fmt::Display,
-    {
-        let name = Box::from(name.to_string());
-
+        name: TaskName,
+    ) -> Option<(oneshot::Receiver<()>, TaskCompletion)> {
         if self.unique.get(&name).is_some() {
             return None;
         }
@@ -47,7 +56,7 @@ impl Tasks {
     }
 
     /// Spawn a new task and set up a oneshot receiver.
-    fn task_inner(&mut self, name: Option<Box<str>>) -> (oneshot::Receiver<()>, TaskCompletion) {
+    fn task_inner(&mut self, name: Option<TaskName>) -> (oneshot::Receiver<()>, TaskCompletion) {
         let (sender, receiver) = oneshot::channel();
         let index = self.tasks.insert(sender);
 
@@ -105,15 +114,15 @@ impl Tasks {
 }
 
 pub(crate) struct TaskCompletion {
-    sender: mpsc::UnboundedSender<(usize, Option<Box<str>>)>,
+    sender: mpsc::UnboundedSender<(usize, Option<TaskName>)>,
     index: usize,
-    name: Option<Box<str>>,
+    name: Option<TaskName>,
 }
 
 impl TaskCompletion {
     /// Get the name of the task.
-    pub(crate) fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+    pub(crate) fn name(&self) -> Option<&TaskName> {
+        self.name.as_ref()
     }
 }
 
@@ -125,11 +134,11 @@ impl Drop for TaskCompletion {
 }
 
 pub(crate) struct CompletedTask {
-    name: Option<Box<str>>,
+    name: Option<TaskName>,
 }
 
 impl CompletedTask {
-    pub(crate) fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+    pub(crate) fn name(&self) -> Option<&TaskName> {
+        self.name.as_ref()
     }
 }

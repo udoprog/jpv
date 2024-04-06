@@ -217,6 +217,11 @@ impl Component for Config {
                     None => false,
                 };
 
+                let installing = match &self.state {
+                    Some(state) => state.local.is_installing(id),
+                    None => false,
+                };
+
                 if self.edit_index.contains(id) {
                     let oncancel = ctx.link().callback({
                         let id = id.to_owned();
@@ -282,7 +287,7 @@ impl Component for Config {
 
                     indexes.push(html! {
                         <div {class}>
-                            <input id={id.to_owned()} type="checkbox" {checked} disabled={self.pending} {onchange} />
+                            <input id={id.to_owned()} type="checkbox" {checked} disabled={self.pending || installing} {onchange} />
                             <label for={id.to_owned()}>{id.to_owned()}</label>
                             <label for={id.to_owned()}>{index.description.clone()}</label>
                             {for updated}

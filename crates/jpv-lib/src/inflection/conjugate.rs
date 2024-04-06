@@ -545,7 +545,8 @@ fn match_char<'a>(
     ))
 }
 
-pub(crate) fn reading_permutations<'a>(
+/// Get all reading permutations.
+pub fn reading_permutations<'a>(
     entry: &Entry<'a>,
 ) -> Vec<(
     Option<(usize, &'a str)>,
