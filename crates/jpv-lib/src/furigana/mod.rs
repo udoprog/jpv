@@ -209,7 +209,7 @@ fn reverse_find<'a>(
     kanji: &'a str,
     reading: &'a str,
 ) -> impl Iterator<Item = (&'a str, usize, Range<usize>)> {
-    use memchr::memmem::rfind;
+    use memchr::memmem::rfind_iter;
 
     let mut reading_len = reading.len();
     let mut kanji_len = kanji.len();
@@ -220,10 +220,9 @@ fn reverse_find<'a>(
         let mut morae_count = 0;
 
         reading_len = 'out: {
-            let mut current = reading_len;
             let mut last = None;
 
-            while let Some(next) = rfind(reading[..current].as_bytes(), kana.as_bytes()) {
+            for next in rfind_iter(reading[..reading_len].as_bytes(), kana.as_bytes()) {
                 let c = reading[next..].chars().next()?;
 
                 // Special case: we're matching exact kana.
@@ -232,6 +231,7 @@ fn reverse_find<'a>(
                 }
 
                 let reading_kana = &reading[next + c.len_utf8()..reading_len];
+
                 morae_count += morae::iter(reading_kana).count();
 
                 // Find the largest group that doesn't violate the heuristic that
@@ -241,7 +241,6 @@ fn reverse_find<'a>(
                 }
 
                 last = Some(next);
-                current = next;
             }
 
             last?
