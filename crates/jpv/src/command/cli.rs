@@ -122,6 +122,14 @@ pub(crate) async fn run(
                     if uniq.insert((kanji, reading)) {
                         writeln!(f, "#{}: {kanji}: {reading}", entry.sequence)?;
                     }
+
+                    if let Some(e) = db.literal_to_kanji(kanji)? {
+                        for reading in e.readings {
+                            if matches!(reading.ty, "ja_kun" | "ja_on") {
+                                writeln!(f, "  {}: {}", reading.ty, reading.text)?;
+                            }
+                        }
+                    };
                 }
             }
         }
