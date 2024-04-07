@@ -219,24 +219,36 @@ fn reverse_find<'a>(
         let kanji_count = kanji[g.end..kanji_len].chars().count();
         let mut morae_count = 0;
 
-        let mut current = reading_len;
+        reading_len = 'out: {
+            let mut current = reading_len;
+            let mut last = None;
 
-        loop {
-            let next = rfind(reading[..current].as_bytes(), kana.as_bytes())?;
-            morae_count += morae::iter(&reading[next..current]).count();
+            while let Some(next) = rfind(reading[..current].as_bytes(), kana.as_bytes()) {
+                let c = reading[next..].chars().next()?;
 
-            // Process until we have at least as many kanji characters as we
-            // have morae, since Kanji are *usually* read with at least one
-            // mora unless they are silent.
-            if morae_count < kanji_count {
+                // Special case: we're matching exact kana.
+                if kanji_count == 0 {
+                    break 'out next;
+                }
+
+                let reading_kana = &reading[next + c.len_utf8()..reading_len];
+                morae_count += morae::iter(reading_kana).count();
+
+                // Find the largest group that doesn't violate the heuristic that
+                // each kanji has two morae.
+                if morae_count > kanji_count * 2 {
+                    break 'out last.unwrap_or(next);
+                }
+
+                last = Some(next);
                 current = next;
-                continue;
             }
 
-            reading_len = next;
-            kanji_len = g.start;
-            return Some((kana, reading_len, g));
-        }
+            last?
+        };
+
+        kanji_len = g.start;
+        Some((kana, reading_len, g))
     })
 }
 

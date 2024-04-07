@@ -3,21 +3,21 @@ use super::*;
 use FuriganaGroup::Kana as Kn;
 use FuriganaGroup::Kanji as K;
 
+macro_rules! test_case {
+    ($kanji:expr, $kana:expr, $expected:expr) => {
+        test_case!($kanji, $kana, $expected, "");
+    };
+
+    ($kanji:expr, $kana:expr, $expected:expr, $suffix:expr) => {
+        assert_eq!(
+            furigana($kanji, $kana, $suffix).collect::<Vec<_>>(),
+            $expected
+        );
+    };
+}
+
 #[test]
-fn test_furigana() {
-    macro_rules! test_case {
-        ($kanji:expr, $kana:expr, $expected:expr) => {
-            test_case!($kanji, $kana, $expected, "");
-        };
-
-        ($kanji:expr, $kana:expr, $expected:expr, $suffix:expr) => {
-            assert_eq!(
-                furigana($kanji, $kana, $suffix).collect::<Vec<_>>(),
-                $expected
-            );
-        };
-    }
-
+fn furigana_many() {
     test_case!("お金", "おかね", [Kn("お"), K("金", "かね")]);
 
     test_case!(
@@ -79,6 +79,15 @@ fn test_furigana() {
         [K("月", "つき"), Kn("とすっぽん")]
     );
 
+    test_case!(
+        "月の物",
+        "つきのもの",
+        [K("月", "つき"), Kn("の"), K("物", "もの")]
+    );
+}
+
+#[test]
+fn furigana_unmatched() {
     // Reading does not match.
     test_case!(
         "月とすっぽん",
@@ -88,7 +97,16 @@ fn test_furigana() {
 }
 
 #[test]
-fn test_groups() {
+fn furigana_isolated() {
+    test_case!(
+        "月の物",
+        "つきのもの",
+        [K("月", "つき"), Kn("の"), K("物", "もの")]
+    );
+}
+
+#[test]
+fn kana_groups() {
     macro_rules! test_case {
         ($kanji:expr, $expected:expr) => {
             assert_eq!(groups($kanji).collect::<Vec<_>>(), $expected);
