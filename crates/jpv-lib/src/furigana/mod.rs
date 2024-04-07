@@ -220,16 +220,17 @@ fn reverse_find<'a>(
         let mut morae_count = 0;
 
         reading_len = 'out: {
+            let mut it = rfind_iter(reading[..reading_len].as_bytes(), kana.as_bytes());
+
+            // Special case: we're matching exact kana.
+            if kanji_count == 0 {
+                break 'out it.next()?;
+            }
+
             let mut last = None;
 
-            for next in rfind_iter(reading[..reading_len].as_bytes(), kana.as_bytes()) {
+            for next in it {
                 let c = reading[next..].chars().next()?;
-
-                // Special case: we're matching exact kana.
-                if kanji_count == 0 {
-                    break 'out next;
-                }
-
                 let reading_kana = &reading[next + c.len_utf8()..reading_len];
 
                 morae_count += morae::iter(reading_kana).count();
