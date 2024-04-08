@@ -59,6 +59,24 @@ impl From<serde_json::Error> for Error {
     }
 }
 
+impl From<musli_descriptive::Error> for Error {
+    #[inline]
+    fn from(error: musli_descriptive::Error) -> Self {
+        Self {
+            error: anyhow::Error::from(error),
+        }
+    }
+}
+
+impl From<musli_value::Error> for Error {
+    #[inline]
+    fn from(error: musli_value::Error) -> Self {
+        Self {
+            error: anyhow::Error::from(error),
+        }
+    }
+}
+
 impl From<Utf8Error> for Error {
     #[inline]
     fn from(error: Utf8Error) -> Self {

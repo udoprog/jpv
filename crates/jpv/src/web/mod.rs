@@ -8,6 +8,9 @@ mod r#impl;
 
 mod ws;
 
+mod json;
+
+use self::json::Json;
 pub(crate) use self::r#impl::{BIND, PORT};
 
 use std::cmp::Reverse;
@@ -21,9 +24,10 @@ use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::{Extension, Json, Router};
+use axum::{Extension, Router};
 use lib::api;
 use lib::config::Config;
+use musli::Encode;
 use serde::Serialize;
 use tower_http::cors::{AllowMethods, AllowOrigin, CorsLayer};
 
@@ -196,39 +200,39 @@ async fn handle_search_request(
     })
 }
 
-#[derive(Serialize)]
+#[derive(Encode, Serialize)]
 struct VersionResponse {
     version: &'static str,
 }
 
 /// Get the current service version.
-async fn version() -> RequestResult<Json<VersionResponse>> {
-    Ok(Json(VersionResponse {
+async fn version() -> RequestResult<axum::Json<VersionResponse>> {
+    Ok(axum::Json(VersionResponse {
         version: crate::VERSION,
     }))
 }
 
 /// Read the current service configuration.
-async fn config(Extension(bg): Extension<Background>) -> RequestResult<Json<Config>> {
-    Ok(Json(bg.config().await))
+async fn config(Extension(bg): Extension<Background>) -> RequestResult<axum::Json<Config>> {
+    Ok(axum::Json(bg.config().await))
 }
 
 /// Read the current service configuration.
 async fn update_config(
     Extension(bg): Extension<Background>,
-    Json(config): Json<Config>,
-) -> RequestResult<Json<api::Empty>> {
+    axum::Json(config): axum::Json<Config>,
+) -> RequestResult<axum::Json<api::Empty>> {
     if bg.update_config(config).await.is_none() {
         return Err(RequestError::internal("Failed to update configuration"));
     }
 
-    Ok(Json(api::Empty))
+    Ok(axum::Json(api::Empty))
 }
 
 /// Trigger a rebuild of the database.
-async fn rebuild(Extension(bg): Extension<Background>) -> RequestResult<Json<api::Empty>> {
+async fn rebuild(Extension(bg): Extension<Background>) -> RequestResult<axum::Json<api::Empty>> {
     bg.install(Install::default());
-    Ok(Json(api::Empty))
+    Ok(axum::Json(api::Empty))
 }
 
 /// Perform text analysis.

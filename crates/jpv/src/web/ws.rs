@@ -84,7 +84,7 @@ async fn log_backfill(
         kind: api::OwnedBroadcastKind::LogBackFill(api::OwnedLogBackFill { log }),
     });
 
-    let json = serde_json::to_vec(&event)?;
+    let json = musli_descriptive::to_vec(&event)?;
     sink.send(Message::Binary(json)).await?;
     Ok(())
 }
@@ -106,7 +106,7 @@ async fn system_event(
                     }),
                 });
 
-                let json = serde_json::to_vec(&event)?;
+                let json = musli_descriptive::to_vec(&event)?;
                 sink.send(Message::Binary(json)).await?;
             }
             "STRING" | "text/plain" => {
@@ -124,7 +124,7 @@ async fn system_event(
                     }),
                 });
 
-                let json = serde_json::to_vec(&event)?;
+                let json = musli_descriptive::to_vec(&event)?;
                 sink.send(Message::Binary(json)).await?;
             }
             ty @ "application/json" => {
@@ -135,7 +135,7 @@ async fn system_event(
                     }),
                 });
 
-                let json = serde_json::to_vec(&event)?;
+                let json = musli_descriptive::to_vec(&event)?;
                 sink.send(Message::Binary(json)).await?;
             }
             ty => {
@@ -147,7 +147,7 @@ async fn system_event(
                     return Ok(());
                 };
 
-                let json = serde_json::to_vec(&event)?;
+                let json = musli_descriptive::to_vec(&event)?;
                 sink.send(Message::Binary(json)).await?;
             }
         },
@@ -160,7 +160,7 @@ async fn system_event(
                 return Ok(());
             };
 
-            let json = serde_json::to_vec(&event)?;
+            let json = musli_descriptive::to_vec(&event)?;
             sink.send(Message::Binary(json)).await?;
         }
         system::Event::SendText(text) => {
@@ -173,7 +173,7 @@ async fn system_event(
                 }),
             });
 
-            let json = serde_json::to_vec(&event)?;
+            let json = musli_descriptive::to_vec(&event)?;
             sink.send(Message::Binary(json)).await?;
         }
         system::Event::LogEntry(event) => {
@@ -181,7 +181,7 @@ async fn system_event(
                 kind: api::OwnedBroadcastKind::LogEntry(event),
             });
 
-            let json = serde_json::to_vec(&event)?;
+            let json = musli_descriptive::to_vec(&event)?;
             sink.send(Message::Binary(json)).await?;
         }
         system::Event::TaskProgress(task) => {
@@ -196,7 +196,7 @@ async fn system_event(
                 }),
             });
 
-            let json = serde_json::to_vec(&event)?;
+            let json = musli_descriptive::to_vec(&event)?;
             sink.send(Message::Binary(json)).await?;
         }
         system::Event::TaskCompleted(task) => {
@@ -204,7 +204,7 @@ async fn system_event(
                 kind: api::BroadcastKind::TaskCompleted(api::TaskCompleted { name: &task.name }),
             });
 
-            let json = serde_json::to_vec(&event)?;
+            let json = musli_descriptive::to_vec(&event)?;
 
             sink.send(Message::Binary(json)).await?;
         }
@@ -213,7 +213,7 @@ async fn system_event(
                 kind: api::BroadcastKind::Refresh,
             });
 
-            let json = serde_json::to_vec(&event)?;
+            let json = musli_descriptive::to_vec(&event)?;
             sink.send(Message::Binary(json)).await?;
         }
     }
@@ -342,7 +342,7 @@ async fn run(
                 match message? {
                     Message::Text(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
                     Message::Binary(bytes) => {
-                        let request = match serde_json::from_slice::<api::ClientRequestEnvelope>(&bytes[..]) {
+                        let request = match musli_descriptive::from_slice::<api::ClientRequestEnvelope>(&bytes[..]) {
                             Ok(event) => event,
                             Err(error) => {
                                 tracing::warn!(?error, "Failed to decode message");
@@ -352,20 +352,20 @@ async fn run(
 
                         tracing::trace!("Got request: {:?}", request);
 
-                        let result: Result<serde_json::Value> = match request.kind.as_str() {
+                        let result: Result<musli_value::Value> = match request.kind.as_str() {
                             api::SearchRequest::KIND => {
-                                let request = serde_json::from_value(request.body)?;
+                                let request = musli_value::decode(&request.body)?;
                                 let response = super::handle_search_request(bg, request).await?;
-                                Ok(serde_json::to_value(&response)?)
+                                Ok(musli_value::encode(&response)?)
                             },
                             api::AnalyzeRequest::KIND => {
-                                let request = serde_json::from_value(request.body)?;
+                                let request = musli_value::decode(&request.body)?;
                                 let response = super::handle_analyze_request(bg, request).await?;
-                                Ok(serde_json::to_value(&response)?)
+                                Ok(musli_value::encode(&response)?)
                             },
                             api::InstallAllRequest::KIND => {
                                 bg.install(Install::default());
-                                Ok(serde_json::Value::Null)
+                                Ok(musli_value::Value::Unit)
                             }
                             api::GetConfig::KIND => {
                                 let database = bg.database().await;
@@ -382,10 +382,10 @@ async fn run(
                                     missing_ocr,
                                 };
 
-                                Ok(serde_json::to_value(&result)?)
+                                Ok(musli_value::encode(result)?)
                             }
                             api::UpdateConfigRequest::KIND => {
-                                let request: api::UpdateConfigRequest = serde_json::from_value(request.body)?;
+                                let request: api::UpdateConfigRequest = musli_value::decode(&request.body)?;
 
                                 'out: {
                                     if !request.update_indexes.is_empty() {
@@ -407,15 +407,15 @@ async fn run(
                                         None
                                     };
 
-                                    Ok(serde_json::to_value(&api::UpdateConfigResponse {
+                                    Ok(musli_value::encode(api::UpdateConfigResponse {
                                         config
                                     })?)
                                 }
                             }
                             api::GetKanji::KIND => {
-                                let request: api::GetKanji = serde_json::from_value(request.body)?;
+                                let request: api::GetKanji = musli_value::decode(&request.body)?;
                                 let response = super::handle_kanji(bg, &request.kanji).await?;
-                                Ok(serde_json::to_value(&response)?)
+                                Ok(musli_value::encode(&response)?)
                             }
                             _ => {
                                 Err(anyhow!("Unsupported request"))
@@ -424,10 +424,10 @@ async fn run(
 
                         let (body, error) = match result {
                             Ok(value) => (value, None),
-                            Err(error) => (serde_json::Value::Null, Some(error.to_string())),
+                            Err(error) => (musli_value::Value::Unit, Some(error.to_string())),
                         };
 
-                        let payload = serde_json::to_vec(&api::OwnedClientEvent::ClientResponse(api::ClientResponseEnvelope {
+                        let payload = musli_descriptive::to_vec(&api::OwnedClientEvent::ClientResponse(api::ClientResponseEnvelope {
                             index: request.index,
                             serial: request.serial,
                             body,

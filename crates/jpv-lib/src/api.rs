@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
-use serde::de::DeserializeOwned;
+use musli::de::DecodeOwned;
+use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -10,15 +11,15 @@ use crate::jmnedict;
 use crate::kanjidic2;
 use crate::Weight;
 
-pub trait Request: Serialize {
+pub trait Request: Encode {
     /// The kind of the request.
     const KIND: &'static str;
 
     /// The expected response.
-    type Response: 'static + DeserializeOwned;
+    type Response: 'static + DecodeOwned;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode, Deserialize)]
 pub struct AnalyzeRequest {
     pub q: String,
     pub start: usize,
@@ -29,7 +30,7 @@ impl Request for AnalyzeRequest {
     type Response = OwnedAnalyzeResponse;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode, Deserialize)]
 pub struct SearchRequest {
     pub q: String,
 }
@@ -39,7 +40,7 @@ impl Request for SearchRequest {
     type Response = OwnedSearchResponse;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct InstallAllRequest;
 
 impl Request for InstallAllRequest {
@@ -47,7 +48,7 @@ impl Request for InstallAllRequest {
     type Response = Empty;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct GetState;
 
 impl Request for GetState {
@@ -55,13 +56,13 @@ impl Request for GetState {
     type Response = GetStateResult;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct GetStateResult {
     /// Installed dictionaries.
     pub installed: HashSet<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct GetConfig;
 
 impl Request for GetConfig {
@@ -69,7 +70,7 @@ impl Request for GetConfig {
     type Response = GetConfigResult;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct GetKanji {
     pub kanji: String,
 }
@@ -80,7 +81,7 @@ impl Request for GetKanji {
 }
 
 /// Missing OCR support.
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub struct InstallUrl {
     /// Title of the URL.
     pub text: String,
@@ -91,10 +92,10 @@ pub struct InstallUrl {
 }
 
 /// Missing OCR support.
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub struct MissingOcr {
     /// The URL where to install it from.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
     pub install_url: Option<InstallUrl>,
 }
 
@@ -116,19 +117,19 @@ impl MissingOcr {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct GetConfigResult {
     /// System configuration.
     pub config: Config,
     /// Installed dictionaries.
-    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
+    #[musli(default, skip_encoding_if = HashSet::is_empty)]
     pub installed: HashSet<String>,
     /// Indicates that OCR support is missing, and some indications of how to install it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
     pub missing_ocr: Option<MissingOcr>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct UpdateConfigRequest {
     /// Configuration update to save.
     pub config: Option<Config>,
@@ -142,70 +143,59 @@ impl Request for UpdateConfigRequest {
     type Response = UpdateConfigResponse;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct UpdateConfigResponse {
     /// Indicates that the configuration has been updated with the given value.
     pub config: Option<Config>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Encode, Decode)]
 pub struct Empty;
 
 #[borrowme::borrowme]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct SendClipboard<'a> {
-    #[borrowed_attr(serde(borrow))]
     pub ty: Option<&'a str>,
     #[borrowme(owned = Box<[u8]>, to_owned_with = Box::from)]
     pub data: &'a [u8],
 }
 
 /// Json payload when sending the clipboard.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct SendClipboardJson {
     pub primary: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
     pub secondary: Option<String>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct LogBackFill<'a> {
-    #[borrowed_attr(serde(borrow))]
     pub log: Vec<LogEntry<'a>>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum BroadcastKind<'a> {
-    #[borrowed_attr(serde(borrow))]
     SendClipboardData(SendClipboard<'a>),
-    #[borrowed_attr(serde(borrow))]
     LogBackFill(LogBackFill<'a>),
-    #[borrowed_attr(serde(borrow))]
     LogEntry(LogEntry<'a>),
-    #[borrowed_attr(serde(borrow))]
     TaskProgress(TaskProgress<'a>),
-    #[borrowed_attr(serde(borrow))]
     TaskCompleted(TaskCompleted<'a>),
     Refresh,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct Broadcast<'a> {
-    #[borrowed_attr(serde(borrow))]
     pub kind: BroadcastKind<'a>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
+#[derive(Debug, Encode, Decode)]
 pub enum ClientResponse<'a> {
-    #[borrowed_attr(serde(borrow))]
     Search(SearchResponse<'a>),
-    #[borrowed_attr(serde(borrow))]
     Analyze(AnalyzeResponse<'a>),
     GetConfig(Config),
     Error(String),
@@ -213,93 +203,81 @@ pub enum ClientResponse<'a> {
     Empty,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct ClientRequestEnvelope {
     pub index: usize,
     pub serial: u32,
     pub kind: String,
-    pub body: serde_json::Value,
+    pub body: musli_value::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct ClientResponseEnvelope {
     pub index: usize,
     pub serial: u32,
-    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
-    pub body: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: musli_value::Value,
+    #[musli(default, skip_encoding_if = Option::is_none)]
     pub error: Option<String>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
+#[derive(Debug, Encode, Decode)]
 pub enum ClientEvent<'a> {
-    #[borrowed_attr(serde(borrow))]
     Broadcast(Broadcast<'a>),
     ClientResponse(ClientResponseEnvelope),
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct SearchPhrase<'a> {
     pub key: EntryResultKey,
-    #[borrowed_attr(serde(borrow))]
     pub phrase: jmdict::Entry<'a>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct SearchName<'a> {
     pub key: EntryResultKey,
-    #[borrowed_attr(serde(borrow))]
     pub name: jmnedict::Entry<'a>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct SearchResponse<'a> {
-    #[borrowed_attr(serde(borrow))]
     pub phrases: Vec<SearchPhrase<'a>>,
-    #[borrowed_attr(serde(borrow))]
     pub names: Vec<SearchName<'a>>,
-    #[borrowed_attr(serde(borrow))]
     pub characters: Vec<kanjidic2::Character<'a>>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct AnalyzeEntry<'a> {
     pub key: Weight,
     pub string: &'a str,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct AnalyzeResponse<'a> {
-    #[borrowed_attr(serde(borrow))]
     pub data: Vec<AnalyzeEntry<'a>>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct EntryResponse<'a> {
-    #[borrowed_attr(serde(borrow))]
     pub entry: jmdict::Entry<'a>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct KanjiResponse<'a> {
-    #[borrowed_attr(serde(borrow))]
     pub kanji: kanjidic2::Character<'a>,
-    #[borrowed_attr(serde(borrow))]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[musli(default, skip_encoding_if = Vec::is_empty)]
     pub radicals: Vec<&'a str>,
 }
 
 #[borrowme::borrowme]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode)]
 pub struct LogEntry<'a> {
     /// Timestamp of the log entry in milliseconds since the unix epoch.
     pub timestamp: u64,
@@ -313,7 +291,7 @@ pub struct LogEntry<'a> {
 
 /// A message indicating task progress.
 #[borrowme::borrowme]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode)]
 pub struct TaskProgress<'a> {
     pub name: &'a str,
     pub value: usize,
@@ -325,7 +303,7 @@ pub struct TaskProgress<'a> {
 
 /// Indicates that a task has been completed.
 #[borrowme::borrowme]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode)]
 pub struct TaskCompleted<'a> {
     pub name: &'a str,
 }

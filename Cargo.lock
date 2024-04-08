@@ -283,9 +283,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.15.4"
+version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ff69b9dd49fd426c69a0db9fc04dd934cdb6645ff000864d98f7e2af8830eaa"
+checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
 name = "bytemuck"
@@ -307,9 +307,9 @@ checksum = "514de17de45fdb8dc022b1a7975556c53c86f9f0aa5f534b98977b171857c2c9"
 
 [[package]]
 name = "cc"
-version = "1.0.91"
+version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd97381a8cc6493395a5afc4c691c1084b3768db713b73aa215217aa245d153"
+checksum = "2678b2e3449475e95b0aa6f9b506a28e61b3dc8996592b983695e8ebb58a8b41"
 
 [[package]]
 name = "cesu8"
@@ -771,9 +771,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.13"
+version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06fddc2749e0528d2813f95e050e87e52c8cbbae56223b9babf73b3e53b0cc6"
+checksum = "94b22e06ecb0110981051723910cbf0b5f5e09a2062dd7663334ee79a9d1286c"
 dependencies = [
  "cfg-if",
  "libc",
@@ -1322,6 +1322,7 @@ dependencies = [
  "anyhow",
  "async-fuse",
  "axum",
+ "bytes",
  "clap",
  "fixed-map",
  "flate2",
@@ -1330,8 +1331,13 @@ dependencies = [
  "image",
  "jpv-lib",
  "jpv-tesseract",
+ "mime",
  "mime_guess",
- "musli-zerocopy 0.0.96",
+ "musli",
+ "musli-descriptive",
+ "musli-json",
+ "musli-value",
+ "musli-zerocopy",
  "num_cpus",
  "parking_lot",
  "rand",
@@ -1366,7 +1372,8 @@ dependencies = [
  "memmap",
  "musli",
  "musli-storage",
- "musli-zerocopy 0.0.103",
+ "musli-value",
+ "musli-zerocopy",
  "relative-path",
  "serde",
  "serde_json",
@@ -1422,6 +1429,79 @@ dependencies = [
  "bindgen",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "lexical"
+version = "6.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7aefb36fd43fef7003334742cbf77b243fcd36418a1d1bdd480d613a67968f6"
+dependencies = [
+ "lexical-core",
+]
+
+[[package]]
+name = "lexical-core"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cde5de06e8d4c2faabc400238f9ae1c74d5412d03a7bd067645ccbc47070e46"
+dependencies = [
+ "lexical-parse-float",
+ "lexical-parse-integer",
+ "lexical-util",
+ "lexical-write-float",
+ "lexical-write-integer",
+]
+
+[[package]]
+name = "lexical-parse-float"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "683b3a5ebd0130b8fb52ba0bdc718cc56815b6a097e28ae5a6997d0ad17dc05f"
+dependencies = [
+ "lexical-parse-integer",
+ "lexical-util",
+ "static_assertions",
+]
+
+[[package]]
+name = "lexical-parse-integer"
+version = "0.8.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d0994485ed0c312f6d965766754ea177d07f9c00c9b82a5ee62ed5b47945ee9"
+dependencies = [
+ "lexical-util",
+ "static_assertions",
+]
+
+[[package]]
+name = "lexical-util"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5255b9ff16ff898710eb9eb63cb39248ea8a5bb036bea8085b1a767ff6c4e3fc"
+dependencies = [
+ "static_assertions",
+]
+
+[[package]]
+name = "lexical-write-float"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "accabaa1c4581f05a3923d1b4cfd124c329352288b7b9da09e766b0668116862"
+dependencies = [
+ "lexical-util",
+ "lexical-write-integer",
+ "static_assertions",
+]
+
+[[package]]
+name = "lexical-write-integer"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1b6f3d1f4422866b68192d62f77bc5c700bee84f3069f2469d7bc8c77852446"
+dependencies = [
+ "lexical-util",
+ "static_assertions",
 ]
 
 [[package]]
@@ -1557,27 +1637,27 @@ dependencies = [
 
 [[package]]
 name = "musli"
-version = "0.0.103"
+version = "0.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "faafff897fd0839324a7a124a87d6da9a7aceccadeb4174ae22c4c3aa545478c"
+checksum = "a956ca56d9346a7cff4628c4f6449309526d036c7b0b91667d8fa876967f8335"
 dependencies = [
  "musli-macros",
 ]
 
 [[package]]
 name = "musli-allocator"
-version = "0.0.103"
+version = "0.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "763d944e5bf375b13e8f773950e7a53a8ef4f3081feae737c60cac8cd13fb780"
+checksum = "7e0496c579296ac739316ef82276b73fc3f766038263aed227876ac08351ba37"
 dependencies = [
  "musli",
 ]
 
 [[package]]
 name = "musli-common"
-version = "0.0.103"
+version = "0.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58de76aa503abdc37e054575020f233be077bd9fdd6baf5cc762332849ddec4f"
+checksum = "08394a488fe4e36eb46642b18b8ecdef5a9668459010445cc8ecd8693838f375"
 dependencies = [
  "musli",
  "musli-allocator",
@@ -1585,10 +1665,36 @@ dependencies = [
 ]
 
 [[package]]
-name = "musli-macros"
-version = "0.0.103"
+name = "musli-descriptive"
+version = "0.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "878776c20e6496d80ecaa9a7193b75fcb3001bea56c9eb7f67a2ed7f12958862"
+checksum = "6f25f7093e2a8b8b0739b519e32a298b048a9b26c929ab9de7703f46fb3bb73f"
+dependencies = [
+ "musli",
+ "musli-common",
+ "musli-storage",
+ "musli-value",
+]
+
+[[package]]
+name = "musli-json"
+version = "0.0.109"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "378e24e7fac34c5f91b70e26b1c493e6563d83145e437c29dd1759d50bbbf34d"
+dependencies = [
+ "itoa",
+ "lexical",
+ "musli",
+ "musli-common",
+ "musli-value",
+ "ryu",
+]
+
+[[package]]
+name = "musli-macros"
+version = "0.0.109"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e73e8a4c3d464245f08baeeae7bb4897631cf9cfb8abeb5d40b6a1d80d95734d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1597,50 +1703,43 @@ dependencies = [
 
 [[package]]
 name = "musli-storage"
-version = "0.0.103"
+version = "0.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f88a0b8ab1dff94f384aff1820b7f3c6f45c14675e1d9dd43122f85a5410afda"
+checksum = "0941963b68b026760b642660de128cd9c6f365296c0f2b74546beba14ef672cf"
 dependencies = [
  "musli",
  "musli-common",
 ]
 
 [[package]]
-name = "musli-zerocopy"
-version = "0.0.96"
+name = "musli-value"
+version = "0.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "273ca867ed63f936c90509685063d68e1df46721f6186c6b4d1679e6e90086b3"
+checksum = "ce863f41513d3af6edfd8f05bbb8a36507cac10c959a1947f80ac673ad597e47"
 dependencies = [
- "musli-zerocopy-macros 0.0.96",
- "rand",
+ "itoa",
+ "lexical",
+ "musli",
+ "musli-common",
+ "musli-storage",
+ "ryu",
 ]
 
 [[package]]
 name = "musli-zerocopy"
-version = "0.0.103"
+version = "0.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "861089ca0af78a17f303b345bbaf2c6176fcacab4d9b84356a68c085f1b412fe"
+checksum = "b910a8759120ce664bde1ce835edbdbec561ec1655278af74df6af1e6777933a"
 dependencies = [
- "musli-zerocopy-macros 0.0.103",
+ "musli-zerocopy-macros",
  "rand",
 ]
 
 [[package]]
 name = "musli-zerocopy-macros"
-version = "0.0.96"
+version = "0.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a09cb6a974cf61414e00a0db7c8003e5da8c9bd66c25d7ca2ad511fc861b187"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.58",
-]
-
-[[package]]
-name = "musli-zerocopy-macros"
-version = "0.0.103"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e517b6271b4c0c516479c355be82bb94080a76a418ad8b1aa8297b7983dace2"
+checksum = "27bda51e7cc2d442d285eaa87e5680a95954d7fee6ef69d3075217baf98d8ab5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3090,6 +3189,8 @@ dependencies = [
  "gloo",
  "jpv-lib",
  "log",
+ "musli-descriptive",
+ "musli-value",
  "serde",
  "serde_json",
  "serde_urlencoded",

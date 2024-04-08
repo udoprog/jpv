@@ -129,7 +129,7 @@ where
             return Err(anyhow!("Socket is not connected").into());
         };
 
-        let array_buffer = serde_json::to_vec(&message)?;
+        let array_buffer = musli_descriptive::to_vec(&message)?;
         socket.send_with_u8_array(&array_buffer)?;
         Ok(())
     }
@@ -221,13 +221,14 @@ where
 
                 let array_buffer = Uint8Array::new(&array_buffer).to_vec();
 
-                let event = match serde_json::from_slice::<api::OwnedClientEvent>(&array_buffer) {
-                    Ok(event) => event,
-                    Err(error) => {
-                        log::error!("{}", error);
-                        return;
-                    }
-                };
+                let event =
+                    match musli_descriptive::from_slice::<api::OwnedClientEvent>(&array_buffer) {
+                        Ok(event) => event,
+                        Err(error) => {
+                            log::error!("{}", error);
+                            return;
+                        }
+                    };
 
                 match event {
                     api::OwnedClientEvent::Broadcast(event) => {
@@ -394,7 +395,7 @@ impl Drop for StateListener {
 
 struct Pending {
     serial: u32,
-    callback: Callback<Result<serde_json::Value>>,
+    callback: Callback<Result<musli_value::Value>>,
 }
 
 /// The state of the connection.
@@ -424,7 +425,7 @@ impl Handle {
     where
         T: api::Request,
     {
-        let body = match serde_json::to_value(request) {
+        let body = match musli_value::encode(request) {
             Ok(body) => body,
             Err(error) => {
                 callback.emit(Err(Error::from(error)));
@@ -447,7 +448,7 @@ impl Handle {
                     }
                 };
 
-                match serde_json::from_value(payload) {
+                match musli_value::decode(&payload) {
                     Ok(payload) => {
                         callback.emit(Ok(payload));
                     }

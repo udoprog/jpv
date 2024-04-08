@@ -1,15 +1,16 @@
 use std::cmp::Ordering;
 
+use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Encode, Decode)]
 pub enum Key {
     Phrase(u64),
     Name(u64),
     Kanji(u32),
 }
 
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, Encode, Decode)]
 pub struct Weight(f32);
 
 impl Weight {

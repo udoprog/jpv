@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use anyhow::Result;
+use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -30,7 +31,19 @@ const KRADFILE_DESCRIPTION: &str = "Radicals from KRADFILE";
 pub struct IndexFormatError;
 
 #[derive(
-    Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
 )]
 #[serde(rename_all = "kebab-case")]
 pub enum IndexFormat {
@@ -126,16 +139,19 @@ impl FromStr for IndexFormat {
 }
 
 /// An index.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct ConfigIndex {
     pub format: IndexFormat,
     pub url: String,
     pub enabled: bool,
     #[serde(default, skip_serializing_if = "is_false")]
+    #[musli(default, skip_encoding_if = is_false)]
     pub installing: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
     pub description: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
     pub help: Option<String>,
 }
 
@@ -144,10 +160,11 @@ fn is_false(value: &bool) -> bool {
 }
 
 /// A configuration used for the application.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct Config {
     /// Enabled indexes.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[musli(default, skip_encoding_if = BTreeMap::is_empty)]
     pub indexes: BTreeMap<String, ConfigIndex>,
     /// Whether OCR support is enabled or not.
     #[serde(default = "default_ocr")]

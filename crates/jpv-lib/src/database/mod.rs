@@ -85,7 +85,7 @@ pub enum Entry<'a> {
     Name(jmnedict::Entry<'a>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct EntryResultKey {
     pub key: Key,
     pub sources: BTreeSet<Source>,
@@ -253,7 +253,9 @@ impl Source {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Encode, Decode,
+)]
 pub struct Key {
     index: u32,
     offset: u32,
