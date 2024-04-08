@@ -1132,45 +1132,61 @@ impl Database {
     pub fn lookup(&self, query: &str) -> Result<Vec<Id>> {
         let mut output = Vec::new();
 
-        match query.split_once(|c: char| matches!(c, '*' | '＊')) {
-            Some((prefix, suffix)) if !prefix.is_empty() => {
-                if suffix.is_empty() {
-                    for (n, i) in self.indexes.iter().enumerate() {
-                        for id in i.header.lookup.values_in(i.data.as_buf(), prefix) {
-                            let id = id?;
-                            output.push(self.convert_id(n, *id)?);
-                        }
-                    }
-                } else {
-                    for (n, i) in self.indexes.iter().enumerate() {
-                        for id in i.header.lookup.iter_in(i.data.as_buf(), prefix) {
-                            let (string, id) = id?;
+        if query.chars().all(|c| matches!(c, '*' | '＊')) {
+            for (index, d) in self.indexes.iter().enumerate() {
+                for result in d.header.phrases.iter() {
+                    let id = *d.data.as_buf().load(result)?;
+                    let id = stored::Id::phrase(id, PhraseIndex::Entry);
+                    output.push(self.convert_id(index, id)?);
+                }
+            }
 
-                            let Some(s) = string.strip_prefix(prefix.as_bytes()) else {
-                                continue;
-                            };
+            return Ok(output);
+        }
 
-                            if !s.ends_with(suffix.as_bytes()) {
-                                continue;
-                            }
-
-                            output.push(self.convert_id(n, *id)?);
-                        }
+        let Some((prefix, suffix)) = query.split_once(|c: char| matches!(c, '*' | '＊')) else {
+            for (n, d) in self.indexes.iter().enumerate() {
+                if let Some(lookup) = d.header.lookup.get(d.data.as_buf(), query)? {
+                    for id in lookup {
+                        output.push(self.convert_id(n, *id)?);
                     }
                 }
             }
-            _ => {
-                for (n, i) in self.indexes.iter().enumerate() {
-                    if let Some(lookup) = i.header.lookup.get(i.data.as_buf(), query)? {
-                        for id in lookup {
-                            output.push(self.convert_id(n, *id)?);
-                        }
+
+            return Ok(output);
+        };
+
+        let parts = suffix
+            .split(|c: char| matches!(c, '*' | '＊'))
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>();
+
+        for (n, d) in self.indexes.iter().enumerate() {
+            'outer: for id in d.header.lookup.iter_in(d.data.as_buf(), prefix) {
+                let (string, id) = id?;
+
+                let Some(mut rest) = string.strip_prefix(prefix.as_bytes()) else {
+                    continue;
+                };
+
+                if let [head @ .., tail] = &parts[..] {
+                    for &part in head {
+                        let Some(next) = memchr::memmem::find(rest, part.as_bytes()) else {
+                            continue 'outer;
+                        };
+
+                        rest = &rest[next + part.len()..];
+                    }
+
+                    if !rest.ends_with(tail.as_bytes()) {
+                        continue;
                     }
                 }
+
+                output.push(self.convert_id(n, *id)?);
             }
         }
 
-        tracing::trace!(output = output.len());
         Ok(output)
     }
 
