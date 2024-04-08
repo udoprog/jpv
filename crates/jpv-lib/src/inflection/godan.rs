@@ -30,6 +30,21 @@ pub(super) static U: &Godan = &Godan {
     nake_kya: Some("なけやぁ"),
 };
 
+/// The U special godan table.
+pub(super) static US: &Godan = &Godan {
+    a: "わ",
+    i: "い",
+    u: "う",
+    e: "え",
+    o: "お",
+    te: "うて",
+    te_stem: "う",
+    past: "うた",
+    tara: "うたら",
+    kya: Some("やぁ"),
+    nake_kya: Some("なけやぁ"),
+};
+
 /// The TSU godan table.
 pub(super) static TSU: &Godan = &Godan {
     a: "た",

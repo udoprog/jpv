@@ -1,6 +1,6 @@
 //! Macros to construct conjugations.
 
-use crate::inflection::godan::{self, Godan};
+use crate::inflection::godan::Godan;
 use crate::inflection::Form;
 
 use Form::*;
@@ -56,13 +56,13 @@ pub fn ichidan(mut r: impl FnMut(&'static str, &[Form])) {
     r("そう", &[LooksLike]);
 }
 
-pub fn ichidan_te(mut r: impl FnMut(&'static str, &[Form])) {
+pub(crate) fn ichidan_te(mut r: impl FnMut(&'static str, &[Form])) {
     r("", &[Stem]);
     r("て", &[Te]);
     ichidan(r);
 }
 
-pub(crate) fn godan_lit(g: &'static Godan, mut r: impl FnMut(&'static str, &'static str, &[Form])) {
+pub(crate) fn godan(g: &'static Godan, mut r: impl FnMut(&'static str, &'static str, &[Form])) {
     r("", g.u, &[]);
     r("", g.past, &[Past]);
     r("", g.tara, &[Conditional]);
@@ -118,80 +118,13 @@ pub(crate) fn godan_lit(g: &'static Godan, mut r: impl FnMut(&'static str, &'sta
     r(g.i, "そう", &[LooksLike]);
 }
 
-pub(crate) fn godan_u(r: impl FnMut(&'static str, &'static str, &[Form])) {
-    godan_lit(godan::U, r);
-}
-
-pub(crate) fn godan_u_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "い", &[Stem]);
-    r("", "って", &[Te]);
-    godan_lit(godan::U, r);
-}
-
-pub(crate) fn godan_iku(r: impl FnMut(&'static str, &'static str, &[Form])) {
-    godan_lit(godan::IKU, r);
-}
-
-pub(crate) fn godan_iku_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "き", &[Stem]);
-    r("", "って", &[Te]);
-    godan_lit(godan::IKU, r);
-}
-
-pub(crate) fn godan_tsu_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "ち", &[Stem]);
-    r("", "って", &[Te]);
-    godan_lit(godan::TSU, r);
-}
-
-pub(crate) fn godan_ru(r: impl FnMut(&'static str, &'static str, &[Form])) {
-    godan_lit(godan::RU, r);
-}
-
-pub(crate) fn godan_ru_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "り", &[Stem]);
-    r("", "って", &[Te]);
-    godan_lit(godan::RU, r);
-}
-
-pub(crate) fn godan_ku(r: impl FnMut(&'static str, &'static str, &[Form])) {
-    godan_lit(godan::KU, r);
-}
-
-pub(crate) fn godan_ku_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "き", &[Stem]);
-    r("", "いて", &[Te]);
-    godan_lit(godan::KU, r);
-}
-
-pub(crate) fn godan_gu_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "ぎ", &[Stem]);
-    r("", "いで", &[Te]);
-    godan_lit(godan::GU, r);
-}
-
-pub(crate) fn godan_mu_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "み", &[Stem]);
-    r("", "んで", &[Te]);
-    godan_lit(godan::MU, r);
-}
-
-pub(crate) fn godan_bu_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "び", &[Stem]);
-    r("", "んで", &[Te]);
-    godan_lit(godan::BU, r);
-}
-
-pub(crate) fn godan_nu_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "に", &[Stem]);
-    r("", "んで", &[Te]);
-    godan_lit(godan::NU, r);
-}
-
-pub(crate) fn godan_su_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) {
-    r("", "し", &[Stem]);
-    r("", "して", &[Te]);
-    godan_lit(godan::SU, r);
+pub(crate) fn godan_base(
+    g: &'static Godan,
+    mut r: impl FnMut(&'static str, &'static str, &[Form]),
+) {
+    r("", g.i, &[Stem]);
+    r("", g.te, &[Te]);
+    godan(g, r);
 }
 
 /// Generate kuru conjugations.

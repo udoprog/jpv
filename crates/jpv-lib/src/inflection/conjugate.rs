@@ -7,6 +7,7 @@ use musli::{Decode, Encode};
 use musli_zerocopy::ZeroCopy;
 use serde::{Deserialize, Serialize};
 
+use crate::inflection::godan;
 use crate::inflection::macros;
 use crate::inflection::Inflections;
 use crate::jmdict::Entry;
@@ -119,7 +120,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_iku_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::IKU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -130,13 +131,30 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     kind = Kind::Verb;
                     chau_stem = Some(Fragments::new([k], [r], ["っちゃ"]));
                 }
-                PartOfSpeech::VerbGodanU | PartOfSpeech::VerbGodanUS => {
+                PartOfSpeech::VerbGodanUS => {
                     let Some((k, r)) = match_char(kanji_text, reading_text, 'う') else {
                         allowlist!();
                         continue;
                     };
 
-                    macros::godan_u_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::US, |prefix, suffix, inflect| {
+                        inflections.insert(
+                            inflect,
+                            &[],
+                            Fragments::new([k], [r], [prefix, suffix]),
+                        );
+                    });
+
+                    kind = Kind::Verb;
+                    chau_stem = Some(Fragments::new([k], [r], ["うちゃ"]));
+                }
+                PartOfSpeech::VerbGodanU => {
+                    let Some((k, r)) = match_char(kanji_text, reading_text, 'う') else {
+                        allowlist!();
+                        continue;
+                    };
+
+                    macros::godan_base(godan::U, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -153,7 +171,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_tsu_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::TSU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -173,7 +191,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_ru_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::RU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -190,7 +208,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_ku_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::KU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -207,7 +225,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_gu_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::GU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -224,7 +242,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_mu_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::MU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -241,7 +259,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_bu_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::BU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -258,7 +276,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_nu_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::NU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -275,7 +293,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                         continue;
                     };
 
-                    macros::godan_su_base(|prefix, suffix, inflect| {
+                    macros::godan_base(godan::SU, |prefix, suffix, inflect| {
                         inflections.insert(
                             inflect,
                             &[],
@@ -386,7 +404,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             };
 
             if let Some(stem) = inflections.get(inflect!(Stem)).cloned() {
-                macros::godan_ru(|prefix, suffix, inflect| {
+                macros::godan(godan::RU, |prefix, suffix, inflect| {
                     inflections.insert(inflect, &[TaGaRu], stem.concat(["たが", prefix, suffix]));
                 });
 
@@ -406,15 +424,15 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     inflections.insert(inflect, &[TeIru, Te], te.concat(["い", suffix]))
                 });
 
-                macros::godan_ru(|prefix, suffix, inflect| {
+                macros::godan(godan::RU, |prefix, suffix, inflect| {
                     inflections.insert(inflect, &[TeAru, Te], te.concat(["あ", prefix, suffix]));
                 });
 
-                macros::godan_iku(|prefix, suffix, inflect| {
+                macros::godan(godan::IKU, |prefix, suffix, inflect| {
                     inflections.insert(inflect, &[TeIku, Te], te.concat(["い", prefix, suffix]));
                 });
 
-                macros::godan_u(|prefix, suffix, inflect| {
+                macros::godan(godan::U, |prefix, suffix, inflect| {
                     inflections.insert(
                         inflect,
                         &[TeShimau, Te],
@@ -422,7 +440,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
                     );
                 });
 
-                macros::godan_ku(|prefix, suffix, inflect| {
+                macros::godan(godan::KU, |prefix, suffix, inflect| {
                     inflections.insert(inflect, &[TeOku, Te], te.concat(["お", prefix, suffix]));
                 });
 
@@ -434,7 +452,7 @@ pub fn conjugate<'a>(entry: &Entry<'a>) -> Vec<(Reading, Inflections<'a>, Kind)>
             }
 
             if let Some(stem) = chau_stem {
-                macros::godan_u(|prefix, suffix, inflect| {
+                macros::godan(godan::U, |prefix, suffix, inflect| {
                     inflections.insert(inflect, &[Chau], stem.concat([prefix, suffix]));
                 });
             }
