@@ -59,18 +59,9 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<musli_descriptive::Error> for Error {
+impl From<musli_storage::Error> for Error {
     #[inline]
-    fn from(error: musli_descriptive::Error) -> Self {
-        Self {
-            error: anyhow::Error::from(error),
-        }
-    }
-}
-
-impl From<musli_value::Error> for Error {
-    #[inline]
-    fn from(error: musli_value::Error) -> Self {
+    fn from(error: musli_storage::Error) -> Self {
         Self {
             error: anyhow::Error::from(error),
         }

@@ -1,20 +1,19 @@
 use std::borrow::Cow;
 use std::net::SocketAddr;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::ConnectInfo;
 use axum::response::IntoResponse;
 use axum::Extension;
-use futures::sink::SinkExt;
-use futures::stream::SplitSink;
-use futures::stream::StreamExt;
 use lib::api::{self, Request};
+use musli::Encode;
+use musli_storage::reader::SliceReader;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
-use tokio::sync::broadcast::Receiver;
 use tokio::sync::Mutex;
 use tokio::time::Duration;
+use tokio_stream::StreamExt;
 use tracing::{Instrument, Level};
 
 use crate::background::{Background, Install};
@@ -26,15 +25,379 @@ pub(super) async fn entry(
     Extension(system_events): Extension<system::SystemEvents>,
     ConnectInfo(remote): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
-    let receiver = system_events.subscribe();
-
     ws.on_upgrade(move |socket| async move {
         let span = tracing::span!(Level::INFO, "websocket", ?remote);
 
-        if let Err(error) = run(receiver, socket, &bg).instrument(span).await {
+        let mut server = Server {
+            system_events,
+            bg: bg.clone(),
+            output: Vec::new(),
+            socket,
+        };
+
+        if let Err(error) = server.run().instrument(span).await {
             tracing::error!(?error);
         }
     })
+}
+
+struct Server {
+    system_events: system::SystemEvents,
+    bg: Background,
+    output: Vec<u8>,
+    socket: WebSocket,
+}
+
+impl Server {
+    async fn run(&mut self) -> Result<()> {
+        tracing::trace!("Accepted");
+
+        const CLOSE_NORMAL: u16 = 1000;
+        const CLOSE_PROTOCOL_ERROR: u16 = 1002;
+        const CLOSE_TIMEOUT: Duration = Duration::from_secs(30);
+        const PING_TIMEOUT: Duration = Duration::from_secs(10);
+
+        let mut last_ping = None::<u32>;
+        let mut rng = SmallRng::seed_from_u64(0x404241112);
+        let mut close_interval = tokio::time::interval(CLOSE_TIMEOUT);
+        close_interval.reset();
+
+        let mut ping_interval = tokio::time::interval(PING_TIMEOUT);
+        ping_interval.reset();
+
+        let mut receiver = self.system_events.subscribe();
+
+        self.log_backfill().await?;
+
+        let close_here = loop {
+            tokio::select! {
+                _ = close_interval.tick() => {
+                    break Some((CLOSE_NORMAL, "connection timed out"));
+                }
+                _ = ping_interval.tick() => {
+                    let payload = rng.gen::<u32>();
+                    last_ping = Some(payload);
+                    let data = payload.to_ne_bytes().into_iter().collect::<Vec<_>>();
+                    tracing::trace!(data = ?&data[..], "Sending ping");
+                    self.socket.send(Message::Ping(data)).await?;
+                    ping_interval.reset();
+                }
+                event = receiver.recv() => {
+                    let Ok(event) = event else {
+                        break Some((CLOSE_NORMAL, "system shutting down"));
+                    };
+
+                    if let Err(error) = self.system_event(event).await {
+                        tracing::error!(?error, "Failed to process system event");
+                    };
+                }
+                message = self.socket.next() => {
+                    let Some(message) = message else {
+                        break None;
+                    };
+
+                    match message? {
+                        Message::Text(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
+                        Message::Binary(bytes) => {
+                            let (request, result) = self.handle_envelope(&bytes).await?;
+
+                            let (body, error) = match result {
+                                Ok(value) => (value, None),
+                                Err(error) => {
+                                    tracing::warn!(?error, "Failed to handle request");
+                                    (musli_storage::to_vec(&())?, Some(error.to_string()))
+                                }
+                            };
+
+                            self.write(api::ClientEvent::ClientResponse(api::ClientResponseEnvelope {
+                                index: request.index,
+                                serial: request.serial,
+                                error: error.as_deref(),
+                            }))?;
+
+                            self.write_bytes(&body);
+                            self.flush().await?;
+                        },
+                        Message::Ping(payload) => {
+                            self.socket.send(Message::Pong(payload)).await?;
+                            continue;
+                        },
+                        Message::Pong(data) => {
+                            tracing::trace!(data = ?&data[..], "Pong");
+
+                            let Some(expected) = last_ping else {
+                                continue;
+                            };
+
+                            if expected.to_ne_bytes()[..] != data[..] {
+                                continue;
+                            }
+
+                            close_interval.reset();
+                            ping_interval.reset();
+                            last_ping = None;
+                        },
+                        Message::Close(_) => break None,
+                    }
+                }
+            }
+        };
+
+        if let Some((code, reason)) = close_here {
+            tracing::trace!(code, reason, "Closing websocket with reason");
+
+            self.socket
+                .send(Message::Close(Some(CloseFrame {
+                    code,
+                    reason: Cow::Borrowed(reason),
+                })))
+                .await?;
+        } else {
+            tracing::trace!("Closing websocket");
+        };
+
+        Ok(())
+    }
+
+    async fn send<T>(&mut self, value: T) -> Result<()>
+    where
+        T: Encode,
+    {
+        self.write(value)?;
+        self.flush().await?;
+        Ok(())
+    }
+
+    fn write<T>(&mut self, value: T) -> Result<()>
+    where
+        T: Encode,
+    {
+        musli_storage::to_writer(&mut self.output, &value)?;
+        Ok(())
+    }
+
+    async fn flush(&mut self) -> Result<()> {
+        const MAX_CAPACITY: usize = 1048576;
+        self.socket
+            .send(Message::Binary(self.output.clone()))
+            .await?;
+        self.output.clear();
+        self.output.shrink_to(MAX_CAPACITY);
+        Ok(())
+    }
+
+    fn write_bytes(&mut self, bytes: &[u8]) {
+        self.output.extend_from_slice(bytes);
+    }
+
+    async fn log_backfill(&mut self) -> Result<()> {
+        let log = self.bg.log();
+
+        self.send(api::OwnedClientEvent::Broadcast(api::OwnedBroadcast {
+            kind: api::OwnedBroadcastKind::LogBackFill(api::OwnedLogBackFill { log }),
+        }))
+        .await?;
+
+        Ok(())
+    }
+
+    async fn handle_request(
+        &mut self,
+        reader: SliceReader<'_>,
+        request: &api::ClientRequestEnvelope<'_>,
+    ) -> Result<Vec<u8>> {
+        tracing::trace!("Got request: {:?}", request);
+
+        match request.kind {
+            api::GetConfig::KIND => {
+                let database = self.bg.database().await;
+
+                let missing_ocr = if self.bg.tesseract().is_none() {
+                    Some(api::MissingOcr::for_platform())
+                } else {
+                    None
+                };
+
+                let result = api::GetConfigResult {
+                    config: self.bg.config().await,
+                    installed: database.installed()?,
+                    missing_ocr,
+                };
+
+                Ok(musli_storage::to_vec(&result)?)
+            }
+            api::SearchRequest::KIND => {
+                let request = musli_storage::decode(reader)?;
+                let response = super::handle_search_request(&self.bg, request).await?;
+                Ok(musli_storage::to_vec(&response)?)
+            }
+            api::AnalyzeRequest::KIND => {
+                let request = musli_storage::decode(reader)?;
+                let response = super::handle_analyze_request(&self.bg, request).await?;
+                Ok(musli_storage::to_vec(&response)?)
+            }
+            api::InstallAllRequest::KIND => {
+                self.bg.install(Install::default());
+                Ok(musli_storage::to_vec(&())?)
+            }
+            api::UpdateConfigRequest::KIND => {
+                let request: api::UpdateConfigRequest = musli_storage::decode(reader)?;
+
+                'out: {
+                    if !request.update_indexes.is_empty() {
+                        let install = Install {
+                            filter: Some(request.update_indexes),
+                            force: true,
+                        };
+
+                        self.bg.install(install);
+                    }
+
+                    let config = if let Some(config) = request.config {
+                        let Some(config) = self.bg.update_config(config).await else {
+                            break 'out Err(anyhow!("Failed to update configuration"));
+                        };
+
+                        Some(config)
+                    } else {
+                        None
+                    };
+
+                    Ok(musli_storage::to_vec(&api::UpdateConfigResponse {
+                        config,
+                    })?)
+                }
+            }
+            api::GetKanji::KIND => {
+                let request: api::GetKanji = musli_storage::decode(reader)?;
+                let response = super::handle_kanji(&self.bg, &request.kanji).await?;
+                Ok(musli_storage::to_vec(&response)?)
+            }
+            kind => bail!("Unsupported request kind {kind}"),
+        }
+    }
+
+    async fn handle_envelope<'de>(
+        &mut self,
+        bytes: &'de [u8],
+    ) -> Result<(api::ClientRequestEnvelope<'de>, Result<Vec<u8>>)> {
+        let mut reader = SliceReader::new(bytes);
+        let request: api::ClientRequestEnvelope = musli_storage::decode(&mut reader)?;
+        let result = self.handle_request(reader, &request).await;
+        Ok((request, result))
+    }
+
+    async fn system_event(&mut self, event: system::Event) -> Result<()> {
+        match event {
+            system::Event::SendClipboardData(clipboard) => match clipboard.mimetype.as_str() {
+                "UTF8_STRING" | "text/plain;charset=utf-8" => {
+                    let data = filter_data(&clipboard.data);
+
+                    self.send(api::ClientEvent::Broadcast(api::Broadcast {
+                        kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
+                            ty: Some("text/plain"),
+                            data: data.as_ref(),
+                        }),
+                    }))
+                    .await?;
+                }
+                "STRING" | "text/plain" => {
+                    let Some(data) = decode_escaped(&clipboard.data[..]) else {
+                        tracing::warn!("failed to decode");
+                        return Ok(());
+                    };
+
+                    let data = filter_data(&data);
+
+                    self.send(api::ClientEvent::Broadcast(api::Broadcast {
+                        kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
+                            ty: Some("text/plain"),
+                            data: data.as_ref(),
+                        }),
+                    }))
+                    .await?;
+                }
+                ty @ "application/json" => {
+                    self.send(api::ClientEvent::Broadcast(api::Broadcast {
+                        kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
+                            ty: Some(ty),
+                            data: &clipboard.data,
+                        }),
+                    }))
+                    .await?;
+                }
+                ty => {
+                    let Some(tesseract) = self.bg.tesseract() else {
+                        return Ok(());
+                    };
+
+                    let Some(event) = handle_mimetype_image(tesseract, ty, &clipboard).await?
+                    else {
+                        return Ok(());
+                    };
+
+                    self.send(event).await?;
+                }
+            },
+            system::Event::SendDynamicImage(image) => {
+                let Some(tesseract) = self.bg.tesseract() else {
+                    return Ok(());
+                };
+
+                let Some(event) = handle_image(tesseract, image).await? else {
+                    return Ok(());
+                };
+
+                self.send(event).await?;
+            }
+            system::Event::SendText(text) => {
+                let data = filter_data(&text);
+
+                self.send(api::ClientEvent::Broadcast(api::Broadcast {
+                    kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
+                        ty: Some("text/plain"),
+                        data: data.as_ref(),
+                    }),
+                }))
+                .await?;
+            }
+            system::Event::LogEntry(event) => {
+                self.send(api::OwnedClientEvent::Broadcast(api::OwnedBroadcast {
+                    kind: api::OwnedBroadcastKind::LogEntry(event),
+                }))
+                .await?;
+            }
+            system::Event::TaskProgress(task) => {
+                self.send(api::ClientEvent::Broadcast(api::Broadcast {
+                    kind: api::BroadcastKind::TaskProgress(api::TaskProgress {
+                        name: &task.name,
+                        value: task.value,
+                        total: task.total,
+                        step: task.step,
+                        steps: task.steps,
+                        text: &task.text,
+                    }),
+                }))
+                .await?;
+            }
+            system::Event::TaskCompleted(task) => {
+                self.send(api::ClientEvent::Broadcast(api::Broadcast {
+                    kind: api::BroadcastKind::TaskCompleted(api::TaskCompleted {
+                        name: &task.name,
+                    }),
+                }))
+                .await?;
+            }
+            system::Event::Refresh => {
+                self.send(api::ClientEvent::Broadcast(api::Broadcast {
+                    kind: api::BroadcastKind::Refresh,
+                }))
+                .await?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn decode_escaped(data: &[u8]) -> Option<String> {
@@ -74,151 +437,6 @@ fn decode_escaped(data: &[u8]) -> Option<String> {
     }
 
     Some(s)
-}
-
-async fn log_backfill(
-    sink: &mut SplitSink<WebSocket, Message>,
-    log: Vec<api::OwnedLogEntry>,
-) -> Result<()> {
-    let event = api::OwnedClientEvent::Broadcast(api::OwnedBroadcast {
-        kind: api::OwnedBroadcastKind::LogBackFill(api::OwnedLogBackFill { log }),
-    });
-
-    let json = musli_descriptive::to_vec(&event)?;
-    sink.send(Message::Binary(json)).await?;
-    Ok(())
-}
-
-async fn system_event(
-    bg: &Background,
-    sink: &mut SplitSink<WebSocket, Message>,
-    event: system::Event,
-) -> Result<()> {
-    match event {
-        system::Event::SendClipboardData(clipboard) => match clipboard.mimetype.as_str() {
-            "UTF8_STRING" | "text/plain;charset=utf-8" => {
-                let data = filter_data(&clipboard.data);
-
-                let event = api::ClientEvent::Broadcast(api::Broadcast {
-                    kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
-                        ty: Some("text/plain"),
-                        data: data.as_ref(),
-                    }),
-                });
-
-                let json = musli_descriptive::to_vec(&event)?;
-                sink.send(Message::Binary(json)).await?;
-            }
-            "STRING" | "text/plain" => {
-                let Some(data) = decode_escaped(&clipboard.data[..]) else {
-                    tracing::warn!("failed to decode");
-                    return Ok(());
-                };
-
-                let data = filter_data(&data);
-
-                let event = api::ClientEvent::Broadcast(api::Broadcast {
-                    kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
-                        ty: Some("text/plain"),
-                        data: data.as_ref(),
-                    }),
-                });
-
-                let json = musli_descriptive::to_vec(&event)?;
-                sink.send(Message::Binary(json)).await?;
-            }
-            ty @ "application/json" => {
-                let event = api::ClientEvent::Broadcast(api::Broadcast {
-                    kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
-                        ty: Some(ty),
-                        data: &clipboard.data,
-                    }),
-                });
-
-                let json = musli_descriptive::to_vec(&event)?;
-                sink.send(Message::Binary(json)).await?;
-            }
-            ty => {
-                let Some(tesseract) = bg.tesseract() else {
-                    return Ok(());
-                };
-
-                let Some(event) = handle_mimetype_image(tesseract, ty, &clipboard).await? else {
-                    return Ok(());
-                };
-
-                let json = musli_descriptive::to_vec(&event)?;
-                sink.send(Message::Binary(json)).await?;
-            }
-        },
-        system::Event::SendDynamicImage(image) => {
-            let Some(tesseract) = bg.tesseract() else {
-                return Ok(());
-            };
-
-            let Some(event) = handle_image(tesseract, image).await? else {
-                return Ok(());
-            };
-
-            let json = musli_descriptive::to_vec(&event)?;
-            sink.send(Message::Binary(json)).await?;
-        }
-        system::Event::SendText(text) => {
-            let data = filter_data(&text);
-
-            let event = api::ClientEvent::Broadcast(api::Broadcast {
-                kind: api::BroadcastKind::SendClipboardData(api::SendClipboard {
-                    ty: Some("text/plain"),
-                    data: data.as_ref(),
-                }),
-            });
-
-            let json = musli_descriptive::to_vec(&event)?;
-            sink.send(Message::Binary(json)).await?;
-        }
-        system::Event::LogEntry(event) => {
-            let event = api::OwnedClientEvent::Broadcast(api::OwnedBroadcast {
-                kind: api::OwnedBroadcastKind::LogEntry(event),
-            });
-
-            let json = musli_descriptive::to_vec(&event)?;
-            sink.send(Message::Binary(json)).await?;
-        }
-        system::Event::TaskProgress(task) => {
-            let event = api::ClientEvent::Broadcast(api::Broadcast {
-                kind: api::BroadcastKind::TaskProgress(api::TaskProgress {
-                    name: &task.name,
-                    value: task.value,
-                    total: task.total,
-                    step: task.step,
-                    steps: task.steps,
-                    text: &task.text,
-                }),
-            });
-
-            let json = musli_descriptive::to_vec(&event)?;
-            sink.send(Message::Binary(json)).await?;
-        }
-        system::Event::TaskCompleted(task) => {
-            let event = api::ClientEvent::Broadcast(api::Broadcast {
-                kind: api::BroadcastKind::TaskCompleted(api::TaskCompleted { name: &task.name }),
-            });
-
-            let json = musli_descriptive::to_vec(&event)?;
-
-            sink.send(Message::Binary(json)).await?;
-        }
-        system::Event::Refresh => {
-            let event = api::ClientEvent::Broadcast(api::Broadcast {
-                kind: api::BroadcastKind::Refresh,
-            });
-
-            let json = musli_descriptive::to_vec(&event)?;
-            sink.send(Message::Binary(json)).await?;
-        }
-    }
-
-    Ok(())
 }
 
 async fn handle_mimetype_image(
@@ -284,197 +502,6 @@ async fn handle_image(
             }),
         },
     )))
-}
-
-async fn run(
-    mut system_events: Receiver<system::Event>,
-    socket: WebSocket,
-    bg: &Background,
-) -> Result<()> {
-    tracing::trace!("Accepted");
-
-    const CLOSE_NORMAL: u16 = 1000;
-    const CLOSE_PROTOCOL_ERROR: u16 = 1002;
-    const CLOSE_TIMEOUT: Duration = Duration::from_secs(30);
-    const PING_TIMEOUT: Duration = Duration::from_secs(10);
-
-    let (mut sender, mut receiver) = socket.split();
-
-    let mut last_ping = None::<u32>;
-    let mut rng = SmallRng::seed_from_u64(0x404241112);
-    let mut close_interval = tokio::time::interval(CLOSE_TIMEOUT);
-    close_interval.reset();
-
-    let mut ping_interval = tokio::time::interval(PING_TIMEOUT);
-    ping_interval.reset();
-
-    let log = bg.log();
-
-    log_backfill(&mut sender, log).await?;
-
-    let close_here = loop {
-        tokio::select! {
-            _ = close_interval.tick() => {
-                break Some((CLOSE_NORMAL, "connection timed out"));
-            }
-            _ = ping_interval.tick() => {
-                let payload = rng.gen::<u32>();
-                last_ping = Some(payload);
-                let data = payload.to_ne_bytes().into_iter().collect::<Vec<_>>();
-                tracing::trace!(data = ?&data[..], "Sending ping");
-                sender.send(Message::Ping(data)).await?;
-                ping_interval.reset();
-            }
-            event = system_events.recv() => {
-                let Ok(event) = event else {
-                    break Some((CLOSE_NORMAL, "system shutting down"));
-                };
-
-                if let Err(error) = system_event(bg, &mut sender, event).await {
-                    tracing::error!(?error, "Failed to process system event");
-                };
-            }
-            message = receiver.next() => {
-                let Some(message) = message else {
-                    break None;
-                };
-
-                match message? {
-                    Message::Text(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
-                    Message::Binary(bytes) => {
-                        let request = match musli_descriptive::from_slice::<api::ClientRequestEnvelope>(&bytes[..]) {
-                            Ok(event) => event,
-                            Err(error) => {
-                                tracing::warn!(?error, "Failed to decode message");
-                                continue;
-                            }
-                        };
-
-                        tracing::trace!("Got request: {:?}", request);
-
-                        let result: Result<musli_value::Value> = match request.kind.as_str() {
-                            api::SearchRequest::KIND => {
-                                let request = musli_value::decode(&request.body)?;
-                                let response = super::handle_search_request(bg, request).await?;
-                                Ok(musli_value::encode(&response)?)
-                            },
-                            api::AnalyzeRequest::KIND => {
-                                let request = musli_value::decode(&request.body)?;
-                                let response = super::handle_analyze_request(bg, request).await?;
-                                Ok(musli_value::encode(&response)?)
-                            },
-                            api::InstallAllRequest::KIND => {
-                                bg.install(Install::default());
-                                Ok(musli_value::Value::Unit)
-                            }
-                            api::GetConfig::KIND => {
-                                let database = bg.database().await;
-
-                                let missing_ocr = if bg.tesseract().is_none() {
-                                    Some(api::MissingOcr::for_platform())
-                                } else {
-                                    None
-                                };
-
-                                let result = api::GetConfigResult {
-                                    config: bg.config().await,
-                                    installed: database.installed()?,
-                                    missing_ocr,
-                                };
-
-                                Ok(musli_value::encode(result)?)
-                            }
-                            api::UpdateConfigRequest::KIND => {
-                                let request: api::UpdateConfigRequest = musli_value::decode(&request.body)?;
-
-                                'out: {
-                                    if !request.update_indexes.is_empty() {
-                                        let install = Install {
-                                            filter: Some(request.update_indexes),
-                                            force: true,
-                                        };
-
-                                        bg.install(install);
-                                    }
-
-                                    let config = if let Some(config) = request.config {
-                                        let Some(config) = bg.update_config(config).await else {
-                                            break 'out Err(anyhow!("Failed to update configuration"));
-                                        };
-
-                                        Some(config)
-                                    } else {
-                                        None
-                                    };
-
-                                    Ok(musli_value::encode(api::UpdateConfigResponse {
-                                        config
-                                    })?)
-                                }
-                            }
-                            api::GetKanji::KIND => {
-                                let request: api::GetKanji = musli_value::decode(&request.body)?;
-                                let response = super::handle_kanji(bg, &request.kanji).await?;
-                                Ok(musli_value::encode(&response)?)
-                            }
-                            _ => {
-                                Err(anyhow!("Unsupported request"))
-                            }
-                        };
-
-                        let (body, error) = match result {
-                            Ok(value) => (value, None),
-                            Err(error) => (musli_value::Value::Unit, Some(error.to_string())),
-                        };
-
-                        let payload = musli_descriptive::to_vec(&api::OwnedClientEvent::ClientResponse(api::ClientResponseEnvelope {
-                            index: request.index,
-                            serial: request.serial,
-                            body,
-                            error,
-                        }))?;
-
-                        sender.send(Message::Binary(payload)).await?;
-                    },
-                    Message::Ping(payload) => {
-                        sender.send(Message::Pong(payload)).await?;
-                        continue;
-                    },
-                    Message::Pong(data) => {
-                        tracing::trace!(data = ?&data[..], "Pong");
-
-                        let Some(expected) = last_ping else {
-                            continue;
-                        };
-
-                        if expected.to_ne_bytes()[..] != data[..] {
-                            continue;
-                        }
-
-                        close_interval.reset();
-                        ping_interval.reset();
-                        last_ping = None;
-                    },
-                    Message::Close(_) => break None,
-                }
-            }
-        }
-    };
-
-    if let Some((code, reason)) = close_here {
-        tracing::trace!(code, reason, "Closing websocket with reason");
-
-        sender
-            .send(Message::Close(Some(CloseFrame {
-                code,
-                reason: Cow::Borrowed(reason),
-            })))
-            .await?;
-    } else {
-        tracing::trace!("Closing websocket");
-    };
-
-    Ok(())
 }
 
 fn trim_whitespace(input: &str) -> Cow<'_, str> {

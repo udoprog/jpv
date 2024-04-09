@@ -25,7 +25,7 @@ pub(crate) async fn run(args: &SendClipboardArgs) -> Result<()> {
                 secondary: args.secondary.clone(),
             };
 
-            let data = musli_descriptive::to_vec(&json)?;
+            let data = musli_storage::to_vec(&json)?;
             crate::dbus::send_clipboard(args.ty.as_deref(), &data).await?;
         }
         _ => {

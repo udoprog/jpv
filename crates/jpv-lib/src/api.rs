@@ -203,28 +203,28 @@ pub enum ClientResponse<'a> {
     Empty,
 }
 
+#[borrowme::borrowme]
 #[derive(Debug, Encode, Decode)]
-pub struct ClientRequestEnvelope {
+pub struct ClientRequestEnvelope<'de> {
     pub index: usize,
     pub serial: u32,
-    pub kind: String,
-    pub body: musli_value::Value,
+    pub kind: &'de str,
 }
 
+#[borrowme::borrowme]
 #[derive(Debug, Clone, Encode, Decode)]
-pub struct ClientResponseEnvelope {
+pub struct ClientResponseEnvelope<'de> {
     pub index: usize,
     pub serial: u32,
-    pub body: musli_value::Value,
     #[musli(default, skip_encoding_if = Option::is_none)]
-    pub error: Option<String>,
+    pub error: Option<&'de str>,
 }
 
 #[borrowme::borrowme]
 #[derive(Debug, Encode, Decode)]
 pub enum ClientEvent<'a> {
     Broadcast(Broadcast<'a>),
-    ClientResponse(ClientResponseEnvelope),
+    ClientResponse(ClientResponseEnvelope<'a>),
 }
 
 #[borrowme::borrowme]

@@ -24,7 +24,7 @@ pub enum Msg {
     Close(CloseEvent),
     Message(MessageEvent),
     Error(ErrorEvent),
-    ClientRequest(api::ClientRequestEnvelope),
+    ClientRequest((api::OwnedClientRequestEnvelope, Vec<u8>)),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -37,7 +37,8 @@ pub struct Service<C> {
     socket: Option<WebSocket>,
     opened: Option<Opened>,
     state: State,
-    buffer: Vec<api::ClientRequestEnvelope>,
+    buffer: Vec<(api::OwnedClientRequestEnvelope, Vec<u8>)>,
+    output: Vec<u8>,
     timeout: u32,
     on_open: Closure<dyn Fn()>,
     on_close: Closure<dyn Fn(CloseEvent)>,
@@ -108,6 +109,7 @@ where
             opened: None,
             state: State::Closed,
             buffer: Vec::new(),
+            output: Vec::new(),
             timeout: INITIAL_TIMEOUT,
             on_open,
             on_close,
@@ -124,13 +126,19 @@ where
     }
 
     /// Send a client message.
-    fn send_message(&mut self, message: api::ClientRequestEnvelope) -> Result<()> {
+    fn send_message(
+        &mut self,
+        message: api::OwnedClientRequestEnvelope,
+        body: Vec<u8>,
+    ) -> Result<()> {
         let Some(socket) = &self.socket else {
             return Err(anyhow!("Socket is not connected").into());
         };
 
-        let array_buffer = musli_descriptive::to_vec(&message)?;
-        socket.send_with_u8_array(&array_buffer)?;
+        musli_storage::to_writer(&mut self.output, &message)?;
+        self.output.extend(body.as_slice());
+        socket.send_with_u8_array(&self.output)?;
+        self.output.clear();
         Ok(())
     }
 
@@ -204,8 +212,8 @@ where
 
                 let buffer = take(&mut self.buffer);
 
-                for message in buffer {
-                    if let Err(error) = self.send_message(message) {
+                for (message, body) in buffer {
+                    if let Err(error) = self.send_message(message, body) {
                         ctx.link().send_message(error);
                     }
                 }
@@ -219,19 +227,19 @@ where
                     return;
                 };
 
-                let array_buffer = Uint8Array::new(&array_buffer).to_vec();
+                let buffer = Uint8Array::new(&array_buffer).to_vec();
+                let mut reader = musli_storage::reader::SliceReader::new(&buffer);
 
-                let event =
-                    match musli_descriptive::from_slice::<api::OwnedClientEvent>(&array_buffer) {
-                        Ok(event) => event,
-                        Err(error) => {
-                            log::error!("{}", error);
-                            return;
-                        }
-                    };
+                let event: api::ClientEvent<'_> = match musli_storage::decode(&mut reader) {
+                    Ok(event) => event,
+                    Err(error) => {
+                        log::error!("{}", error);
+                        return;
+                    }
+                };
 
                 match event {
-                    api::OwnedClientEvent::Broadcast(event) => {
+                    api::ClientEvent::Broadcast(event) => {
                         let broadcasts = self.shared.broadcasts.borrow();
 
                         let mut it = broadcasts.iter();
@@ -239,14 +247,14 @@ where
                         let last = it.next_back();
 
                         for (_, callback) in it {
-                            callback.emit(event.kind.clone());
+                            callback.emit(borrowme::to_owned(&event.kind));
                         }
 
                         if let Some((_, callback)) = last {
-                            callback.emit(event.kind);
+                            callback.emit(borrowme::to_owned(event.kind));
                         }
                     }
-                    api::OwnedClientEvent::ClientResponse(response) => {
+                    api::ClientEvent::ClientResponse(response) => {
                         log::trace!(
                             "Got response: index={}, serial={}",
                             response.index,
@@ -265,7 +273,8 @@ where
                                     .callback
                                     .emit(Err(Error::from(anyhow!("{}", error))));
                             } else {
-                                pending.callback.emit(Ok(response.body));
+                                let at = buffer.len() - reader.remaining();
+                                pending.callback.emit(Ok((buffer, at)));
                             }
                         }
                     }
@@ -275,13 +284,13 @@ where
                 log::error!("{}", e.message());
                 self.set_closed(ctx);
             }
-            Msg::ClientRequest(request) => {
+            Msg::ClientRequest((request, body)) => {
                 if self.opened.is_none() {
-                    self.buffer.push(request);
+                    self.buffer.push((request, body));
                     return;
                 }
 
-                if let Err(error) = self.send_message(request) {
+                if let Err(error) = self.send_message(request, body) {
                     ctx.link().send_message(error);
                 }
             }
@@ -395,7 +404,7 @@ impl Drop for StateListener {
 
 struct Pending {
     serial: u32,
-    callback: Callback<Result<musli_value::Value>>,
+    callback: Callback<Result<(Vec<u8>, usize)>>,
 }
 
 /// The state of the connection.
@@ -409,7 +418,7 @@ pub(crate) enum State {
 
 struct Shared {
     serial: Cell<u32>,
-    onmessage: Callback<api::ClientRequestEnvelope>,
+    onmessage: Callback<(api::OwnedClientRequestEnvelope, Vec<u8>)>,
     requests: RefCell<Slab<Pending>>,
     broadcasts: RefCell<Slab<Callback<api::OwnedBroadcastKind>>>,
     state_changes: RefCell<Slab<Callback<State>>>,
@@ -425,7 +434,7 @@ impl Handle {
     where
         T: api::Request,
     {
-        let body = match musli_value::encode(request) {
+        let body = match musli_storage::to_vec(&request) {
             Ok(body) => body,
             Err(error) => {
                 callback.emit(Err(Error::from(error)));
@@ -439,16 +448,16 @@ impl Handle {
 
         let pending = Pending {
             serial,
-            callback: Callback::from(move |payload| {
-                let payload = match payload {
-                    Ok(payload) => payload,
+            callback: Callback::from(move |body: Result<(Vec<u8>, usize)>| {
+                let (body, at) = match body {
+                    Ok(body) => body,
                     Err(error) => {
                         callback.emit(Err(error));
                         return;
                     }
                 };
 
-                match musli_value::decode(&payload) {
+                match musli_storage::from_slice(&body[at..]) {
                     Ok(payload) => {
                         callback.emit(Ok(payload));
                     }
@@ -461,12 +470,14 @@ impl Handle {
 
         let index = requests.insert(pending);
 
-        self.shared.onmessage.emit(api::ClientRequestEnvelope {
-            kind: T::KIND.to_string(),
-            index,
-            serial,
+        self.shared.onmessage.emit((
+            api::OwnedClientRequestEnvelope {
+                index,
+                serial,
+                kind: T::KIND.to_string(),
+            },
             body,
-        });
+        ));
 
         Request {
             inner: Some((self.shared.clone(), index)),

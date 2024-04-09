@@ -17,10 +17,9 @@ categories = ["development-tools"]
 anyhow = "1.0.75"
 fixed-map = { version = "0.9.3", features = ["serde"] }
 log = "0.4.20"
-musli = "0.0.109"
-musli-storage = "0.0.109"
-musli-zerocopy = "0.0.109"
-musli-value = "0.0.109"
+musli = "0.0.110"
+musli-storage = "0.0.110"
+musli-zerocopy = "0.0.110"
 relative-path = "1.9.0"
 serde = { version = "1.0.189", features = ["derive"] }
 tracing = "0.1.40"
