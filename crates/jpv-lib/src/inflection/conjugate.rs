@@ -3,6 +3,7 @@
 #![cfg_attr(fake, allow(dead_code, unused, unused_variables, unused_macros))]
 
 use fixed_map::Set;
+use musli::mode::{Binary, Text};
 use musli::{Decode, Encode};
 use musli_zerocopy::ZeroCopy;
 use serde::{Deserialize, Serialize};
@@ -34,7 +35,8 @@ use Form::*;
 )]
 #[repr(u8)]
 #[zero_copy(bounds = {T: ZeroCopy})]
-#[musli(bound = {T: Encode<M>}, decode_bound = {T: Decode<'de, M>})]
+#[musli(mode = Binary, bound = {T: Encode<Binary>}, decode_bound = {T: Decode<'de, Binary>})]
+#[musli(mode = Text, bound = {T: Encode<Text>}, decode_bound = {T: Decode<'de, Text>})]
 pub enum ReadingOption<T> {
     None,
     Some(T),

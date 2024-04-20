@@ -11,7 +11,8 @@ use crate::Weight;
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct Entry<'a> {
     pub sequence: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -130,7 +131,8 @@ impl Entry<'_> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct KanjiElement<'a> {
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -181,7 +183,8 @@ impl<'a> KanjiElement<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct ReadingElement<'a> {
     pub text: &'a str,
     pub no_kanji: bool,
@@ -276,7 +279,7 @@ impl OwnedReadingElement {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct Example<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[borrowed_attr(serde(borrow))]
@@ -291,7 +294,7 @@ pub struct Example<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct ExampleSentence<'a> {
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -300,21 +303,24 @@ pub struct ExampleSentence<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct ExampleSource<'a> {
     pub text: &'a str,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
+    #[musli(mode = Text, default, name = "type", skip_encoding_if = Option::is_none)]
     pub ty: Option<&'a str>,
 }
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct Glossary<'a> {
     pub text: &'a str,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
+    #[musli(mode = Text, default, name = "type", skip_encoding_if = Option::is_none)]
     pub ty: Option<&'a str>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(mode = Text, default, skip_encoding_if = Option::is_none)]
     pub lang: Option<&'a str>,
 }
 
@@ -322,7 +328,7 @@ const DEFAULT_LANGUAGE: &str = "eng";
 
 #[borrowme::borrowme]
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct Sense<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub xref: Vec<&'a str>,
@@ -457,14 +463,17 @@ impl<'a> Sense<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct SourceLanguage<'a> {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(mode = Text, default, skip_encoding_if = Option::is_none)]
     pub text: Option<&'a str>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(mode = Text, default, skip_encoding_if = Option::is_none)]
     pub lang: Option<&'a str>,
     pub waseigo: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
+    #[musli(mode = Text, default, name = "type", skip_encoding_if = Option::is_none)]
     pub ty: Option<&'a str>,
 }
 

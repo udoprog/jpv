@@ -6,6 +6,7 @@ use crate::Weight;
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct Entry<'a> {
     pub sequence: u64,
     #[borrowed_attr(serde(borrow))]
@@ -51,7 +52,7 @@ impl Entry<'_> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct Translation<'a> {
     pub text: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -60,7 +61,7 @@ pub struct Translation<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct Reading<'a> {
     pub text: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]

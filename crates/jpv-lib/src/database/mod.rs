@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, ensure, Context, Result};
 use fixed_map::Set;
-use musli::mode::DefaultMode;
 use musli::{Decode, Encode};
 use musli_storage::Encoding;
 use musli_zerocopy::{swiss, trie, OwnedBuf, Ref, ZeroCopy};
@@ -36,7 +35,7 @@ use crate::{DATABASE_MAGIC, DATABASE_VERSION};
 use self::string_indexer::StringIndexer;
 
 /// Encoding used for storing database.
-const ENCODING: Encoding<DefaultMode> = Encoding::new();
+const ENCODING: Encoding = Encoding::new();
 
 /// An error raised while interacting with the database.
 #[derive(Debug, Error)]
@@ -86,6 +85,7 @@ pub enum Entry<'a> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct EntryResultKey {
     pub key: Key,
     pub sources: BTreeSet<Source>,
@@ -223,23 +223,20 @@ pub struct InflectionData {
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Encode, Decode,
 )]
 #[non_exhaustive]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "kebab-case")]
+#[musli(mode = Text, tag = "type", name_all = "kebab-case")]
 pub enum Source {
     /// Indexed due to a kanji.
-    #[serde(rename = "kanji")]
     Kanji { index: KanjiIndex },
     /// Indexed due to a phrase.
-    #[serde(rename = "phrase")]
     Phrase { index: PhraseIndex },
     /// Indexed due to an inflection. The exact kind of inflection is identifier
     /// by its index, which fits into a u16.
-    #[serde(rename = "inflection")]
     Inflection {
         #[serde(flatten)]
         data: InflectionData,
     },
     /// Indexed to to a name.
-    #[serde(rename = "name")]
     Name { index: NameIndex },
 }
 

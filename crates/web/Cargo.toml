@@ -9,7 +9,9 @@ cli = []
 [dependencies]
 lib = { package = "jpv-lib", path = "../jpv-lib" }
 yew = { version = "0.20.0", features = ["csr"] }
-musli-storage = "0.0.110"
+musli = "0.0.117"
+musli-storage = "0.0.117"
+musli-utils = "0.0.117"
 anyhow = "1.0.75"
 log = "0.4.20"
 wasm-logger = "0.2.0"

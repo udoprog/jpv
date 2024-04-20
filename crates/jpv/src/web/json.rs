@@ -2,20 +2,24 @@ use axum::http::header::{self, HeaderValue};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use bytes::{BufMut, BytesMut};
+use musli::mode::Text;
 use musli::Encode;
+use musli_json::Encoding;
+
+const ENCODING: Encoding = Encoding::new();
 
 pub(super) struct Json<T>(pub(super) T);
 
 impl<T> IntoResponse for Json<T>
 where
-    T: Encode,
+    T: Encode<Text>,
 {
     fn into_response(self) -> Response {
         // Use a small initial capacity of 128 bytes like serde_json::to_vec
         // https://docs.rs/serde_json/1.0.82/src/serde_json/ser.rs.html#2189
         let mut buf = BytesMut::with_capacity(128).writer();
 
-        match musli_json::to_writer(&mut buf, &self.0) {
+        match ENCODING.to_writer(&mut buf, &self.0) {
             Ok(()) => (
                 [(
                     header::CONTENT_TYPE,

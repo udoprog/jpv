@@ -28,7 +28,6 @@ use axum::{Extension, Router};
 use lib::api;
 use lib::config::Config;
 use musli::Encode;
-use serde::Serialize;
 use tower_http::cors::{AllowMethods, AllowOrigin, CorsLayer};
 
 use crate::background::{Background, Install};
@@ -200,39 +199,40 @@ async fn handle_search_request(
     })
 }
 
-#[derive(Encode, Serialize)]
+#[derive(Encode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 struct VersionResponse {
     version: &'static str,
 }
 
 /// Get the current service version.
-async fn version() -> RequestResult<axum::Json<VersionResponse>> {
-    Ok(axum::Json(VersionResponse {
+async fn version() -> RequestResult<Json<VersionResponse>> {
+    Ok(Json(VersionResponse {
         version: crate::VERSION,
     }))
 }
 
 /// Read the current service configuration.
-async fn config(Extension(bg): Extension<Background>) -> RequestResult<axum::Json<Config>> {
-    Ok(axum::Json(bg.config().await))
+async fn config(Extension(bg): Extension<Background>) -> RequestResult<Json<Config>> {
+    Ok(Json(bg.config().await))
 }
 
 /// Read the current service configuration.
 async fn update_config(
     Extension(bg): Extension<Background>,
     axum::Json(config): axum::Json<Config>,
-) -> RequestResult<axum::Json<api::Empty>> {
+) -> RequestResult<Json<api::Empty>> {
     if bg.update_config(config).await.is_none() {
         return Err(RequestError::internal("Failed to update configuration"));
     }
 
-    Ok(axum::Json(api::Empty))
+    Ok(Json(api::Empty))
 }
 
 /// Trigger a rebuild of the database.
-async fn rebuild(Extension(bg): Extension<Background>) -> RequestResult<axum::Json<api::Empty>> {
+async fn rebuild(Extension(bg): Extension<Background>) -> RequestResult<Json<api::Empty>> {
     bg.install(Install::default());
-    Ok(axum::Json(api::Empty))
+    Ok(Json(api::Empty))
 }
 
 /// Perform text analysis.

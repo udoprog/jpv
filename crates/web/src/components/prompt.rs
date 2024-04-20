@@ -10,6 +10,7 @@ use lib::api;
 use lib::kanjidic2;
 use lib::romaji;
 use lib::Priority;
+use musli::{Decode, Encode};
 use serde::Deserialize;
 use serde::Serialize;
 use wasm_bindgen::closure::Closure;
@@ -1130,21 +1131,24 @@ impl IsInternal {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Encode, Decode)]
 pub struct UpdateMessage {
     text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
     analyze_at_char: Option<usize>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Encode, Decode)]
 pub struct PingPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
     payload: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Encode, Decode)]
 #[serde(tag = "type", rename_all = "kebab-case")]
+#[musli(mode = Text, tag = "type", name_all = "kebab-case")]
 pub(crate) enum ContentMessage {
     /// Connection is loaded.
     Open,
