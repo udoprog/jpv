@@ -7,8 +7,9 @@ use axum::extract::ConnectInfo;
 use axum::response::IntoResponse;
 use axum::Extension;
 use lib::api::{self, Request};
+use musli::mode::Binary;
 use musli::Encode;
-use musli_storage::reader::SliceReader;
+use musli_utils::reader::SliceReader;
 use rand::prelude::*;
 use rand::rngs::SmallRng;
 use tokio::sync::Mutex;
@@ -161,7 +162,7 @@ impl Server {
 
     async fn send<T>(&mut self, value: T) -> Result<()>
     where
-        T: Encode,
+        T: Encode<Binary>,
     {
         self.write(value)?;
         self.flush().await?;
@@ -170,7 +171,7 @@ impl Server {
 
     fn write<T>(&mut self, value: T) -> Result<()>
     where
-        T: Encode,
+        T: Encode<Binary>,
     {
         musli_storage::to_writer(&mut self.output, &value)?;
         Ok(())
@@ -270,7 +271,11 @@ impl Server {
             }
             api::GetKanji::KIND => {
                 let request: api::GetKanji = musli_storage::decode(reader)?;
-                let response = super::handle_kanji(&self.bg, &request.kanji).await?;
+
+                let Some(response) = super::handle_kanji(&self.bg, &request.kanji).await? else {
+                    bail!("No such kanji");
+                };
+
                 Ok(musli_storage::to_vec(&response)?)
             }
             kind => bail!("Unsupported request kind {kind}"),

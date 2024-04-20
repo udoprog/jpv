@@ -9,7 +9,7 @@ const NUL: u8 = 0;
 /// An entry.
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
 pub struct Entry<'a> {
     pub kanji: &'a str,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

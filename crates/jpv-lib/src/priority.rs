@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
 #[serde(rename_all = "kebab-case")]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub enum PriorityKind {
     /// Common words.
     Ichi,
@@ -16,11 +17,13 @@ pub enum PriorityKind {
     Spec,
     /// Word frequency category.
     #[serde(rename = "nf")]
+    #[musli(mode = Text, name = "nf")]
     WordFrequency,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode)]
-#[musli(packed)]
+#[musli(mode = Binary, packed)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct Priority {
     level: u8,
     kind: PriorityKind,

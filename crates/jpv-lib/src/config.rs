@@ -140,6 +140,7 @@ impl FromStr for IndexFormat {
 
 /// An index.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct ConfigIndex {
     pub format: IndexFormat,
     pub url: String,
@@ -161,6 +162,7 @@ fn is_false(value: &bool) -> bool {
 
 /// A configuration used for the application.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct Config {
     /// Enabled indexes.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

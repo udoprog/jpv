@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use musli::de::DecodeOwned;
+use musli::mode::Binary;
 use musli::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -11,12 +12,11 @@ use crate::jmnedict;
 use crate::kanjidic2;
 use crate::Weight;
 
-pub trait Request: Encode {
+pub trait Request: Encode<Binary> {
     /// The kind of the request.
     const KIND: &'static str;
-
     /// The expected response.
-    type Response: 'static + DecodeOwned;
+    type Response: 'static + DecodeOwned<Binary>;
 }
 
 #[derive(Debug, Encode, Decode, Deserialize)]
@@ -44,7 +44,7 @@ impl Request for SearchRequest {
 pub struct InstallAllRequest;
 
 impl Request for InstallAllRequest {
-    const KIND: &'static str = "rebuild";
+    const KIND: &'static str = "install-all";
     type Response = Empty;
 }
 
@@ -52,7 +52,7 @@ impl Request for InstallAllRequest {
 pub struct GetState;
 
 impl Request for GetState {
-    const KIND: &'static str = "get-config";
+    const KIND: &'static str = "get-state";
     type Response = GetStateResult;
 }
 
@@ -118,6 +118,7 @@ impl MissingOcr {
 }
 
 #[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct GetConfigResult {
     /// System configuration.
     pub config: Config,
@@ -130,6 +131,7 @@ pub struct GetConfigResult {
 }
 
 #[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct UpdateConfigRequest {
     /// Configuration update to save.
     pub config: Option<Config>,
@@ -139,22 +141,24 @@ pub struct UpdateConfigRequest {
 
 impl Request for UpdateConfigRequest {
     const KIND: &'static str = "update-config";
-
     type Response = UpdateConfigResponse;
 }
 
 #[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct UpdateConfigResponse {
     /// Indicates that the configuration has been updated with the given value.
     pub config: Option<Config>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct Empty;
 
 #[borrowme::borrowme]
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct SendClipboard<'a> {
+    #[musli(mode = Text, default, name = "type", skip_encoding_if = Option::is_none)]
     pub ty: Option<&'a str>,
     #[borrowme(owned = Box<[u8]>, to_owned_with = Box::from)]
     pub data: &'a [u8],
@@ -194,6 +198,7 @@ pub struct Broadcast<'a> {
 
 #[borrowme::borrowme]
 #[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub enum ClientResponse<'a> {
     Search(SearchResponse<'a>),
     Analyze(AnalyzeResponse<'a>),
@@ -229,6 +234,7 @@ pub enum ClientEvent<'a> {
 
 #[borrowme::borrowme]
 #[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct SearchPhrase<'a> {
     pub key: EntryResultKey,
     pub phrase: jmdict::Entry<'a>,
@@ -236,6 +242,7 @@ pub struct SearchPhrase<'a> {
 
 #[borrowme::borrowme]
 #[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct SearchName<'a> {
     pub key: EntryResultKey,
     pub name: jmnedict::Entry<'a>,
@@ -243,6 +250,7 @@ pub struct SearchName<'a> {
 
 #[borrowme::borrowme]
 #[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct SearchResponse<'a> {
     pub phrases: Vec<SearchPhrase<'a>>,
     pub names: Vec<SearchName<'a>>,
@@ -264,6 +272,7 @@ pub struct AnalyzeResponse<'a> {
 
 #[borrowme::borrowme]
 #[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
 pub struct EntryResponse<'a> {
     pub entry: jmdict::Entry<'a>,
 }

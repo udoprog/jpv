@@ -36,10 +36,11 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 serde = { version = "1.0.189", features = ["derive"] }
 clap = { version = "4.4.6", features = ["derive"] }
 tower-http = { version = "0.4.4", features = ["cors"] }
-musli = "0.0.110"
-musli-zerocopy = { version = "0.0.110" }
-musli-storage = "0.0.110"
-musli-json = "0.0.110"
+musli = "0.0.117"
+musli-zerocopy = "0.0.117"
+musli-storage = "0.0.117"
+musli-json = "0.0.117"
+musli-utils = "0.0.117"
 
 fixed-map = { version = "0.9.3", features = ["serde"] }
 rust-embed = { version = "8.0.0", optional = true }

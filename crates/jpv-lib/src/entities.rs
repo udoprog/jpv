@@ -17,6 +17,7 @@ macro_rules! entity {
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Key, ZeroCopy, Visit)]
             #[key(bitset)]
             #[repr(u8)]
+            #[musli(mode = Text, name_all = "kebab-case")]
             #[non_exhaustive]
             $vis enum $name {
                 $(

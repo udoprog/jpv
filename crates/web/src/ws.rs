@@ -6,6 +6,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use gloo::timers::callback::Timeout;
 use lib::api;
+use musli_utils::reader::SliceReader;
 use slab::Slab;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
@@ -228,7 +229,7 @@ where
                 };
 
                 let buffer = Uint8Array::new(&array_buffer).to_vec();
-                let mut reader = musli_storage::reader::SliceReader::new(&buffer);
+                let mut reader = SliceReader::new(&buffer);
 
                 let event: api::ClientEvent<'_> = match musli_storage::decode(&mut reader) {
                     Ok(event) => event,
@@ -237,6 +238,8 @@ where
                         return;
                     }
                 };
+
+                log::info!("Got client event: {:?}", event);
 
                 match event {
                     api::ClientEvent::Broadcast(event) => {
