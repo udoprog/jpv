@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::net::SocketAddr;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::ConnectInfo;
 use axum::response::IntoResponse;
@@ -33,6 +33,7 @@ pub(super) async fn entry(
             system_events,
             bg: bg.clone(),
             output: Vec::new(),
+            body: Vec::new(),
             socket,
         };
 
@@ -46,6 +47,7 @@ struct Server {
     system_events: system::SystemEvents,
     bg: Background,
     output: Vec<u8>,
+    body: Vec<u8>,
     socket: WebSocket,
 }
 
@@ -100,13 +102,19 @@ impl Server {
                     match message? {
                         Message::Text(_) => break Some((CLOSE_PROTOCOL_ERROR, "unsupported message")),
                         Message::Binary(bytes) => {
-                            let (request, result) = self.handle_envelope(&bytes).await?;
+                            let mut reader = SliceReader::new(&bytes);
+                            let (request, result) = self.handle_envelope(&mut reader).await?;
 
-                            let (body, error) = match result {
-                                Ok(value) => (value, None),
+                            if reader.remaining() > 0 {
+                                break Some((CLOSE_PROTOCOL_ERROR, "extra data"));
+                            }
+
+                            let error = match result {
+                                Ok(()) => None,
                                 Err(error) => {
                                     tracing::warn!(?error, "Failed to handle request");
-                                    (musli_storage::to_vec(&())?, Some(error.to_string()))
+                                    self.body.clear();
+                                    Some(error.to_string())
                                 }
                             };
 
@@ -116,7 +124,8 @@ impl Server {
                                 error: error.as_deref(),
                             }))?;
 
-                            self.write_bytes(&body);
+                            self.output.extend_from_slice(&self.body);
+                            self.body.clear();
                             self.flush().await?;
                         },
                         Message::Ping(payload) => {
@@ -177,6 +186,14 @@ impl Server {
         Ok(())
     }
 
+    fn write_body<T>(&mut self, value: T) -> Result<()>
+    where
+        T: Encode<Binary>,
+    {
+        musli_storage::to_writer(&mut self.body, &value)?;
+        Ok(())
+    }
+
     async fn flush(&mut self) -> Result<()> {
         const MAX_CAPACITY: usize = 1048576;
         self.socket
@@ -185,10 +202,6 @@ impl Server {
         self.output.clear();
         self.output.shrink_to(MAX_CAPACITY);
         Ok(())
-    }
-
-    fn write_bytes(&mut self, bytes: &[u8]) {
-        self.output.extend_from_slice(bytes);
     }
 
     async fn log_backfill(&mut self) -> Result<()> {
@@ -204,9 +217,9 @@ impl Server {
 
     async fn handle_request(
         &mut self,
-        reader: SliceReader<'_>,
+        reader: &mut SliceReader<'_>,
         request: &api::ClientRequestEnvelope<'_>,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<()> {
         tracing::trace!("Got request: {:?}", request);
 
         match request.kind {
@@ -225,49 +238,44 @@ impl Server {
                     missing_ocr,
                 };
 
-                Ok(musli_storage::to_vec(&result)?)
+                self.write_body(&result)?;
             }
             api::SearchRequest::KIND => {
                 let request = musli_storage::decode(reader)?;
                 let response = super::handle_search_request(&self.bg, request).await?;
-                Ok(musli_storage::to_vec(&response)?)
+                self.write_body(&response)?;
             }
             api::AnalyzeRequest::KIND => {
                 let request = musli_storage::decode(reader)?;
                 let response = super::handle_analyze_request(&self.bg, request).await?;
-                Ok(musli_storage::to_vec(&response)?)
+                self.write_body(&response)?;
             }
             api::InstallAllRequest::KIND => {
                 self.bg.install(Install::default());
-                Ok(musli_storage::to_vec(&())?)
             }
             api::UpdateConfigRequest::KIND => {
                 let request: api::UpdateConfigRequest = musli_storage::decode(reader)?;
 
-                'out: {
-                    if !request.update_indexes.is_empty() {
-                        let install = Install {
-                            filter: Some(request.update_indexes),
-                            force: true,
-                        };
-
-                        self.bg.install(install);
-                    }
-
-                    let config = if let Some(config) = request.config {
-                        let Some(config) = self.bg.update_config(config).await else {
-                            break 'out Err(anyhow!("Failed to update configuration"));
-                        };
-
-                        Some(config)
-                    } else {
-                        None
+                if !request.update_indexes.is_empty() {
+                    let install = Install {
+                        filter: Some(request.update_indexes),
+                        force: true,
                     };
 
-                    Ok(musli_storage::to_vec(&api::UpdateConfigResponse {
-                        config,
-                    })?)
+                    self.bg.install(install);
                 }
+
+                let config = if let Some(config) = request.config {
+                    let Some(config) = self.bg.update_config(config).await else {
+                        bail!("Failed to update configuration");
+                    };
+
+                    Some(config)
+                } else {
+                    None
+                };
+
+                self.write_body(&api::UpdateConfigResponse { config })?;
             }
             api::GetKanji::KIND => {
                 let request: api::GetKanji = musli_storage::decode(reader)?;
@@ -276,18 +284,19 @@ impl Server {
                     bail!("No such kanji");
                 };
 
-                Ok(musli_storage::to_vec(&response)?)
+                self.write_body(&response)?;
             }
             kind => bail!("Unsupported request kind {kind}"),
         }
+
+        Ok(())
     }
 
     async fn handle_envelope<'de>(
         &mut self,
-        bytes: &'de [u8],
-    ) -> Result<(api::ClientRequestEnvelope<'de>, Result<Vec<u8>>)> {
-        let mut reader = SliceReader::new(bytes);
-        let request: api::ClientRequestEnvelope = musli_storage::decode(&mut reader)?;
+        reader: &mut SliceReader<'de>,
+    ) -> Result<(api::ClientRequestEnvelope<'de>, Result<()>)> {
+        let request: api::ClientRequestEnvelope = musli_storage::decode(&mut *reader)?;
         let result = self.handle_request(reader, &request).await;
         Ok((request, result))
     }
