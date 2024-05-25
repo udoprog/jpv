@@ -240,12 +240,6 @@ pub(crate) fn suru_base(mut r: impl FnMut(&'static str, &'static str, &[Form])) 
     suru(r);
 }
 
-#[cfg(fake)]
-macro_rules! suru {
-    ($macro:path) => {};
-    ($macro:path, te) => {};
-}
-
 pub(crate) fn adjective_i(mut r: impl FnMut(&'static str, &[Form])) {
     r("い", &[]);
     r("いです", &[Honorific]);

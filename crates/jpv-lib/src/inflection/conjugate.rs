@@ -1,7 +1,5 @@
 //! Module which performs verb inflection, based on a words class.
 
-#![cfg_attr(fake, allow(dead_code, unused, unused_variables, unused_macros))]
-
 use fixed_map::Set;
 use musli::mode::{Binary, Text};
 use musli::{Decode, Encode};
