@@ -46,7 +46,7 @@ impl Tasks {
         &mut self,
         name: TaskName,
     ) -> Option<(oneshot::Receiver<()>, TaskCompletion)> {
-        if self.unique.get(&name).is_some() {
+        if self.unique.contains_key(&name) {
             return None;
         }
 
