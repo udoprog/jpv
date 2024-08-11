@@ -390,12 +390,13 @@ impl<'a> Parser<'a> {
                     tracing::trace!(path = self.path.as_str(), "enter");
                     return Ok(Output::Open(local.as_str()));
                 }
-                Token::ElementEnd { end, .. } => {
-                    if let ElementEnd::Close { .. } | ElementEnd::Empty { .. } = end {
-                        tracing::trace!(path = self.path.as_str(), "leave");
-                        self.closed = true;
-                        return Ok(Output::Close);
-                    }
+                Token::ElementEnd {
+                    end: ElementEnd::Close { .. } | ElementEnd::Empty { .. },
+                    ..
+                } => {
+                    tracing::trace!(path = self.path.as_str(), "leave");
+                    self.closed = true;
+                    return Ok(Output::Close);
                 }
                 Token::Attribute { local, value, .. } => {
                     return Ok(Output::Attribute(local.as_str(), value.as_str()));
