@@ -1093,7 +1093,7 @@ impl Prompt {
         }
 
         // Heuristics.
-        if data.starts_with(&[b'{']) {
+        if data.starts_with(b"{") {
             if let Ok(json) = serde_json::from_slice::<lib::api::SendClipboardJson>(data) {
                 self.update_from_clipboard_json(ctx, &json)?;
                 return Ok(());

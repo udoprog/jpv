@@ -1143,7 +1143,7 @@ impl Database {
             return Ok(output);
         }
 
-        let Some((prefix, suffix)) = query.split_once(|c: char| matches!(c, '*' | '＊')) else {
+        let Some((prefix, suffix)) = query.split_once(['*', '＊']) else {
             for (n, d) in self.indexes.iter().enumerate() {
                 if let Some(lookup) = d.header.lookup.get(d.data.as_buf(), query)? {
                     for id in lookup {
@@ -1156,7 +1156,7 @@ impl Database {
         };
 
         let parts = suffix
-            .split(|c: char| matches!(c, '*' | '＊'))
+            .split(['*', '＊'])
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
 
