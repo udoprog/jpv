@@ -1,5 +1,6 @@
 [build]
 target = "crates/web/index.html"
+dist = "crates/web/dist"
 
 [[proxy]]
 rewrite = "/api"
