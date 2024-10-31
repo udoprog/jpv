@@ -36,7 +36,7 @@ jobs:
         args: build --release
     - uses: actions/upload-artifact@v4
       with:
-        name: dist-frontend
+        name: build-frontend
         path: crates/web/dist
 
   fedora:
@@ -52,7 +52,7 @@ jobs:
     - run: cat /etc/fedora-release
     - uses: actions/checkout@v4
     - uses: actions/download-artifact@v4
-      with: {name: dist-frontend, path: crates/web/dist}
+      with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
     - run: dnf install --assumeyes gcc rpm-build glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
@@ -77,7 +77,7 @@ jobs:
       id: release
     - uses: actions/checkout@v4
     - uses: actions/download-artifact@v4
-      with: {name: dist-frontend, path: crates/web/dist}
+      with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
     - run: cargo build --release --features bundle -p jpv
@@ -97,11 +97,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: actions/download-artifact@v4
-      with: {name: dist-fedora-39, path: dist}
-    - uses: actions/download-artifact@v4
-      with: {name: dist-fedora-40, path: dist}
-    - uses: actions/download-artifact@v4
-      with: {name: dist-windows, path: dist}
+      with: {pattern: "dist-*", merge-multiple: true, path: dist}
     - uses: udoprog/kick@nightly
     - run: kick github-release --github-action --upload "dist/*"
       env:
