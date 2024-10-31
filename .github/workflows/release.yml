@@ -97,11 +97,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: actions/download-artifact@v4
-      with: {name: dist-fedora-39, path: dist}
-    - uses: actions/download-artifact@v4
-      with: {name: dist-fedora-40, path: dist}
-    - uses: actions/download-artifact@v4
-      with: {name: dist-windows, path: dist}
+      with: {pattern: "dist-*", merge-multiple: true, path: dist}
     - uses: udoprog/kick@nightly
     - run: kick github-release --github-action --upload "dist/*"
       env:
