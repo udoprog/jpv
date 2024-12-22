@@ -9,8 +9,14 @@ pub struct CompactTrie;
 
 impl trie::Flavor for CompactTrie {
     type String = slice::Packed<[u8], u32, u8>;
-    type Values<T> = slice::Packed<[T], u32, u16> where T: ZeroCopy;
-    type Children<T> = slice::Packed<[T], u32, u16> where T: ZeroCopy;
+    type Values<T>
+        = slice::Packed<[T], u32, u16>
+    where
+        T: ZeroCopy;
+    type Children<T>
+        = slice::Packed<[T], u32, u16>
+    where
+        T: ZeroCopy;
 }
 
 #[derive(ZeroCopy)]

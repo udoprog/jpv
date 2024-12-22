@@ -20,7 +20,7 @@ pub(super) struct AnalyzeGlossary<'a> {
 
 const NUL: char = '\u{0000}';
 
-impl<'a> AnalyzeGlossary<'a> {
+impl AnalyzeGlossary<'_> {
     fn c(&self) -> char {
         let Some(c) = self.input[self.o..].chars().next() else {
             return NUL;

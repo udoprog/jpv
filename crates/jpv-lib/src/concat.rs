@@ -8,7 +8,8 @@ pub struct Concat<'a, const N: usize> {
     len: usize,
 }
 
-impl<'a, const N: usize> Default for Concat<'a, N> {
+impl<const N: usize> Default for Concat<'_, N> {
+    #[inline]
     fn default() -> Self {
         Self::empty()
     }
@@ -16,7 +17,7 @@ impl<'a, const N: usize> Default for Concat<'a, N> {
 
 impl<'a, const N: usize> Concat<'a, N> {
     /// Concatenate the given strings together into a single composite string.
-    pub const fn new(string: &'a str) -> Concat<'a, N> {
+    pub const fn new(string: &str) -> Concat<'_, N> {
         let mut this = Concat {
             storage: [""; N],
             len: 0,

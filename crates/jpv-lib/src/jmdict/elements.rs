@@ -143,7 +143,7 @@ pub struct KanjiElement<'a> {
     pub info: Set<KanjiInfo>,
 }
 
-impl<'a> KanjiElement<'a> {
+impl KanjiElement<'_> {
     /// Test if kanji is rare.
     pub fn is_rare(&self) -> bool {
         self.info.contains(KanjiInfo::RareKanji)
@@ -198,7 +198,7 @@ pub struct ReadingElement<'a> {
     pub info: Set<ReadingInfo>,
 }
 
-impl<'a> ReadingElement<'a> {
+impl ReadingElement<'_> {
     /// Debug the reading element, while avoiding formatting elements which are
     /// not defined.
     pub fn debug_sparse(&self) -> impl fmt::Debug + '_ {
@@ -364,7 +364,7 @@ pub struct Sense<'a> {
     pub field: Set<Field>,
 }
 
-impl<'a> Sense<'a> {
+impl Sense<'_> {
     /// Test if sense applies to the current kanji.
     pub fn applies_to(&self, kanji: Option<&str>, reading: &str) -> bool {
         if let Some(kanji) = kanji {
@@ -389,7 +389,7 @@ impl<'a> Sense<'a> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 struct SparseDebug<'a>(&'a [SourceLanguage<'a>]);
 
-                impl<'a> fmt::Debug for SparseDebug<'a> {
+                impl fmt::Debug for SparseDebug<'_> {
                     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                         let mut f = f.debug_list();
 
@@ -477,7 +477,7 @@ pub struct SourceLanguage<'a> {
     pub ty: Option<&'a str>,
 }
 
-impl<'a> SourceLanguage<'a> {
+impl SourceLanguage<'_> {
     /// Debug the source language  element, while avoiding formatting elements
     /// which are not defined.
     pub fn debug_sparse(&self) -> impl fmt::Debug + '_ {
