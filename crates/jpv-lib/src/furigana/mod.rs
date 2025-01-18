@@ -39,7 +39,7 @@ impl PartialEq for Pair<'_> {
             (other.suffix, self.suffix, a)
         };
 
-        a_prefix == b_prefix && a.strip_prefix(prefix).map_or(false, |rest| rest == b)
+        a_prefix == b_prefix && a.strip_prefix(prefix) == Some(b)
     }
 }
 

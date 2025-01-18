@@ -40,7 +40,7 @@ impl<'a, const N: usize> Concat<'a, N> {
     }
 
     /// Push the given string onto storage.
-    pub fn push(&mut self, string: &'a str) {
+    pub const fn push(&mut self, string: &'a str) {
         if !string.is_empty() {
             assert!(self.len < N, "Capacity overflow");
             self.storage[self.len] = string;
