@@ -13,25 +13,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  msrv:
+    runs-on: ${{matrix.os}}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@1.83
+    - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
+      if: matrix.os == 'ubuntu-latest'
+    - run: cargo build --workspace --lib
+
   test:
     runs-on: ${{matrix.os}}
     strategy:
       fail-fast: false
       matrix:
-        rust: ["1.83", stable]
         os: [ubuntu-latest, windows-latest]
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{matrix.rust}}
+    - uses: dtolnay/rust-toolchain@stable
     - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
       if: matrix.os == 'ubuntu-latest'
-    - run: cargo build --workspace
-    - run: cargo test --workspace
-      if: matrix.rust == 'stable'
+    - run: cargo test --workspace --all-targets
     - run: cargo test --workspace --doc
-      if: matrix.rust == 'stable'
 
   clippy:
     runs-on: ubuntu-latest
