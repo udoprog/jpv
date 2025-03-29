@@ -436,7 +436,7 @@ fn decode_escaped(data: &[u8]) -> Option<String> {
                 it.next();
                 let [a, b, c, d] = [it.next()?, it.next()?, it.next()?, it.next()?];
                 let [a, b, c, d] = [h(a)?, h(b)?, h(c)?, h(d)?];
-                let c = a << 12 | b << 8 | c << 4 | d;
+                let c = (a << 12) | (b << 8) | (c << 4) | d;
                 s.push(char::from_u32(c)?);
             }
             (b'\\', Some(b'\\')) => {
