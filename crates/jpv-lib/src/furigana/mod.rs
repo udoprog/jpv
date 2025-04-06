@@ -220,7 +220,7 @@ fn reverse_find<'a>(
         let mut morae_count = 0;
 
         reading_len = 'out: {
-            let mut it = rfind_iter(reading[..reading_len].as_bytes(), kana.as_bytes());
+            let mut it = rfind_iter(&reading.as_bytes()[..reading_len], kana.as_bytes());
 
             // Special case: we're matching exact kana.
             if kanji_count == 0 {
