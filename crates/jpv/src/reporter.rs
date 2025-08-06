@@ -29,7 +29,7 @@ impl Reporter for EventsReporter {
             };
 
             progress.text.clear();
-            write!(progress.text, "{}", text).unwrap();
+            write!(progress.text, "{text}").unwrap();
             progress.value = 0;
             progress.total = total;
             progress.clone()

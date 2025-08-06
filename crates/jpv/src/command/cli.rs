@@ -299,7 +299,7 @@ where
         }
         Entry::Name(entry) => {
             for kanji in entry.kanji.iter() {
-                writeln!(o, "Kanji: {}", kanji)?;
+                writeln!(o, "Kanji: {kanji}")?;
             }
 
             for reading in entry.reading.iter() {

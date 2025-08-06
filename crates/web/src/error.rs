@@ -36,7 +36,7 @@ impl From<wasm_bindgen::JsValue> for Error {
     #[inline]
     fn from(value: wasm_bindgen::JsValue) -> Self {
         Self {
-            error: anyhow::Error::msg(format!("{:?}", value)),
+            error: anyhow::Error::msg(format!("{value:?}")),
         }
     }
 }

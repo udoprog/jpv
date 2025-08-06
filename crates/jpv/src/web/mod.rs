@@ -121,8 +121,7 @@ async fn entry(
 
     let Some(entry) = db.sequence_to_entry(sequence)? else {
         return Err(RequestError::not_found(format!(
-            "Missing entry by id `{}`",
-            sequence
+            "Missing entry by id `{sequence}`"
         )));
     };
 
