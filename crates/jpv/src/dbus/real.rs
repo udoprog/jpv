@@ -69,7 +69,7 @@ pub(crate) async fn setup<'a>(service_args: &ServiceArgs) -> Result<Setup> {
         return Ok(Setup::Start(None));
     }
 
-    tracing::trace!("Connecting to D-Bus");
+    tracing::debug!("Connecting to D-Bus");
 
     let mut c = if service_args.dbus_system {
         Connection::system_bus().await?
@@ -82,7 +82,7 @@ pub(crate) async fn setup<'a>(service_args: &ServiceArgs) -> Result<Setup> {
         return Ok(Setup::Port(get_port(&mut c).await?));
     }
 
-    tracing::trace!("Requesting name");
+    tracing::debug!("Requesting name");
 
     let reply = c.request_name(NAME, NameFlag::DO_NOT_QUEUE).await?;
 

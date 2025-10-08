@@ -33,8 +33,8 @@ use Form::*;
 )]
 #[repr(u8)]
 #[zero_copy(bounds = {T: ZeroCopy})]
-#[musli(mode = Binary, bound = {T: Encode<Binary>}, decode_bound = {T: Decode<'de, Binary>})]
-#[musli(mode = Text, bound = {T: Encode<Text>}, decode_bound = {T: Decode<'de, Text>})]
+#[musli(mode = Binary, bound = {T: Encode<Binary>}, decode_bound<'de, A> = {T: Decode<'de, Binary, A>})]
+#[musli(mode = Text, bound = {T: Encode<Text>}, decode_bound<'de, A> = {T: Decode<'de, Text, A>})]
 pub enum ReadingOption<T> {
     None,
     Some(T),

@@ -2,9 +2,9 @@ use axum::http::header::{self, HeaderValue};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use bytes::{BufMut, BytesMut};
+use musli::json::Encoding;
 use musli::mode::Text;
 use musli::Encode;
-use musli_json::Encoding;
 
 const ENCODING: Encoding = Encoding::new();
 

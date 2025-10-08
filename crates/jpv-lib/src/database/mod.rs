@@ -12,8 +12,8 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, ensure, Context, Result};
 use fixed_map::Set;
+use musli::storage::Encoding;
 use musli::{Decode, Encode};
-use musli_storage::Encoding;
 use musli_zerocopy::{swiss, trie, OwnedBuf, Ref, ZeroCopy};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -1092,7 +1092,7 @@ impl Database {
 
     /// Lookup all entries matching the given prefix.
     #[tracing::instrument(skip_all)]
-    pub fn prefix(&self, prefix: &str) -> Result<Vec<stored::Id>> {
+    pub(super) fn prefix(&self, prefix: &str) -> Result<Vec<stored::Id>> {
         let mut output = Vec::new();
 
         for d in self.indexes.iter() {

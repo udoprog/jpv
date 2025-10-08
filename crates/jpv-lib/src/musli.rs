@@ -7,7 +7,7 @@ pub mod set {
     use musli::en::{Encode, Encoder};
 
     #[inline]
-    pub fn encode<E, T>(set: &Set<T>, _: &E::Cx, encoder: E) -> Result<E::Ok, E::Error>
+    pub fn encode<E, T>(set: &Set<T>, encoder: E) -> Result<(), E::Error>
     where
         E: Encoder,
         T: Key,
@@ -18,12 +18,12 @@ pub mod set {
     }
 
     #[inline]
-    pub fn decode<'de, D, T>(_: &D::Cx, decoder: D) -> Result<Set<T>, D::Error>
+    pub fn decode<'de, D, T>(decoder: D) -> Result<Set<T>, D::Error>
     where
         D: Decoder<'de>,
         T: Key,
         T::SetStorage: RawStorage,
-        <T::SetStorage as RawStorage>::Value: Decode<'de, D::Mode>,
+        <T::SetStorage as RawStorage>::Value: Decode<'de, D::Mode, D::Allocator>,
     {
         Ok(Set::from_raw(
             decoder.decode::<<T::SetStorage as RawStorage>::Value>()?,

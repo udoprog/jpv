@@ -928,7 +928,7 @@ where
 
 fn decode_query(location: Option<Location>) -> Query {
     let query = match location {
-        Some(location) => location.query().ok(),
+        Some(location) => location.query::<Vec<(String, String)>>().ok(),
         None => None,
     };
 

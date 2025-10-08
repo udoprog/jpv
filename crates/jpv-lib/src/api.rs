@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use musli::alloc::Global;
 use musli::de::DecodeOwned;
 use musli::mode::Binary;
 use musli::{Decode, Encode};
@@ -16,7 +17,7 @@ pub trait Request: Encode<Binary> {
     /// The kind of the request.
     const KIND: &'static str;
     /// The expected response.
-    type Response: 'static + DecodeOwned<Binary>;
+    type Response: 'static + DecodeOwned<Binary, Global>;
 }
 
 #[derive(Debug, Encode, Decode, Deserialize)]

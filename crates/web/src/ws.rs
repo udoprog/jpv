@@ -6,7 +6,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use gloo::timers::callback::Timeout;
 use lib::api;
-use musli_utils::reader::SliceReader;
+use musli::reader::SliceReader;
 use slab::Slab;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
@@ -136,7 +136,7 @@ where
             return Err(anyhow!("Socket is not connected").into());
         };
 
-        musli_storage::to_writer(&mut self.output, &message)?;
+        musli::storage::to_writer(&mut self.output, &message)?;
         self.output.extend(body.as_slice());
         socket.send_with_u8_array(&self.output)?;
         self.output.clear();
@@ -231,7 +231,7 @@ where
                 let buffer = Uint8Array::new(&array_buffer).to_vec();
                 let mut reader = SliceReader::new(&buffer);
 
-                let event: api::ClientEvent<'_> = match musli_storage::decode(&mut reader) {
+                let event: api::ClientEvent<'_> = match musli::storage::decode(&mut reader) {
                     Ok(event) => event,
                     Err(error) => {
                         log::error!("{}", error);
@@ -437,7 +437,7 @@ impl Handle {
     where
         T: api::Request,
     {
-        let body = match musli_storage::to_vec(&request) {
+        let body = match musli::storage::to_vec(&request) {
             Ok(body) => body,
             Err(error) => {
                 callback.emit(Err(Error::from(error)));
@@ -460,7 +460,7 @@ impl Handle {
                     }
                 };
 
-                match musli_storage::from_slice(&body[at..]) {
+                match musli::storage::from_slice(&body[at..]) {
                     Ok(payload) => {
                         callback.emit(Ok(payload));
                     }

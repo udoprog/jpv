@@ -22,6 +22,7 @@ enum State<'a> {
 struct ReadingBuilder<'a> {
     text: Option<&'a str>,
     priority: Option<&'a str>,
+    reading_string: Option<&'a str>,
 }
 
 #[derive(Debug, Default)]
@@ -116,6 +117,9 @@ impl<'a> Parser<'a> {
                         ([.., State::Reading(..)], "re_pri") => {
                             self.stack.push(State::Text("re_pri", None));
                         }
+                        ([.., State::Reading(..)], "re_restr") => {
+                            self.stack.push(State::Text("re_restr", None));
+                        }
                         ([.., State::Entry(..)], "trans") => {
                             self.stack
                                 .push(State::Translations(TranslationsBuilder::default()));
@@ -207,6 +211,7 @@ impl<'a> Parser<'a> {
                             entry.reading.push(Reading {
                                 text,
                                 priority: value.priority,
+                                reading_string: value.reading_string,
                             });
                         }
                         ([.., State::Entry(entry)], State::Translations(value)) => {
@@ -221,6 +226,10 @@ impl<'a> Parser<'a> {
                         ([.., State::Reading(entry)], State::Text("re_pri", value)) => {
                             expect_close!("re_pri");
                             set_option!(&mut entry.priority, value);
+                        }
+                        ([.., State::Reading(entry)], State::Text("re_restr", value)) => {
+                            expect_close!("re_restr");
+                            set_option!(&mut entry.reading_string, value);
                         }
                         ([.., State::Translations(entry)], State::NameType(value)) => {
                             expect_close!("name_type");

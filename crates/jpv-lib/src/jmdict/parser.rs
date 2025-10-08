@@ -207,7 +207,10 @@ impl<'a> Parser<'a> {
                                     $out.$field.insert($field);
                                 }
                                 None => {
-                                    log::warn!("Invalid entity: {text}");
+                                    log::warn!(
+                                        "Invalid entity of type {}: {text}",
+                                        stringify!($ty)
+                                    );
                                 }
                             }
                         };

@@ -66,4 +66,6 @@ pub struct Reading<'a> {
     pub text: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reading_string: Option<&'a str>,
 }

@@ -279,9 +279,9 @@ entity! {
         <Business "bus" "business">
         <Cards "cards" "card games">
         <Chemistry "chem" "chemistry">
+        <ChineseMythology "chmyth" "Chinese mythology">
         <Christianity "Christn" "Christianity">
         <CivilEngineering "civeng" "civil engineering">
-        <ChineseMythology "chmyth" "Chinese mythology">
         <Clothing "cloth" "clothing">
         <Computing "comp" "computing">
         <Crystallography "cryst" "crystallography">
@@ -293,6 +293,7 @@ entity! {
         <Embryology "embryo" "embryology">
         <Engineering "engr" "engineering">
         <Entomology "ent" "entomology">
+        <FigureSkating "figskt" "figure skating">
         <Film "film" "film">
         <Finc "finc" "finance">
         <Fish "fish" "fishing">
@@ -314,14 +315,15 @@ entity! {
         <Law "law" "law">
         <Ling "ling" "linguistics">
         <Logic "logic" "logic">
-        <MartialArts "MA" "martial arts">
         <Mahjong "mahj" "mahjong">
         <Manga "manga" "manga">
+        <MartialArts "MA" "martial arts">
         <Mathematics "math" "mathematics">
         <MechanicalEnginering "mech" "mechanical engineering">
         <Medicine "med" "medicine">
         <Meteorology "met" "meteorology">
         <Military "mil" "military">
+        <Min "min" "min">
         <Mining "mining" "mining">
         <Motorsport "motor" "motorsport">
         <Music "music" "music">
@@ -337,8 +339,8 @@ entity! {
         <Politics "politics" "politics">
         <Print "print" "printing">
         <ProwRes "prowres" "professional wrestling">
-        <Psychatry "psy" "psychiatry">
         <Psyanal "psyanal" "psychoanalysis">
+        <Psychatry "psy" "psychiatry">
         <Psychology "psych" "psychology">
         <Railway "rail" "railway">
         <RomanMythology "rommyth" "Roman mythology">
@@ -353,6 +355,7 @@ entity! {
         <Telecommunications "telec" "telecommunications">
         <Trademark "tradem" "trademark">
         <Tv "tv" "television">
+        <Veterinary "vet" "veterinary">
         <VideoGames "vidg" "video games">
         <Zoology "zool" "zoology">
     }

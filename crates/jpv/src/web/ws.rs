@@ -8,10 +8,10 @@ use axum::response::IntoResponse;
 use axum::Extension;
 use lib::api::{self, Request};
 use musli::mode::Binary;
+use musli::reader::SliceReader;
 use musli::Encode;
-use musli_utils::reader::SliceReader;
 use rand::prelude::*;
-use rand::rngs::SmallRng;
+use rand::rngs::StdRng;
 use tokio::sync::Mutex;
 use tokio::time::Duration;
 use tokio_stream::StreamExt;
@@ -61,7 +61,7 @@ impl Server {
         const PING_TIMEOUT: Duration = Duration::from_secs(10);
 
         let mut last_ping = None::<u32>;
-        let mut rng = SmallRng::seed_from_u64(0x404241112);
+        let mut rng = StdRng::seed_from_u64(0x404241112);
         let mut close_interval = tokio::time::interval(CLOSE_TIMEOUT);
         close_interval.reset();
 
@@ -182,7 +182,7 @@ impl Server {
     where
         T: Encode<Binary>,
     {
-        musli_storage::to_writer(&mut self.output, &value)?;
+        musli::storage::to_writer(&mut self.output, &value)?;
         Ok(())
     }
 
@@ -190,7 +190,7 @@ impl Server {
     where
         T: Encode<Binary>,
     {
-        musli_storage::to_writer(&mut self.body, &value)?;
+        musli::storage::to_writer(&mut self.body, &value)?;
         Ok(())
     }
 
@@ -241,12 +241,12 @@ impl Server {
                 self.write_body(&result)?;
             }
             api::SearchRequest::KIND => {
-                let request = musli_storage::decode(reader)?;
+                let request = musli::storage::decode(reader)?;
                 let response = super::handle_search_request(&self.bg, request).await?;
                 self.write_body(&response)?;
             }
             api::AnalyzeRequest::KIND => {
-                let request = musli_storage::decode(reader)?;
+                let request = musli::storage::decode(reader)?;
                 let response = super::handle_analyze_request(&self.bg, request).await?;
                 self.write_body(&response)?;
             }
@@ -254,7 +254,7 @@ impl Server {
                 self.bg.install(Install::default());
             }
             api::UpdateConfigRequest::KIND => {
-                let request: api::UpdateConfigRequest = musli_storage::decode(reader)?;
+                let request: api::UpdateConfigRequest = musli::storage::decode(reader)?;
 
                 if !request.update_indexes.is_empty() {
                     let install = Install {
@@ -278,7 +278,7 @@ impl Server {
                 self.write_body(&api::UpdateConfigResponse { config })?;
             }
             api::GetKanji::KIND => {
-                let request: api::GetKanji = musli_storage::decode(reader)?;
+                let request: api::GetKanji = musli::storage::decode(reader)?;
 
                 let Some(response) = super::handle_kanji(&self.bg, &request.kanji).await? else {
                     bail!("No such kanji");
@@ -296,7 +296,7 @@ impl Server {
         &mut self,
         reader: &mut SliceReader<'de>,
     ) -> Result<(api::ClientRequestEnvelope<'de>, Result<()>)> {
-        let request: api::ClientRequestEnvelope = musli_storage::decode(&mut *reader)?;
+        let request: api::ClientRequestEnvelope = musli::storage::decode(&mut *reader)?;
         let result = self.handle_request(reader, &request).await;
         Ok((request, result))
     }
