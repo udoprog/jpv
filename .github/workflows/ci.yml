@@ -21,7 +21,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
     - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@1.83
+    - uses: dtolnay/rust-toolchain@1.90
     - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
       if: matrix.os == 'ubuntu-latest'
     - run: cargo build --workspace --lib

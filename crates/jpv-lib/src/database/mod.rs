@@ -1090,20 +1090,6 @@ impl Database {
         Ok(output)
     }
 
-    /// Lookup all entries matching the given prefix.
-    #[tracing::instrument(skip_all)]
-    pub(super) fn prefix(&self, prefix: &str) -> Result<Vec<stored::Id>> {
-        let mut output = Vec::new();
-
-        for d in self.indexes.iter() {
-            for id in d.header.lookup.values_in(d.data.as_buf(), prefix) {
-                output.push(*id?);
-            }
-        }
-
-        Ok(output)
-    }
-
     /// Lookup any entries matching a custom filter.
     #[tracing::instrument(skip_all)]
     pub fn all(&self) -> Result<Vec<Id>> {

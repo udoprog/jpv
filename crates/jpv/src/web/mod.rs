@@ -16,10 +16,10 @@ pub(crate) use self::r#impl::{BIND, PORT};
 use std::cmp::Reverse;
 use std::fmt;
 use std::future::Future;
-use std::net::{SocketAddr, TcpListener};
+use std::net::SocketAddr;
 
 use anyhow::Result;
-use axum::body::{boxed, Body};
+use axum::body::Body;
 use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -28,6 +28,7 @@ use axum::{Extension, Router};
 use lib::api;
 use lib::config::Config;
 use musli::Encode;
+use tokio::net::TcpListener;
 use tower_http::cors::{AllowMethods, AllowOrigin, CorsLayer};
 
 use crate::background::{Background, Install};
@@ -38,13 +39,6 @@ pub(crate) fn setup(
     background: Background,
     system_events: system::SystemEvents,
 ) -> Result<impl Future<Output = Result<()>>> {
-    let server = match axum::Server::from_tcp(listener) {
-        Ok(server) => server,
-        Err(error) => {
-            return Err(error.into());
-        }
-    };
-
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::any())
         .allow_methods(AllowMethods::any());
@@ -54,7 +48,10 @@ pub(crate) fn setup(
         .layer(Extension(system_events))
         .layer(cors);
 
-    let service = server.serve(app.into_make_service_with_connect_info::<SocketAddr>());
+    let service = axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    );
 
     Ok(async move {
         service.await?;
@@ -265,7 +262,7 @@ impl IntoResponse for RequestError {
     fn into_response(self) -> Response {
         tracing::error!("{}", self.error);
         let bytes = format!("{}", self.error).into_bytes();
-        let mut response = Response::new(boxed(Body::from(bytes)));
+        let mut response = Response::new(Body::from(bytes));
         *response.status_mut() = self.status.unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         response
     }

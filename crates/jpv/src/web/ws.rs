@@ -78,11 +78,11 @@ impl Server {
                     break Some((CLOSE_NORMAL, "connection timed out"));
                 }
                 _ = ping_interval.tick() => {
-                    let payload = rng.gen::<u32>();
+                    let payload = rng.random::<u32>();
                     last_ping = Some(payload);
                     let data = payload.to_ne_bytes().into_iter().collect::<Vec<_>>();
                     tracing::trace!(data = ?&data[..], "Sending ping");
-                    self.socket.send(Message::Ping(data)).await?;
+                    self.socket.send(Message::Ping(data.into())).await?;
                     ping_interval.reset();
                 }
                 event = receiver.recv() => {
@@ -159,7 +159,7 @@ impl Server {
             self.socket
                 .send(Message::Close(Some(CloseFrame {
                     code,
-                    reason: Cow::Borrowed(reason),
+                    reason: reason.into(),
                 })))
                 .await?;
         } else {
@@ -197,7 +197,7 @@ impl Server {
     async fn flush(&mut self) -> Result<()> {
         const MAX_CAPACITY: usize = 1048576;
         self.socket
-            .send(Message::Binary(self.output.clone()))
+            .send(Message::Binary(self.output.as_slice().to_vec().into()))
             .await?;
         self.output.clear();
         self.output.shrink_to(MAX_CAPACITY);

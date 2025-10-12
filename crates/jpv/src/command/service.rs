@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::net::SocketAddr;
-use std::net::TcpListener;
 use std::pin::pin;
 
 use anyhow::{Context, Result};
@@ -9,6 +8,7 @@ use clap::Parser;
 use lib::config::Config;
 use lib::data;
 use lib::Dirs;
+use tokio::net::TcpListener;
 use tokio::signal::ctrl_c;
 use tokio::sync::Notify;
 
@@ -109,7 +109,7 @@ pub(crate) async fn run(
         }
     };
 
-    let listener = TcpListener::bind(addr)?;
+    let listener = TcpListener::bind(addr).await?;
     let local_addr = listener.local_addr()?;
     let local_port = web::PORT.unwrap_or(local_addr.port());
 

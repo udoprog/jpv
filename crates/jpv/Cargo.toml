@@ -3,7 +3,7 @@ name = "jpv"
 version = "0.0.0"
 authors = ["John-John Tedro <udoprog@tedro.se>"]
 edition = "2021"
-rust-version = "1.83"
+rust-version = "1.90"
 description = "Japanese Dictionary by John-John Tedro"
 documentation = "https://docs.rs/jpv"
 readme = "README.md"
@@ -27,7 +27,7 @@ dbus = ["dep:tokio-dbus"]
 lib = { package = "jpv-lib", path = "../jpv-lib" }
 tesseract = { package = "jpv-tesseract", path = "../jpv-tesseract" }
 anyhow = "1.0.75"
-axum = { version = "0.6.20", features = ["ws"] }
+axum = { version = "0.8.6", features = ["ws"] }
 bytes = "1.6.0"
 mime = "0.3.17"
 tokio = { version = "1.33.0", features = ["full"] }
@@ -35,7 +35,7 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 serde = { version = "1.0.189", features = ["derive"] }
 clap = { version = "4.4.6", features = ["derive"] }
-tower-http = { version = "0.4.4", features = ["cors"] }
+tower-http = { version = "0.6.0", features = ["cors"] }
 musli = { version = "0.0.149", features = ["storage", "json"] }
 musli-zerocopy = "0.1.0"
 
@@ -43,25 +43,25 @@ fixed-map = { version = "0.9.3", features = ["serde"] }
 rust-embed = { version = "8.0.0", optional = true }
 mime_guess = { version = "2.0.4", optional = true }
 async-fuse = "1.0.1"
-webbrowser = "0.8.12"
+webbrowser = "1.0.0"
 serde_json = "1.0.108"
 flate2 = "1.0.28"
-reqwest = { version = "0.11.22", optional = true }
-rand = "0.8.5"
-image = "0.24.7"
+reqwest = { version = "0.12.0", optional = true }
+rand = "0.9.0"
+image = "0.25.8"
 tempfile = "3.8.1"
 slab = "0.4.9"
-twox-hash = "1.6.3"
+twox-hash = { version = "2.1.2", default-features = false, features = ["xxhash64"] }
 parking_lot = "0.12.1"
 num_cpus = "1.16.0"
 tokio-stream = "0.1.15"
 
 [target.'cfg(unix)'.dependencies]
 tokio-dbus = { version = "0.0.17", optional = true }
-gio = { version = "0.18.3", optional = true }
+gio = { version = "0.21.0", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-winctx = "0.0.18"
+winctx = "0.0.19"
 
 [build-dependencies]
 anyhow = "1.0.75"
