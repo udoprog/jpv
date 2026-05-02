@@ -52,7 +52,7 @@ jobs:
     steps:
     - run: cat /etc/fedora-release
     - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v7
       with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
@@ -77,7 +77,7 @@ jobs:
     - run: kick define --github-action --msi-version-to msi_version
       id: release
     - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v7
       with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v7
       with: {pattern: "dist-*", merge-multiple: true, path: dist}
     - uses: udoprog/kick@nightly
     - run: kick github-release --github-action --upload "dist/*"

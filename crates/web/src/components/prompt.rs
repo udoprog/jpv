@@ -207,8 +207,8 @@ impl Component for Prompt {
             Msg::SearchResponse(response) => {
                 self.phrases = response.phrases;
                 self.names = response.names;
-                self.phrases.sort_by(|a, b| a.key.weight.cmp(&b.key.weight));
-                self.names.sort_by(|a, b| a.key.weight.cmp(&b.key.weight));
+                self.phrases.sort_by_key(|a| a.key.weight);
+                self.names.sort_by_key(|a| a.key.weight);
                 self.characters = response.characters;
                 self.limit_entries = DEFAULT_LIMIT;
                 self.limit_characters = DEFAULT_LIMIT;
@@ -345,12 +345,9 @@ impl Component for Prompt {
             }
             Msg::ContentMessage(message) => {
                 match message {
-                    ContentMessage::Ping(payload) => {
-                        if self.is_open {
-                            if let Err(error) = post_parent_message(&ContentMessage::Pong(payload))
-                            {
-                                log::warn!("Failed to post message: {error}");
-                            }
+                    ContentMessage::Ping(payload) if self.is_open => {
+                        if let Err(error) = post_parent_message(&ContentMessage::Pong(payload)) {
+                            log::warn!("Failed to post message: {error}");
                         }
                     }
                     ContentMessage::Open => {}

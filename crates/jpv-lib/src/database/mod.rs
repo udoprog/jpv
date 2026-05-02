@@ -1330,8 +1330,8 @@ impl Database {
             data.weight = e.weight(input, inflection);
         }
 
-        names.sort_by(|a, b| a.0.weight.cmp(&b.0.weight));
-        phrases.sort_by(|a, b| a.0.weight.cmp(&b.0.weight));
+        names.sort_by_key(|a| a.0.weight);
+        phrases.sort_by_key(|a| a.0.weight);
 
         for (_, entry) in &phrases {
             for kanji in &entry.kanji_elements {
