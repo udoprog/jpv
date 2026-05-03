@@ -4,7 +4,7 @@ use std::mem::take;
 use std::rc::Rc;
 
 use anyhow::anyhow;
-use gloo::timers::callback::Timeout;
+use gloo_timers::callback::Timeout;
 use lib::api;
 use musli::reader::SliceReader;
 use slab::Slab;

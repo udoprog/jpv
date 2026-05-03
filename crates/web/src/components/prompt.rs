@@ -5,7 +5,7 @@ use std::mem::replace;
 use std::rc::Rc;
 use std::str::from_utf8;
 
-use gloo::utils::format::JsValueSerdeExt;
+use gloo_utils::format::JsValueSerdeExt;
 use lib::api;
 use lib::kanjidic2;
 use lib::romaji;
