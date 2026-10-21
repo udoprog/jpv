@@ -1,5 +1,5 @@
 use musli_zerocopy::endian::Little;
-use musli_zerocopy::{slice, swiss, trie, Ref, ZeroCopy};
+use musli_zerocopy::{slice, swiss, trie, ByteOrder, Ref, ZeroCopy};
 
 use crate::PartOfSpeech;
 
@@ -8,15 +8,20 @@ use super::{InflectionData, KanjiIndex, NameIndex, PhraseIndex};
 pub struct CompactTrie;
 
 impl trie::Flavor for CompactTrie {
-    type String = slice::Packed<[u8], u32, u8>;
-    type Values<T>
-        = slice::Packed<[T], u32, u16>
+    type String<E>
+        = slice::Packed<[u8], E, u32, u8>
     where
-        T: ZeroCopy;
-    type Children<T>
-        = slice::Packed<[T], u32, u16>
+        E: ByteOrder;
+    type Values<T, E>
+        = slice::Packed<[T], E, u32, u16>
     where
-        T: ZeroCopy;
+        T: ZeroCopy,
+        E: ByteOrder;
+    type Children<T, E>
+        = slice::Packed<[T], E, u32, u16>
+    where
+        T: ZeroCopy,
+        E: ByteOrder;
 }
 
 #[derive(ZeroCopy)]
@@ -31,7 +36,7 @@ pub(super) struct GlobalHeader {
 #[repr(C)]
 pub(super) struct IndexHeader {
     pub(super) name: Ref<str>,
-    pub(super) lookup: trie::TrieRef<Id, CompactTrie>,
+    pub(super) lookup: trie::TrieRef<Id, Little, CompactTrie>,
     /// Phrases by position.
     pub(super) by_pos: swiss::MapRef<PartOfSpeech, Ref<[PhrasePos]>>,
     /// Kanjis by literal.

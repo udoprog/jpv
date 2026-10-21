@@ -61,7 +61,7 @@ impl<'a> StringIndexer<'a> {
             return Ok(r);
         }
 
-        let r = buf.store_unsized(input);
+        let r = buf.store_unsized(input)?;
         let mut o = r.offset();
 
         if let btree_map::Entry::Vacant(e) = self.existing.entry(input) {

@@ -318,10 +318,10 @@ pub fn build(
 ) -> Result<OwnedBuf> {
     let mut buf = OwnedBuf::new();
 
-    let header = buf.store_uninit::<stored::GlobalHeader>();
-    let index = buf.store_uninit::<stored::IndexHeader>();
+    let header = buf.store_uninit::<stored::GlobalHeader>()?;
+    let index = buf.store_uninit::<stored::IndexHeader>()?;
 
-    let name = buf.store_unsized(name);
+    let name = buf.store_unsized(name)?;
 
     let mut output = Vec::new();
     let mut lookup = Vec::new();
@@ -360,7 +360,7 @@ pub fn build(
                 output.clear();
                 ENCODING.to_writer(&mut output, &entry)?;
 
-                let entry_ref = buf.store_slice(&output).offset() as u32;
+                let entry_ref = buf.store_slice(&output)?.offset() as u32;
                 phrases.push(entry_ref);
 
                 by_sequence.insert(
@@ -462,7 +462,7 @@ pub fn build(
                 output.clear();
                 ENCODING.to_writer(&mut output, &c)?;
 
-                let kanji_ref = buf.store_slice(&output).offset() as u32;
+                let kanji_ref = buf.store_slice(&output)?.offset() as u32;
                 kanji.push(kanji_ref);
 
                 kanji_literals.insert(c.literal, kanji_ref);
@@ -525,7 +525,7 @@ pub fn build(
                 output.clear();
                 ENCODING.to_writer(&mut output, &entry)?;
 
-                let name_ref = buf.store_slice(&output).offset() as u32;
+                let name_ref = buf.store_slice(&output)?.offset() as u32;
 
                 for kanji in entry.kanji.iter().copied() {
                     lookup.push((
@@ -560,7 +560,7 @@ pub fn build(
                 output.clear();
                 ENCODING.to_writer(&mut output, &entry)?;
 
-                let radicals_ref = buf.store_slice(&output).offset() as u32;
+                let radicals_ref = buf.store_slice(&output)?.offset() as u32;
                 input_radicals.insert(entry.kanji, radicals_ref);
 
                 for radical in entry.radicals {
@@ -573,8 +573,8 @@ pub fn build(
         }
     }
 
-    let phrases = buf.store_slice(&phrases);
-    let kanji = buf.store_slice(&kanji);
+    let phrases = buf.store_slice(&phrases)?;
+    let kanji = buf.store_slice(&kanji)?;
 
     reporter.instrument_end(count);
 
@@ -680,7 +680,7 @@ pub fn build(
             }
 
             values.sort();
-            let set = buf.store_slice(&values);
+            let set = buf.store_slice(&values)?;
             entries.push((key, set));
         }
 
@@ -704,7 +704,7 @@ pub fn build(
         let mut intermediate = Vec::new();
 
         for (key, values) in radicals_to_kanji {
-            let values = buf.store_slice(values);
+            let values = buf.store_slice(values)?;
             intermediate.push((key, values));
         }
 
@@ -716,9 +716,9 @@ pub fn build(
         swiss::store_map(&mut buf, by_sequence)?
     };
 
-    let inflections = buf.store_slice(&inflections);
+    let inflections = buf.store_slice(&inflections)?;
 
-    buf.load_uninit_mut(index).write(&stored::IndexHeader {
+    buf.load_uninit_mut(index)?.write(&stored::IndexHeader {
         name,
         lookup,
         by_pos,
@@ -731,7 +731,7 @@ pub fn build(
         kanji,
     });
 
-    buf.load_uninit_mut(header).write(&stored::GlobalHeader {
+    buf.load_uninit_mut(header)?.write(&stored::GlobalHeader {
         magic: DATABASE_MAGIC,
         version: DATABASE_VERSION,
         index: index.assume_init(),
