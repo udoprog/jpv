@@ -14,7 +14,6 @@ pub struct Header<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 #[musli(mode = Text, name_all = "kebab-case")]
 pub struct Character<'a> {
     pub literal: &'a str,
@@ -82,7 +81,6 @@ pub struct Radical<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 #[musli(mode = Text, name_all = "kebab-case")]
 pub struct DictionaryReference<'a> {
     pub text: &'a str,
@@ -99,7 +97,6 @@ pub struct DictionaryReference<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 #[musli(mode = Text, name_all = "kebab-case")]
 pub struct QueryCode<'a> {
     pub text: &'a str,
@@ -113,7 +110,6 @@ pub struct QueryCode<'a> {
 
 #[borrowme::borrowme]
 #[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 #[musli(mode = Text, name_all = "kebab-case")]
 pub struct Misc<'a> {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -161,7 +157,6 @@ pub struct Reading<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 #[musli(mode = Text, name_all = "kebab-case")]
 pub struct Meaning<'a> {
     pub text: &'a str,

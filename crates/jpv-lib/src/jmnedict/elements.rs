@@ -52,7 +52,6 @@ impl Entry<'_> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 pub struct Translation<'a> {
     pub text: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -61,7 +60,6 @@ pub struct Translation<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 pub struct Reading<'a> {
     pub text: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]

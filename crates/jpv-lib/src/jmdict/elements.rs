@@ -11,7 +11,6 @@ use crate::Weight;
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 #[musli(mode = Text, name_all = "kebab-case")]
 pub struct Entry<'a> {
     pub sequence: u64,
@@ -279,7 +278,6 @@ impl OwnedReadingElement {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 pub struct Example<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[borrowed_attr(serde(borrow))]
@@ -294,7 +292,6 @@ pub struct Example<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 pub struct ExampleSentence<'a> {
     pub text: &'a str,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -303,7 +300,6 @@ pub struct ExampleSentence<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 pub struct ExampleSource<'a> {
     pub text: &'a str,
     #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
@@ -313,7 +309,6 @@ pub struct ExampleSource<'a> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 pub struct Glossary<'a> {
     pub text: &'a str,
     #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
@@ -328,7 +323,6 @@ const DEFAULT_LANGUAGE: &str = "eng";
 
 #[borrowme::borrowme]
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 pub struct Sense<'a> {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub xref: Vec<&'a str>,
@@ -463,7 +457,6 @@ impl Sense<'_> {
 
 #[borrowme::borrowme]
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
-#[musli(mode = Binary, packed)]
 pub struct SourceLanguage<'a> {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[musli(mode = Text, default, skip_encoding_if = Option::is_none)]

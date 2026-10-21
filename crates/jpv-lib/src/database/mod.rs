@@ -3,6 +3,8 @@
 mod analyze_glossary;
 mod stored;
 mod string_indexer;
+#[cfg(test)]
+mod tests;
 
 use std::borrow::Cow;
 use std::collections::{hash_map, BTreeMap, BTreeSet, HashMap, HashSet};
@@ -922,10 +924,10 @@ impl Index {
         };
 
         Ok(match id.source {
-            Source::Kanji { .. } => Entry::Kanji(ENCODING.from_slice(bytes)?),
-            Source::Name { .. } => Entry::Name(ENCODING.from_slice(bytes)?),
+            Source::Kanji { .. } => Entry::Kanji(ENCODING.decode(bytes)?),
+            Source::Name { .. } => Entry::Name(ENCODING.decode(bytes)?),
             Source::Phrase { .. } | Source::Inflection { .. } => {
-                Entry::Phrase(ENCODING.from_slice(bytes)?)
+                Entry::Phrase(ENCODING.decode(bytes)?)
             }
         })
     }
@@ -1017,7 +1019,7 @@ impl Database {
                 return Err(anyhow!("Missing entry at {}", *index));
             };
 
-            return Ok(Some(ENCODING.from_slice(bytes)?));
+            return Ok(Some(ENCODING.decode(bytes)?));
         }
 
         Ok(None)
@@ -1034,7 +1036,7 @@ impl Database {
                 return Err(anyhow!("Missing entry at {}", *index));
             };
 
-            return Ok(Some(ENCODING.from_slice(bytes)?));
+            return Ok(Some(ENCODING.decode(bytes)?));
         }
 
         Ok(None)
@@ -1051,7 +1053,7 @@ impl Database {
                 return Err(anyhow!("Missing entry at {}", pos.offset));
             };
 
-            return Ok(Some(ENCODING.from_slice(bytes)?));
+            return Ok(Some(ENCODING.decode(bytes)?));
         }
 
         Ok(None)
