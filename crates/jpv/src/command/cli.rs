@@ -4,7 +4,6 @@ use std::collections::{BTreeSet, HashSet};
 use std::fmt;
 use std::fs;
 use std::io::Write;
-use std::mem;
 use std::path::PathBuf;
 
 use anyhow::{bail, Result};
@@ -137,47 +136,12 @@ pub(crate) async fn run(
         return Ok(());
     }
 
-    let mut to_look_up = BTreeSet::new();
-
-    for &seq in &cli_args.sequences {
-        to_look_up.extend(db.sequence_to_id(seq)?);
-    }
-
-    for input in &cli_args.arguments {
-        let seed = cli_args.sequences.is_empty();
-
-        if seed {
-            to_look_up.extend(db.lookup(input)?);
-        } else {
-            let filter = db
-                .lookup(input)?
-                .into_iter()
-                .map(|id| id.key())
-                .collect::<HashSet<_>>();
-            to_look_up.retain(|id| filter.contains(&id.key()));
-        }
-    }
-
-    if !cli_args.parts_of_speech.is_empty() {
-        let mut seed = cli_args.arguments.is_empty() && cli_args.sequences.is_empty();
-        let mut pos = fixed_map::Set::new();
-
-        for p in cli_args
-            .parts_of_speech
-            .iter()
-            .flat_map(|s| PartOfSpeech::parse_keyword(s))
-        {
-            pos.insert(p);
-        }
-
-        let ids = db.by_pos(pos)?;
-
-        if mem::take(&mut seed) {
-            to_look_up.extend(ids);
-        } else {
-            to_look_up.retain(|id| ids.contains(id));
-        }
-    }
+    let to_look_up = select_ids(
+        &db,
+        &cli_args.sequences,
+        &cli_args.arguments,
+        &cli_args.parts_of_speech,
+    )?;
 
     let current_lang = cli_args.lang.as_deref().unwrap_or("eng");
 
@@ -201,6 +165,58 @@ pub(crate) async fn run(
     }
 
     Ok(())
+}
+
+/// Collect the entries selected by sequences, queries and parts of speech.
+///
+/// Ids from different lookups carry the source they were found through, so
+/// filters compare entries by [`Id::key`].
+fn select_ids(
+    db: &Database,
+    sequences: &[u32],
+    arguments: &[String],
+    parts_of_speech: &[String],
+) -> Result<BTreeSet<Id>> {
+    let mut to_look_up = BTreeSet::new();
+
+    for &seq in sequences {
+        to_look_up.extend(db.sequence_to_id(seq)?);
+    }
+
+    for input in arguments {
+        if sequences.is_empty() {
+            to_look_up.extend(db.lookup(input)?);
+        } else {
+            let filter = db
+                .lookup(input)?
+                .into_iter()
+                .map(|id| id.key())
+                .collect::<HashSet<_>>();
+            to_look_up.retain(|id| filter.contains(&id.key()));
+        }
+    }
+
+    if !parts_of_speech.is_empty() {
+        let mut pos = fixed_map::Set::new();
+
+        for p in parts_of_speech
+            .iter()
+            .flat_map(|s| PartOfSpeech::parse_keyword(s))
+        {
+            pos.insert(p);
+        }
+
+        let ids = db.by_pos(pos)?;
+
+        if arguments.is_empty() && sequences.is_empty() {
+            to_look_up.extend(ids);
+        } else {
+            let filter = ids.iter().map(|id| id.key()).collect::<HashSet<_>>();
+            to_look_up.retain(|id| filter.contains(&id.key()));
+        }
+    }
+
+    Ok(to_look_up)
 }
 
 fn print_rich<O>(
@@ -359,5 +375,89 @@ fn maybe_furigana(furigana: Furigana<'_>, do_furigana: bool) -> impl fmt::Displa
     Display {
         furigana,
         do_furigana,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use anyhow::Result;
+    use lib::config::Config;
+    use lib::data;
+    use lib::database::{self, Database, Entry, Input, Location};
+    use lib::reporter::EmptyReporter;
+    use lib::token::Token;
+
+    use super::select_ids;
+
+    const JMDICT: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<JMdict>
+<entry>
+<ent_seq>1</ent_seq>
+<k_ele><keb>書く</keb></k_ele>
+<r_ele><reb>かく</reb></r_ele>
+<sense><pos>&v5k;</pos><gloss>to write</gloss></sense>
+</entry>
+<entry>
+<ent_seq>2</ent_seq>
+<k_ele><keb>本</keb></k_ele>
+<r_ele><reb>ほん</reb></r_ele>
+<sense><pos>&n;</pos><gloss>book</gloss></sense>
+</entry>
+</JMdict>
+"#;
+
+    fn sequences(db: &Database, ids: impl IntoIterator<Item = database::Id>) -> Result<Vec<u64>> {
+        let mut out = Vec::new();
+
+        for id in ids {
+            if let Entry::Phrase(e) = db.entry_at(id)? {
+                out.push(e.sequence);
+            }
+        }
+
+        out.sort();
+        out.dedup();
+        Ok(out)
+    }
+
+    #[test]
+    fn pos_filters_query() -> Result<()> {
+        let buf = database::build(
+            &EmptyReporter,
+            &Token::default(),
+            "jmdict",
+            Input::Jmdict(JMDICT),
+        )?;
+
+        let path =
+            std::env::temp_dir().join(format!("jpv-cli-test-{}-jmdict.index", std::process::id()));
+        fs::write(&path, buf.as_slice())?;
+
+        let result = (|| {
+            let data = data::open(&path)?;
+            let db = Database::open(
+                [(data, Location::Path(path.clone().into()))],
+                &Config::default(),
+            )?;
+
+            let s = |args: &[&str], pos: &[&str]| -> Result<Vec<u64>> {
+                let args = args.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+                let pos = pos.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+                sequences(&db, select_ids(&db, &[], &args, &pos)?)
+            };
+
+            assert_eq!(s(&[], &["v5k"])?, [1]);
+            assert_eq!(s(&["書く"], &[])?, [1]);
+            assert_eq!(s(&["書く"], &["v5k"])?, [1]);
+            assert_eq!(s(&["かく"], &["v5k"])?, [1]);
+            assert_eq!(s(&["書いた"], &["v5k"])?, [1]);
+            assert_eq!(s(&["書く"], &["n"])?, Vec::<u64>::new());
+            Ok(())
+        })();
+
+        fs::remove_file(&path)?;
+        result
     }
 }
