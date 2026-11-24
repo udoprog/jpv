@@ -35,7 +35,7 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 serde = { version = "1.0.189", features = ["derive"] }
 clap = { version = "4.4.6", features = ["derive"] }
-tower-http = { version = "0.6.0", features = ["cors"] }
+tower-http = { version = "0.7.1", features = ["cors"] }
 musli = { version = "0.2.0", features = ["storage", "json"] }
 musli-zerocopy = "0.1.4"
 
@@ -52,12 +52,12 @@ image = "0.25.8"
 tempfile = "3.8.1"
 slab = "0.4.9"
 twox-hash = { version = "2.1.2", default-features = false, features = ["xxhash64"] }
-parking_lot = "0.12.1"
+parking_lot = "0.13.0"
 num_cpus = "1.16.0"
 tokio-stream = "0.1.15"
 
 [target.'cfg(unix)'.dependencies]
-tokio-dbus = { version = "0.0.17", optional = true }
+tokio-dbus = { version = "0.2.4", optional = true }
 gio = { version = "0.22.6", optional = true }
 
 [target.'cfg(windows)'.dependencies]

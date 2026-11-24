@@ -367,11 +367,7 @@ impl Sense<'_> {
             }
         }
 
-        if !self.stagr.is_empty() && !self.stagr.contains(&reading) {
-            return false;
-        }
-
-        true
+        self.stagr.is_empty() || self.stagr.contains(&reading)
     }
 
     /// Debug the sense element, while avoiding formatting elements which are

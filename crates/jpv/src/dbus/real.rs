@@ -5,7 +5,9 @@ use anyhow::{bail, Context, Result};
 use async_fuse::Fuse;
 use tokio::sync::futures::Notified;
 use tokio_dbus::org_freedesktop_dbus::{NameFlag, NameReply};
-use tokio_dbus::{ty, BodyBuf, Connection, Flags, Message, MessageKind, ObjectPath, SendBuf};
+use tokio_dbus::{
+    ty, BodyBuf, Buffers, Connection, Flags, Message, MessageKind, ObjectPath, SendBuf, Serial,
+};
 
 use crate::command::service::ServiceArgs;
 use crate::open_uri;
@@ -14,82 +16,120 @@ use crate::system::{Event, SendClipboardData, Setup, Start, SystemEvents};
 const NAME: &str = "se.tedro.JapaneseDictionary";
 const PATH: &ObjectPath = ObjectPath::new_const(b"/se/tedro/JapaneseDictionary");
 
+async fn connect(system: bool) -> Result<(Connection, Buffers)> {
+    let mut c = if system {
+        Connection::system_bus()?
+    } else {
+        Connection::session_bus()?
+    };
+
+    let mut buf = Buffers::new();
+    c.connect(&mut buf).await?;
+
+    let serial = buf.hello()?;
+    wait_reply(&mut c, &mut buf, serial).await?;
+
+    Ok((c, buf))
+}
+
+async fn wait_reply(c: &mut Connection, buf: &mut Buffers, serial: Serial) -> Result<()> {
+    loop {
+        c.wait(buf).await?;
+
+        let message = buf.recv.last_message()?;
+
+        match message.kind() {
+            MessageKind::MethodReturn { reply_serial } if reply_serial == serial => {
+                return Ok(());
+            }
+            MessageKind::Error {
+                error_name,
+                reply_serial,
+            } if reply_serial == serial => {
+                bail!("D-Bus error: {error_name}");
+            }
+            _ => {}
+        }
+    }
+}
+
 pub(crate) async fn send_clipboard(ty: Option<&str>, data: &[u8]) -> Result<()> {
-    let mut c = Connection::session_bus().await?;
+    let (mut c, mut buf) = connect(false).await?;
 
     let mimetype = ty.unwrap_or("text/plain");
 
-    let (_, send, body) = c.buffers();
-    body.arguments((mimetype, data))?;
+    buf.body.clear();
+    buf.body.arguments((mimetype, data))?;
 
-    let m = send
+    let m = buf
+        .send
         .method_call(PATH, "SendClipboardData")
         .with_interface(NAME)
         .with_destination(NAME)
-        .with_body(body)
+        .with_body(&buf.body)
         .with_flags(Flags::NO_REPLY_EXPECTED);
 
-    send.write_message(m)?;
+    buf.send.write_message(m)?;
 
-    c.flush().await?;
+    c.flush(&mut buf).await?;
     Ok(())
 }
 
 pub(crate) async fn shutdown() -> Result<()> {
-    let mut c = Connection::session_bus().await?;
+    let (mut c, mut buf) = connect(false).await?;
 
-    let m = c
+    let m = buf
+        .send
         .method_call(PATH, "Shutdown")
         .with_interface(NAME)
         .with_destination(NAME)
         .with_flags(Flags::NO_REPLY_EXPECTED);
 
-    c.write_message(m)?;
-    c.flush().await?;
+    buf.send.write_message(m)?;
+    c.flush(&mut buf).await?;
     Ok(())
 }
 
 /// Request port from D-Bus service. This will cause the service to activate if
 /// it isn't already.
-async fn get_port(c: &mut Connection) -> Result<u16> {
-    let m = c
+async fn get_port(c: &mut Connection, buf: &mut Buffers) -> Result<u16> {
+    let m = buf
+        .send
         .method_call(PATH, "GetPort")
         .with_interface(NAME)
         .with_destination(NAME);
 
-    c.write_message(m)?;
-    c.wait().await?;
+    let serial = buf.send.write_message(m)?;
+    wait_reply(c, buf, serial).await?;
 
-    let message = c.last_message()?;
+    let message = buf.recv.last_message()?;
     Ok(message.body().load::<u16>()?)
 }
 
-pub(crate) async fn setup<'a>(service_args: &ServiceArgs) -> Result<Setup> {
+pub(crate) async fn setup(service_args: &ServiceArgs) -> Result<Setup> {
     if service_args.dbus_disable {
         return Ok(Setup::Start(None));
     }
 
     tracing::debug!("Connecting to D-Bus");
 
-    let mut c = if service_args.dbus_system {
-        Connection::system_bus().await?
-    } else {
-        Connection::session_bus().await?
-    };
+    let (mut c, mut buf) = connect(service_args.dbus_system).await?;
 
     // Rely on D-Bus activation to start the background service.
     if service_args.background {
-        return Ok(Setup::Port(get_port(&mut c).await?));
+        return Ok(Setup::Port(get_port(&mut c, &mut buf).await?));
     }
 
     tracing::debug!("Requesting name");
 
-    let reply = c.request_name(NAME, NameFlag::DO_NOT_QUEUE).await?;
+    let serial = buf.request_name(NAME, NameFlag::DO_NOT_QUEUE)?;
+    wait_reply(&mut c, &mut buf, serial).await?;
+    let reply = buf.recv.last_message()?.body().load::<NameReply>()?;
 
     match reply {
         NameReply::PRIMARY_OWNER => {}
         NameReply::EXISTS => {
-            return Ok(Setup::Port(get_port(&mut c).await?));
+            return Ok(Setup::Port(get_port(&mut c, &mut buf).await?));
         }
         reply => {
             tracing::info!(?reply, "Could not acquire name");
@@ -97,11 +137,12 @@ pub(crate) async fn setup<'a>(service_args: &ServiceArgs) -> Result<Setup> {
         }
     }
 
-    Ok(Setup::Start(Some(Box::new(DbusStart { c }))))
+    Ok(Setup::Start(Some(Box::new(DbusStart { c, buf }))))
 }
 
 struct DbusStart {
     c: Connection,
+    buf: Buffers,
 }
 
 impl Start for DbusStart {
@@ -120,33 +161,34 @@ impl Start for DbusStart {
 
             loop {
                 tokio::select! {
-                    result = self.c.wait() => {
+                    result = self.c.wait(&mut self.buf) => {
                         result?;
 
-                        let (recv, send, body) = self.c.buffers();
-
-                        let message = recv.last_message()?;
+                        let message = self.buf.recv.last_message()?;
 
                         tracing::trace!(?message);
 
                         if let MessageKind::MethodCall { path, member } = message.kind() {
-                            let (ret, action) = match handle_method_call(&mut state, path, member, &message, body, send) {
+                            self.buf.body.clear();
+
+                            let (ret, action) = match handle_method_call(&mut state, path, member, &message, &mut self.buf.body, &mut self.buf.send) {
                                 Ok((m, action)) => (m, action),
                                 Err(error) => {
                                     tracing::error!("{}", error);
-                                    body.clear();
-                                    body.store(error.to_string())?;
-                                    let m = message.error("se.tedro.JapaneseDictionary.Error", send.next_serial()).with_body(body);
+                                    self.buf.body.clear();
+                                    self.buf.body.store(error.to_string())?;
+                                    let m = message.error("se.tedro.JapaneseDictionary.Error", self.buf.send.next_serial()).with_body(&self.buf.body);
                                     (m, None)
                                 }
                             };
 
                             tracing::trace!(?ret);
-                            send.write_message(ret)?;
+                            self.buf.send.write_message(ret)?;
 
                             if let Some(action) = action {
                                 match action {
                                     Action::Shutdown => {
+                                        self.c.flush(&mut self.buf).await?;
                                         return Ok(());
                                     }
                                 }
