@@ -500,7 +500,7 @@ fn s2(s: &str) -> Option<(char, char, &str, &str)> {
 /// not. If set to excluded, this implies that the kanji itself represents the
 /// conjugation suffix.
 #[derive(Debug, Clone, Copy)]
-enum SuffixMode {
+pub(super) enum SuffixMode {
     /// Exclude suffix.
     Excluded,
     /// Include suffix.
@@ -516,7 +516,10 @@ impl SuffixMode {
     }
 }
 
-fn extract_ii<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a str, &'a str)> {
+pub(super) fn extract_ii<'a>(
+    kanji: &'a str,
+    reading: &'a str,
+) -> Option<(SuffixMode, &'a str, &'a str)> {
     let ('い' | 'よ', 'い', r) = s(reading)? else {
         return None;
     };
@@ -528,7 +531,10 @@ fn extract_ii<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a s
     }
 }
 
-fn extract_suru<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a str, &'a str)> {
+pub(super) fn extract_suru<'a>(
+    kanji: &'a str,
+    reading: &'a str,
+) -> Option<(SuffixMode, &'a str, &'a str)> {
     let ('す', 'る', r) = s(reading)? else {
         return None;
     };
@@ -540,7 +546,10 @@ fn extract_suru<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a
     }
 }
 
-fn extract_kuru<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a str, &'a str)> {
+pub(super) fn extract_kuru<'a>(
+    kanji: &'a str,
+    reading: &'a str,
+) -> Option<(SuffixMode, &'a str, &'a str)> {
     let ('く', 'る', r) = s(reading)? else {
         return None;
     };
@@ -552,7 +561,7 @@ fn extract_kuru<'a>(kanji: &'a str, reading: &'a str) -> Option<(SuffixMode, &'a
     }
 }
 
-fn match_char<'a>(
+pub(super) fn match_char<'a>(
     kanji_text: &'a str,
     reading_text: &'a str,
     suffix: char,

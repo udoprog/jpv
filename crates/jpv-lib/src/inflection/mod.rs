@@ -5,6 +5,9 @@ mod macros;
 pub use self::conjugate::{conjugate, reading_permutations, Kind, Reading};
 mod conjugate;
 
+pub use self::stem::{match_entry, match_stems, stem, Stem, WordClass};
+mod stem;
+
 use std::fmt;
 use std::ops::{BitAndAssign, BitOr};
 use std::{collections::BTreeMap, ops::BitXor};
