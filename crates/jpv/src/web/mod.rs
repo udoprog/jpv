@@ -7,6 +7,7 @@ mod r#impl;
 mod r#impl;
 
 mod files;
+mod origin;
 mod ws;
 
 mod json;
@@ -22,15 +23,17 @@ use std::net::SocketAddr;
 use anyhow::Result;
 use axum::body::Body;
 use axum::extract::{Path, Query};
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::{Extension, Router};
+use axum::{middleware, Extension, Router};
 use lib::api;
 use lib::config::Config;
 use musli::Encode;
 use tokio::net::TcpListener;
-use tower_http::cors::{AllowMethods, AllowOrigin, CorsLayer};
+use tower_http::cors::{AllowOrigin, CorsLayer};
+
+use self::origin::Origins;
 
 use crate::background::{Background, Install};
 use crate::system;
@@ -40,14 +43,16 @@ pub(crate) fn setup(
     background: Background,
     system_events: system::SystemEvents,
 ) -> Result<impl Future<Output = Result<()>>> {
-    let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::any())
-        .allow_methods(AllowMethods::any());
+    let origins = Origins::new([listener.local_addr()?.port()].into_iter().chain(PORT));
 
     let app = self::r#impl::router()
+        .layer(middleware::from_fn_with_state(
+            origins.clone(),
+            origin::guard,
+        ))
+        .layer(Extension(origins))
         .layer(Extension(background))
-        .layer(Extension(system_events))
-        .layer(cors);
+        .layer(Extension(system_events));
 
     let service = axum::serve(
         listener,
@@ -62,14 +67,22 @@ pub(crate) fn setup(
 
 fn common_routes(router: Router) -> Router {
     router
-        .route("/api/version", get(version))
+        .route("/api/version", get(version).layer(public()))
         .route("/api/config", get(config).post(update_config))
         .route("/api/rebuild", post(rebuild))
-        .route("/api/analyze", get(analyze))
-        .route("/api/search", get(search))
-        .route("/api/entry/{sequence}", get(entry))
-        .route("/api/kanji/{literal}", get(kanji))
+        .route("/api/analyze", get(analyze).layer(public()))
+        .route("/api/search", get(search).layer(public()))
+        .route("/api/entry/{sequence}", get(entry).layer(public()))
+        .route("/api/kanji/{literal}", get(kanji).layer(public()))
         .route("/ws", get(ws::entry))
+}
+
+/// Lets any site read a read-only endpoint, such as the browser extension
+/// does from the pages it runs in.
+fn public() -> CorsLayer {
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::any())
+        .allow_methods([Method::GET, Method::HEAD])
 }
 
 type RequestResult<T> = std::result::Result<T, RequestError>;
