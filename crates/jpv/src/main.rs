@@ -6,31 +6,34 @@
 //! <img height="128" width="128" alt="Japanese Dictionary by John-John Tedro" src="https://github.com/udoprog/jpv/blob/main/gfx/logo.png?raw=true" />
 //! </a>
 //!
-//! Welcome to my Japanese dictionary project!
+//! A fast Japanese dictionary that runs on your own machine. jpv builds a local
+//! database from [JMdict] and [Kanjidic] and serves it through a browser
+//! interface, so lookups work offline and stay private.
 //!
-//! This used to be a personal project of mine, but I have now spent enough time and
-//! effort on it that I think it might be useful for others.
-//!
-//! <br>
-//!
-//! ## Overview
+//! * Search in Japanese or English, with wildcards.
+//! * Paste a conjugated word and jpv works out its dictionary form and how it was
+//!   inflected.
+//! * Kanji details: readings, meanings and stroke counts.
+//! * Clipboard capture, including OCR of screenshots through [tesseract], and a
+//!   GNOME extension to feed it.
+//! * Fully offline once the dictionary is built, and quick to start: the database
+//!   is memory mapped.
 //!
 //! <table>
 //! <tr>
 //! <td valign="top">
-//!   <img alt="Searching for english text" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-english.png?raw=true" />
-//!   <div style="font-size: 0.8em;">Search for Japanese words and phrases or English glossary.</div>
+//!   <img alt="Searching for English text" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-english.png?raw=true" />
+//!   <div style="font-size: 0.8em;">Search Japanese words and phrases, or the English glossary.</div>
 //! </td>
 //! <td valign="top">
-//!   <img alt="Conjugations" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-conjugate.png?raw=true" /><br>
-//!   <div style="font-size: 0.8em;">Advanced word conjugator.</div>
+//!   <img alt="Conjugation analysis" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-conjugate.png?raw=true" />
+//!   <div style="font-size: 0.8em;">Conjugation analysis.</div>
 //! </td>
 //! </tr>
-//!
 //! <tr>
 //! <td valign="top">
-//!   <img alt="Image recognition using tesseract through the clipboard" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-ocr.png?raw=true" />
-//!   <div style="font-size: 0.8em;">Image recognition through the clipboard using <a href="https://github.com/tesseract-ocr/tesseract">tesseract</a> (<code>ocr</code> feature).</div>
+//!   <img alt="Image recognition through the clipboard" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-ocr.png?raw=true" />
+//!   <div style="font-size: 0.8em;">Image recognition through the clipboard.</div>
 //! </td>
 //! <td valign="top">
 //!   <img alt="Wildcard searching" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-wildcard.png?raw=true" />
@@ -39,215 +42,172 @@
 //! </tr>
 //! </table>
 //!
+//! [JMdict]: https://www.edrdg.org/jmdict/j_jmdict.html
+//! [Kanjidic]: https://www.edrdg.org/wiki/index.php/KANJIDIC_Project
+//! [tesseract]: https://github.com/tesseract-ocr/tesseract
+//!
 //! <br>
 //!
-//! ## Building and Installing
+//! ## Install
 //!
-//! Install dependencies for the platform you intend to build for:
+//! On Linux (x86_64) and macOS (Apple silicon):
 //!
-//! * For the `ocr` feature:
-//!   * `Fedora` - `sudo dnf install tesseract-devel`
+//! ```sh
+//! curl -fsSL https://udoprog.github.io/jpv/install.sh | sh
+//! ```
 //!
-//! Install [`trunk`] and the `wasm32` toolchain to build the UI:
+//! This installs the latest prebuilt `jpv` into `~/.local/bin`. Set
+//! `JPV_INSTALL_DIR` to install elsewhere, or `JPV_VERSION` to a release tag to
+//! pin one. These portable builds leave out OCR for now.
 //!
-//! [`trunk`]: https://trunkrs.dev/
+//! * **Fedora:** the RPM from the [releases] includes OCR, the desktop entry and
+//!   GNOME integration.
+//! * **Windows:** use the MSI from the [releases].
+//!
+//! [releases]: https://github.com/udoprog/jpv/releases
+//!
+//! <br>
+//!
+//! ## Getting started
+//!
+//! Build the dictionary once. This downloads the dictionary sources and indexes
+//! them:
+//!
+//! ```sh
+//! jpv build
+//! ```
+//!
+//! Then start the dictionary service in the background:
+//!
+//! ```sh
+//! jpv service --background
+//! ```
+//!
+//! ![Good morning!](https://github.com/udoprog/jpv/blob/main/gfx/splash.png?raw=true)
+//!
+//! Other commands are listed by `jpv --help`, among them:
+//!
+//! * `jpv cli <query>` searches from the command line.
+//! * `jpv send-clipboard --type text/plain <text>` sends text to the running
+//!   service for analysis (requires the `dbus` feature).
+//!
+//! Commands that talk to the service use D-Bus activation where available, so
+//! the service is started when needed.
+//!
+//! <br>
+//!
+//! ## GNOME extension
+//!
+//! GNOME and Wayland have no general way to capture the clipboard, so jpv ships
+//! a GNOME Shell extension for it. The Fedora RPM installs it; enable it in the
+//! extensions manager:
+//!
+//! ![Gnome extension](https://github.com/udoprog/jpv/blob/main/gfx/gnome-extension.png?raw=true)
+//!
+//! Then turn on clipboard capture from its panel item:
+//!
+//! <table>
+//! <tr>
+//! <td valign="top">
+//!   <img alt="Extension button" src="https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture.png?raw=true" />
+//!   <div style="font-size: 0.8em;">Extension button.</div>
+//! </td>
+//! <td valign="top">
+//!   <img alt="Clipboard capture enabled" src="https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture-enabled.png?raw=true" />
+//!   <div style="font-size: 0.8em;">Clipboard capture enabled.</div>
+//! </td>
+//! </tr>
+//! </table>
+//!
+//! > **Note:** the icon is red while clipboard capture is on. Only enable it while
+//! > you use it: nothing but your local system stops another application from
+//! > pretending to be the dictionary and reading the clipboard.
+//!
+//! Capture is governed by the `capture-clipboard-enabled` setting:
+//!
+//! ```sh
+//! gsettings get se.tedro.japanese-dictionary.plugins capture-clipboard-enabled
+//! gsettings set se.tedro.japanese-dictionary.plugins capture-clipboard-enabled false
+//! ```
+//!
+//! <br>
+//!
+//! ## Features
+//!
+//! * `memmap` (default, Unix only) loads the database through memory maps.
+//! * `bundle` embeds the web interface in the binary. Release builds use it.
+//! * `dbus` lets the service talk over D-Bus, for D-Bus activation and the GNOME
+//!   extension.
+//! * `gnome` enables GNOME desktop integration: `dbus`, plus `gio` to open the
+//!   browser.
+//! * `cli` (Windows) builds `jpv` as a console application instead of a GUI one.
+//!
+//! OCR through tesseract is linked in by default on Unix and loaded at runtime on
+//! Windows.
+//!
+//! <br>
+//!
+//! ## Building from source
+//!
+//! The web interface is built with [trunk] for the `wasm32` target:
 //!
 //! ```sh
 //! cargo install trunk
 //! rustup target add wasm32-unknown-unknown
 //! ```
 //!
-//! <br>
+//! On Fedora, install the build and OCR dependencies:
 //!
-//! #### Fedora
-//!
-//! ```
-//! sudo dnf install openssl-devel git
+//! ```sh
+//! sudo dnf install openssl-devel git gcc tesseract-devel leptonica-devel clang-devel
 //! ```
 //!
-//! For the `ocr` feature:
+//! The `gnome` feature also needs `glib2-devel`.
 //!
-//! ```
-//! sudo dnf install gcc tesseract-devel leptonica-devel clang-devel
-//! ```
-//!
-//! For the `gnome` feature, we make use of `gio` in order to launch a browser
-//! window which needs `glib2`:
-//!
-//! ```
-//! sudo dnf install glib2-devel
-//! ```
-//!
-//! <br>
-//!
-//! #### MacOS
-//!
-//! The OCR dependencies can be installed using homebrew
+//! On macOS, install the OCR dependencies with Homebrew. If brew does not link
+//! their pkg-config files, add them to `PKG_CONFIG_PATH`:
 //!
 //! ```sh
 //! brew install tesseract leptonica
 //! ```
 //!
-//! In the case that brew does not link the pkg-config files, you may need to add these libraries' path to the `PKG_CONFIG_PATH` environment variable.
-//!
-//! <br>
-//!
-//! #### Windows
-//!
-//! The OCR feature depends on tesseract which is dynamically loaded.
-//!
-//! You'll have to install tesseract from the [UB-Mannheim/tesseract] project.
-//!
-//! [UB-Mannheim/tesseract]: https://github.com/UB-Mannheim/tesseract/wiki
-//!
-//! Make sure to install the "Japanese" and "Japanese (vertical)" under
-//! `Additional language data`.
+//! On Windows, install tesseract from [UB-Mannheim/tesseract], with "Japanese"
+//! and "Japanese (vertical)" under `Additional language data`:
 //!
 //! ![Additional language data](https://github.com/udoprog/jpv/blob/main/gfx/tesseract-ocr-japanese.png?raw=true)
 //!
-//! <br>
-//!
-//! #### Building the project
-//!
-//! After this, you can run the project directly in the project directory:
+//! Then build the interface and run jpv from the project directory, adding
+//! `gnome` on Linux for desktop integration:
 //!
 //! ```sh
 //! trunk build --release
-//! cargo run --features bundle
+//! cargo run --features bundle,gnome
 //! ```
 //!
-//! > **Note:** On Linux, you probably want to include the `gnome` feature for
-//! > desktop integration.
+//! Or install it:
 //!
-//! There are scripts available to conveniently build and install packages for
-//! specific environments:
-//!
-//! * [tools/install-fedora] to build and install for GNOME on Fedora.
-//!
-//! You can also the project manually, but this will lack any system integration
-//! like clipboard capture:
-//!
-//! ```
+//! ```sh
 //! cargo install --path crates/jpv --features bundle,gnome
 //! ```
 //!
-//! <br>
-//!
-//! ## Configuring
-//!
-//! After `jpv` has been installed, you must construct the dictionary file the
-//! project will use.
-//!
-//! ```
-//! jpv build
-//! ```
-//!
-//! After this, you can start the dictionary in the background with. This will also
-//! automatically open up the interface.
-//!
-//! ```
-//! jpv service --background
-//! ```
-//!
-//! ![Good morning!](https://github.com/udoprog/jpv/blob/main/gfx/splash.png?raw=true)
-//!
-//! <br>
-//!
-//! ## Features
-//!
-//! For rust features, we have the following:
-//!
-//! * The `gnome` feature enabled full GNOME desktop integration, which includes the
-//!   `dbus` and `ocr` features. This is also necessary to use the GNOME extension
-//!   to capture the clipboard.
-//! * The `dbus` feature provides the ability for the service to interact with
-//!   D-Bus. Which is necessary for extensions to communicate with it and to perform
-//!   D-Bus activation.
-//! * The `ocr` feature provides image recognition for clipboard events where the
-//!   mimetype is appropriate.
-//! * The `mmap` feature (Unix only) loads the database using memory maps.
-//!
-//! <br>
-//!
-//! #### Interface
-//!
-//! The dictionary is primarily interacted with using the `jpv` tools. It has a
-//! comprehensive help section you can get through `jpv --help`, but some of the
-//! more notable features are:
-//!
-//! * `jpv cli <query>` can be used to perform commandline queries.
-//! * `jpv send-clipboard --type text/plain hello` can be used to inject a phrase
-//!   into the dictionary for analysis (requires the `dbus` feature).
-//!
-//! All relevant tools that interact with the background service rely on features
-//! such as D-Bus activation, which will ensure that a background service is up and
-//! running as needed.
-//!
-//! <br>
-//!
-//! ## Building and packing for Fedora GNOME
-//!
-//! To build an rpm package which is suitable for Fedora GNOME, you can do the following:
+//! To build and install an RPM for Fedora GNOME, run [tools/fedora-install], or
+//! by hand:
 //!
 //! ```sh
+//! trunk build --release
 //! cargo build --release -p jpv --features bundle,gnome
 //! cargo generate-rpm -p crates/jpv
+//! sudo dnf install target/generate-rpm/jpv-*.rpm
 //! ```
 //!
-//! The generated rpm will be located in `target/generate-rpm`.
-//!
-//! ```sh
-//! sudo npm -i target/generate-rpm/jpv-0.0.0-1.x86_64.rpm
-//! ```
-//!
-//! Once complete, this installs a desktop entry you can use to start the dictionary
-//! in the background. Starting the application will open up the browser UI.
-//!
-//! Note that you still need to build the database before it can be used.
+//! The RPM installs a desktop entry that starts the dictionary service in the
+//! background. Run `jpv build` before first use.
 //!
 //! ![Desktop entry](https://github.com/udoprog/jpv/blob/main/gfx/desktop.png?raw=true)
 //!
-//! <br>
-//!
-//! #### GNOME Extension
-//!
-//! Since GNOME and Wayland desktop environments in general currently do not have
-//! any facilities to generically capture the clipboard we must rely on extensions.
-//!
-//! To enable the Japanese Dictionary extension for gnome, start the extensions
-//! manager after installing the package:
-//!
-//! ![Gnome extension](https://github.com/udoprog/jpv/blob/main/gfx/gnome-extension.png?raw=true)
-//!
-//! Once enabled, clipboard capture has to be enabled in the panel item.
-//!
-//! <table>
-//! <tr>
-//! <td valign="top">
-//!   <img alt="Searching for english text" src="https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture.png?raw=true" />
-//!   <div style="font-size: 0.8em;">Extension button.</div>
-//! </td>
-//! <td valign="top">
-//!   <img alt="Conjugations" src="https://github.com/udoprog/jpv/blob/main/gfx/gnome-clipboard-capture-enabled.png?raw=true" /><br>
-//!   <div style="font-size: 0.8em;">Clipboard capture enabled.</div>
-//! </td>
-//! </tr>
-//! </table>
-//!
-//! > **Note:** while clipboard capture is running the extension icon will be red.
-//! > Only enable it while it's in use since there are currently no security
-//! > mechanisms in place other than your local system. Any application could
-//! > pretend to be a dictionary application and capture the clipboard.
-//!
-//! Clipboard capture is governed by the `capture-clipboard-enabled` setting:
-//!
-//! ```sh
-//! > gsettings get se.tedro.japanese-dictionary.plugins capture-clipboard-enabled
-//! true
-//! > gsettings set se.tedro.japanese-dictionary.plugins capture-clipboard-enabled false
-//! ```
-//!
-//! [tools/install-fedora]: https://github.com/udoprog/jpv/blob/main/tools/fedora-install
+//! [trunk]: https://trunkrs.dev/
+//! [UB-Mannheim/tesseract]: https://github.com/UB-Mannheim/tesseract/wiki
+//! [tools/fedora-install]: https://github.com/udoprog/jpv/blob/main/tools/fedora-install
 
 #![cfg_attr(all(not(feature = "cli"), windows), windows_subsystem = "windows")]
 
