@@ -25,6 +25,8 @@ wasm-bindgen = { version = "0.2.87", features = ["std"] }
 borrowme = "0.1.0"
 serde_urlencoded = "0.7.1"
 slab = "0.4.9"
+sockel = { version = "0.3.2", default-features = false, features = ["layout", "button", "overlay"] }
+phrasebook = { version = "0.2.0", features = ["yew023", "browser"] }
 
 [dependencies.web-sys]
 version = "0.3.81"
@@ -33,3 +35,9 @@ features = [
     "HtmlSelectElement",
     "Performance",
 ]
+
+[build-dependencies]
+sockel-build = "0.3.2"
+
+[dev-dependencies]
+sockel-build = "0.3.2"

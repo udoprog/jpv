@@ -3,10 +3,18 @@ mod error;
 mod query;
 mod ws;
 
+use phrasebook::{browser, Lang, Phrasebook, Phrases};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
 use self::components as c;
+
+#[allow(dead_code)]
+mod class {
+    include!(concat!(env!("OUT_DIR"), "/classes.rs"));
+}
+
+const STYLESHEET: &str = include_str!(concat!(env!("OUT_DIR"), "/style.css"));
 
 #[derive(Debug, Clone, Copy, PartialEq, Routable)]
 enum Route {
@@ -94,9 +102,30 @@ fn switch(routes: Route, ws: &ws::Handle) -> Html {
     }
 }
 
+fn phrasebook() -> Phrasebook {
+    Phrasebook::builder()
+        .language(Lang::EN_US, "English")
+        .catalog(&sockel::phrasebookcatalog01::L10N)
+        .build()
+}
+
+#[function_component]
+fn Root() -> Html {
+    let phrases = use_state(|| browser::initial(&phrasebook()));
+
+    html! {
+        <ContextProvider<Phrases> context={(*phrases).clone()}>
+            <sockel::OverlayHost>
+                <sockel::Styles css={STYLESHEET} />
+                <App />
+            </sockel::OverlayHost>
+        </ContextProvider<Phrases>>
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     wasm_logger::init(wasm_logger::Config::default());
     log::trace!("Started up");
-    yew::Renderer::<App>::new().render();
+    yew::Renderer::<Root>::new().render();
     Ok(())
 }
