@@ -49,10 +49,12 @@
     @include dark;
 }
 
+// The app shell scrolls its own regions, so the body never does.
 body {
-    overflow-y: scroll;
-    font-size: 18px;
-    font-family: Arial, sans-serif;
+    overflow: hidden;
+    font-size: var(--text-heading);
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
     color: var(--text);
     background-color: var(--bg);
     height: 100%;
@@ -60,14 +62,15 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
     color: var(--heading-color);
+    line-height: 1.25;
 }
 
 h1, h2, h3, h4 {
-    font-size: 1.5em;
+    font-size: var(--text-xl);
 }
 
 h5, h6 {
-    font-size: 1.2em;
+    font-size: var(--text-lg);
 }
 
 a {
@@ -88,29 +91,48 @@ a {
     }
 }
 
-.jpv-container {
-    margin: 0 auto;
-    max-width: 1200px;
-}
-
-.jpv-content {
+// The room a region or a page leaves around its content.
+.jpv-inset {
+    box-sizing: border-box;
     padding: var(--space-4);
 }
 
-.jpv-copyright {
-    font-size: 0.8em;
-    text-align: center;
+// A column filling its parent: its blocks at their own height and the
+// `-rest` taking what is left, which scrolls inside itself.
+.jpv-fill {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
 }
 
-.jpv-window-top {
-    padding: var(--space-2);
-    background-color: var(--surface);
-    border-bottom: 1px solid var(--rule);
+.jpv-fill-rest {
+    flex: 1;
+    min-height: 0;
+    border-top: var(--space-px) solid var(--rule);
+}
+
+// Shown only while a split view shows its panes one at a time.
+.jpv-narrow-only {
+    display: none;
+}
+
+@container sockel-split-view (width < #{p.breakpoint("tablet")}) {
+    .jpv-narrow-only {
+        display: block;
+    }
+}
+
+.jpv-copyright {
+    font-size: var(--text-sm);
+    color: var(--muted);
+    text-align: center;
 }
 
 .jpv-sub-title {
     margin-inline-start: var(--space-2);
-    font-size: 0.6em;
+    font-size: var(--text-sm);
+    color: var(--muted);
 }
 
 .jpv-prompt-mode {
@@ -145,23 +167,6 @@ a {
     color: var(--analyzed-color);
 }
 
-.jpv-columns {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    gap: var(--space-7);
-
-    .jpv-column {
-        flex-grow: 1;
-    }
-
-    .jpv-column.jpv-characters {
-        max-width: 320px;
-        min-width: 200px;
-        flex-grow: unset;
-    }
-}
-
 .jpv-text.jpv-kanji {
     font-size: 1.5em;
 }
@@ -176,8 +181,8 @@ a {
 }
 
 .jpv-rule {
-    height: 2px;
-    border-radius: 1px;
+    height: var(--space-0);
+    border-radius: var(--radius-pill);
     background-color: var(--rule);
 }
 

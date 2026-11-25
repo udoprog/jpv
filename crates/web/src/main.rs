@@ -2,6 +2,7 @@ mod components;
 mod error;
 mod l10n;
 mod query;
+mod regions;
 mod ws;
 
 use phrasebook::yew023::use_phrases;
@@ -104,7 +105,7 @@ fn NotFound() -> Html {
     let phrases = use_phrases();
 
     html! {
-        <div class={classes!(class::CONTAINER, class::CONTENT)}>{phrases.text("not-found")}</div>
+        <div class={classes!(sockel::class::WORKSPACE_PAGE, class::INSET)}>{phrases.text("not-found")}</div>
     }
 }
 

@@ -82,6 +82,7 @@ phrases = 語句
 names = 人名・地名
 kanji = 漢字
 results = 結果
+resize-results = 結果と漢字の幅を変える
 tab-count = { $title }（{ $count }）
 tab-kanji-details = 漢字の詳細：{ $kanji }
 tab-settings = 設定

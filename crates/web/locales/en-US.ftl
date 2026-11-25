@@ -92,6 +92,7 @@ phrases = Phrases
 names = Names
 kanji = Kanji
 results = Results
+resize-results = Resize the results and kanji
 tab-count = { $title } ({ $count })
 tab-kanji-details = Kanji details: { $kanji }
 tab-settings = Settings

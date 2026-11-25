@@ -591,157 +591,6 @@ impl Component for Prompt {
             }
         });
 
-        let page = if self.query.embed {
-            let tab = |value: &'static str, title: &str, len: usize| {
-                let label = l10n.msg("tab-count", &args!(title = title, count = len));
-                let mut item = sockel::TabItem::new(value, label);
-                item.disabled = len == 0;
-                item
-            };
-
-            let mut tabs = vec![
-                tab(TAB_PHRASES, &l10n.text("phrases"), self.phrases.len()),
-                tab(TAB_NAMES, &l10n.text("names"), self.names.len()),
-                tab(TAB_KANJI, &l10n.text("kanji"), self.characters.len()),
-            ];
-
-            match &self.query.tab {
-                Tab::KanjiDetails(kanji) => {
-                    tabs.push(sockel::TabItem::new(
-                        TAB_OTHER,
-                        l10n.msg("tab-kanji-details", &args!(kanji = &**kanji)),
-                    ));
-                }
-                Tab::Settings => {
-                    tabs.push(sockel::TabItem::new(TAB_OTHER, l10n.text("tab-settings")));
-                }
-                _ => {}
-            }
-
-            let value = match &self.query.tab {
-                Tab::Phrases => TAB_PHRASES,
-                Tab::Names => TAB_NAMES,
-                Tab::Kanji => TAB_KANJI,
-                Tab::KanjiDetails(..) | Tab::Settings => TAB_OTHER,
-            };
-
-            let on_change = ctx
-                .link()
-                .batch_callback(|value: AttrValue| match value.as_str() {
-                    TAB_PHRASES => Some(Msg::Tab(Tab::Phrases)),
-                    TAB_NAMES => Some(Msg::Tab(Tab::Names)),
-                    TAB_KANJI => Some(Msg::Tab(Tab::Kanji)),
-                    _ => None,
-                });
-
-            let content = match &self.query.tab {
-                Tab::KanjiDetails(kanji) => {
-                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    let onclick = ctx
-                        .link()
-                        .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
-                    html!(<c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} />)
-                }
-                Tab::Settings => {
-                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} />)
-                }
-                Tab::Phrases => {
-                    html!(<>{phrases}</>)
-                }
-                Tab::Names => {
-                    html!(<>{names}</>)
-                }
-                Tab::Kanji => {
-                    html!(<>{kanjis}</>)
-                }
-            };
-
-            html! {
-                <>
-                    {analyze}
-                    {for translation}
-                    <sockel::Tabs {tabs} value={AttrValue::Static(value)} {on_change} label={l10n.text("results")} />
-                    {content}
-                </>
-            }
-        } else {
-            match &self.query.tab {
-                Tab::KanjiDetails(kanji) => {
-                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    let onclick = ctx
-                        .link()
-                        .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
-                    html!(<c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} />)
-                }
-                Tab::Settings => {
-                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} />)
-                }
-                _ => {
-                    let next = match self.query.mode {
-                        Mode::Unfiltered => Mode::Hiragana,
-                        Mode::Hiragana => Mode::Katakana,
-                        Mode::Katakana => Mode::Unfiltered,
-                    };
-
-                    let ontoggle = ctx.link().callback(move |_| Msg::Mode(next));
-
-                    let oncaptureclipboard = ctx.link().callback({
-                        let capture_clipboard = self.query.capture_clipboard;
-                        move |_| Msg::CaptureClipboard(!capture_clipboard)
-                    });
-
-                    let onclick = ctx.link().callback(|_| Msg::OpenConfig);
-
-                    let (title, description) = match self.query.mode {
-                        Mode::Unfiltered => {
-                            (l10n.text("mode-default"), l10n.text("mode-default-tip"))
-                        }
-                        Mode::Hiragana => ("ひらがな".into(), l10n.text("mode-hiragana-tip")),
-                        Mode::Katakana => ("カタカナ".into(), l10n.text("mode-katakana-tip")),
-                    };
-
-                    let mut group = sockel::group_classes(&[false, false, false]).into_iter();
-
-                    let prompt = html! {
-                        <>
-                            <sockel::InputGroup>
-                                <sockel::TextInput value={self.query.text.clone()} on_input={ctx.link().callback(Msg::Change)}
-                                    label={l10n.text("search")} autofocus={true} class={group.next().unwrap_or_default()} />
-                                <sockel::Button tip={description} onclick={ontoggle} class={classes!(group.next(), class::PROMPT_MODE)}>{title}</sockel::Button>
-                                <sockel::Button tip={l10n.text("capture-clipboard")} pressed={self.query.capture_clipboard}
-                                    onclick={oncaptureclipboard} class={group.next().unwrap_or_default()}>{"📋"}</sockel::Button>
-                            </sockel::InputGroup>
-
-                            <sockel::Cluster justify={sockel::Justify::End}>
-                                <sockel::Button variant={sockel::ButtonVariant::Quiet} {onclick}>{l10n.text("open-config")}</sockel::Button>
-                            </sockel::Cluster>
-                        </>
-                    };
-
-                    let kanjis = kanjis.map(|kanjis| {
-                        html! {
-                            <div class={classes!(class::COLUMN, class::CHARACTERS)}>{kanjis}</div>
-                        }
-                    });
-
-                    html! {
-                        <>
-                            {prompt}
-                            {analyze}
-                            {for translation}
-
-                            <div class={class::COLUMNS}>
-                                <sockel::Stack gap={Gap::Wide} class={class::COLUMN}>{phrases}{names}</sockel::Stack>
-                                {for kanjis}
-                            </div>
-                        </>
-                    }
-                }
-            }
-        };
-
         let tasks = (!self.tasks.is_empty()).then(|| {
             let tasks = self.tasks.values().map(|task| {
                 let (progress, value) = match task.total {
@@ -840,7 +689,7 @@ impl Component for Prompt {
             }
         });
 
-        let window_top = {
+        let (window_start, window_end) = {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
 
             let search = html! {
@@ -863,34 +712,208 @@ impl Component for Prompt {
                 None
             };
 
+            let start = html! {
+                <span>
+                    <a href="https://github.com/udoprog/jpv">{l10n.text("title")}</a>
+                    <span class={class::SUB_TITLE}>
+                        {l10n::rich(l10n, "by-author", [("author", author())])}
+                    </span>
+                </span>
+            };
+
+            let end = html! {
+                <sockel::Toolbar label={l10n.text("window")}>
+                    {search}
+                    {config}
+                    {maximize}
+                </sockel::Toolbar>
+            };
+
+            (start, end)
+        };
+
+        let page = if self.query.embed {
+            let tab = |value: &'static str, title: &str, len: usize| {
+                let label = l10n.msg("tab-count", &args!(title = title, count = len));
+                let mut item = sockel::TabItem::new(value, label);
+                item.disabled = len == 0;
+                item
+            };
+
+            let mut tabs = vec![
+                tab(TAB_PHRASES, &l10n.text("phrases"), self.phrases.len()),
+                tab(TAB_NAMES, &l10n.text("names"), self.names.len()),
+                tab(TAB_KANJI, &l10n.text("kanji"), self.characters.len()),
+            ];
+
+            match &self.query.tab {
+                Tab::KanjiDetails(kanji) => {
+                    tabs.push(sockel::TabItem::new(
+                        TAB_OTHER,
+                        l10n.msg("tab-kanji-details", &args!(kanji = &**kanji)),
+                    ));
+                }
+                Tab::Settings => {
+                    tabs.push(sockel::TabItem::new(TAB_OTHER, l10n.text("tab-settings")));
+                }
+                _ => {}
+            }
+
+            let value = match &self.query.tab {
+                Tab::Phrases => TAB_PHRASES,
+                Tab::Names => TAB_NAMES,
+                Tab::Kanji => TAB_KANJI,
+                Tab::KanjiDetails(..) | Tab::Settings => TAB_OTHER,
+            };
+
+            let on_change = ctx
+                .link()
+                .batch_callback(|value: AttrValue| match value.as_str() {
+                    TAB_PHRASES => Some(Msg::Tab(Tab::Phrases)),
+                    TAB_NAMES => Some(Msg::Tab(Tab::Names)),
+                    TAB_KANJI => Some(Msg::Tab(Tab::Kanji)),
+                    _ => None,
+                });
+
+            let content = match &self.query.tab {
+                Tab::KanjiDetails(kanji) => {
+                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                    let onclick = ctx
+                        .link()
+                        .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
+                    html!(<c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} />)
+                }
+                Tab::Settings => {
+                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                    html!(<c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} />)
+                }
+                Tab::Phrases => {
+                    html!(<>{phrases}</>)
+                }
+                Tab::Names => {
+                    html!(<>{names}</>)
+                }
+                Tab::Kanji => {
+                    html!(<>{kanjis}</>)
+                }
+            };
+
             html! {
-                <div class={class::WINDOW_TOP}>
-                    <sockel::Toolbar label={l10n.text("window")} class={class::CONTAINER}>
-                        {search}
-                        {config}
-                        <sockel::ToolbarSpacer />
-                        <span>
-                            <a href="https://github.com/udoprog/jpv">{l10n.text("title")}</a>
-                            <span class={class::SUB_TITLE}>
-                                {l10n::rich(l10n, "by-author", [("author", author())])}
-                            </span>
-                        </span>
-                        <sockel::ToolbarSpacer />
-                        {maximize}
-                    </sockel::Toolbar>
-                </div>
+                <>
+                    {analyze}
+                    {for translation}
+                    <sockel::Tabs {tabs} value={AttrValue::Static(value)} {on_change} label={l10n.text("results")} />
+                    {content}
+                </>
+            }
+        } else {
+            match &self.query.tab {
+                Tab::Settings => {
+                    let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                    html!(<c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} />)
+                }
+                tab => {
+                    let next = match self.query.mode {
+                        Mode::Unfiltered => Mode::Hiragana,
+                        Mode::Hiragana => Mode::Katakana,
+                        Mode::Katakana => Mode::Unfiltered,
+                    };
+
+                    let ontoggle = ctx.link().callback(move |_| Msg::Mode(next));
+
+                    let oncaptureclipboard = ctx.link().callback({
+                        let capture_clipboard = self.query.capture_clipboard;
+                        move |_| Msg::CaptureClipboard(!capture_clipboard)
+                    });
+
+                    let onclick = ctx.link().callback(|_| Msg::OpenConfig);
+
+                    let (title, description) = match self.query.mode {
+                        Mode::Unfiltered => {
+                            (l10n.text("mode-default"), l10n.text("mode-default-tip"))
+                        }
+                        Mode::Hiragana => ("ひらがな".into(), l10n.text("mode-hiragana-tip")),
+                        Mode::Katakana => ("カタカナ".into(), l10n.text("mode-katakana-tip")),
+                    };
+
+                    let mut group = sockel::group_classes(&[false, false, false]).into_iter();
+
+                    let prompt = html! {
+                        <>
+                            <sockel::InputGroup>
+                                <sockel::TextInput value={self.query.text.clone()} on_input={ctx.link().callback(Msg::Change)}
+                                    label={l10n.text("search")} autofocus={true} class={group.next().unwrap_or_default()} />
+                                <sockel::Button tip={description} onclick={ontoggle} class={classes!(group.next(), class::PROMPT_MODE)}>{title}</sockel::Button>
+                                <sockel::Button tip={l10n.text("capture-clipboard")} pressed={self.query.capture_clipboard}
+                                    onclick={oncaptureclipboard} class={group.next().unwrap_or_default()}>{"📋"}</sockel::Button>
+                            </sockel::InputGroup>
+
+                            <sockel::Cluster justify={sockel::Justify::End}>
+                                <sockel::Button variant={sockel::ButtonVariant::Quiet} {onclick}>{l10n.text("open-config")}</sockel::Button>
+                            </sockel::Cluster>
+                        </>
+                    };
+
+                    let detail = match tab {
+                        Tab::KanjiDetails(kanji) => {
+                            let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
+                            let onclick = ctx.link().callback(|kanji: String| {
+                                Msg::Tab(Tab::KanjiDetails(kanji.into()))
+                            });
+
+                            Some(html! {
+                                <div class={class::INSET}>
+                                    <c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} kanji={kanji.clone()} {onback} {onclick} />
+                                </div>
+                            })
+                        }
+                        _ => None,
+                    };
+
+                    // Shown in the list pane only while the panes are one
+                    // at a time, where the detail pane's kanji are hidden.
+                    let narrow_kanjis = kanjis
+                        .clone()
+                        .map(|kanjis| html!(<div class={class::NARROW_ONLY}>{kanjis}</div>));
+
+                    let list = html! {
+                        <sockel::Stack gap={Gap::Wide} class={class::INSET}>
+                            {phrases}
+                            {names}
+                            {narrow_kanjis}
+                            <sockel::Stack gap={Gap::Tight} class={class::COPYRIGHT}>{copyright(l10n)}</sockel::Stack>
+                        </sockel::Stack>
+                    };
+
+                    let empty = html!(<div class={class::INSET}>{kanjis}</div>);
+
+                    let head = html! {
+                        <sockel::Stack gap={Gap::Loose} class={class::INSET}>
+                            {missing}
+                            {missing_ocr}
+                            {tasks}
+                            {prompt}
+                            {analyze}
+                            {for translation}
+                        </sockel::Stack>
+                    };
+
+                    return html! {
+                        <sockel::AppShell start={window_start} end={window_end}>
+                            <div class={class::FILL}>
+                                {head}
+                                <c::SplitRegion name="results" {list} {detail} {empty} label={l10n.text("resize-results")} />
+                            </div>
+                        </sockel::AppShell>
+                    };
+                }
             }
         };
 
-        let class = classes! {
-            class::CONTAINER,
-            class::CONTENT,
-        };
+        let class = classes!(sockel::class::WORKSPACE_PAGE, class::INSET);
 
         html! {
-            <>
-                {window_top}
-
+            <sockel::AppShell start={window_start} end={window_end}>
                 <sockel::Stack gap={Gap::Loose} {class}>
                     {missing}
                     {missing_ocr}
@@ -898,7 +921,7 @@ impl Component for Prompt {
                     {page}
                     <sockel::Stack gap={Gap::Tight} class={class::COPYRIGHT}>{copyright(l10n)}</sockel::Stack>
                 </sockel::Stack>
-            </>
+            </sockel::AppShell>
         }
     }
 }

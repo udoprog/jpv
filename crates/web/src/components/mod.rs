@@ -29,6 +29,9 @@ mod edit_index;
 pub(crate) use self::external_button::ExternalButton;
 mod external_button;
 
+pub(crate) use self::split_region::SplitRegion;
+mod split_region;
+
 pub(crate) mod theme;
 pub(crate) use self::theme::ThemeSwitch;
 
