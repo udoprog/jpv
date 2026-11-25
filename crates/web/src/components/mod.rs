@@ -31,3 +31,6 @@ mod external_button;
 
 pub(crate) mod theme;
 pub(crate) use self::theme::ThemeSwitch;
+
+pub(crate) use self::language::LanguagePicker;
+mod language;

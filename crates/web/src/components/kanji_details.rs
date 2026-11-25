@@ -1,6 +1,8 @@
 use std::rc::Rc;
 
 use lib::api;
+use phrasebook::yew023::PhrasesContext;
+use phrasebook::Phrases;
 use yew::prelude::*;
 
 use crate::c;
@@ -13,6 +15,7 @@ use super::{colon, comma, row, seq, spacing};
 pub(crate) enum Msg {
     GetKanji(Box<api::OwnedKanjiResponse>),
     Error(Error),
+    Phrases(Phrases),
 }
 
 #[derive(Properties, PartialEq)]
@@ -32,6 +35,7 @@ pub(crate) struct KanjiDetails {
     pending: bool,
     request: ws::Request,
     kanji: Option<api::OwnedKanjiResponse>,
+    l10n: PhrasesContext,
 }
 
 impl Component for KanjiDetails {
@@ -53,6 +57,7 @@ impl Component for KanjiDetails {
             pending: false,
             request,
             kanji: None,
+            l10n: PhrasesContext::new(ctx.link(), ctx.link().callback(Msg::Phrases)),
         }
     }
 
@@ -65,6 +70,9 @@ impl Component for KanjiDetails {
             Msg::Error(error) => {
                 log::error!("{}", error);
                 self.pending = false;
+            }
+            Msg::Phrases(phrases) => {
+                return self.l10n.set(phrases);
             }
         }
 
@@ -92,12 +100,14 @@ impl Component for KanjiDetails {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let phrases = self.l10n.phrases();
+
         let heading = (!ctx.props().embed).then(|| {
-            let pending = self.pending.then(|| html!(<span class={class::HINT}>{"Loading..."}</span>));
+            let pending = self.pending.then(|| html!(<span class={class::HINT}>{phrases.text("loading")}</span>));
 
             html! {
                 <sockel::Cluster>
-                    <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</sockel::Button>
+                    <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{phrases.text("back")}</sockel::Button>
                     {for pending}
                 </sockel::Cluster>
             }
@@ -115,7 +125,7 @@ impl Component for KanjiDetails {
 
                 row(html! {
                     <>
-                        <span>{"Radicals"}</span>
+                        <span>{phrases.text("kanji-radicals")}</span>
                         {colon()}
                         {spacing()}
                         {for radicals}
@@ -130,7 +140,7 @@ impl Component for KanjiDetails {
 
                 row(html! {
                     <>
-                        <span>{"Strokes"}</span>
+                        <span>{phrases.text("kanji-strokes")}</span>
                         {colon()}
                         {spacing()}
                         {for strokes}

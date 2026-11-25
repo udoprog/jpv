@@ -2599,6 +2599,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85ee5156927aefd2f34f59e77e822d89f29d7971d8182290a7512e41abdf80bf"
 dependencies = [
+ "koine",
  "yew",
 ]
 

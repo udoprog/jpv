@@ -1,5 +1,7 @@
 use std::rc::Rc;
 
+use phrasebook::yew023::PhrasesContext;
+use phrasebook::{args, Phrases};
 use yew::prelude::*;
 
 use super::spacing;
@@ -19,17 +21,26 @@ pub(crate) struct Props {
     pub(crate) on_analyze_cycle: Callback<()>,
 }
 
-pub(crate) struct AnalyzeToggle;
+pub(crate) struct AnalyzeToggle {
+    l10n: PhrasesContext,
+}
 
 impl Component for AnalyzeToggle {
-    type Message = ();
+    type Message = Phrases;
     type Properties = Props;
 
-    fn create(_: &Context<Self>) -> Self {
-        Self
+    fn create(ctx: &Context<Self>) -> Self {
+        Self {
+            l10n: PhrasesContext::new(ctx.link(), ctx.link().callback(|phrases| phrases)),
+        }
+    }
+
+    fn update(&mut self, _: &Context<Self>, phrases: Self::Message) -> bool {
+        self.l10n.set(phrases)
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let phrases = self.l10n.phrases();
         let mut rem = 0usize;
 
         let string = ctx.props().analyzed.get(ctx.props().index);
@@ -66,15 +77,15 @@ impl Component for AnalyzeToggle {
         let analyze_hint = if ctx.props().analyzed.len() > 1 {
             Some(html! {
                 <div class={class::HINT}>
-                    {format!("{} / {} (click character to cycle)", ctx.props().index + 1, ctx.props().analyzed.len())}
+                    {phrases.msg("analyze-cycle", &args!(index = ctx.props().index + 1, count = ctx.props().analyzed.len()))}
                 </div>
             })
         } else if ctx.props().analyzed.is_empty() {
             Some(html! {
                 <div class={class::HINT}>
-                    <span>{"Hint:"}</span>
+                    <span>{phrases.text("analyze-hint")}</span>
                     {spacing()}
-                    <span>{"Click character for substring search"}</span>
+                    <span>{phrases.text("analyze-hint-text")}</span>
                 </div>
             })
         } else {

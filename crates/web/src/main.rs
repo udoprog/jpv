@@ -1,9 +1,11 @@
 mod components;
 mod error;
+mod l10n;
 mod query;
 mod ws;
 
-use phrasebook::{browser, Lang, Phrasebook, Phrases};
+use phrasebook::yew023::use_phrases;
+use phrasebook::{browser, Lang, Phrases};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -93,32 +95,49 @@ fn switch(routes: Route, ws: &ws::Handle) -> Html {
         Route::Prompt => html! {
             <c::Prompt ws={ws.clone()} />
         },
-        Route::NotFound => {
-            html! {
-                <div class={classes!(class::CONTAINER, class::CONTENT)}>{"There is nothing here"}</div>
-            }
-        }
+        Route::NotFound => html!(<NotFound />),
     }
 }
 
-fn phrasebook() -> Phrasebook {
-    Phrasebook::builder()
-        .language(Lang::EN_US, "English")
-        .catalog(&sockel::phrasebookcatalog01::L10N)
-        .build()
+#[function_component]
+fn NotFound() -> Html {
+    let phrases = use_phrases();
+
+    html! {
+        <div class={classes!(class::CONTAINER, class::CONTENT)}>{phrases.text("not-found")}</div>
+    }
 }
 
 #[function_component]
 fn Root() -> Html {
-    let phrases = use_state(|| browser::initial(&phrasebook()));
+    let phrases = use_state(|| {
+        let phrases = browser::initial(&l10n::phrasebook());
+        browser::set_document_lang(phrases.lang());
+        phrases
+    });
+
+    let set_lang = use_memo((), {
+        let phrases = phrases.clone();
+
+        move |_| {
+            l10n::SetLang(Callback::from(move |lang: Lang| {
+                let new = phrases.with_lang(lang);
+                browser::set_document_lang(lang);
+                new.store();
+                phrases.set(new);
+            }))
+        }
+    });
 
     html! {
         <ContextProvider<Phrases> context={(*phrases).clone()}>
-            <sockel::OverlayHost>
-                <sockel::Styles css={STYLESHEET} />
-                <sockel::DataTips />
-                <App />
-            </sockel::OverlayHost>
+            <ContextProvider<l10n::SetLang> context={(*set_lang).clone()}>
+                <sockel::OverlayHost>
+                    <sockel::Styles css={STYLESHEET} />
+                    <sockel::DataTips />
+                    <App />
+                </sockel::OverlayHost>
+            </ContextProvider<l10n::SetLang>>
         </ContextProvider<Phrases>>
     }
 }

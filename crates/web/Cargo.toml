@@ -26,7 +26,7 @@ borrowme = "0.1.0"
 serde_urlencoded = "0.7.1"
 slab = "0.4.9"
 sockel = { version = "0.3.2", default-features = false, features = ["layout", "button", "overlay", "input", "tabs", "notice", "checkbox", "choice", "badge", "field", "select", "chip", "log-view"] }
-phrasebook = { version = "0.2.0", features = ["yew023", "browser"] }
+phrasebook = { version = "0.2.0", features = ["yew023", "browser", "koine03"] }
 
 [dependencies.web-sys]
 version = "0.3.81"

@@ -424,6 +424,8 @@ impl Component for Config {
                 {pending}
                 {error}
 
+                <c::LanguagePicker />
+
                 <sockel::Stack gap={sockel::Gap::Tight}>
                     <h5>{"Theme"}</h5>
                     <c::ThemeSwitch />
