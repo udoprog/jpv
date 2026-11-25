@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jpv: an offline Japanese dictionary</title>
+<meta name="description" content="An offline Japanese dictionary built on JMdict and Kanjidic, with a local web interface, conjugation analysis, wildcard search and clipboard capture.">
+<link rel="icon" href="https://github.com/udoprog/jpv/blob/main/gfx/logo.png?raw=true">
+<style>
+:root {
+  --bg: #fafaf8;
+  --fg: #1d1f21;
+  --muted: #5c6370;
+  --accent: #b7410e;
+  --code-bg: #1d1f21;
+  --code-fg: #f2f2ee;
+  --border: #d8d8d2;
+  --radius: 6px;
+  --space: 1rem;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181a;
+    --fg: #ece8e6;
+    --muted: #a0a6b0;
+    --accent: #f08a4b;
+    --code-bg: #0d0e0f;
+    --border: #34363a;
+  }
+}
+.page { margin: 0; background: var(--bg); color: var(--fg); font: 1rem/1.6 var(--font); }
+.main { max-width: 48rem; margin: 0 auto; padding: calc(var(--space) * 3) var(--space); }
+.header { display: flex; gap: var(--space); align-items: center; }
+.logo { width: 72px; height: 72px; }
+.title { font-size: 2.5rem; margin: 0; }
+.lead { color: var(--muted); font-size: 1.15rem; }
+.heading { font-size: 1.1rem; margin-top: calc(var(--space) * 2); }
+.features { padding-left: 1.25rem; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: var(--space); margin: 0; }
+.shot { margin: 0; }
+.shot-img { width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+.shot-caption { color: var(--muted); font-size: .85rem; }
+.install { display: flex; gap: .5rem; align-items: stretch; }
+.cmd { flex: 1; margin: 0; padding: .75rem 1rem; overflow-x: auto; background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius); font: .9rem var(--mono); }
+.copy { padding: 0 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--fg); font: inherit; cursor: pointer; }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: var(--accent); }
+.steps { margin: 0; padding: .75rem 1rem; overflow-x: auto; background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius); font: .9rem var(--mono); }
+.note { color: var(--muted); font-size: .9rem; }
+.links { display: flex; flex-wrap: wrap; gap: var(--space); padding: 0; list-style: none; }
+.link { color: var(--accent); }
+</style>
+</head>
+<body class="page">
+<main class="main">
+  <div class="header">
+    <img class="logo" src="https://github.com/udoprog/jpv/blob/main/gfx/logo.png?raw=true" alt="" width="72" height="72">
+    <h1 class="title">jpv</h1>
+  </div>
+  <p class="lead">A fast Japanese dictionary that runs on your own machine. jpv builds a local database from JMdict and Kanjidic and serves it through a browser interface, so lookups work offline and stay private.</p>
+
+  <ul class="features">
+    <li>Search in Japanese or English, with wildcards.</li>
+    <li>Paste a conjugated word and jpv works out its dictionary form and how it was inflected.</li>
+    <li>Kanji details: readings, meanings and stroke counts.</li>
+    <li>Clipboard capture, including OCR of screenshots through tesseract, and a GNOME extension to feed it.</li>
+    <li>Fully offline once the dictionary is built, and quick to start: the database is memory mapped.</li>
+  </ul>
+
+  <div class="shots">
+    <figure class="shot">
+      <img class="shot-img" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-english.png?raw=true" alt="Searching for English text" loading="lazy">
+      <figcaption class="shot-caption">Search Japanese words and phrases, or the English glossary.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img class="shot-img" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-conjugate.png?raw=true" alt="Conjugation analysis" loading="lazy">
+      <figcaption class="shot-caption">Conjugation analysis.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img class="shot-img" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-ocr.png?raw=true" alt="Image recognition through the clipboard" loading="lazy">
+      <figcaption class="shot-caption">Image recognition through the clipboard.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img class="shot-img" src="https://github.com/udoprog/jpv/blob/main/gfx/feature-wildcard.png?raw=true" alt="Wildcard searching" loading="lazy">
+      <figcaption class="shot-caption">Wildcard searching.</figcaption>
+    </figure>
+  </div>
+
+  <h2 class="heading">Install</h2>
+  <div class="install">
+    <pre class="cmd" id="cmd">curl -fsSL https://udoprog.github.io/jpv/install.sh | sh</pre>
+    <button class="copy" id="copy" type="button">Copy</button>
+  </div>
+  <p class="note">Installs the latest prebuilt <code>jpv</code> into <code>~/.local/bin</code> on Linux (x86_64) and macOS (Apple silicon). Set <code>JPV_INSTALL_DIR</code> to install elsewhere, or <code>JPV_VERSION</code> to a release tag to pin one. These portable builds leave out OCR.</p>
+  <p class="note"><strong>Fedora:</strong> the RPM from the releases includes OCR, the desktop entry and GNOME integration. <strong>Windows:</strong> use the MSI from the releases.</p>
+
+  <h2 class="heading">Get started</h2>
+  <pre class="steps">jpv build                  # download and build the dictionary (once)
+jpv service --background   # run the dictionary service in the background</pre>
+
+  <h2 class="heading">Links</h2>
+  <ul class="links">
+    <li><a class="link" href="https://github.com/udoprog/jpv">Repository</a></li>
+    <li><a class="link" href="https://github.com/udoprog/jpv#readme">README</a></li>
+    <li><a class="link" href="https://github.com/udoprog/jpv/releases">Releases</a></li>
+  </ul>
+</main>
+<script>
+document.getElementById("copy").addEventListener("click", function (e) {
+  var button = e.currentTarget;
+  var text = document.getElementById("cmd").textContent;
+  navigator.clipboard.writeText(text).then(function () {
+    button.textContent = "Copied";
+    setTimeout(function () { button.textContent = "Copy"; }, 1500);
+  }, function () {
+    button.textContent = "Press Ctrl+C";
+  });
+});
+</script>
+</body>
+</html>
