@@ -27,14 +27,14 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: dtolnay/rust-toolchain@stable
       with:
         targets: wasm32-unknown-unknown
     - uses: Swatinem/rust-cache@v2
     - uses: udoprog/actions@trug
     - run: trug build --release
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: build-frontend
         path: crates/web/dist
@@ -50,8 +50,8 @@ jobs:
       image: fedora:${{matrix.fedora}}
     steps:
     - run: cat /etc/fedora-release
-    - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v7
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
       with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
@@ -63,7 +63,7 @@ jobs:
       env:
         JPV_VERSION: ${{steps.release.outputs.version}}
     - run: kick rpm --append fc${{matrix.fedora}} --output dist
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: dist-fedora-${{matrix.fedora}}
         path: dist
@@ -82,8 +82,8 @@ jobs:
         - {os: ubuntu-latest, features: "reqwest,memmap,gnome,bundle"}
         - {os: macos-latest, features: "reqwest,memmap,bundle"}
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v7
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
       with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
@@ -96,7 +96,7 @@ jobs:
       env:
         JPV_VERSION: ${{steps.release.outputs.version}}
     - run: kick gzip --output dist
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: dist-archive-${{matrix.os}}
         path: dist
@@ -108,8 +108,8 @@ jobs:
     - uses: udoprog/actions@kick
     - run: kick define --github-action --msi-version-to msi_version
       id: release
-    - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v7
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
       with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
@@ -118,7 +118,7 @@ jobs:
         JPV_VERSION: ${{steps.release.outputs.version}}
         JPV_MSI_VERSION: ${{steps.release.outputs.msi_version}}
     - run: kick msi --output dist
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: dist-windows
         path: dist
@@ -129,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: udoprog/actions@kick
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with: {pattern: "dist-*", merge-multiple: true, path: dist}
     - run: kick github-release --github-action --upload "dist/*"
       env:

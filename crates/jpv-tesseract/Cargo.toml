@@ -7,7 +7,6 @@ rust-version = "1.95"
 description = "Japanese Dictionary by John-John Tedro"
 documentation = "https://docs.rs/jpv"
 readme = "README.md"
-homepage = "https://github.com/udoprog/jpv"
 repository = "https://github.com/udoprog/jpv"
 license = "MIT OR Apache-2.0"
 keywords = ["dictionary"]
