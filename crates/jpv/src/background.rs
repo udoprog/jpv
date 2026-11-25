@@ -382,6 +382,11 @@ impl<'a> DownloadOverrides<'a> {
 }
 
 /// Convert configuration into indexes that should be downloaded and built.
+///
+/// Without a `filter` only enabled indexes are included. With one, exactly the
+/// named indexes are included whether enabled or not, since the config page
+/// requests an install of an index before the configuration enabling it has
+/// been saved.
 pub fn config_to_download(
     config: &Config,
     dirs: &Dirs,
@@ -391,10 +396,13 @@ pub fn config_to_download(
     let mut downloads = Vec::new();
 
     for (id, index) in &config.indexes {
-        if let Some(filter) = filter {
-            if !filter.contains(id) {
-                continue;
-            }
+        let included = match filter {
+            Some(filter) => filter.contains(id),
+            None => index.enabled,
+        };
+
+        if !included {
+            continue;
         }
 
         let path = overrides.get(id.as_str()).map(|p| p.into());
@@ -647,4 +655,44 @@ async fn ensure_parent_dir(path: &Path) -> Result<&Path> {
     }
 
     Ok(parent)
+}
+
+#[cfg(test)]
+mod tests {
+    use lib::config::{Config, IndexFormat};
+    use lib::Dirs;
+
+    use super::{config_to_download, DownloadOverrides};
+
+    fn config() -> Config {
+        let mut config = Config::default();
+
+        for format in IndexFormat::all() {
+            config.indexes.insert(
+                format.id().to_owned(),
+                format.default_config(format == IndexFormat::Jmdict),
+            );
+        }
+
+        config
+    }
+
+    fn names(config: &Config, filter: Option<&[String]>) -> Vec<String> {
+        let dirs = Dirs::open().expect("dirs");
+        config_to_download(config, &dirs, DownloadOverrides::default(), filter)
+            .into_iter()
+            .map(|d| d.name)
+            .collect()
+    }
+
+    #[test]
+    fn skips_disabled_without_filter() {
+        assert_eq!(names(&config(), None), ["jmdict"]);
+    }
+
+    #[test]
+    fn filter_includes_disabled() {
+        let filter = ["kanjidic2".to_owned()];
+        assert_eq!(names(&config(), Some(&filter)), ["kanjidic2"]);
+    }
 }
