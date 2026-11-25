@@ -202,7 +202,10 @@ mod tests {
 
         let error = list(&request(&missing, false)).unwrap_err();
         assert!(error.to_string().contains("missing"));
-        assert!(error.to_string().contains("No such file"));
+        // The OS words this differently per platform.
+        let not_found = fs::metadata(&missing).unwrap_err();
+        assert_eq!(not_found.kind(), std::io::ErrorKind::NotFound);
+        assert!(error.to_string().contains(&not_found.to_string()));
 
         let response = list(&request(&missing, true)).unwrap();
         let expected = fs::canonicalize(dir.path()).unwrap();
