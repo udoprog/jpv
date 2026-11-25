@@ -123,6 +123,16 @@ impl Background {
         self.log.read()
     }
 
+    /// Update the configuration on behalf of the web UI.
+    ///
+    /// The web UI has no control for `capture_clipboard`, so a config it sends
+    /// back may carry a stale value. Keep the current one, which can be changed
+    /// over D-Bus.
+    pub(crate) async fn update_config_from_web(&self, mut config: Config) -> Option<Config> {
+        config.capture_clipboard = *self.shared.capture_clipboard.borrow();
+        self.update_config(config).await
+    }
+
     /// Update current configuration.
     pub(crate) async fn update_config(&self, mut config: Config) -> Option<Config> {
         let (sender, receiver) = oneshot::channel();

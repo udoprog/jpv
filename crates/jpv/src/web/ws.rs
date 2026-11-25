@@ -318,7 +318,7 @@ impl Server {
                 }
 
                 let config = if let Some(config) = request.config {
-                    let Some(config) = self.bg.update_config(config).await else {
+                    let Some(config) = self.bg.update_config_from_web(config).await else {
                         bail!("Failed to update configuration");
                     };
 

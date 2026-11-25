@@ -236,7 +236,7 @@ async fn update_config(
     Extension(bg): Extension<Background>,
     axum::Json(config): axum::Json<Config>,
 ) -> RequestResult<Json<api::Empty>> {
-    if bg.update_config(config).await.is_none() {
+    if bg.update_config_from_web(config).await.is_none() {
         return Err(RequestError::internal("Failed to update configuration"));
     }
 
