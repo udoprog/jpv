@@ -3,7 +3,7 @@ use musli_zerocopy::{slice, swiss, trie, ByteOrder, Ref, ZeroCopy};
 
 use crate::PartOfSpeech;
 
-use super::{InflectionData, KanjiIndex, NameIndex, PhraseIndex};
+use super::{KanjiIndex, NameIndex, PhraseIndex};
 
 pub struct CompactTrie;
 
@@ -44,7 +44,6 @@ pub(super) struct IndexHeader {
     pub(super) radicals: swiss::MapRef<Ref<str>, u32>,
     pub(super) radicals_to_kanji: swiss::MapRef<Ref<str>, Ref<[u32]>>,
     pub(super) by_sequence: swiss::MapRef<u32, PhrasePos>,
-    pub(super) inflections: Ref<[InflectionData]>,
     /// The offset of all phrases stored in the index.
     pub(super) phrases: Ref<[u32]>,
     /// The offset of all kanji stored in the index.
@@ -59,9 +58,6 @@ pub(super) enum Source {
     Kanji { index: KanjiIndex },
     /// Indexed due to a phrase.
     Phrase { index: PhraseIndex },
-    /// Indexed due to an inflection. The exact kind of inflection is identifier
-    /// by its index, which fits into a u16.
-    Inflection { inflection: u16 },
     /// Indexed to to a name.
     Name { index: NameIndex },
 }
@@ -99,13 +95,6 @@ impl Id {
         Self {
             offset,
             source: Source::Kanji { index },
-        }
-    }
-
-    pub(super) fn inflection(offset: u32, inflection: u16) -> Self {
-        Self {
-            offset,
-            source: Source::Inflection { inflection },
         }
     }
 }

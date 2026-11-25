@@ -232,8 +232,7 @@ pub enum Source {
     Kanji { index: KanjiIndex },
     /// Indexed due to a phrase.
     Phrase { index: PhraseIndex },
-    /// Indexed due to an inflection. The exact kind of inflection is identifier
-    /// by its index, which fits into a u16.
+    /// Matched via inflection stemming.
     Inflection {
         #[serde(flatten)]
         data: InflectionData,
@@ -333,8 +332,6 @@ pub fn build(
     let mut kanji_literals = HashMap::new();
     let mut input_radicals = HashMap::new();
     let mut input_radicals_to_kanji = HashMap::<_, Vec<_>>::new();
-    let mut inflections = Vec::new();
-    let mut inflections_index = HashMap::new();
     let mut phrases = Vec::new();
     let mut kanji = Vec::new();
 
@@ -415,37 +412,6 @@ pub fn build(
                         Cow::Borrowed(el.text),
                         stored::Id::phrase(entry_ref, PhraseIndex::Kanji),
                     ));
-                }
-
-                for (reading, c, _) in inflection::conjugate(&entry) {
-                    for (inflection, pair) in c.iter() {
-                        let data = InflectionData {
-                            reading,
-                            inflection: *inflection,
-                        };
-
-                        let index = match inflections_index.entry(data) {
-                            hash_map::Entry::Vacant(e) => {
-                                let index = *e.insert(inflections.len() as u32);
-                                inflections.push(data);
-                                index
-                            }
-                            hash_map::Entry::Occupied(e) => *e.get(),
-                        };
-
-                        assert!(index < u16::MAX as u32);
-                        let id = stored::Id::inflection(entry_ref, index as u16);
-
-                        if pair.text() != pair.reading() {
-                            let key = Cow::Owned(format!("{}{}", pair.text(), pair.suffix()));
-                            lookup.push((key, id));
-                        }
-
-                        let key: Cow<'_, str> =
-                            Cow::Owned(format!("{}{}", pair.reading(), pair.suffix()));
-                        other_readings(&mut lookup, key.as_ref(), id, id, |text| text.katakana());
-                        lookup.push((key, id));
-                    }
                 }
             }
         }
@@ -718,8 +684,6 @@ pub fn build(
         swiss::store_map(&mut buf, by_sequence)?
     };
 
-    let inflections = buf.store_slice(&inflections)?;
-
     buf.load_uninit_mut(index)?.write(&stored::IndexHeader {
         name,
         lookup,
@@ -728,7 +692,6 @@ pub fn build(
         radicals,
         radicals_to_kanji,
         by_sequence,
-        inflections,
         phrases,
         kanji,
     });
@@ -883,6 +846,24 @@ fn other_readings(
 
     output.push((Cow::Owned(romanized), a));
     output.push((Cow::Owned(other), b));
+}
+
+fn normalize_to_hiragana(input: &str) -> String {
+    let lowered;
+    let input = if input.bytes().any(|b| b.is_ascii_uppercase()) {
+        lowered = input.to_ascii_lowercase();
+        lowered.as_str()
+    } else {
+        input
+    };
+
+    let mut output = String::with_capacity(input.len());
+
+    for part in romaji::analyze(input) {
+        output.push_str(part.hiragana());
+    }
+
+    output
 }
 
 // A loaded index.
@@ -1140,6 +1121,19 @@ impl Database {
                 }
             }
 
+            self.visit_inflections(query, |index, offset, _entry, reading, inflection| {
+                output.push(Id {
+                    index: index as u32,
+                    offset,
+                    source: Source::Inflection {
+                        data: InflectionData {
+                            reading,
+                            inflection,
+                        },
+                    },
+                });
+            })?;
+
             return Ok(output);
         };
 
@@ -1187,26 +1181,93 @@ impl Database {
     }
 
     #[tracing::instrument(skip_all)]
-    fn convert_source(&self, index: usize, source: stored::Source) -> Result<Source> {
+    fn convert_source(&self, _index: usize, source: stored::Source) -> Result<Source> {
         Ok(match source {
             stored::Source::Kanji { index } => Source::Kanji { index },
             stored::Source::Phrase { index } => Source::Phrase { index },
-            stored::Source::Inflection { inflection } => Source::Inflection {
-                data: *self.inflection_data(index, inflection)?,
-            },
             stored::Source::Name { index } => Source::Name { index },
         })
     }
 
-    #[tracing::instrument(skip_all)]
-    pub fn inflection_data(&self, index: usize, inflection: u16) -> Result<&InflectionData> {
-        let i = self.indexes.get(index).context("missing index")?;
-        let data = i
-            .header
-            .inflections
-            .get(inflection as usize)
-            .context("missing inflection")?;
-        Ok(i.data.as_buf().load(data)?)
+    fn visit_inflections<F>(&self, query: &str, mut f: F) -> Result<()>
+    where
+        F: FnMut(usize, u32, &jmdict::Entry<'_>, inflection::Reading, Inflection),
+    {
+        if query.is_empty() {
+            return Ok(());
+        }
+
+        let normalized = normalize_to_hiragana(query);
+
+        if normalized.is_empty() || normalized.chars().any(|c| c.is_ascii_alphabetic()) {
+            return Ok(());
+        }
+
+        let mut stems = inflection::stem(&normalized);
+        stems.retain(|stem| !(stem.inflection.is_empty() && stem.dictionary == normalized));
+
+        if normalized != query && !query.chars().any(|c| c.is_ascii_alphabetic()) {
+            for stem in inflection::stem(query) {
+                if stem.inflection.is_empty() && stem.dictionary == query {
+                    continue;
+                }
+
+                stems.push(stem);
+            }
+        }
+
+        if stems.is_empty() {
+            return Ok(());
+        }
+
+        let mut by_dictionary = BTreeMap::<&str, Vec<&inflection::Stem>>::new();
+
+        for stem in &stems {
+            by_dictionary
+                .entry(stem.dictionary.as_str())
+                .or_default()
+                .push(stem);
+        }
+
+        let mut candidates = BTreeMap::<(usize, u32), Vec<&inflection::Stem>>::new();
+
+        for (dict, dict_stems) in by_dictionary {
+            for (index, d) in self.indexes.iter().enumerate() {
+                let Some(lookup) = d.header.lookup.get(d.data.as_buf(), dict)? else {
+                    continue;
+                };
+
+                for stored_id in lookup {
+                    if !matches!(
+                        stored_id.source,
+                        stored::Source::Phrase {
+                            index: PhraseIndex::Kanji | PhraseIndex::Hiragana
+                        }
+                    ) {
+                        continue;
+                    }
+
+                    candidates
+                        .entry((index, stored_id.offset))
+                        .or_default()
+                        .extend_from_slice(&dict_stems);
+                }
+            }
+        }
+
+        for ((index, offset), entry_stems) in candidates {
+            let d = &self.indexes[index];
+            let Some(bytes) = d.data.as_buf().get(offset as usize..) else {
+                return Err(anyhow!("Missing entry at {offset}"));
+            };
+            let entry: jmdict::Entry<'_> = ENCODING.decode(bytes)?;
+
+            for (reading, inflection) in inflection::match_stems(entry_stems, &entry) {
+                f(index, offset, &entry, reading, inflection);
+            }
+        }
+
+        Ok(())
     }
 
     /// Perform the given search.
@@ -1391,9 +1452,9 @@ impl Database {
 
     /// Analyze the given string, looking it up in the database and returning
     /// all prefix matching entries and their texts.
-    pub fn analyze<'q>(&self, q: &'q str, start: usize) -> Result<BTreeMap<Weight, &'q str>> {
+    pub fn analyze<'q>(&self, q: &'q str, start: usize) -> Result<Vec<(Weight, &'q str)>> {
         let Some(suffix) = q.get(start..) else {
-            return Ok(BTreeMap::new());
+            return Ok(Vec::new());
         };
 
         let mut results = HashMap::<_, Weight>::new();
@@ -1401,8 +1462,10 @@ impl Database {
         let mut it = suffix.chars();
 
         while !it.as_str().is_empty() {
+            let prefix = it.as_str();
+
             for (index, d) in self.indexes.iter().enumerate() {
-                let Some(values) = d.header.lookup.get(d.data.as_buf(), it.as_str())? else {
+                let Some(values) = d.header.lookup.get(d.data.as_buf(), prefix)? else {
                     continue;
                 };
 
@@ -1410,12 +1473,12 @@ impl Database {
                     let id = self.convert_id(index, *stored_id)?;
 
                     let key = match d.entry_at(id)? {
-                        Entry::Phrase(e) => e.weight(it.as_str(), id.source.is_inflection()),
-                        Entry::Name(e) => e.weight(it.as_str()).boost(0.5),
-                        Entry::Kanji(e) => e.weight(it.as_str()).boost(0.5),
+                        Entry::Phrase(e) => e.weight(prefix, id.source.is_inflection()),
+                        Entry::Name(e) => e.weight(prefix).boost(0.5),
+                        Entry::Kanji(e) => e.weight(prefix).boost(0.5),
                     };
 
-                    match results.entry(it.as_str()) {
+                    match results.entry(prefix) {
                         hash_map::Entry::Occupied(mut e) => {
                             e.insert((*e.get()).max(key));
                         }
@@ -1426,15 +1489,30 @@ impl Database {
                 }
             }
 
+            self.visit_inflections(prefix, |_index, _offset, entry, _reading, _inflection| {
+                let key = entry.weight(prefix, true);
+
+                match results.entry(prefix) {
+                    hash_map::Entry::Occupied(mut e) => {
+                        e.insert((*e.get()).max(key));
+                    }
+                    hash_map::Entry::Vacant(e) => {
+                        e.insert(key);
+                    }
+                }
+            })?;
+
             it.next_back();
         }
 
-        let mut inputs = BTreeMap::new();
+        // Weights can collide between different prefixes, so collect into a
+        // vector instead of keying by weight.
+        let mut inputs = results
+            .into_iter()
+            .map(|(string, key)| (key, string))
+            .collect::<Vec<_>>();
 
-        for (string, key) in results {
-            inputs.insert(key, string);
-        }
-
+        inputs.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.len().cmp(&a.1.len())));
         Ok(inputs)
     }
 }
