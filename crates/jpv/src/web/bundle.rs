@@ -15,7 +15,7 @@ pub(crate) fn router() -> Router {
     let router = super::common_routes(router);
 
     router
-        .route("/*file", get(static_handler))
+        .route("/{*file}", get(static_handler))
         .fallback(index_handler)
 }
 
