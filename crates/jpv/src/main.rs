@@ -60,7 +60,8 @@
 //! This installs the latest prebuilt `jpv` into `~/.local/bin`. Set
 //! `JPV_INSTALL_DIR` to install elsewhere, or `JPV_VERSION` to a release tag to
 //! pin one. These portable builds use OCR when tesseract and its Japanese
-//! language data are installed.
+//! language data are installed. `jpv update` later replaces the binary with the
+//! latest release.
 //!
 //! On Linux, `jpv install` then adds a desktop entry, D-Bus activation and the
 //! GNOME extension for your user, under `~/.local/share`. `jpv uninstall`
@@ -295,6 +296,8 @@ enum Command {
     Install(command::install::InstallArgs),
     /// Remove what `jpv install` installed.
     Uninstall(command::install::UninstallArgs),
+    /// Replace this binary with the latest release, for installs made by the install script.
+    Update(command::update::UpdateArgs),
 }
 
 #[derive(Parser)]
@@ -365,6 +368,9 @@ async fn main() -> Result<()> {
         }
         Some(Command::Uninstall(uninstall_args)) => {
             self::command::install::uninstall(uninstall_args)?;
+        }
+        Some(Command::Update(update_args)) => {
+            self::command::update::run(update_args).await?;
         }
     }
 

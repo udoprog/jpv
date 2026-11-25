@@ -63,7 +63,8 @@ curl -fsSL https://udoprog.github.io/jpv/install.sh | sh
 This installs the latest prebuilt `jpv` into `~/.local/bin`. Set
 `JPV_INSTALL_DIR` to install elsewhere, or `JPV_VERSION` to a release tag to
 pin one. These portable builds use OCR when tesseract and its Japanese
-language data are installed.
+language data are installed. `jpv update` later replaces the binary with the
+latest release.
 
 On Linux, `jpv install` then adds a desktop entry, D-Bus activation and the
 GNOME extension for your user, under `~/.local/share`. `jpv uninstall`

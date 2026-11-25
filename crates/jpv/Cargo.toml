@@ -16,6 +16,7 @@ default-run = "jpv"
 
 [features]
 default = ["reqwest", "memmap"]
+reqwest = ["dep:reqwest", "dep:tar", "dep:zip"]
 bundle = ["rust-embed", "mime_guess"]
 gnome = ["gio", "dbus"]
 memmap = ["lib/memmap"]
@@ -61,8 +62,12 @@ directories = "6.0.0"
 tokio-dbus = { version = "0.2.4", optional = true }
 gio = { version = "0.22.6", optional = true }
 
+[target.'cfg(not(windows))'.dependencies]
+tar = { version = "0.4.46", optional = true }
+
 [target.'cfg(windows)'.dependencies]
 winctx = "0.0.20"
+zip = { version = "9.6.1", default-features = false, features = ["deflate-flate2"], optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wayland-client = { version = "0.31.15", optional = true }
