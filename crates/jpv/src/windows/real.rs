@@ -7,6 +7,7 @@ use async_fuse::Fuse;
 use tokio::sync::futures::Notified;
 use winctx::event::{ClipboardEvent, Event, MouseButton};
 
+use crate::background::Background;
 use crate::open_uri;
 use crate::system::{self, Setup, Start, SystemEvents};
 use crate::VERSION;
@@ -33,6 +34,7 @@ impl Start for Windows {
         port: u16,
         shutdown: Notified<'a>,
         system_events: &'a SystemEvents,
+        _: &'a Background,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>> {
         Box::pin(async move {
             let mut shutdown = pin!(Fuse::new(shutdown));

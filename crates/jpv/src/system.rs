@@ -6,6 +6,8 @@ use lib::api;
 use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::sync::futures::Notified;
 
+use crate::background::Background;
+
 /// Service startup.
 pub(crate) trait Start {
     fn start<'a>(
@@ -13,6 +15,7 @@ pub(crate) trait Start {
         port: u16,
         shutdown: Notified<'a>,
         system_events: &'a SystemEvents,
+        background: &'a Background,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>>;
 }
 

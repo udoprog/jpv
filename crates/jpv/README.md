@@ -147,14 +147,42 @@ gsettings set se.tedro.japanese-dictionary.plugins capture-clipboard-enabled fal
 
 <br>
 
+## Clipboard capture on other Wayland desktops
+
+Built with the `wayland` feature, the service watches the clipboard itself on
+compositors that support the `ext-data-control-v1` or `zwlr-data-control-v1`
+protocols, such as KDE Plasma and wlroots-based ones. Elsewhere it stays idle.
+Capture is off until the `capture-clipboard` setting is turned on in jpv's
+`config.toml`:
+
+```toml
+capture-clipboard = true
+```
+
+With the `dbus` feature it can also be toggled while the service runs, and the
+setting is saved:
+
+```sh
+busctl --user call se.tedro.JapaneseDictionary /se/tedro/JapaneseDictionary se.tedro.JapaneseDictionary SetCaptureClipboard b true
+busctl --user call se.tedro.JapaneseDictionary /se/tedro/JapaneseDictionary se.tedro.JapaneseDictionary GetCaptureClipboard
+```
+
+The same caution as for the GNOME extension applies: only enable it while you
+use it.
+
+<br>
+
 ## Features
 
 * `memmap` (default, Unix only) loads the database through memory maps.
+* `reqwest` (default) lets `jpv build` download the dictionary sources.
 * `bundle` embeds the web interface in the binary. Release builds use it.
 * `dbus` lets the service talk over D-Bus, for D-Bus activation and the GNOME
   extension.
 * `gnome` enables GNOME desktop integration: `dbus`, plus `gio` to open the
   browser.
+* `wayland` (Linux) lets the service capture the clipboard by itself on
+  Wayland compositors with data-control, such as KDE Plasma.
 * `cli` (Windows) builds `jpv` as a console application instead of a GUI one.
 
 OCR through tesseract is loaded at runtime when tesseract is installed, and

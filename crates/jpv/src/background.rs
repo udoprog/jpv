@@ -17,7 +17,7 @@ use lib::{api, data, Dirs};
 use tempfile::NamedTempFile;
 use tokio::fs;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::{oneshot, Mutex, RwLock};
+use tokio::sync::{oneshot, watch, Mutex, RwLock};
 
 use crate::reporter::EventsReporter;
 use crate::system::{self, SystemEvents};
@@ -68,6 +68,8 @@ struct Shared {
     dirs: Dirs,
     tesseract: Option<Mutex<tesseract::Tesseract>>,
     ocr: AtomicBool,
+    /// Whether the clipboard is captured.
+    capture_clipboard: watch::Sender<bool>,
 }
 
 #[derive(Clone)]
@@ -97,6 +99,7 @@ impl Background {
                 dirs,
                 tesseract,
                 ocr: AtomicBool::new(config.ocr),
+                capture_clipboard: watch::Sender::new(config.capture_clipboard),
             }),
             channel,
             system_events,
@@ -142,9 +145,44 @@ impl Background {
         }
 
         self.shared.ocr.store(config.ocr, Ordering::SeqCst);
+        self.shared
+            .capture_clipboard
+            .send_replace(config.capture_clipboard);
         self.mutable.write().await.config = config.clone();
         self.system_events.send(system::Event::Refresh);
         Some(config)
+    }
+
+    /// Whether the clipboard is captured.
+    #[cfg(all(unix, feature = "dbus"))]
+    pub(crate) fn capture_clipboard(&self) -> bool {
+        *self.shared.capture_clipboard.borrow()
+    }
+
+    /// Watch whether the clipboard is captured.
+    pub(crate) fn watch_capture_clipboard(&self) -> watch::Receiver<bool> {
+        self.shared.capture_clipboard.subscribe()
+    }
+
+    /// Turn clipboard capture on or off and save it in the configuration.
+    #[cfg(all(unix, feature = "dbus"))]
+    pub(crate) async fn set_capture_clipboard(&self, capture: bool) -> Result<()> {
+        self.shared.capture_clipboard.send_replace(capture);
+
+        let mut config = self.config().await;
+
+        if config.capture_clipboard == capture {
+            return Ok(());
+        }
+
+        config.capture_clipboard = capture;
+
+        if self.update_config(config).await.is_none() {
+            bail!("Failed to save the configuration");
+        }
+
+        tracing::info!(capture, "Clipboard capture changed");
+        Ok(())
     }
 
     /// Trigger a custom installation.

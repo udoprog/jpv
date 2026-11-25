@@ -13,6 +13,7 @@ use tokio::signal::ctrl_c;
 use tokio::sync::Notify;
 
 use crate::background::Background;
+use crate::clipboard;
 use crate::dbus;
 use crate::open_uri;
 use crate::system;
@@ -113,16 +114,6 @@ pub(crate) async fn run(
     let local_addr = listener.local_addr()?;
     let local_port = web::PORT.unwrap_or(local_addr.port());
 
-    let mut windows = match &mut windows {
-        Some(windows) => Fuse::new(windows.start(local_port, shutdown.notified(), &system_events)),
-        None => Fuse::empty(),
-    };
-
-    let mut dbus = match &mut dbus {
-        Some(dbus) => Fuse::new(dbus.start(local_port, shutdown.notified(), &system_events)),
-        None => Fuse::empty(),
-    };
-
     // SAFETY: we know this is only initialized once here exclusively.
     let indexes = data::open_from_args(&args.index[..], &dirs)?;
     let db = lib::database::Database::open(indexes, &config)?;
@@ -163,6 +154,25 @@ pub(crate) async fn run(
         log,
     )?;
 
+    let mut windows = match &mut windows {
+        Some(windows) => {
+            Fuse::new(windows.start(local_port, shutdown.notified(), &system_events, &background))
+        }
+        None => Fuse::empty(),
+    };
+
+    let mut dbus = match &mut dbus {
+        Some(dbus) => {
+            Fuse::new(dbus.start(local_port, shutdown.notified(), &system_events, &background))
+        }
+        None => Fuse::empty(),
+    };
+
+    let mut clipboard = pin!(Fuse::new(clipboard::run(
+        background.watch_capture_clipboard(),
+        system_events.clone(),
+    )));
+
     let mut server = pin!(web::setup(
         listener,
         background.clone(),
@@ -202,6 +212,11 @@ pub(crate) async fn run(
                 result?;
                 tracing::info!("D-Bus integration shut down");
                 shutdown.notify_waiters();
+            }
+            result = clipboard.as_mut() => {
+                if let Err(error) = result {
+                    tracing::warn!("Clipboard capture stopped: {error:#}");
+                }
             }
             result = windows.as_pin_mut() => {
                 result?;

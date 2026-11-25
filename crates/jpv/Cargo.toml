@@ -21,6 +21,7 @@ gnome = ["gio", "dbus"]
 memmap = ["lib/memmap"]
 cli = []
 dbus = ["dep:tokio-dbus"]
+wayland = ["dep:wayland-client", "dep:wayland-protocols", "dep:wayland-protocols-wlr"]
 
 [dependencies]
 lib = { package = "jpv-lib", path = "../jpv-lib" }
@@ -62,6 +63,11 @@ gio = { version = "0.22.6", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winctx = "0.0.20"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+wayland-client = { version = "0.31.15", optional = true }
+wayland-protocols = { version = "0.32.13", features = ["client", "staging"], optional = true }
+wayland-protocols-wlr = { version = "0.3.12", features = ["client"], optional = true }
 
 [build-dependencies]
 anyhow = "1.0.75"

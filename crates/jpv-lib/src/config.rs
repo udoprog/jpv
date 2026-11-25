@@ -209,6 +209,15 @@ pub struct Config {
     /// Whether OCR support is enabled or not.
     #[serde(default = "default_ocr")]
     pub ocr: bool,
+    /// Whether the service captures the clipboard by itself, where the
+    /// desktop supports it.
+    #[serde(
+        default,
+        rename = "capture-clipboard",
+        skip_serializing_if = "is_false"
+    )]
+    #[musli(default, skip_encoding_if = is_false)]
+    pub capture_clipboard: bool,
 }
 
 fn default_ocr() -> bool {
@@ -291,6 +300,10 @@ impl Default for Config {
             indexes.insert(format.id().to_owned(), format.default_config(true));
         }
 
-        Self { indexes, ocr: true }
+        Self {
+            indexes,
+            ocr: true,
+            capture_clipboard: false,
+        }
     }
 }

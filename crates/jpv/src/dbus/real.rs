@@ -7,8 +7,10 @@ use tokio::sync::futures::Notified;
 use tokio_dbus::org_freedesktop_dbus::{NameFlag, NameReply};
 use tokio_dbus::{
     ty, BodyBuf, Buffers, Connection, Flags, Message, MessageKind, ObjectPath, SendBuf, Serial,
+    Signature,
 };
 
+use crate::background::Background;
 use crate::command::service::ServiceArgs;
 use crate::open_uri;
 use crate::system::{Event, SendClipboardData, Setup, Start, SystemEvents};
@@ -151,12 +153,14 @@ impl Start for DbusStart {
         port: u16,
         shutdown: Notified<'a>,
         system_events: &'a SystemEvents,
+        background: &'a Background,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + 'a>> {
         Box::pin(async move {
             let mut shutdown = pin!(Fuse::new(shutdown));
             let mut state = State {
                 port,
                 system_events,
+                background,
             };
 
             loop {
@@ -191,6 +195,14 @@ impl Start for DbusStart {
                                         self.c.flush(&mut self.buf).await?;
                                         return Ok(());
                                     }
+                                    Action::SetCaptureClipboard(capture) => {
+                                        // The reply goes out once this is
+                                        // done, so a failure to save is only
+                                        // logged.
+                                        if let Err(error) = background.set_capture_clipboard(capture).await {
+                                            tracing::error!("Setting clipboard capture: {error:#}");
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -207,10 +219,12 @@ impl Start for DbusStart {
 struct State<'a> {
     port: u16,
     system_events: &'a SystemEvents,
+    background: &'a Background,
 }
 
 enum Action {
     Shutdown,
+    SetCaptureClipboard(bool),
 }
 
 /// Handle a method call.
@@ -257,6 +271,28 @@ fn handle_method_call<'a>(
                     }));
 
                 (msg.method_return(send.next_serial()), None)
+            }
+            "SetCaptureClipboard" => {
+                let mut body = msg.body();
+
+                if body.signature() != Signature::BOOLEAN {
+                    bail!("Expected a boolean, got {:?}", body.signature());
+                }
+
+                // D-Bus booleans are sent as a u32 that is 0 or 1.
+                let capture = match body.load::<u32>()? {
+                    0 => false,
+                    1 => true,
+                    value => bail!("Bad boolean: {value}"),
+                };
+                (
+                    msg.method_return(send.next_serial()),
+                    Some(Action::SetCaptureClipboard(capture)),
+                )
+            }
+            "GetCaptureClipboard" => {
+                body.store(state.background.capture_clipboard())?;
+                (msg.method_return(send.next_serial()).with_body(body), None)
             }
             "Shutdown" => (
                 msg.method_return(send.next_serial()),
