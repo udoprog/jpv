@@ -58,7 +58,8 @@
 //!
 //! This installs the latest prebuilt `jpv` into `~/.local/bin`. Set
 //! `JPV_INSTALL_DIR` to install elsewhere, or `JPV_VERSION` to a release tag to
-//! pin one. These portable builds leave out OCR for now.
+//! pin one. These portable builds use OCR when tesseract and its Japanese
+//! language data are installed.
 //!
 //! * **Fedora:** the RPM from the [releases] includes OCR, the desktop entry and
 //!   GNOME integration.
@@ -142,8 +143,8 @@
 //!   browser.
 //! * `cli` (Windows) builds `jpv` as a console application instead of a GUI one.
 //!
-//! OCR through tesseract is linked in by default on Unix and loaded at runtime on
-//! Windows.
+//! OCR through tesseract is linked in by default on Unix. Without the default
+//! features, and on Windows, it is loaded at runtime when installed.
 //!
 //! <br>
 //!

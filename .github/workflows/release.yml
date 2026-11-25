@@ -71,10 +71,11 @@ jobs:
 
   # Portable archives for the install script, named jpv-<version>-<arch>-<os>.tar.gz.
   #
-  # These are built without the default `tesseract/linked` feature, so OCR is
-  # left out: linking tesseract and leptonica would tie the binary to one
-  # distro's sonames and stop it from starting anywhere else. Use the RPM (or
-  # build from source) for OCR.
+  # These are built without the default `tesseract/linked` feature: linking
+  # tesseract and leptonica would tie the binary to one distro's sonames and
+  # stop it from starting anywhere else. Instead tesseract is loaded at runtime,
+  # so OCR works wherever tesseract and its Japanese language data are
+  # installed, and is turned off otherwise.
   archive:
     runs-on: ${{matrix.os}}
     needs: frontend

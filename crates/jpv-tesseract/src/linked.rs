@@ -1,5 +1,5 @@
-use std::ffi::CString;
 use std::ffi::{c_char, c_int};
+use std::ffi::{CStr, CString};
 use std::ops::Deref;
 use std::path::Path;
 use std::ptr;
@@ -16,16 +16,20 @@ use crate::Result;
 
 /// Try and open the tesseract API.
 pub fn open(language: &str) -> Result<Tesseract> {
-    let language = CString::new(language)?;
+    let c_language = CString::new(language)?;
 
     unsafe {
-        let base = TessBaseAPICreate();
+        // Constructed before initialization so that the base API is deleted if
+        // it fails.
+        let tesseract = Tesseract {
+            base: TessBaseAPICreate(),
+        };
 
-        if TessBaseAPIInit3(base, ptr::null_mut(), language.as_ptr()) != 0 {
-            return Err(Error::new(ErrorKind::Initialize));
+        if TessBaseAPIInit3(tesseract.base, ptr::null_mut(), c_language.as_ptr()) != 0 {
+            return Err(Error::new(ErrorKind::Initialize(language.into())));
         }
 
-        Ok(Tesseract { base })
+        Ok(tesseract)
     }
 }
 
@@ -87,7 +91,7 @@ impl Tesseract {
         let bytes_per_line = c_int::try_from(bytes_per_line)?;
 
         self.set_image(frame_data, width, height, bytes_per_pixel, bytes_per_line)?;
-        Ok(self.get_utf8_text())
+        self.get_utf8_text()
     }
 
     fn set_image(
@@ -123,19 +127,26 @@ impl Tesseract {
         Ok(())
     }
 
-    fn get_utf8_text(&self) -> TesseractString {
+    fn get_utf8_text(&self) -> Result<TesseractString> {
         unsafe {
             let text = TessBaseAPIGetUTF8Text(self.base);
 
-            let mut len = 0;
-            let mut cur = text;
-
-            while ptr::read(cur) != 0 {
-                cur = cur.add(1);
-                len += 1;
+            if text.is_null() {
+                return Err(Error::new(ErrorKind::Recognize));
             }
 
-            TesseractString(text, len)
+            let bytes = CStr::from_ptr(text).to_bytes();
+            let valid = str::from_utf8(bytes).is_ok();
+
+            // Constructed before validation so that the text is deleted if it
+            // is not valid.
+            let string = TesseractString(text, bytes.len());
+
+            if !valid {
+                return Err(Error::new(ErrorKind::InvalidUtf8));
+            }
+
+            Ok(string)
         }
     }
 }

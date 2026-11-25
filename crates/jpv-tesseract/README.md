@@ -6,3 +6,16 @@
 [<img alt="chat on discord" src="https://img.shields.io/discord/558644981137670144.svg?logo=discord&style=flat-square" height="20">](https://discord.gg/v5AeNkT)
 
 Bindings to tesseract.
+
+The backend depends on the platform:
+* On Windows tesseract is loaded at runtime from the [UB-Mannheim/tesseract]
+  installation found in the registry.
+* On Linux and macOS with the `linked` feature tesseract is linked
+  when building.
+* On Linux and macOS without it tesseract is loaded at runtime by
+  its library name, so a binary built this way starts whether tesseract is
+  installed or not, and only has OCR when it is.
+
+Where tesseract cannot be loaded, `open` returns an error.
+
+[UB-Mannheim/tesseract]: https://github.com/UB-Mannheim/tesseract/wiki

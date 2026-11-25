@@ -7,9 +7,9 @@
 # the latest. If the latest release has no archive for this machine, the
 # `nightly` release is used instead.
 #
-# The portable archives leave out OCR (it links tesseract). For OCR use the
-# Fedora RPM, or build from source. Windows is not supported by this script;
-# use the MSI from the releases.
+# The portable archives load tesseract at runtime, so OCR works when tesseract
+# and its Japanese language data are installed. Windows is not supported by
+# this script; use the MSI from the releases.
 
 set -eu
 
@@ -127,4 +127,4 @@ esac
 say "next steps:"
 say "  jpv build                  # download and build the dictionary (once)"
 say "  jpv service --background   # run the dictionary service in the background"
-say "OCR is not included in this build; use the Fedora RPM or build from source for it."
+say "For OCR, install tesseract with its Japanese language data (jpn)."
