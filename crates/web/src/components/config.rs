@@ -410,7 +410,7 @@ impl Component for Config {
 
         let error = self.error.as_ref().map(|error| {
             html! {
-                <div class="block block-lg block-danger">{error}</div>
+                <sockel::Notice tone={sockel::Tone::Danger}>{error}</sockel::Notice>
             }
         });
 
