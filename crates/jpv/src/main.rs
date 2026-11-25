@@ -18,6 +18,7 @@
 //!   GNOME extension to feed it.
 //! * Fully offline once the dictionary is built, and quick to start: the database
 //!   is memory mapped.
+//! * Light and dark themes, and an interface in English or Japanese.
 //!
 //! <table>
 //! <tr>
