@@ -31,7 +31,7 @@ use crate::ws;
 
 use sockel::Gap;
 
-use super::{comma, seq, spacing};
+use super::{comma, icons, seq, spacing};
 
 const DEFAULT_LIMIT: usize = 100;
 
@@ -44,7 +44,6 @@ pub(crate) enum History {
 }
 
 pub(crate) enum Msg {
-    OpenConfig,
     Mode(Mode),
     CaptureClipboard(bool),
     Tab(Tab),
@@ -196,11 +195,6 @@ impl Component for Prompt {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::OpenConfig => {
-                self.query.tab = Tab::Settings;
-                self.save_query(ctx, History::Push);
-                true
-            }
             Msg::GetConfig(state) => {
                 log::trace!("{:?}", state);
 
@@ -552,7 +546,7 @@ impl Component for Prompt {
                         </div>
 
                         <sockel::Cluster>
-                            <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{l10n.text("show-more")}</sockel::Button>
+                            <sockel::Button icon={icons::glyph(sockel::Glyph::ChevronDown)} onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{l10n.text("show-more")}</sockel::Button>
                         </sockel::Cluster>
                     </sockel::Stack>
                 }
@@ -619,7 +613,7 @@ impl Component for Prompt {
                         </div>
 
                         <sockel::Cluster>
-                            <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{l10n.text("show-more")}</sockel::Button>
+                            <sockel::Button icon={icons::glyph(sockel::Glyph::ChevronDown)} onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{l10n.text("show-more")}</sockel::Button>
                         </sockel::Cluster>
                     </sockel::Stack>
                 }
@@ -661,7 +655,7 @@ impl Component for Prompt {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
             let action =
-                html!(<sockel::Button {onclick}>{l10n.text("fix-in-settings")}</sockel::Button>);
+                html!(<sockel::Button icon={icons::named(icons::SETTINGS)} {onclick}>{l10n.text("fix-in-settings")}</sockel::Button>);
 
             html! {
                 <sockel::Notice tone={sockel::Tone::Danger} {action}>
@@ -685,14 +679,14 @@ impl Component for Prompt {
                 .as_ref()
                 .map(|install| {
                     html! {
-                        <c::ExternalButton href={install.url.clone()} target="_install_url" title={install.title.clone()}>{format!("⇓ {}", install.text)}</c::ExternalButton>
+                        <c::ExternalButton icon={icons::named(icons::DOWNLOAD)} href={install.url.clone()} target="_install_url" title={install.title.clone()}>{install.text.clone()}</c::ExternalButton>
                     }
                 });
 
             let action = html! {
                 <sockel::Cluster>
                     {for install_url}
-                    <sockel::Button {onclick}>{l10n.text("disable-ocr")}</sockel::Button>
+                    <sockel::Button icon={icons::named(icons::SETTINGS)} {onclick}>{l10n.text("disable-ocr")}</sockel::Button>
                 </sockel::Cluster>
             };
 
@@ -707,19 +701,19 @@ impl Component for Prompt {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
 
             let search = html! {
-                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} tip={l10n.text("search")} {onclick}>{"🔍"}</sockel::Button>
+                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} icon={icons::glyph(sockel::Glyph::Search)} label={l10n.text("search")} tip={l10n.text("search")} {onclick} />
             };
 
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
             let config = html! {
-                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} tip={l10n.text("configure")} {onclick}>{"⚙"}</sockel::Button>
+                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} icon={icons::named(icons::SETTINGS)} label={l10n.text("configure")} tip={l10n.text("configure")} {onclick} />
             };
 
             let maximize = if self.query.embed {
                 self.query.to_href(true).map(|href| {
                     html! {
-                        <c::ExternalButton variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} href={AttrValue::from(href)} target="_window" title={l10n.text("open-window")}>{"🗖"}</c::ExternalButton>
+                        <c::ExternalButton variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} href={AttrValue::from(href)} target="_window" icon={icons::named(icons::WINDOW)} label={l10n.text("open-window")} title={l10n.text("open-window")} />
                     }
                 })
             } else {
@@ -827,28 +821,29 @@ impl Component for Prompt {
                     html!(<c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} />)
                 }
                 tab => {
-                    let next = match self.query.mode {
-                        Mode::Unfiltered => Mode::Hiragana,
-                        Mode::Hiragana => Mode::Katakana,
-                        Mode::Katakana => Mode::Unfiltered,
-                    };
-
-                    let ontoggle = ctx.link().callback(move |_| Msg::Mode(next));
-
                     let oncaptureclipboard = ctx.link().callback({
                         let capture_clipboard = self.query.capture_clipboard;
                         move |_| Msg::CaptureClipboard(!capture_clipboard)
                     });
 
-                    let onclick = ctx.link().callback(|_| Msg::OpenConfig);
-
-                    let (title, description) = match self.query.mode {
+                    let mode_label = |mode: Mode| match mode {
                         Mode::Unfiltered => {
                             (l10n.text("mode-default"), l10n.text("mode-default-tip"))
                         }
                         Mode::Hiragana => ("ひらがな".into(), l10n.text("mode-hiragana-tip")),
                         Mode::Katakana => ("カタカナ".into(), l10n.text("mode-katakana-tip")),
                     };
+
+                    let (title, description) = mode_label(self.query.mode);
+
+                    let modes = [Mode::Unfiltered, Mode::Hiragana, Mode::Katakana].map(|mode| {
+                        let (title, detail) = mode_label(mode);
+                        let on_pick = ctx.link().callback(move |()| Msg::Mode(mode));
+
+                        html! {
+                            <sockel::MenuRadio checked={self.query.mode == mode} {on_pick} detail={detail}>{title}</sockel::MenuRadio>
+                        }
+                    });
 
                     let mut group = sockel::group_classes(&[false, false, false]).into_iter();
 
@@ -857,14 +852,14 @@ impl Component for Prompt {
                             <sockel::InputGroup>
                                 <sockel::TextInput value={self.query.text.clone()} on_input={ctx.link().callback(Msg::Change)}
                                     label={l10n.text("search")} autofocus={true} class={group.next().unwrap_or_default()} />
-                                <sockel::Button tip={description} onclick={ontoggle} class={classes!(group.next(), class::PROMPT_MODE)}>{title}</sockel::Button>
-                                <sockel::Button tip={l10n.text("capture-clipboard")} pressed={self.query.capture_clipboard}
-                                    onclick={oncaptureclipboard} class={group.next().unwrap_or_default()}>{"📋"}</sockel::Button>
+                                <sockel::Menu text={html!({title})} tip={description} label={l10n.text("mode")}
+                                    opener_class={classes!(group.next(), class::PROMPT_MODE)} width={sockel::MenuWidth::Wider}>
+                                    {for modes}
+                                </sockel::Menu>
+                                <sockel::Button icon={icons::named(icons::CLIPBOARD)} label={l10n.text("capture-clipboard")}
+                                    tip={l10n.text("capture-clipboard")} pressed={self.query.capture_clipboard}
+                                    onclick={oncaptureclipboard} class={group.next().unwrap_or_default()} />
                             </sockel::InputGroup>
-
-                            <sockel::Cluster justify={sockel::Justify::End}>
-                                <sockel::Button variant={sockel::ButtonVariant::Quiet} {onclick}>{l10n.text("open-config")}</sockel::Button>
-                            </sockel::Cluster>
                         </>
                     };
 

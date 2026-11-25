@@ -41,6 +41,21 @@ where
     })
 }
 
+/// Copies `text` to the clipboard, logging when the browser refuses.
+pub(super) fn copy_text(text: &str) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+
+    let promise = window.navigator().clipboard().write_text(text);
+
+    wasm_bindgen_futures::spawn_local(async move {
+        if let Err(error) = wasm_bindgen_futures::JsFuture::from(promise).await {
+            log::warn!("Failed to copy: {error:?}");
+        }
+    });
+}
+
 /// A row of words: wraps, with no gap of its own, as the words carry their
 /// own separators.
 pub(super) fn row(children: Html) -> Html {

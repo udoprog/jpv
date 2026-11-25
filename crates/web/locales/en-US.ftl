@@ -62,8 +62,8 @@ config-help-tip = Go to the help page for this dictionary
 config-help-missing = No help page specified
 config-not-installed = not installed
 config-updated-tip = Has been updated and will be applied on Save
-config-edit = Edit
 config-edit-tip = Change this dictionary
+config-index-actions = Dictionary actions
 config-ocr-not-installed = OCR support is not installed
 config-ocr-support = OCR Support
 config-new-dictionary = New dictionary
@@ -112,11 +112,11 @@ mode-default-tip = Do not process input at all
 mode-hiragana-tip = Process input as Hiragana
 mode-katakana-tip = Treat input as Katakana
 capture-clipboard = Capture clipboard
-open-config = ⚙ Config
+mode = Input mode
 missing-dictionaries = Dictionaries missing:
-fix-in-settings = ⚙ Fix in Settings
+fix-in-settings = Fix in Settings
 ocr-missing = OCR support is enabled but not installed
-disable-ocr = ⚙ Disable
+disable-ocr = Disable
 
 # An entry.
 entry-other-kana = Other kana
@@ -125,6 +125,11 @@ entry-applies-to = Applies to
 entry-english = English
 entry-inflection = Result based on inflection:
 entry-reset = Reset
+entry-actions = Entry actions
+entry-copy = Copy word
+entry-copy-reading = Copy reading
+entry-open-data = Open entry data
+entry-open-data-detail = Entry #{ $sequence }
 # The inflection's name, such as "Past" (from jpv's inflection list).
 entry-tutorial = Tutorial for `{ $form }`
 entry-tutorial-tip = Tutorial for { $form }

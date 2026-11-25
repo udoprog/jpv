@@ -14,6 +14,11 @@ pub(crate) struct Props {
     #[prop_or_default]
     pub(crate) class: Classes,
     #[prop_or_default]
+    pub(crate) icon: Option<Html>,
+    /// The accessible name, for a button that is its icon alone.
+    #[prop_or_default]
+    pub(crate) label: Option<AttrValue>,
+    #[prop_or_default]
     pub(crate) children: Html,
 }
 
@@ -38,7 +43,7 @@ pub(crate) fn ExternalButton(props: &Props) -> Html {
 
     html! {
         <sockel::Button variant={props.variant} size={props.size} class={props.class.clone()} tip={props.title.clone()}
-            disabled={props.href.is_none()} {onclick}>
+            icon={props.icon.clone()} label={props.label.clone()} disabled={props.href.is_none()} {onclick}>
             {props.children.clone()}
         </sockel::Button>
     }

@@ -11,7 +11,7 @@ use crate::class;
 use crate::error::Error;
 use crate::ws;
 
-use super::spacing;
+use super::{icons, spacing};
 
 pub(crate) enum Msg {
     GetConfig(api::GetConfigResult),
@@ -283,8 +283,17 @@ impl Component for Config {
                     };
 
                     let help = html! {
-                        <c::ExternalButton href={index.help.clone().map(AttrValue::from)} target="_index" title={help_title}>{phrases.text("config-help")}</c::ExternalButton>
+                        <sockel::MenuItem icon={icons::named(icons::HELP)} href={index.help.clone().map(AttrValue::from)}
+                            new_tab={true} disabled={index.help.is_none()} detail={help_title}>
+                            {phrases.text("config-help")}
+                        </sockel::MenuItem>
                     };
+
+                    let actions = vec![sockel::RowAction::new(
+                        icons::named(icons::EDIT),
+                        phrases.text("config-edit-tip"),
+                        onclick,
+                    )];
 
                     let not_installed = (!self.installed.contains(id)).then(|| {
                         html! {
@@ -310,10 +319,8 @@ impl Component for Config {
                                     {for updated}
                                     {not_installed}
                                 </sockel::Cluster>
-                                <sockel::Cluster>
-                                    <sockel::Button variant={sockel::ButtonVariant::Primary} {onclick} tip={phrases.text("config-edit-tip")}>{phrases.text("config-edit")}</sockel::Button>
-                                    {help}
-                                </sockel::Cluster>
+                                <sockel::RowActions {actions} tips={true} more={help}
+                                    more_label={phrases.text("config-index-actions")} />
                             </sockel::Cluster>
                         </sockel::Card>
                     });
@@ -331,7 +338,7 @@ impl Component for Config {
                         .as_ref()
                         .map(|install| {
                             html! {
-                                <c::ExternalButton href={install.url.clone()} target="_install_url" title={install.title.clone()}>{format!("⇓ {}", install.text)}</c::ExternalButton>
+                                <c::ExternalButton icon={icons::named(icons::DOWNLOAD)} href={install.url.clone()} target="_install_url" title={install.title.clone()}>{install.text.clone()}</c::ExternalButton>
                             }
                         });
 
@@ -368,8 +375,8 @@ impl Component for Config {
 
             html! {
                 <sockel::Cluster justify={sockel::Justify::End}>
-                    <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} {onclick}>{phrases.text("config-new-dictionary")}</sockel::Button>
-                    <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} onclick={onrebuild} tip={phrases.text("config-install-all-tip")}>{phrases.text("config-install-all")}</sockel::Button>
+                    <sockel::Button icon={icons::glyph(sockel::Glyph::Plus)} disabled={self.pending} {onclick}>{phrases.text("config-new-dictionary")}</sockel::Button>
+                    <sockel::Button icon={icons::named(icons::DOWNLOAD)} disabled={self.pending} onclick={onrebuild} tip={phrases.text("config-install-all-tip")}>{phrases.text("config-install-all")}</sockel::Button>
                 </sockel::Cluster>
             }
         };
@@ -385,7 +392,7 @@ impl Component for Config {
 
         let back = (!ctx.props().embed).then(|| {
             html! {
-                <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{phrases.text("back")}</sockel::Button>
+                <sockel::Button icon={icons::named(icons::BACK)} onclick={ctx.props().onback.reform(|_| ())}>{phrases.text("back")}</sockel::Button>
             }
         });
 
@@ -429,7 +436,7 @@ impl Component for Config {
             <sockel::Stack gap={sockel::Gap::Loose}>
                 <sockel::Cluster justify={sockel::Justify::Between}>
                     {back.unwrap_or_else(|| html!(<span />))}
-                    <sockel::Button variant={sockel::ButtonVariant::Primary} {disabled} onclick={onsave}>{phrases.text("save")}</sockel::Button>
+                    <sockel::Button variant={sockel::ButtonVariant::Primary} icon={icons::named(icons::SAVE)} {disabled} onclick={onsave}>{phrases.text("save")}</sockel::Button>
                 </sockel::Cluster>
 
                 {pending}

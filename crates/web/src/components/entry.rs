@@ -12,7 +12,7 @@ use yew::prelude::*;
 
 use sockel::Gap;
 
-use super::{colon, comma, iter, romaji, row, ruby, seq, spacing, tag, tags};
+use super::{colon, comma, copy_text, icons, iter, romaji, row, ruby, seq, spacing, tag, tags};
 
 use crate::class;
 use crate::l10n::GLOSS_DEFAULT;
@@ -265,13 +265,11 @@ impl Component for Entry {
             },
         );
 
-        let sequence = (!ctx.props().embed).then(|| html! {
-            <sockel::Cluster justify={sockel::Justify::End}><a href={format!("/api/entry/{}", entry.sequence)} target="_api">{format!("#{}", entry.sequence)}</a></sockel::Cluster>
-        });
+        let actions = self.render_actions(phrases, entry);
 
         html! {
             <sockel::Stack gap={Gap::Tight}>
-                {sequence}
+                {actions}
                 {for extras}
                 {for reading}
                 {for common}
@@ -321,6 +319,48 @@ impl Entry {
                         .cloned(),
                 );
             }
+        }
+    }
+
+    /// The entry's menu: copying its word or reading, and its data.
+    fn render_actions(&self, phrases: &Phrases, entry: &jmdict::OwnedEntry) -> Html {
+        let word = self
+            .combined
+            .iter()
+            .find(|c| c.is_common())
+            .map(|c| c.kanji.text.clone());
+
+        let reading = entry.reading_elements.first().map(|r| r.text.clone());
+
+        let copy = |text: Option<String>, label: std::rc::Rc<str>| {
+            let disabled = text.is_none();
+            let onclick = Callback::from(move |_: MouseEvent| {
+                if let Some(text) = &text {
+                    copy_text(text);
+                }
+            });
+
+            html! {
+                <sockel::MenuItem icon={icons::glyph(sockel::Glyph::Copy)} {disabled} {onclick}>{label}</sockel::MenuItem>
+            }
+        };
+
+        let copy_word = copy(word.or_else(|| reading.clone()), phrases.text("entry-copy"));
+        let copy_reading = copy(reading, phrases.text("entry-copy-reading"));
+        let detail = phrases.msg("entry-open-data-detail", &args!(sequence = entry.sequence));
+
+        html! {
+            <sockel::Cluster justify={sockel::Justify::End}>
+                <sockel::Menu variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small}
+                    label={phrases.text("entry-actions")} tip={phrases.text("entry-actions")} width={sockel::MenuWidth::Wide}>
+                    {copy_word}
+                    {copy_reading}
+                    <sockel::MenuSeparator />
+                    <sockel::MenuItem icon={icons::named(icons::DATA)} href={format!("/api/entry/{}", entry.sequence)} new_tab={true} {detail}>
+                        {phrases.text("entry-open-data")}
+                    </sockel::MenuItem>
+                </sockel::Menu>
+            </sockel::Cluster>
         }
     }
 
@@ -508,7 +548,7 @@ fn render_inflection<'a>(
 
     let reset = (!filter.is_empty()).then(|| {
         let text = phrases.text("entry-reset");
-        html!(<sockel::Button size={sockel::ButtonSize::Small} variant={sockel::ButtonVariant::Danger} {onclick}>{text}</sockel::Button>)
+        html!(<sockel::Button size={sockel::ButtonSize::Small} variant={sockel::ButtonVariant::Danger} icon={icons::named(icons::RESET)} {onclick}>{text}</sockel::Button>)
     });
 
     form.chain(reset)

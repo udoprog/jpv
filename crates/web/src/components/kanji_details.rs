@@ -10,7 +10,7 @@ use crate::class;
 use crate::error::Error;
 use crate::ws;
 
-use super::{colon, comma, row, seq, spacing};
+use super::{colon, comma, icons, row, seq, spacing};
 
 pub(crate) enum Msg {
     GetKanji(Box<api::OwnedKanjiResponse>),
@@ -107,7 +107,7 @@ impl Component for KanjiDetails {
 
             html! {
                 <sockel::Cluster>
-                    <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{phrases.text("back")}</sockel::Button>
+                    <sockel::Button icon={icons::named(icons::BACK)} onclick={ctx.props().onback.reform(|_| ())}>{phrases.text("back")}</sockel::Button>
                     {for pending}
                 </sockel::Cluster>
             }

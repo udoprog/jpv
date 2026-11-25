@@ -1,6 +1,6 @@
 #[macro_use]
 mod tools;
-use self::tools::{colon, comma, iter, romaji, row, ruby, seq, spacing, tag, tags};
+use self::tools::{colon, comma, copy_text, iter, romaji, row, ruby, seq, spacing, tag, tags};
 
 pub(crate) mod entry;
 pub(crate) use self::entry::Entry;
@@ -34,6 +34,8 @@ mod host_files;
 
 pub(crate) use self::external_button::ExternalButton;
 mod external_button;
+
+pub(crate) mod icons;
 
 pub(crate) use self::split_region::SplitRegion;
 mod split_region;

@@ -144,6 +144,8 @@ fn Root() -> Html {
         }
     });
 
+    let icons = use_memo((), |_| c::icons::set());
+
     let gloss = l10n::GlossLang {
         code: chosen_gloss.unwrap_or_else(|| l10n::gloss_for(phrases.lang())),
         set: (*set_gloss).clone(),
@@ -153,11 +155,13 @@ fn Root() -> Html {
         <ContextProvider<Phrases> context={(*phrases).clone()}>
             <ContextProvider<l10n::SetLang> context={(*set_lang).clone()}>
                 <ContextProvider<l10n::GlossLang> context={gloss}>
-                    <sockel::OverlayHost>
-                        <sockel::Styles css={STYLESHEET} />
-                        <sockel::DataTips />
-                        <App />
-                    </sockel::OverlayHost>
+                    <ContextProvider<sockel::IconSet> context={(*icons).clone()}>
+                        <sockel::OverlayHost>
+                            <sockel::Styles css={STYLESHEET} />
+                            <sockel::DataTips />
+                            <App />
+                        </sockel::OverlayHost>
+                    </ContextProvider<sockel::IconSet>>
                 </ContextProvider<l10n::GlossLang>>
             </ContextProvider<l10n::SetLang>>
         </ContextProvider<Phrases>>
