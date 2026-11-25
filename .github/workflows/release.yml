@@ -45,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fedora: ["43", "44", "45"]
+        fedora: ["44", "45"]
     container:
       image: fedora:${{matrix.fedora}}
     steps:
@@ -55,7 +55,7 @@ jobs:
       with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
-    - run: dnf install --assumeyes gcc rpm-build glib2-devel openssl-devel git
+    - run: dnf install --assumeyes gcc rpm-build glib2-devel git 'libssl.so.3()(64bit)'
     - uses: udoprog/actions@kick
     - run: kick define --github-action
       id: release
