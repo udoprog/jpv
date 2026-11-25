@@ -2,7 +2,7 @@
 
 set -e
 
-trunk build --release
+trug build --release
 cargo build --release --features gnome,bundle -p jpv
 rm -f target/generate-rpm/jpv-*.rpm
 cargo generate-rpm -p crates/jpv

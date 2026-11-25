@@ -154,10 +154,10 @@ features, and on Windows, it is loaded at runtime when installed.
 
 ## Building from source
 
-The web interface is built with [trunk] for the `wasm32` target:
+The web interface is built with [trug] for the `wasm32` target:
 
 ```sh
-cargo install trunk
+cargo install trug
 rustup target add wasm32-unknown-unknown
 ```
 
@@ -185,7 +185,7 @@ Then build the interface and run jpv from the project directory, adding
 `gnome` on Linux for desktop integration:
 
 ```sh
-trunk build --release
+trug build --release
 cargo run --features bundle,gnome
 ```
 
@@ -199,7 +199,7 @@ To build and install an RPM for Fedora GNOME, run [tools/fedora-install], or
 by hand:
 
 ```sh
-trunk build --release
+trug build --release
 cargo build --release -p jpv --features bundle,gnome
 cargo generate-rpm -p crates/jpv
 sudo dnf install target/generate-rpm/jpv-*.rpm
@@ -210,6 +210,6 @@ background. Run `jpv build` before first use.
 
 ![Desktop entry](https://github.com/udoprog/jpv/blob/main/gfx/desktop.png?raw=true)
 
-[trunk]: https://trunkrs.dev/
+[trug]: https://github.com/udoprog/trug
 [UB-Mannheim/tesseract]: https://github.com/UB-Mannheim/tesseract/wiki
 [tools/fedora-install]: https://github.com/udoprog/jpv/blob/main/tools/fedora-install

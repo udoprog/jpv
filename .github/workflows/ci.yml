@@ -50,6 +50,18 @@ jobs:
     - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
     - run: cargo clippy --workspace -- -D warnings
 
+  web:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+        components: clippy
+    - uses: udoprog/actions@trug
+    - run: trug build --release
+    - run: cargo clippy -p web --target wasm32-unknown-unknown -- -D warnings
+
   rustfmt:
     runs-on: ubuntu-latest
     steps:
