@@ -6,6 +6,7 @@ use phrasebook::yew023::use_phrases;
 use sockel::Gap;
 use yew::prelude::*;
 
+use super::icons;
 use crate::class;
 
 #[derive(Properties, PartialEq)]
@@ -73,10 +74,9 @@ pub(crate) fn Tasks(props: &TasksProps) -> Html {
                 {text}
                 <div class={class::TASK_PROGRESS}>{progress}</div>
                 {value}
-                <sockel::IconButton class={classes!(sockel::class::GHOST, sockel::class::ICON)}
-                    disabled={cancelling} {onclick} title={label.clone()} label={label}>
-                    <sockel::Icon glyph={sockel::Glyph::Close} />
-                </sockel::IconButton>
+                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small}
+                    icon={icons::glyph(sockel::Glyph::Close)} disabled={cancelling} {onclick}
+                    tip={label.clone()} label={label} />
             </sockel::Cluster>
         }
     });

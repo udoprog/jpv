@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use lib::api;
 use lib::config::ConfigIndex;
+use phrasebook::args;
 use phrasebook::yew023::PhrasesContext;
 use phrasebook::Phrases;
 use yew::prelude::*;
@@ -291,7 +292,7 @@ impl Component for Config {
 
                     let actions = vec![sockel::RowAction::new(
                         icons::named(icons::EDIT),
-                        phrases.text("config-edit-tip"),
+                        phrases.msg("config-edit-tip", &args!(index = id.as_str())),
                         onclick,
                     )];
 
@@ -320,7 +321,7 @@ impl Component for Config {
                                     {not_installed}
                                 </sockel::Cluster>
                                 <sockel::RowActions {actions} tips={true} more={help}
-                                    more_label={phrases.text("config-index-actions")} />
+                                    more_label={phrases.msg("config-index-actions", &args!(index = id.as_str()))} />
                             </sockel::Cluster>
                         </sockel::Card>
                     });

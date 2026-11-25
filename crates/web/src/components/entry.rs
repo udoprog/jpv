@@ -347,7 +347,10 @@ impl Entry {
 
         let copy_word = copy(word.or_else(|| reading.clone()), phrases.text("entry-copy"));
         let copy_reading = copy(reading, phrases.text("entry-copy-reading"));
-        let detail = phrases.msg("entry-open-data-detail", &args!(sequence = entry.sequence));
+        let detail = phrases.msg(
+            "entry-open-data-detail",
+            &args!(sequence = entry.sequence.to_string()),
+        );
 
         html! {
             <sockel::Cluster justify={sockel::Justify::End}>
