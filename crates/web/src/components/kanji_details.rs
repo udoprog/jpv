@@ -8,7 +8,7 @@ use crate::class;
 use crate::error::Error;
 use crate::ws;
 
-use super::{comma, seq, spacing};
+use super::{comma, row, seq, spacing};
 
 pub(crate) enum Msg {
     GetKanji(Box<api::OwnedKanjiResponse>),
@@ -93,17 +93,13 @@ impl Component for KanjiDetails {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         let heading = (!ctx.props().embed).then(|| {
-            let pending = self.pending.then(|| {
-                html! {
-                    {"Loading..."}
-                }
-            });
+            let pending = self.pending.then(|| html!(<span class={class::HINT}>{"Loading..."}</span>));
 
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
+                <sockel::Cluster>
                     <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</sockel::Button>
                     {for pending}
-                </div>
+                </sockel::Cluster>
             }
         });
 
@@ -117,13 +113,13 @@ impl Component for KanjiDetails {
                     html! {<><span class={class::TEXT}><a onclick={onclick.clone()}>{literal.clone()}</a></span>{not_last.then(comma)}</>}
                 });
 
-                html! {
-                    <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW)}>
-                        <span class={class::CLICKABLE}>{"Radicals:"}{spacing()}</span>
-
+                row(html! {
+                    <>
+                        <span>{"Radicals:"}</span>
+                        {spacing()}
                         {for radicals}
-                    </div>
-                }
+                    </>
+                })
             });
 
             let strokes = (!kanji.kanji.misc.stroke_counts.is_empty()).then(|| {
@@ -131,31 +127,29 @@ impl Component for KanjiDetails {
                     html! {<><span class={class::TEXT}>{strokes}</span>{not_last.then(comma)}</>}
                 });
 
-                html! {
-                    <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW)}>
-                        <span class={class::CLICKABLE}>{"Strokes:"}{spacing()}</span>
-
+                row(html! {
+                    <>
+                        <span>{"Strokes:"}</span>
+                        {spacing()}
                         {for strokes}
-                    </div>
-                }
+                    </>
+                })
             });
 
             html! {
-                <>
-                    <div class={classes!(class::BLOCK, class::BLOCK_LG, class::CHARACTER)}>
-                        <c::Character embed={false} character={kanji.kanji.clone()} />
-                        {for strokes}
-                        {for radicals}
-                    </div>
-                </>
+                <sockel::Stack gap={sockel::Gap::Tight}>
+                    <c::Character embed={false} character={kanji.kanji.clone()} />
+                    {for strokes}
+                    {for radicals}
+                </sockel::Stack>
             }
         });
 
         html! {
-            <>
+            <sockel::Stack gap={sockel::Gap::Loose}>
                 {for heading}
                 {for kanji}
-            </>
+            </sockel::Stack>
         }
     }
 }

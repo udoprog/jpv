@@ -283,24 +283,28 @@ impl Component for Config {
 
                     let updated = is_updated.then(|| {
                         html! {
-                            <span title="Has been updated and will be applied on Save">{"＊"}</span>
+                            <span data-tip="Has been updated and will be applied on Save">{"＊"}</span>
                         }
                     });
 
                     indexes.push(html! {
-                        <div class={class::BLOCK}>
-                            <sockel::Cluster class={class::INDEX}>
-                                <sockel::Checkbox {checked} disabled={self.pending || installing} {on_change}>
-                                    <span class={class::INDEX_ID}>{id.to_owned()}</span>
-                                    {spacing()}
-                                    <span>{index.description.clone()}</span>
-                                </sockel::Checkbox>
-                                {for updated}
-                                {not_installed}
-                                <sockel::Button variant={sockel::ButtonVariant::Primary} class={class::ROW_END} {onclick} title={"Change this dictionary"}>{"Edit"}</sockel::Button>
-                                {help}
+                        <sockel::Card inset={sockel::Inset::Compact}>
+                            <sockel::Cluster justify={sockel::Justify::Between}>
+                                <sockel::Cluster>
+                                    <sockel::Checkbox {checked} disabled={self.pending || installing} {on_change}>
+                                        <span class={class::INDEX_ID}>{id.to_owned()}</span>
+                                        {spacing()}
+                                        <span>{index.description.clone()}</span>
+                                    </sockel::Checkbox>
+                                    {for updated}
+                                    {not_installed}
+                                </sockel::Cluster>
+                                <sockel::Cluster>
+                                    <sockel::Button variant={sockel::ButtonVariant::Primary} {onclick} tip={"Change this dictionary"}>{"Edit"}</sockel::Button>
+                                    {help}
+                                </sockel::Cluster>
                             </sockel::Cluster>
-                        </div>
+                        </sockel::Card>
                     });
                 }
             }
@@ -321,20 +325,15 @@ impl Component for Config {
                         });
 
                     html! {
-                        <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
-                            <sockel::Notice tone={sockel::Tone::Danger} action={install_url}>
-                                {"OCR support is not installed"}
-                            </sockel::Notice>
-                        </div>
+                        <sockel::Notice tone={sockel::Tone::Danger} action={install_url}>
+                            {"OCR support is not installed"}
+                        </sockel::Notice>
                     }
                 });
 
                 html! {
                     <>
-                        <div class={class::BLOCK}>
-                            <sockel::Checkbox {checked} disabled={self.pending} {on_change}>{"OCR Support"}</sockel::Checkbox>
-                        </div>
-
+                        <sockel::Checkbox {checked} disabled={self.pending} {on_change}>{"OCR Support"}</sockel::Checkbox>
                         {for missing_ocr}
                     </>
                 }
@@ -357,12 +356,10 @@ impl Component for Config {
             let onrebuild = ctx.link().callback(|_| Msg::InstallAll);
 
             html! {
-                <div class={class::BLOCK}>
-                    <sockel::Cluster justify={sockel::Justify::End}>
-                        <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} {onclick}>{"New dictionary"}</sockel::Button>
-                        <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} onclick={onrebuild} title="Install all missing dictionaries">{"Install all"}</sockel::Button>
-                    </sockel::Cluster>
-                </div>
+                <sockel::Cluster justify={sockel::Justify::End}>
+                    <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} {onclick}>{"New dictionary"}</sockel::Button>
+                    <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} onclick={onrebuild} tip="Install all missing dictionaries">{"Install all"}</sockel::Button>
+                </sockel::Cluster>
             }
         };
 
@@ -382,24 +379,22 @@ impl Component for Config {
         });
 
         let log = (!ctx.props().log.is_empty()).then(|| {
-            let it = ctx.props().log.iter().rev().map(|entry| {
-                let class = classes! {
-                    class::ROW,
-                    class::LOG_ENTRY,
-                    log_level_class(&entry.level),
-                };
+            let log = &ctx.props().log;
 
+            let it = log.iter().map(|entry| {
                 html! {
-                    <div {class}>
-                        <span class={classes!(class::LOG_FIELD, class::LOG_LEVEL)}>{&entry.level}</span>
-                        <span class={classes!(class::LOG_FIELD, class::LOG_TARGET)}>{&entry.target}</span>
-                        <span class={class::LOG_FIELD}>{&entry.text}</span>
-                    </div>
+                    <sockel::Cluster gap={sockel::Gap::Tight} nowrap={true} class={class::LOG_ENTRY}>
+                        <sockel::Badge tone={log_level_tone(&entry.level)} solid={true} class={class::LOG_LEVEL}>{&entry.level}</sockel::Badge>
+                        <span class={class::LOG_TARGET}>{&entry.target}</span>
+                        <span>{&entry.text}</span>
+                    </sockel::Cluster>
                 }
             });
 
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::LOG)}>{for it}</div>
+                <div class={class::LOG}>
+                    <sockel::LogView count={log.len()} label="Log">{for it}</sockel::LogView>
+                </div>
             }
         });
 
@@ -409,9 +404,7 @@ impl Component for Config {
 
         let pending = self.pending.then(|| {
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
-                    <div>{"Loading"}</div>
-                </div>
+                <div>{"Loading"}</div>
             }
         });
 
@@ -422,38 +415,39 @@ impl Component for Config {
         });
 
         html! {
-            <>
-                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
-                    <sockel::Cluster>
-                        {back}
-                        <sockel::Button variant={sockel::ButtonVariant::Primary} class={class::ROW_END} {disabled} onclick={onsave}>{"Save"}</sockel::Button>
-                    </sockel::Cluster>
-                </div>
+            <sockel::Stack gap={sockel::Gap::Loose}>
+                <sockel::Cluster justify={sockel::Justify::Between}>
+                    {back.unwrap_or_else(|| html!(<span />))}
+                    <sockel::Button variant={sockel::ButtonVariant::Primary} {disabled} onclick={onsave}>{"Save"}</sockel::Button>
+                </sockel::Cluster>
 
                 {pending}
                 {error}
 
-                <h5>{"Dictionaries"}</h5>
-                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>{dictionaries}</div>
+                <sockel::Stack gap={sockel::Gap::Tight}>
+                    <h5>{"Dictionaries"}</h5>
+                    {dictionaries}
+                </sockel::Stack>
 
-                <h5>{"OCR"}</h5>
-
-                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                <sockel::Stack gap={sockel::Gap::Tight}>
+                    <h5>{"OCR"}</h5>
                     {for ocr}
-                </div>
+                </sockel::Stack>
 
-                <h5>{"Log"}</h5>
-                {log}
-            </>
+                <sockel::Stack gap={sockel::Gap::Tight}>
+                    <h5>{"Log"}</h5>
+                    {log}
+                </sockel::Stack>
+            </sockel::Stack>
         }
     }
 }
 
-fn log_level_class(level: &str) -> Option<&'static str> {
+fn log_level_tone(level: &str) -> sockel::Tone {
     match level {
-        "info" => Some(class::LOG_ENTRY_INFO),
-        "warn" => Some(class::LOG_ENTRY_WARN),
-        "error" => Some(class::LOG_ENTRY_ERROR),
-        _ => None,
+        "info" => sockel::Tone::Accent,
+        "warn" => sockel::Tone::Warning,
+        "error" => sockel::Tone::Danger,
+        _ => sockel::Tone::Neutral,
     }
 }

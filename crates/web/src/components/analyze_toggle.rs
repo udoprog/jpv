@@ -63,13 +63,13 @@ impl Component for AnalyzeToggle {
 
         let analyze_hint = if ctx.props().analyzed.len() > 1 {
             Some(html! {
-                <div class={classes!(class::BLOCK, class::ROW, class::HINT)}>
+                <div class={class::HINT}>
                     {format!("{} / {} (click character to cycle)", ctx.props().index + 1, ctx.props().analyzed.len())}
                 </div>
             })
         } else if ctx.props().analyzed.is_empty() {
             Some(html! {
-                <div class={classes!(class::BLOCK, class::ROW, class::HINT)}>
+                <div class={class::HINT}>
                     <span>{"Hint:"}</span>
                     {spacing()}
                     <span>{"Click character for substring search"}</span>
@@ -80,10 +80,10 @@ impl Component for AnalyzeToggle {
         };
 
         html! {
-            <div id="analyze">
-                <div class={classes!(class::BLOCK, class::ROW, class::ANALYZE_TEXT)}>{for query}</div>
+            <sockel::Stack gap={sockel::Gap::Snug}>
+                <sockel::Cluster gap={sockel::Gap::None} class={class::ANALYZE_TEXT}>{for query}</sockel::Cluster>
                 {analyze_hint}
-            </div>
+            </sockel::Stack>
         }
     }
 }

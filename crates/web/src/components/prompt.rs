@@ -26,6 +26,8 @@ use crate::error::Error;
 use crate::query::{Mode, Query, Tab};
 use crate::ws;
 
+use sockel::Gap;
+
 use super::{comma, seq, spacing};
 
 const DEFAULT_LIMIT: usize = 100;
@@ -423,7 +425,7 @@ impl Component for Prompt {
                 "Type something in the prompt"
             };
 
-            html!(<div id="analyze" class={classes!(class::BLOCK, class::ROW, class::ANALYZE_TEXT, class::EMPTY)}>{text}</div>)
+            html!(<div class={classes!(class::ANALYZE_TEXT, class::EMPTY)}>{text}</div>)
         } else {
             let on_analyze = ctx.link().callback(Msg::Analyze);
             let on_analyze_cycle = ctx.link().callback(|_| Msg::AnalyzeCycle);
@@ -432,11 +434,11 @@ impl Component for Prompt {
 
         let translation = self.query.translation.as_ref().map(|text| {
             html! {
-                <div class={classes!(class::BLOCK, class::ROW)} id="translation">
+                <sockel::Cluster gap={Gap::None}>
                     <span class={class::TRANSLATION_TITLE}>{"Translation:"}</span>
                     {spacing()}
                     <span>{text}</span>
-                </div>
+                </sockel::Cluster>
             }
         });
 
@@ -455,7 +457,7 @@ impl Component for Prompt {
 
             let phrases = seq(phrases, |entry, not_last| {
                 if not_last {
-                    html!(<>{entry}<div class={class::ENTRY_SEPARATOR} /></>)
+                    html!(<>{entry}<div class={class::RULE} /></>)
                 } else {
                     entry
                 }
@@ -463,15 +465,15 @@ impl Component for Prompt {
 
             let more = (self.phrases.len() > self.limit_entries).then(|| {
                 html! {
-                    <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
-                        <div class={classes!(class::BLOCK, class::ROW)}>
+                    <sockel::Stack gap={Gap::Tight}>
+                        <div>
                             {format!("Showing {} out of {} phrases", self.limit_entries, self.phrases.len())}
                         </div>
 
-                        <div class={classes!(class::BLOCK, class::ROW)}>
+                        <sockel::Cluster>
                             <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</sockel::Button>
-                        </div>
-                    </div>
+                        </sockel::Cluster>
+                    </sockel::Stack>
                 }
             });
 
@@ -480,11 +482,11 @@ impl Component for Prompt {
             });
 
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                <sockel::Stack gap={Gap::Loose}>
                     {header}
                     {for phrases}
                     {for more}
-                </div>
+                </sockel::Stack>
             }
         });
 
@@ -503,16 +505,16 @@ impl Component for Prompt {
             let header = (!self.query.embed).then(|| html!(<h4>{"Names"}</h4>));
 
             html! {
-                <>
-                {header}
-                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>{for names}</div>
-                </>
+                <sockel::Stack gap={Gap::Loose}>
+                    {header}
+                    <sockel::Cluster gap={Gap::Tight}>{for names}</sockel::Cluster>
+                </sockel::Stack>
             }
         });
 
         let kanjis = (!self.characters.is_empty()).then(|| {
             let iter = seq(self.characters.iter().take(self.limit_characters), |c, not_last| {
-                let separator = not_last.then(|| html!(<div class={class::CHARACTER_SEPARATOR} />));
+                let separator = not_last.then(|| html!(<div class={class::RULE} />));
 
                 let onclick = ctx.link().callback({
                     let literal = Rc::<str>::from(c.literal.as_str());
@@ -521,9 +523,7 @@ impl Component for Prompt {
 
                 html! {
                     <>
-                        <div class={class::CHARACTER}>
-                            <c::Character embed={self.query.embed} character={c.clone()} {onclick} />
-                        </div>
+                        <c::Character embed={self.query.embed} character={c.clone()} {onclick} />
 
                         {for separator}
                     </>
@@ -532,15 +532,15 @@ impl Component for Prompt {
 
             let more = (self.characters.len() > self.limit_characters).then(|| {
                 html! {
-                    <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
-                        <div class={classes!(class::BLOCK, class::ROW)}>
+                    <sockel::Stack gap={Gap::Tight}>
+                        <div>
                             {format!("Showing {} out of {} characters", self.limit_characters, self.characters.len())}
                         </div>
 
-                        <div class={classes!(class::BLOCK, class::ROW)}>
+                        <sockel::Cluster>
                             <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</sockel::Button>
-                        </div>
-                    </div>
+                        </sockel::Cluster>
+                    </sockel::Stack>
                 }
             });
 
@@ -549,11 +549,11 @@ impl Component for Prompt {
             });
 
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                <sockel::Stack gap={Gap::Loose}>
                     {header}
                     {for iter}
                     {for more}
-                </div>
+                </sockel::Stack>
             }
         });
 
@@ -605,26 +605,26 @@ impl Component for Prompt {
                     let onclick = ctx
                         .link()
                         .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
-                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}><c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} /></div>)
+                    html!(<c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} />)
                 }
                 Tab::Settings => {
                     let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
+                    html!(<c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} />)
                 }
                 Tab::Phrases => {
-                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}>{phrases}</div>)
+                    html!(<>{phrases}</>)
                 }
                 Tab::Names => {
-                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}>{names}</div>)
+                    html!(<>{names}</>)
                 }
                 Tab::Kanji => {
-                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}>{kanjis}</div>)
+                    html!(<>{kanjis}</>)
                 }
             };
 
             html! {
                 <>
-                    <div class={classes!(class::BLOCK, class::BLOCK_LG)}>{analyze}</div>
+                    {analyze}
                     {for translation}
                     <sockel::Tabs {tabs} value={AttrValue::Static(value)} {on_change} label="Results" />
                     {content}
@@ -637,11 +637,11 @@ impl Component for Prompt {
                     let onclick = ctx
                         .link()
                         .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
-                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}><c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} /></div>)
+                    html!(<c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} />)
                 }
                 Tab::Settings => {
                     let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
+                    html!(<c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} />)
                 }
                 _ => {
                     let next = match self.query.mode {
@@ -669,21 +669,17 @@ impl Component for Prompt {
 
                     let prompt = html! {
                         <>
-                        <div class={class::BLOCK}>
                             <sockel::InputGroup>
                                 <sockel::TextInput value={self.query.text.clone()} on_input={ctx.link().callback(Msg::Change)}
                                     label="Search" autofocus={true} class={group.next().unwrap_or_default()} />
-                                <sockel::Button title={description} onclick={ontoggle} class={classes!(group.next(), class::PROMPT_MODE)}>{title}</sockel::Button>
-                                <sockel::Button title="Capture clipboard" pressed={self.query.capture_clipboard}
+                                <sockel::Button tip={description} onclick={ontoggle} class={classes!(group.next(), class::PROMPT_MODE)}>{title}</sockel::Button>
+                                <sockel::Button tip="Capture clipboard" pressed={self.query.capture_clipboard}
                                     onclick={oncaptureclipboard} class={group.next().unwrap_or_default()}>{"📋"}</sockel::Button>
                             </sockel::InputGroup>
-                        </div>
 
-                        <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
                             <sockel::Cluster justify={sockel::Justify::End}>
                                 <sockel::Button variant={sockel::ButtonVariant::Quiet} {onclick}>{"⚙ Config"}</sockel::Button>
                             </sockel::Cluster>
-                        </div>
                         </>
                     };
 
@@ -695,17 +691,14 @@ impl Component for Prompt {
 
                     html! {
                         <>
-                            <>{prompt}</>
+                            {prompt}
+                            {analyze}
+                            {for translation}
 
-                            <>
-                                <div class={classes!(class::BLOCK, class::BLOCK_XL)}>{analyze}</div>
-                                {for translation}
-
-                                <div class={class::COLUMNS}>
-                                    <div class={class::COLUMN}>{phrases}{names}</div>
-                                    {for kanjis}
-                                </div>
-                            </>
+                            <div class={class::COLUMNS}>
+                                <sockel::Stack gap={Gap::Wide} class={class::COLUMN}>{phrases}{names}</sockel::Stack>
+                                {for kanjis}
+                            </div>
                         </>
                     }
                 }
@@ -724,39 +717,34 @@ impl Component for Prompt {
                     }
                     None => {
                         let progress = html!(<progress />);
-                        let value = html!(<div class={class::TASK_FIELD}>{task.value.to_string()}</div>);
+                        let value = html!(<div>{task.value.to_string()}</div>);
                         (progress, Some(value))
                     }
-                };
-
-                let class = classes! {
-                    class::BLOCK,
-                    class::ROW,
-                    class::ROW_SPACED,
-                    class::TASK,
                 };
 
                 let progress_text = format!("{} ...", task.text);
 
                 let text = (!self.query.embed).then(|| {
-                    html!(<div class={class::TASK_FIELD}>{progress_text.clone()}</div>)
+                    html!(<div>{progress_text.clone()}</div>)
                 });
 
                 html! {
-                    <div {class} title={progress_text}>
-                        <div class={classes!(class::TASK_FIELD, class::TASK_NAME)}>{&task.name}</div>
-                        <div class={class::TASK_FIELD}>{format!("{}/{}", task.step, task.steps)}</div>
+                    <sockel::Cluster gap={Gap::Tight} nowrap={true} class={class::TASK}>
+                        <span data-tip={progress_text}>
+                            <sockel::Badge tone={sockel::Tone::Accent} solid={true}>{&task.name}</sockel::Badge>
+                        </span>
+                        <div>{format!("{}/{}", task.step, task.steps)}</div>
                         {text}
-                        <div class={classes!(class::TASK_FIELD, class::TASK_PROGRESS)}>{progress}</div>
+                        <div class={class::TASK_PROGRESS}>{progress}</div>
                         {value}
-                    </div>
+                    </sockel::Cluster>
                 }
             });
 
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG)} id="tasks">
+                <sockel::Stack gap={Gap::Snug}>
                     {for tasks}
-                </div>
+                </sockel::Stack>
             }
         });
 
@@ -775,13 +763,11 @@ impl Component for Prompt {
             let action = html!(<sockel::Button {onclick}>{"⚙ Fix in Settings"}</sockel::Button>);
 
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
-                    <sockel::Notice tone={sockel::Tone::Danger} {action}>
-                        <span>{"Dictionaries missing:"}</span>
-                        {spacing()}
-                        <span>{for missing}</span>
-                    </sockel::Notice>
-                </div>
+                <sockel::Notice tone={sockel::Tone::Danger} {action}>
+                    <span>{"Dictionaries missing:"}</span>
+                    {spacing()}
+                    <span>{for missing}</span>
+                </sockel::Notice>
             }
         });
 
@@ -810,11 +796,9 @@ impl Component for Prompt {
             };
 
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
-                    <sockel::Notice tone={sockel::Tone::Danger} {action}>
-                        {"OCR support is enabled but not installed"}
-                    </sockel::Notice>
-                </div>
+                <sockel::Notice tone={sockel::Tone::Danger} {action}>
+                    {"OCR support is enabled but not installed"}
+                </sockel::Notice>
             }
         });
 
@@ -822,19 +806,19 @@ impl Component for Prompt {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
 
             let search = html! {
-                <a class={class::CLICKABLE} title="Search" {onclick}>{"🔍"}</a>
+                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} tip="Search" {onclick}>{"🔍"}</sockel::Button>
             };
 
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
             let config = html! {
-                <a class={class::CLICKABLE} {onclick} title="Configure">{"⚙"}</a>
+                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} tip="Configure" {onclick}>{"⚙"}</sockel::Button>
             };
 
             let maximize = if self.query.embed {
                 self.query.to_href(true).map(|href| {
                     html! {
-                        <a class={classes!(class::MAXIMIZE, class::CLICKABLE)} {href} target="_window" title="Open in big window">{"🗖"}</a>
+                        <c::ExternalButton variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} href={AttrValue::from(href)} target="_window" title="Open in big window">{"🗖"}</c::ExternalButton>
                     }
                 })
             } else {
@@ -842,13 +826,11 @@ impl Component for Prompt {
             };
 
             html! {
-                <div id="window-top">
-                    <div class={class::CONTAINER}>
-                        <span class={class::LEFT}>
-                            {search}
-                            {config}
-                        </span>
-                        <span></span>
+                <div class={class::WINDOW_TOP}>
+                    <sockel::Toolbar label="Window" class={class::CONTAINER}>
+                        {search}
+                        {config}
+                        <sockel::ToolbarSpacer />
                         <span>
                             <a href="https://github.com/udoprog/jpv">{"Japanese Dictionary"}</a>
                             <span class={class::SUB_TITLE}>
@@ -856,17 +838,16 @@ impl Component for Prompt {
                                 <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
                             </span>
                         </span>
-                        <span></span>
-                        <span class={class::RIGHT}>
-                            {maximize}
-                        </span>
-                    </div>
+                        <sockel::ToolbarSpacer />
+                        {maximize}
+                    </sockel::Toolbar>
                 </div>
             }
         };
 
         let class = classes! {
             class::CONTAINER,
+            class::CONTENT,
             self.query.embed.then_some(class::EMBED),
         };
 
@@ -874,13 +855,13 @@ impl Component for Prompt {
             <>
                 {window_top}
 
-                <div id="content" {class}>
+                <sockel::Stack gap={Gap::Loose} {class}>
                     {missing}
                     {missing_ocr}
                     {tasks}
                     {page}
-                    <div class={classes!(class::BLOCK, class::BLOCK_XL)} id="copyright">{copyright()}</div>
-                </div>
+                    <sockel::Stack gap={Gap::Tight} class={class::COPYRIGHT}>{copyright()}</sockel::Stack>
+                </sockel::Stack>
             </>
         }
     }
@@ -951,7 +932,7 @@ fn decode_query(location: Option<Location>) -> Query {
 fn copyright() -> Html {
     html! {
         <>
-            <div class={classes!(class::BLOCK, class::INLINE)}>
+            <div>
                 <span>{"Made with ❤️ by "}</span>
                 <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
                 <span>{", freely available forever under the "}</span>
@@ -960,7 +941,7 @@ fn copyright() -> Html {
                 <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-APACHE">{"Apache 2.0 license"}</a>
             </div>
 
-            <div class={classes!(class::BLOCK, class::INLINE)}>
+            <div>
                 <span>{"This application uses "}</span>
                 <a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">{"JMDICT"}</a>
                 <span>{", "}</span>

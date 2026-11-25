@@ -1,7 +1,7 @@
 @use "sockel" as p;
 @import "_reset";
-@import "_mixins";
 
+// The colours sockel reads; everything else derives from them.
 :root {
     --bg: #2a2a2a;
     --surface: #343434;
@@ -14,95 +14,55 @@
     color-scheme: dark;
 }
 
+// jpv's own: headings a step brighter than the text, the analyzed span,
+// and the rule between entries.
 :root {
-    --text-color: #d9d9d9;
     --heading-color: #eee;
-    --link-color: #b3d9ec;
-    --link-hover: #eee;
     --analyzed-color: #e55555;
-
-    --primary-color: #2a2a2a;
-    --primary-bg: #b3d9ec;
-
-    --warn-bg: #995613;
-
-    --danger-color: #d9d9d9;
-    --danger-bg: #861a1a;
-
-    --bullet-bg: #8abc83;
-
-    --bg-highlight: #343434;
-
-    --inflection-color: #e8e8e8;
-    --inflection-active-bg:  #408399 ;
-    --inflection-disabled-bg: #5f5f5f;
-
-    --notice-font-size: 0.8em;
-
-    --bullet-color: #282828;
-    --bullet-margin: 0.1rem;
-    --bullet-size: 0.8em;
-    --bullet-sm-size: 0.8em;
-
-    --section-sm-margin: 0.25rem;
-    --section-margin: 0.5rem;
-    --section-lg-margin: 1rem;
-    --section-xl-margin: 2rem;
-    
-    --separator-color: #ffffff46;
-}
-
-@mixin button-body {
-    margin: var(--bullet-margin);
-    padding: 0.2rem 0.4rem;
-    border: 1px solid var(--bullet-color);
-    border-radius: 3px;
+    --rule: #ffffff46;
 }
 
 body {
     overflow-y: scroll;
     font-size: 18px;
     font-family: Arial, sans-serif;
-    color: var(--text-color);
+    color: var(--text);
     background-color: var(--bg);
     height: 100%;
 }
 
-.jpv-prompt-mode {
-    min-width: 6em;
+h1, h2, h3, h4, h5, h6 {
+    color: var(--heading-color);
 }
 
-#translation {
-    .jpv-translation-title {
-        font-weight: bold;
+h1, h2, h3, h4 {
+    font-size: 1.5em;
+}
+
+h5, h6 {
+    font-size: 1.2em;
+}
+
+a {
+    cursor: pointer;
+    color: var(--accent);
+    text-decoration: none;
+
+    &:hover {
+        color: var(--heading-color);
     }
 }
 
-#analyze {
-    .jpv-hint {
-        font-size: 80%;
-    }
+.jpv-clickable {
+    cursor: pointer;
 
-    .jpv-analyze-text {
-        font-size: 180%;
-        white-space: pre;
-        line-height: 1.2em;
-
-        &.jpv-empty {
-            font-style: italic;
-        }
-    }
-}
-
-.jpv-analyze-span {
-    &.jpv-active {
-        color: var(--analyzed-color);
+    &:hover {
+        color: var(--heading-color);
     }
 }
 
 .jpv-container {
     margin: 0 auto;
-    height: 100%;
     max-width: 1200px;
 
     &.jpv-embed {
@@ -112,53 +72,58 @@ body {
     }
 }
 
-#content {
-    font-size: 1em;
-    padding: 1rem;
+.jpv-content {
+    padding: var(--space-4);
 }
 
-#copyright {
+.jpv-copyright {
     font-size: 0.8em;
     text-align: center;
 }
 
-@mixin entry-margin($margin) {
-    margin-bottom: $margin;
-    margin-top: $margin;
+.jpv-window-top {
+    padding: var(--space-2);
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--rule);
+}
 
-    &:first-child {
-        margin-top: 0 !important;
-    }
+.jpv-sub-title {
+    margin-inline-start: var(--space-2);
+    font-size: 0.6em;
+}
 
-    &:last-child {
-        margin-bottom: 0 !important;
+.jpv-prompt-mode {
+    min-width: 6em;
+}
+
+.jpv-translation-title {
+    font-weight: bold;
+}
+
+.jpv-hint {
+    font-size: 80%;
+    color: var(--muted);
+}
+
+.jpv-analyze-text {
+    font-size: 180%;
+    white-space: pre;
+    line-height: 1.2em;
+
+    &.jpv-empty {
+        font-style: italic;
     }
 }
 
-@mixin block-margin($margin) {
-    margin-bottom: $margin;
-    margin-top: $margin;
-
-    &:first-child {
-        margin-top: 0 !important;
-    }
-
-    &:last-child {
-        margin-bottom: 0 !important;
-    }
-}
-
-.jpv-text {
-    &.jpv-kanji {
-        font-size: 1.5em;
-    }
+.jpv-analyze-span.jpv-active {
+    color: var(--analyzed-color);
 }
 
 .jpv-columns {
     width: 100%;
     display: flex;
     flex-direction: row;
-    gap: 2rem;
+    gap: var(--space-7);
 
     .jpv-column {
         flex-grow: 1;
@@ -171,68 +136,40 @@ body {
     }
 }
 
-h1, h2, h3, h4, h5, h6 {
-    color: var(--heading-color);
-    @include block-margin(var(--section-margin));
-}
-
-h1, h2, h3, h4 {
+.jpv-text.jpv-kanji {
     font-size: 1.5em;
 }
 
-h5, h6 {
-    font-size: 1.2em;
+// The separators of a run of words (`,`, `:`) in a row without a gap.
+.jpv-sep {
+    margin-inline-end: var(--space-0);
 }
 
-.jpv-block {
-    @include block-margin(var(--section-margin));
+.jpv-tags {
+    margin-inline-start: var(--space-1);
+}
 
-    display: flex;
-    flex-direction: column;
+.jpv-rule {
+    height: 2px;
+    border-radius: 1px;
+    background-color: var(--rule);
+}
 
-    &.jpv-inline {
-        display: block;
-    }
+.jpv-list-numerical {
+    list-style: decimal;
+    margin-inline-start: 1.5em;
 
-    &-title {
-        font-weight: bold;
-    }
-
-    &-notice {
-        font-size: var(--notice-font-size);
-        background-color: var(--bg-highlight);
-        padding: var(--section-margin);
-    }
-
-    &-sm {
-        @include block-margin(var(--section-sm-margin));
-    }
-
-    &-lg {
-        @include block-margin(var(--section-lg-margin));
-    }
-
-    &-xl {
-        @include block-margin(var(--section-xl-margin));
-    }
-
-    &-xl {
-        @include block-margin(var(--section-xl-margin));
+    & > li + li {
+        margin-top: var(--space-2);
     }
 }
 
-.jpv-row {
-    display: flex;
-    flex-flow: row wrap;
-    align-items: center;
+.jpv-inflection-notice {
+    font-size: 0.8em;
+}
 
-    &-spaced {
-        gap: 0.5rem;
-    }
-
-    &-end {
-        margin-left: auto;
-    }
+.jpv-block-title {
+    font-weight: bold;
 }
 
 .jpv-tutorials {
@@ -240,113 +177,8 @@ h5, h6 {
     white-space: pre;
 }
 
-.jpv-section {
-    @include block-margin(var(--section-margin));
-}
-
-.jpv-sep {
-    margin-right: var(--bullet-margin);
-}
-
-.jpv-entry {
-    &-sequence {
-        margin-left: auto;
-    }
-
-    &-separator {
-        @include entry-margin(var(--section-margin));
-        height: 2px;
-        border-radius: 1px;
-        background-color: var(--separator-color);
-    }
-}
-
-.jpv-character {
-    margin: 1rem 0;
-
-    & > div {
-        margin: 0.5rem 0;
-    }
-
-    .jpv-literal {
-        font-size: 200%;
-        margin-bottom: 0.5rem;
-    }
-
-    &-separator {
-        @include block-margin(var(--section-margin));
-        height: 2px;
-        border-radius: 1px;
-        background-color: var(--separator-color);
-    }
-
-}
-
-.jpv-list-numerical {
-    list-style: decimal;
-    margin-left: 1.5em;
-}
-
-.jpv-bullets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--bullet-margin);
-}
-
-.jpv-bullet {
-    @include button-body;
-    color: var(--bullet-color);
-    font-size: var(--bullet-size);
-    background-color: var(--bullet-bg);
-
-    &.jpv-sm {
-        font-size: var(--bullet-sm-size);
-    }
-
-}
-
-.jpv-inflection {
-    @include button-body;
-
-    &-danger {
-        color: var(--danger-color);
-        background-color: var(--danger-bg);
-    }
-
-    font-size: var(--bullet-size);
-    background-color: var(--inflection-disabled-bg);
-
-    &.jpv-active {
-        color: var(--inflection-color);
-        background-color: var(--inflection-active-bg);
-    }
-
-    &.jpv-clickable {
-        color: inherit;
-    }
-}
-
-.jpv-clickable {
-    cursor: pointer;
-
-    &:hover {
-        color: var(--link-hover);
-    }
-}
-
-a {
-    cursor: pointer;
-    color: var(--link-color);
-    text-decoration: none;
-
-    &:hover {
-        color: var(--link-hover);
-    }
-}
-
-.jpv-index {
-    background-color: var(--bg-highlight);
-    padding: var(--section-margin);
+.jpv-literal {
+    font-size: 200%;
 }
 
 .jpv-index-id {
@@ -354,125 +186,39 @@ a {
 }
 
 .jpv-log {
-    max-height: 40em;
-    overflow-y: scroll;
+    height: 24em;
 }
 
 .jpv-log-entry {
     font-family: monospace;
     font-size: 0.8em;
-    margin-bottom: 0.25rem;
+    padding-block: var(--space-0);
     white-space: pre;
-
-    &:last-child {
-        margin-bottom: 0;
-    }
-
-    &-info > .jpv-log-level {
-        color: var(--primary-color);
-        background-color: var(--primary-bg);
-    }
-
-    &-warn > .jpv-log-level {
-        background-color: var(--warn-bg);
-    }
-
-    &-error > .jpv-log-level {
-        color: var(--danger-color);
-        background-color: var(--danger-bg);
-    }
 }
 
 .jpv-log-level {
-    text-align: center;
+    justify-content: center;
     width: 4em;
 }
 
 .jpv-log-target {
-    background-color: var(--bg-highlight);
+    color: var(--muted);
 }
 
-.jpv-log-field {
-    display: inline-block;
-    padding: 0.25rem;
-    margin-right: 0.25rem;
+.jpv-task {
+    font-family: monospace;
+    font-size: 0.8em;
+    white-space: pre;
 
-    &:last-child {
-        margin-right: 0;
+    @include p.below("phone") {
+        font-size: 0.65em;
     }
 }
 
-#tasks {
-    .jpv-task {
-        font-family: monospace;
-        font-size: 0.8em;
-        margin-bottom: 0.25rem;
-        white-space: pre;
+.jpv-task-progress {
+    flex: 1;
 
-        &-field {
-            display: inline-block;
-            padding: 0.25rem;
-
-            &:last-child {
-                margin-right: 0;
-            }
-        }
-
-        &-name {
-            color: var(--primary-color);
-            background-color: var(--primary-bg);
-        }
-
-        &-progress {
-            flex: 1;
-
-            progress {
-                width: 100%;
-            }
-        }
+    progress {
+        width: 100%;
     }
 }
-
-#window-top {
-    padding: 0.5rem;
-    background-color: var(--bg-highlight);
-    border-bottom: 1px solid var(--separator-color);
-
-    & > .jpv-container {
-        display: grid;
-        grid-template-columns: min-content auto min-content auto min-content;
-        grid-gap: 0.5rem;
-
-        & > * {
-            white-space: nowrap;
-        }
-
-        .jpv-left {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .jpv-right {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .jpv-sub-title {
-            margin-left: 0.5rem;
-            font-size: 0.6em;
-        }
-
-        .jpv-maximize {
-            font-size: 1.2em;
-            align-self: stretch !important;
-            margin-left: 0.5rem;
-        }
-    }
-}
-
-@include until($mobile) {
-    #tasks {
-        font-size: 0.8em;
-    }
-}
-

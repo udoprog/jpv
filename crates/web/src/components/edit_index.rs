@@ -2,8 +2,6 @@ use lib::config::{ConfigIndex, IndexFormat};
 use url::Url;
 use yew::prelude::*;
 
-use crate::class;
-
 pub(crate) enum Msg {
     ChangeId(String),
     ChangeFormat(IndexFormat),
@@ -176,8 +174,8 @@ impl Component for EditIndex {
         let help_describedby = sockel::field_describedby("index-help", false, help_error.is_some());
 
         html! {
-            <div class={class::BLOCK}>
-                <sockel::Stack class={class::INDEX}>
+            <sockel::Card inset={sockel::Inset::Compact}>
+                <sockel::Stack>
                     <sockel::Field id="index-format" label={html!("Format")}>
                         <sockel::Select<IndexFormat> id="index-format" options={format_options}
                             value={Some(self.format)} on_change={on_format} disabled={pending} />
@@ -195,16 +193,16 @@ impl Component for EditIndex {
                         <sockel::TextInput id="index-help" value={self.help.clone()} on_input={on_help}
                             disabled={pending} invalid={help_error.is_some()} describedby={help_describedby} />
                     </sockel::Field>
-                    <sockel::Cluster>
+                    <sockel::Cluster justify={sockel::Justify::Between}>
                         <sockel::Button disabled={pending} onclick={oncancel}>{"Cancel"}</sockel::Button>
-                        <sockel::Cluster class={class::ROW_END}>
+                        <sockel::Cluster>
                             {delete}
                             {update}
                             <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={pending} onclick={onsave}>{"Save"}</sockel::Button>
                         </sockel::Cluster>
                     </sockel::Cluster>
                 </sockel::Stack>
-            </div>
+            </sockel::Card>
         }
     }
 }

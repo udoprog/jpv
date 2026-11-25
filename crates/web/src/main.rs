@@ -95,7 +95,7 @@ fn switch(routes: Route, ws: &ws::Handle) -> Html {
         },
         Route::NotFound => {
             html! {
-                <div id="content" class={class::CONTAINER}>{"There is nothing here"}</div>
+                <div class={classes!(class::CONTAINER, class::CONTENT)}>{"There is nothing here"}</div>
             }
         }
     }
@@ -116,6 +116,7 @@ fn Root() -> Html {
         <ContextProvider<Phrases> context={(*phrases).clone()}>
             <sockel::OverlayHost>
                 <sockel::Styles css={STYLESHEET} />
+                <sockel::DataTips />
                 <App />
             </sockel::OverlayHost>
         </ContextProvider<Phrases>>

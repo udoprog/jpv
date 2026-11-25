@@ -5,18 +5,46 @@ use yew::prelude::*;
 
 use crate::class;
 
+/// The tags of an entry (`pos`, `misc`, ...) as sockel pill buttons, each
+/// adding its tag to the search when clicked.
 macro_rules! bullets {
-    ($ctx:expr, $base:ident . $name:ident $(, $extra:expr)?) => {{
+    ($ctx:expr, $base:ident . $name:ident) => {{
         let onclick = $ctx.link().callback(Msg::AddTag);
 
         $base.$name.iter().map(move |d| {
-            let class = classes!($crate::class::BULLET, $($extra)?);
-
             let ident = d.ident();
             let onclick = onclick.reform(move |_| ident);
-            html!(<a {class} title={d.help()} {onclick}>{d.ident()}</a>)
+            super::tag(d.ident(), d.help(), onclick)
         })
-    }}
+    }};
+}
+
+/// A tag: a plain pill button with its help as a tip.
+pub(super) fn tag(
+    text: impl Into<Html>,
+    help: impl Into<AttrValue>,
+    onclick: Callback<MouseEvent>,
+) -> Html {
+    let class = sockel::pill(sockel::Tone::Success, true, true);
+    html!(<button type="button" {class} data-tip={help.into()} {onclick}>{text.into()}</button>)
+}
+
+/// Tags in a row of their own, set apart from the text before them.
+pub(super) fn tags<I>(iter: I) -> Option<Html>
+where
+    I: IntoIterator<Item = Html>,
+{
+    self::iter(iter, |iter| {
+        html! {
+            <sockel::Cluster tag="span" gap={sockel::Gap::Snug} inline={true} class={class::TAGS}>{for iter}</sockel::Cluster>
+        }
+    })
+}
+
+/// A row of words: wraps, with no gap of its own, as the words carry their
+/// own separators.
+pub(super) fn row(children: Html) -> Html {
+    html!(<sockel::Cluster gap={sockel::Gap::None}>{children}</sockel::Cluster>)
 }
 
 /// Construct a convenient sequence callback which calls the given `builder`

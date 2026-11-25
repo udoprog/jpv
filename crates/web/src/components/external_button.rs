@@ -10,6 +10,8 @@ pub(crate) struct Props {
     #[prop_or_default]
     pub(crate) variant: sockel::ButtonVariant,
     #[prop_or_default]
+    pub(crate) size: sockel::ButtonSize,
+    #[prop_or_default]
     pub(crate) class: Classes,
     #[prop_or_default]
     pub(crate) children: Html,
@@ -35,7 +37,7 @@ pub(crate) fn ExternalButton(props: &Props) -> Html {
     });
 
     html! {
-        <sockel::Button variant={props.variant} class={props.class.clone()} title={props.title.clone()}
+        <sockel::Button variant={props.variant} size={props.size} class={props.class.clone()} tip={props.title.clone()}
             disabled={props.href.is_none()} {onclick}>
             {props.children.clone()}
         </sockel::Button>

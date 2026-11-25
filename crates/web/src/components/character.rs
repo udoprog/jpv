@@ -1,7 +1,7 @@
 use lib::kanjidic2::OwnedCharacter;
 use yew::prelude::*;
 
-use super::{colon, comma, romaji, ruby, seq};
+use super::{colon, comma, romaji, row, ruby, seq, spacing};
 
 use crate::class;
 
@@ -44,7 +44,7 @@ impl Component for Character {
         let onyomi = onyomi
             .peek()
             .is_some()
-            .then(move || html!(<div class={class::ROW}><span class={class::CLICKABLE} title={romaji(ONYOMI)}>{ruby(ONYOMI)}</span>{colon()}{for onyomi}</div>));
+            .then(move || row(html!(<><span data-tip={romaji(ONYOMI)}>{ruby(ONYOMI)}</span>{colon()}{spacing()}{for onyomi}</>)));
 
         let mut kunyomi = seq(
             c.readings.iter().filter(|r| r.ty == "ja_kun"),
@@ -58,7 +58,7 @@ impl Component for Character {
         let kunyomi = kunyomi
             .peek()
             .is_some()
-            .then(move || html!(<div class={class::ROW}><span class={class::CLICKABLE} title={romaji(ONYOMI)}>{ruby(KUNYOMI)}</span>{colon()}{for kunyomi}</div>));
+            .then(move || row(html!(<><span data-tip={romaji(KUNYOMI)}>{ruby(KUNYOMI)}</span>{colon()}{spacing()}{for kunyomi}</>)));
 
         let mut meanings = seq(
             c.meanings.iter().filter(|r| r.lang.is_none()),
@@ -72,17 +72,17 @@ impl Component for Character {
         let meanings = meanings
             .peek()
             .is_some()
-            .then(move || html!(<div class={class::ROW}>{for meanings}</div>));
+            .then(move || row(html!({for meanings})));
 
         let onclick = ctx.props().onclick.reform(|_| ());
 
         html! {
-            <>
+            <sockel::Stack gap={sockel::Gap::Tight}>
                 <div class={classes!(class::LITERAL, class::TEXT)}><a {onclick}>{c.literal.clone()}</a></div>
                 {for meanings}
                 {for onyomi}
                 {for kunyomi}
-            </>
+            </sockel::Stack>
         }
     }
 }

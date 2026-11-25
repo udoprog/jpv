@@ -8,7 +8,9 @@ use lib::jmdict::{
 use lib::{inflection, jmdict, Form, Furigana, Inflection, OwnedInflections, Priority};
 use yew::prelude::*;
 
-use super::{colon, comma, iter, romaji, ruby, seq, spacing};
+use sockel::Gap;
+
+use super::{colon, comma, iter, romaji, row, ruby, seq, spacing, tag, tags};
 
 use crate::class;
 
@@ -185,7 +187,7 @@ impl Component for Entry {
                 self.readings.iter().filter(|r| !r.is_search_only()),
                 |e, not_last| render_reading(ctx, e, not_last),
             ),
-            |iter| html!(<div class={classes!(class::BLOCK, class::ROW)}>{for iter}</div>),
+            |iter| row(html!({for iter})),
         );
 
         let common = iter(
@@ -193,11 +195,7 @@ impl Component for Entry {
                 self.combined.iter().filter(|c| c.is_common()),
                 |e, not_last| render_combined(ctx, e, not_last),
             ),
-            |iter| {
-                html! {
-                    html!(<div class={classes!(class::BLOCK, class::ROW)}>{for iter}</div>)
-                }
-            },
+            |iter| row(html!({for iter})),
         );
 
         let other_kana = iter(
@@ -205,11 +203,7 @@ impl Component for Entry {
                 self.readings.iter().filter(|c| c.is_search_only()),
                 |e, not_last| render_reading(ctx, e, not_last),
             ),
-            |iter| {
-                html! {
-                    html!(<div class={classes!(class::BLOCK, class::ROW)}><span>{"Other kana"}</span>{colon()}{spacing()}{for iter}</div>)
-                }
-            },
+            |iter| row(html!(<><span>{"Other kana"}</span>{colon()}{spacing()}{for iter}</>)),
         );
 
         let other_kanji = iter(
@@ -217,24 +211,20 @@ impl Component for Entry {
                 self.combined.iter().filter(|c| !c.is_common()),
                 |e, not_last| render_combined(ctx, e, not_last),
             ),
-            |iter| {
-                html! {
-                    html!(<div class={classes!(class::BLOCK, class::ROW)}><span>{"Other kanji"}</span>{colon()}{spacing()}{for iter}</div>)
-                }
-            },
+            |iter| row(html!(<><span>{"Other kanji"}</span>{colon()}{spacing()}{for iter}</>)),
         );
 
         let senses = iter(
             entry.senses.iter().map(|s| self.render_sense(ctx, s)),
-            |iter| html!(<ul class={classes!(class::BLOCK, class::BLOCK_LG, class::LIST_NUMERICAL)}>{for iter}</ul>),
+            |iter| html!(<ol class={class::LIST_NUMERICAL}>{for iter}</ol>),
         );
 
         let sequence = (!ctx.props().embed).then(|| html! {
-            <div class={classes!(class::BLOCK, class::ROW, class::ENTRY_SEQUENCE)}><a href={format!("/api/entry/{}", entry.sequence)} target="_api">{format!("#{}", entry.sequence)}</a></div>
+            <sockel::Cluster justify={sockel::Justify::End}><a href={format!("/api/entry/{}", entry.sequence)} target="_api">{format!("#{}", entry.sequence)}</a></sockel::Cluster>
         });
 
         html! {
-            <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+            <sockel::Stack gap={Gap::Tight}>
                 {sequence}
                 {for extras}
                 {for reading}
@@ -242,7 +232,7 @@ impl Component for Entry {
                 {for senses}
                 {for other_kana}
                 {for other_kanji}
-            </div>
+            </sockel::Stack>
         }
     }
 }
@@ -288,14 +278,11 @@ impl Entry {
     }
 
     fn render_sense(&self, ctx: &Context<Self>, s: &OwnedSense) -> Html {
-        let info = s
-            .info
-            .as_ref()
-            .map(|info| html!(<div class={classes!(class::BLOCK, class::ROW)}>{info}</div>));
+        let info = s.info.as_ref().map(|info| row(html!({ info })));
 
         let stags = seq(s.stagr.iter().chain(s.stagk.iter()), |text, not_last| {
             let stag = if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
-                html!(<span title={romaji(c.furigana())}>{ruby(c.furigana())}</span>)
+                html!(<span data-tip={romaji(c.furigana())}>{ruby(c.furigana())}</span>)
             } else {
                 html!(<>{text}</>)
             };
@@ -309,38 +296,32 @@ impl Entry {
         });
 
         let stag = iter(stags, |stags| {
-            html! {
-                <div class={classes!(class::BLOCK, class::ROW)}><span>{"Applies to"}</span>{colon()}{for stags}</div>
-            }
+            row(html!(<><span>{"Applies to"}</span>{colon()}{spacing()}{for stags}</>))
         });
 
         let glossary = texts(s.gloss.iter().map(|gloss| &gloss.text), None);
-        let bullets = bullets!(ctx, s.pos, class::SM)
-            .chain(bullets!(ctx, s.misc, class::SM))
-            .chain(bullets!(ctx, s.dialect, class::SM))
-            .chain(bullets!(ctx, s.field, class::SM));
-
-        let bullets = iter(
-            bullets,
-            |iter| html!(<>{spacing()}<span class={class::BULLETS}>{for iter}</span></>),
+        let bullets = tags(
+            bullets!(ctx, s.pos)
+                .chain(bullets!(ctx, s.misc))
+                .chain(bullets!(ctx, s.dialect))
+                .chain(bullets!(ctx, s.field)),
         );
 
-        let glossary = iter(
-            glossary.chain(bullets),
-            |iter| html!(<div class={classes!(class::BLOCK, class::ROW)}>{for iter}</div>),
-        );
+        let glossary = iter(glossary.chain(bullets), |iter| row(html!({for iter})));
 
         let examples = iter(
             s.examples.iter().map(|e| self.render_example(ctx, e)),
-            |iter| html!(<div class={class::BLOCK}>{for iter}</div>),
+            |iter| html!(<sockel::Stack gap={Gap::Snug}>{for iter}</sockel::Stack>),
         );
 
         html! {
-            <li class={class::SECTION}>
-                {for glossary}
-                {for info}
-                {for stag}
-                {for examples}
+            <li>
+                <sockel::Stack gap={Gap::Snug}>
+                    {for glossary}
+                    {for info}
+                    {for stag}
+                    {for examples}
+                </sockel::Stack>
             </li>
         }
     }
@@ -375,7 +356,7 @@ impl Entry {
             });
 
             let text = if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
-                html!(<span title={romaji(c.furigana())}>{ruby(c.furigana())}</span>)
+                html!(<span data-tip={romaji(c.furigana())}>{ruby(c.furigana())}</span>)
             } else {
                 html!(<>{text}</>)
             };
@@ -390,13 +371,13 @@ impl Entry {
                 move |_: MouseEvent| Msg::Change(jpn.clone(), eng.clone())
             });
 
-            let eng = l.eng.map(|text| html!(<span>{text}</span>));
+            let eng = l.eng.map(|text| html!(<>{spacing()}<span>{text}</span></>));
 
-            html!(<>{colon()}<span class={class::CLICKABLE} {onclick}>{l.jpn}</span>{for eng}</>)
+            html!(<>{colon()}{spacing()}<span class={class::CLICKABLE} {onclick}>{l.jpn}</span>{for eng}</>)
         });
 
         html! {
-            <div class={classes!(class::BLOCK, class::ROW)}>{for texts}{for sent}</div>
+            row(html!(<>{for texts}{for sent}</>))
         }
     }
 }
@@ -425,19 +406,19 @@ fn render_extra(
     let word = inflections.get(inflection ^ filter);
 
     let word = word.map(
-        |w| html!(<div class={classes!(class::BLOCK, class::ROW)}><span class={classes!(class::TEXT, class::KANJI)} title={romaji(w.furigana())}>{ruby(w.furigana())}</span></div>),
+        |w| row(html!(<span class={classes!(class::TEXT, class::KANJI)} data-tip={romaji(w.furigana())}>{ruby(w.furigana())}</span>)),
     );
 
     let inflection_html = render_inflection(ctx, index, inflection, filter, inflections);
     let tutorials = render_tutorials(inflection, filter);
 
     Some(html! {
-        <div class={classes!(class::BLOCK, class::BLOCK_NOTICE)}>
-            <div class={classes!(class::BLOCK, class::BLOCK_SM, class::BLOCK_TITLE)}>{"Result based on inflection:"}</div>
-            <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::BULLETS)}>{for inflection_html}</div>
+        <sockel::Card inset={sockel::Inset::Compact} gap={Gap::Tight} class={class::INFLECTION_NOTICE}>
+            <div class={class::BLOCK_TITLE}>{"Result based on inflection:"}</div>
+            <sockel::Cluster gap={Gap::Snug}>{for inflection_html}</sockel::Cluster>
             {tutorials}
             {for word}
-        </div>
+        </sockel::Card>
     })
 }
 
@@ -460,17 +441,13 @@ fn render_inflection<'a>(
             return None;
         }
 
-        let class = classes! {
-            class::INFLECTION,
-            class::CLICKABLE,
-            this.contains(f).then_some(class::ACTIVE),
-        };
+        let on_toggle = ctx.link().callback(move |_: bool| Msg::ToggleForm(index, f));
 
-        let onclick = ctx
-            .link()
-            .batch_callback(move |_: MouseEvent| exists.then_some(Msg::ToggleForm(index, f)));
-
-        Some(html!(<span {class} {onclick} title={f.title()}>{f.describe()}</span>))
+        Some(html! {
+            <span data-tip={f.title()}>
+                <sockel::ChipToggle on={this.contains(f)} disabled={!exists} {on_toggle}>{f.describe()}</sockel::ChipToggle>
+            </span>
+        })
     });
 
     let onclick = ctx
@@ -478,7 +455,7 @@ fn render_inflection<'a>(
         .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
     let reset = (!filter.is_empty()).then(
-        || html!(<span class={classes!(class::INFLECTION, class::INFLECTION_DANGER, class::CLICKABLE)} {onclick}>{"Reset"}</span>),
+        || html!(<sockel::Button size={sockel::ButtonSize::Small} variant={sockel::ButtonVariant::Danger} {onclick}>{"Reset"}</sockel::Button>),
     );
 
     form.chain(reset)
@@ -506,23 +483,20 @@ fn render_tutorials(inflection: Inflection, filter: Inflection) -> Html {
         |(f, url), not_last| {
             html! {
                 <>
-                    <a href={url} target="_tutorial" title={format!("Tutorial for {}", f.title())}>{format!("Tutorial for `{}`", f.describe())}</a>
+                    <a href={url} target="_tutorial" data-tip={format!("Tutorial for {}", f.title())}>{format!("Tutorial for `{}`", f.describe())}</a>
                     {for not_last.then(comma)}
                 </>
             }
         },
     );
 
-    html!(<div class={classes!(class::BLOCK, class::BLOCK_SM, class::TUTORIALS, class::ROW)}>{for tutorials}</div>)
+    html!(<sockel::Cluster gap={Gap::None} class={class::TUTORIALS}>{for tutorials}</sockel::Cluster>)
 }
 
 fn render_reading(ctx: &Context<Entry>, reading: &OwnedReadingElement, not_last: bool) -> Html {
     let priority = reading.priority.iter().map(|p| render_priority(ctx, p));
 
-    let bullets = iter(
-        priority.chain(bullets!(ctx, reading.info)),
-        |iter| html!(<span class={class::BULLETS}>{for iter}</span>),
-    );
+    let bullets = tags(priority.chain(bullets!(ctx, reading.info)));
 
     let onclick = ctx.link().callback({
         let text = reading.text.to_owned();
@@ -545,10 +519,7 @@ fn render_combined(
 ) -> Html {
     let priority = kanji.priority.iter().map(|p| render_priority(ctx, p));
 
-    let bullets = iter(
-        priority.chain(bullets!(ctx, kanji.info)),
-        |iter| html!(<span class={class::BULLETS}>{for iter}</span>),
-    );
+    let bullets = tags(priority.chain(bullets!(ctx, kanji.info)));
 
     let onclick = ctx.link().callback({
         let text = c.kanji.text.to_owned();
@@ -557,7 +528,7 @@ fn render_combined(
 
     html! {
         <>
-            <a class={classes!(class::TEXT, class::KANJI)} {onclick} title={romaji(c.furigana())}>{ruby(c.furigana())}</a>
+            <a class={classes!(class::TEXT, class::KANJI)} {onclick} data-tip={romaji(c.furigana())}>{ruby(c.furigana())}</a>
             {for bullets}
             {for not_last.then(comma)}
         </>
@@ -570,7 +541,7 @@ fn render_priority(ctx: &Context<Entry>, p: &Priority) -> Html {
         move |_: MouseEvent| Msg::AddPriority(p)
     });
 
-    html!(<a class={class::BULLET} title={p.title()} {onclick}>{p.category()}{p.level()}</a>)
+    tag(format!("{}{}", p.category(), p.level()), p.title(), onclick)
 }
 
 /// A simple text sequence renderer.

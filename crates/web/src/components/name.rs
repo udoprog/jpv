@@ -1,7 +1,7 @@
 use lib::{jmnedict, kana};
 use yew::prelude::*;
 
-use super::{comma, romaji, ruby, seq};
+use super::{comma, romaji, ruby, seq, tags};
 
 use crate::class;
 
@@ -43,9 +43,7 @@ impl Component for Name {
         let entries = if entry.kanji.is_empty() {
             let it = entry.reading.iter().map(|reading| {
                 html! {
-                    <div class={class::BLOCK}>
-                        <span class={classes!(class::TEXT, class::KANJI)}>{&reading.text}</span>
-                    </div>
+                    <span class={classes!(class::TEXT, class::KANJI)}>{&reading.text}</span>
                 }
             });
 
@@ -61,7 +59,7 @@ impl Component for Name {
                     });
 
                     html! {
-                        <a class={classes!(class::TEXT, class::KANJI)} title={romaji(furigana)} {onclick}>{ruby(furigana)}</a>
+                        <a class={classes!(class::TEXT, class::KANJI)} data-tip={romaji(furigana)} {onclick}>{ruby(furigana)}</a>
                     }
                 })
             });
@@ -74,13 +72,13 @@ impl Component for Name {
             html!({for it})
         };
 
-        let bullets = bullets!(ctx, entry.name_types, class::SM);
+        let bullets = tags(bullets!(ctx, entry.name_types));
 
         html! {
-            <span class={class::ROW}>
+            <sockel::Cluster tag="span" gap={sockel::Gap::None} inline={true}>
                 {entries}
                 {for bullets}
-            </span>
+            </sockel::Cluster>
         }
     }
 }
