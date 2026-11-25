@@ -28,6 +28,73 @@ analyze-cycle = { $index } / { $count }（文字をクリックで切り替え�
 analyze-hint = ヒント：
 analyze-hint-text = 文字をクリックすると部分文字列を検索します
 
+config-dictionaries = 辞書
+config-ocr = OCR
+config-log = ログ
+config-help = 概要
+config-help-tip = この辞書のヘルプページを開く
+config-help-missing = ヘルプページが指定されていません
+config-not-installed = 未インストール
+config-updated-tip = 変更済み。保存すると適用されます
+config-edit = 編集
+config-edit-tip = この辞書を変更する
+config-ocr-not-installed = OCR サポートがインストールされていません
+config-ocr-support = OCR サポート
+config-new-dictionary = 新しい辞書
+config-install-all = すべてインストール
+config-install-all-tip = 不足している辞書をすべてインストールする
+
+theme = テーマ
+theme-system = システム
+theme-light = ライト
+theme-dark = ダーク
+
+error-not-connected = サービスに接続されていません
+error-connection-lost = 応答を受け取る前にサービスとの接続が切れました
+
+title = 和英辞典
+by-author = 作者：{ $author }
+search = 検索
+configure = 設定
+open-window = 大きなウィンドウで開く
+window = ウィンドウ
+credits-made = { $author } が ❤️ を込めて作りました。{ $mit } または { $apache } のもと、いつまでも無料で利用できます
+credits-apache = Apache 2.0 ライセンス
+credits-data = このアプリケーションは { $edrdg } の所有する { $jmdict }、{ $kanjidic }、{ $enamdict }、{ $kradfile } を、その{ $licence }に従って使用しています。
+credits-licence = ライセンス
+
+nothing-to-analyze = 解析するものがありません
+type-something = 検索欄に入力してください
+translation = 訳：
+phrases = 語句
+names = 人名・地名
+kanji = 漢字
+results = 結果
+tab-count = { $title }（{ $count }）
+tab-kanji-details = 漢字の詳細：{ $kanji }
+tab-settings = 設定
+showing-phrases = { $total } 件中 { $shown } 件の語句を表示
+showing-characters = { $total } 件中 { $shown } 件の漢字を表示
+show-more = もっと見る
+mode-default = 変換なし
+mode-default-tip = 入力をそのまま使う
+mode-hiragana-tip = 入力をひらがなとして扱う
+mode-katakana-tip = 入力をカタカナとして扱う
+capture-clipboard = クリップボードを取り込む
+open-config = ⚙ 設定
+missing-dictionaries = 不足している辞書：
+fix-in-settings = ⚙ 設定で直す
+ocr-missing = OCR サポートが有効ですがインストールされていません
+disable-ocr = ⚙ 無効にする
+
+entry-other-kana = その他の仮名
+entry-other-kanji = その他の漢字
+entry-applies-to = 適用対象
+entry-inflection = 活用に基づく結果：
+entry-reset = リセット
+entry-tutorial = 「{ $form }」の解説
+entry-tutorial-tip = { $form }の解説
+
 # sockel の文言のうち jpv で表示されるもの。
 sockel-notice-dismiss = 閉じる
 sockel-select-filter-label = 絞り込み

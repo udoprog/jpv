@@ -1,3 +1,4 @@
+use phrasebook::yew023::use_phrases;
 use yew::prelude::*;
 
 const KEY: &str = "jpv-theme";
@@ -58,6 +59,7 @@ pub(crate) fn init() {
 
 #[function_component]
 pub(crate) fn ThemeSwitch() -> Html {
+    let phrases = use_phrases();
     let theme = use_state(stored);
 
     let on_change = {
@@ -71,14 +73,14 @@ pub(crate) fn ThemeSwitch() -> Html {
     };
 
     let options = vec![
-        sockel::ChoiceOption::new(SYSTEM, "System"),
-        sockel::ChoiceOption::new(LIGHT, "Light"),
-        sockel::ChoiceOption::new(DARK, "Dark"),
+        sockel::ChoiceOption::new(SYSTEM, phrases.text("theme-system")),
+        sockel::ChoiceOption::new(LIGHT, phrases.text("theme-light")),
+        sockel::ChoiceOption::new(DARK, phrases.text("theme-dark")),
     ];
 
     html! {
         <sockel::Cluster>
-            <sockel::Choice label="Theme" {options} value={Some((*theme).clone())} {on_change} />
+            <sockel::Choice label={phrases.text("theme")} {options} value={Some((*theme).clone())} {on_change} />
         </sockel::Cluster>
     }
 }

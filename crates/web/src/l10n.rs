@@ -5,7 +5,7 @@
 //! through the [`Phrases`] handle the root provides. Dictionary content
 //! (glosses) is shown as JMdict provides it.
 
-use phrasebook::{koine03, Catalog, Lang, Phrasebook, Phrases, Source};
+use phrasebook::{koine03, Args, Catalog, Lang, Phrasebook, Phrases, Source};
 use yew::prelude::*;
 
 /// Japanese.
@@ -48,6 +48,62 @@ pub(crate) fn language_label(phrases: &Phrases, lang: Lang, native: &str) -> Str
     }
 }
 
+/// A message whose arguments are elements, such as links, placed where the
+/// translation puts them. Like [`phrasebook::yew023::html_around`] for any
+/// number of arguments; an element the translation leaves out is placed
+/// after its text, so nothing is lost.
+pub(crate) fn rich<const N: usize>(phrases: &Phrases, id: &str, parts: [(&str, Html); N]) -> Html {
+    // Private use characters, which no message contains, one per part.
+    const BASE: u32 = 0xE000;
+    const ISOLATES: [char; 2] = ['\u{2068}', '\u{2069}'];
+
+    let marks = (0..N as u32)
+        .map(|n| {
+            BASE.checked_add(n)
+                .and_then(char::from_u32)
+                .unwrap_or_default()
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+
+    let mut args = Args::new();
+
+    for ((name, _), mark) in parts.iter().zip(&marks) {
+        args.set(name, mark.as_str());
+    }
+
+    let text = phrases.msg(id, &args);
+    let mut parts = parts.map(|(_, html)| Some(html));
+    let mut nodes = Vec::new();
+    let mut buf = String::new();
+
+    for c in text.chars() {
+        if ISOLATES.contains(&c) {
+            continue;
+        }
+
+        let index = (c as u32).wrapping_sub(BASE) as usize;
+
+        if let Some(part) = parts.get_mut(index) {
+            if !buf.is_empty() {
+                nodes.push(Html::from(std::mem::take(&mut buf)));
+            }
+
+            nodes.extend(part.take());
+            continue;
+        }
+
+        buf.push(c);
+    }
+
+    if !buf.is_empty() {
+        nodes.push(Html::from(buf));
+    }
+
+    nodes.extend(parts.into_iter().flatten());
+    nodes.into_iter().collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -57,8 +113,8 @@ mod tests {
 
     use super::*;
 
-    /// The ids the code spells out as the first argument of `text` and
-    /// `msg` calls on a handle.
+    /// The ids the code spells out as the first argument of `text`, `msg`
+    /// and `msg_around` calls on a handle, and the second of [`rich`].
     fn asked_ids() -> Vec<String> {
         fn walk(dir: &Path, out: &mut Vec<String>) {
             for entry in fs::read_dir(dir).unwrap() {
@@ -76,9 +132,20 @@ mod tests {
                 let source = fs::read_to_string(&path).unwrap();
 
                 // Spelled apart so this scan does not find itself.
-                for needle in [concat!(".", "text("), concat!(".", "msg(")] {
+                for (needle, skip_first) in [
+                    (concat!(".", "text("), false),
+                    (concat!(".", "msg("), false),
+                    (concat!(".", "msg_around("), false),
+                    (concat!("l10n::", "rich("), true),
+                ] {
                     for (at, _) in source.match_indices(needle) {
-                        let rest = source[at + needle.len()..].trim_start();
+                        let mut rest = &source[at + needle.len()..];
+
+                        if skip_first {
+                            rest = &rest[rest.find(',').unwrap() + 1..];
+                        }
+
+                        let rest = rest.trim_start();
 
                         if let Some(rest) = rest.strip_prefix('"') {
                             let end = rest.find('"').unwrap();

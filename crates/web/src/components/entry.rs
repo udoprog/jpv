@@ -6,6 +6,8 @@ use lib::jmdict::{
     OwnedExample, OwnedExampleSentence, OwnedKanjiElement, OwnedReadingElement, OwnedSense,
 };
 use lib::{inflection, jmdict, Form, Furigana, Inflection, OwnedInflections, Priority};
+use phrasebook::yew023::PhrasesContext;
+use phrasebook::{args, Phrases};
 use yew::prelude::*;
 
 use sockel::Gap;
@@ -20,6 +22,7 @@ pub(crate) enum Msg {
     Change(String, Option<String>),
     AddTag(&'static str),
     AddPriority(Priority),
+    Phrases(Phrases),
 }
 
 #[derive(Default)]
@@ -71,6 +74,7 @@ pub(crate) struct Entry {
     readings: Vec<OwnedReadingElement>,
     states: Vec<ExtraState>,
     inflections: Vec<(inflection::Reading, OwnedInflections)>,
+    l10n: PhrasesContext,
 }
 
 #[derive(Properties)]
@@ -110,6 +114,7 @@ impl Component for Entry {
                 .into_iter()
                 .map(|(r, i, _)| (r, borrowme::to_owned(i)))
                 .collect(),
+            l10n: PhrasesContext::new(ctx.link(), ctx.link().callback(Msg::Phrases)),
         };
 
         this.refresh_entry(ctx);
@@ -137,6 +142,9 @@ impl Component for Entry {
             Msg::AddPriority(tag) => {
                 ctx.props().onpriority.emit(tag);
             }
+            Msg::Phrases(phrases) => {
+                return self.l10n.set(phrases);
+            }
         }
 
         true
@@ -162,6 +170,7 @@ impl Component for Entry {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let phrases = self.l10n.phrases();
         let sources = &ctx.props().sources;
         let entry = &ctx.props().entry;
 
@@ -179,7 +188,7 @@ impl Component for Entry {
                 .clone()
                 .take(1)
                 .flat_map(|(index, state, (inflection, inflections))| {
-                    render_extra(ctx, index, inflection, inflections, state.filter)
+                    render_extra(ctx, phrases, index, inflection, inflections, state.filter)
                 });
 
         let reading = iter(
@@ -203,7 +212,11 @@ impl Component for Entry {
                 self.readings.iter().filter(|c| c.is_search_only()),
                 |e, not_last| render_reading(ctx, e, not_last),
             ),
-            |iter| row(html!(<><span>{"Other kana"}</span>{colon()}{spacing()}{for iter}</>)),
+            |iter| {
+                row(
+                    html!(<><span>{phrases.text("entry-other-kana")}</span>{colon()}{spacing()}{for iter}</>),
+                )
+            },
         );
 
         let other_kanji = iter(
@@ -211,7 +224,11 @@ impl Component for Entry {
                 self.combined.iter().filter(|c| !c.is_common()),
                 |e, not_last| render_combined(ctx, e, not_last),
             ),
-            |iter| row(html!(<><span>{"Other kanji"}</span>{colon()}{spacing()}{for iter}</>)),
+            |iter| {
+                row(
+                    html!(<><span>{phrases.text("entry-other-kanji")}</span>{colon()}{spacing()}{for iter}</>),
+                )
+            },
         );
 
         let senses = iter(
@@ -278,6 +295,7 @@ impl Entry {
     }
 
     fn render_sense(&self, ctx: &Context<Self>, s: &OwnedSense) -> Html {
+        let phrases = self.l10n.phrases();
         let info = s.info.as_ref().map(|info| row(html!({ info })));
 
         let stags = seq(s.stagr.iter().chain(s.stagk.iter()), |text, not_last| {
@@ -296,7 +314,9 @@ impl Entry {
         });
 
         let stag = iter(stags, |stags| {
-            row(html!(<><span>{"Applies to"}</span>{colon()}{spacing()}{for stags}</>))
+            row(
+                html!(<><span>{phrases.text("entry-applies-to")}</span>{colon()}{spacing()}{for stags}</>),
+            )
         });
 
         let glossary = texts(s.gloss.iter().map(|gloss| &gloss.text), None);
@@ -398,6 +418,7 @@ fn find_inflection<'a>(
 
 fn render_extra(
     ctx: &Context<Entry>,
+    phrases: &Phrases,
     index: usize,
     inflection: Inflection,
     inflections: &OwnedInflections,
@@ -409,12 +430,12 @@ fn render_extra(
         |w| row(html!(<span class={classes!(class::TEXT, class::KANJI)} data-tip={romaji(w.furigana())}>{ruby(w.furigana())}</span>)),
     );
 
-    let inflection_html = render_inflection(ctx, index, inflection, filter, inflections);
-    let tutorials = render_tutorials(inflection, filter);
+    let inflection_html = render_inflection(ctx, phrases, index, inflection, filter, inflections);
+    let tutorials = render_tutorials(phrases, inflection, filter);
 
     Some(html! {
         <sockel::Card inset={sockel::Inset::Compact} gap={Gap::Tight} class={class::INFLECTION_NOTICE}>
-            <div class={class::BLOCK_TITLE}>{"Result based on inflection:"}</div>
+            <div class={class::BLOCK_TITLE}>{phrases.text("entry-inflection")}</div>
             <sockel::Cluster gap={Gap::Snug}>{for inflection_html}</sockel::Cluster>
             {tutorials}
             {for word}
@@ -424,6 +445,7 @@ fn render_extra(
 
 fn render_inflection<'a>(
     ctx: &'a Context<Entry>,
+    phrases: &Phrases,
     index: usize,
     inflection: Inflection,
     filter: Inflection,
@@ -454,14 +476,15 @@ fn render_inflection<'a>(
         .link()
         .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
-    let reset = (!filter.is_empty()).then(
-        || html!(<sockel::Button size={sockel::ButtonSize::Small} variant={sockel::ButtonVariant::Danger} {onclick}>{"Reset"}</sockel::Button>),
-    );
+    let reset = (!filter.is_empty()).then(|| {
+        let text = phrases.text("entry-reset");
+        html!(<sockel::Button size={sockel::ButtonSize::Small} variant={sockel::ButtonVariant::Danger} {onclick}>{text}</sockel::Button>)
+    });
 
     form.chain(reset)
 }
 
-fn render_tutorials(inflection: Inflection, filter: Inflection) -> Html {
+fn render_tutorials(phrases: &Phrases, inflection: Inflection, filter: Inflection) -> Html {
     let this = filter ^ inflection;
 
     let mut tutorials = Inflection::all().iter().flat_map(|f| {
@@ -483,7 +506,7 @@ fn render_tutorials(inflection: Inflection, filter: Inflection) -> Html {
         |(f, url), not_last| {
             html! {
                 <>
-                    <a href={url} target="_tutorial" data-tip={format!("Tutorial for {}", f.title())}>{format!("Tutorial for `{}`", f.describe())}</a>
+                    <a href={url} target="_tutorial" data-tip={phrases.msg("entry-tutorial-tip", &args!(form = f.title()))}>{phrases.msg("entry-tutorial", &args!(form = f.describe()))}</a>
                     {for not_last.then(comma)}
                 </>
             }

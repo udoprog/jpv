@@ -14,7 +14,7 @@ use web_sys::js_sys::{ArrayBuffer, Uint8Array};
 use web_sys::{window, BinaryType, CloseEvent, Event, MessageEvent, WebSocket};
 use yew::{Callback, Component, Context};
 
-use crate::error::{Error, Result};
+use crate::error::{Error, Known, Result};
 
 const INITIAL_TIMEOUT: u32 = 250;
 const MAX_TIMEOUT: u32 = 16000;
@@ -152,7 +152,7 @@ where
         body: Vec<u8>,
     ) -> Result<()> {
         let Some(socket) = &self.socket else {
-            return Err(anyhow!("Socket is not connected").into());
+            return Err(Error::known(Known::NotConnected));
         };
 
         self.output.clear();
@@ -169,11 +169,8 @@ where
     /// idempotent (`update-config`, `install-all`).
     fn fail_in_flight(&mut self) {
         for (index, serial) in take(&mut self.in_flight) {
-            self.shared.fail(
-                index,
-                serial,
-                anyhow!("Connection to the service was lost before it answered").into(),
-            );
+            self.shared
+                .fail(index, serial, Error::known(Known::ConnectionLost));
         }
     }
 

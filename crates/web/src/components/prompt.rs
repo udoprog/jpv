@@ -11,6 +11,8 @@ use lib::kanjidic2;
 use lib::romaji;
 use lib::Priority;
 use musli::{Decode, Encode};
+use phrasebook::yew023::PhrasesContext;
+use phrasebook::{args, Phrases};
 use serde::Deserialize;
 use serde::Serialize;
 use wasm_bindgen::closure::Closure;
@@ -23,6 +25,7 @@ use yew_router::{prelude::*, AnyRoute};
 use crate::c;
 use crate::class;
 use crate::error::Error;
+use crate::l10n;
 use crate::query::{Mode, Query, Tab};
 use crate::ws;
 
@@ -61,6 +64,7 @@ pub(crate) enum Msg {
     Broadcast(api::OwnedBroadcastKind),
     StateChange(ws::State),
     Error(Error),
+    Phrases(Phrases),
 }
 
 impl From<api::OwnedBroadcastKind> for Msg {
@@ -100,6 +104,7 @@ pub(crate) struct Prompt {
     missing_ocr: Option<api::MissingOcr>,
     get_config: Option<ws::Request>,
     is_open: bool,
+    l10n: PhrasesContext,
     _callback: Closure<dyn FnMut(MessageEvent)>,
     _location_handle: Option<LocationHandle>,
     _listener: ws::Listener,
@@ -155,6 +160,7 @@ impl Component for Prompt {
             missing_ocr: None,
             get_config: None,
             is_open: false,
+            l10n: PhrasesContext::new(ctx.link(), ctx.link().callback(Msg::Phrases)),
             _callback: callback,
             _location_handle: location_handle,
             _listener: listener,
@@ -414,15 +420,18 @@ impl Component for Prompt {
                 log::error!("{error}");
                 false
             }
+            Msg::Phrases(phrases) => self.l10n.set(phrases),
         }
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let l10n = self.l10n.phrases();
+
         let analyze = if self.query.text.is_empty() {
             let text = if self.query.embed {
-                "Nothing to analyze"
+                l10n.text("nothing-to-analyze")
             } else {
-                "Type something in the prompt"
+                l10n.text("type-something")
             };
 
             let compact = self.query.embed.then_some(class::COMPACT);
@@ -436,7 +445,7 @@ impl Component for Prompt {
         let translation = self.query.translation.as_ref().map(|text| {
             html! {
                 <sockel::Cluster gap={Gap::None}>
-                    <span class={class::TRANSLATION_TITLE}>{"Translation:"}</span>
+                    <span class={class::TRANSLATION_TITLE}>{l10n.text("translation")}</span>
                     {spacing()}
                     <span>{text}</span>
                 </sockel::Cluster>
@@ -468,18 +477,18 @@ impl Component for Prompt {
                 html! {
                     <sockel::Stack gap={Gap::Tight}>
                         <div>
-                            {format!("Showing {} out of {} phrases", self.limit_entries, self.phrases.len())}
+                            {l10n.msg("showing-phrases", &args!(shown = self.limit_entries, total = self.phrases.len()))}
                         </div>
 
                         <sockel::Cluster>
-                            <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</sockel::Button>
+                            <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{l10n.text("show-more")}</sockel::Button>
                         </sockel::Cluster>
                     </sockel::Stack>
                 }
             });
 
             let header = (!self.query.embed).then(|| {
-                html!(<h4>{"Phrases"}</h4>)
+                html!(<h4>{l10n.text("phrases")}</h4>)
             });
 
             html! {
@@ -503,7 +512,7 @@ impl Component for Prompt {
                 .iter()
                 .map(|e| html!(<c::Name embed={self.query.embed} entry={e.name.clone()} onclick={onclick.clone()} ontag={ontag.clone()} />));
 
-            let header = (!self.query.embed).then(|| html!(<h4>{"Names"}</h4>));
+            let header = (!self.query.embed).then(|| html!(<h4>{l10n.text("names")}</h4>));
 
             html! {
                 <sockel::Stack gap={Gap::Loose}>
@@ -535,18 +544,18 @@ impl Component for Prompt {
                 html! {
                     <sockel::Stack gap={Gap::Tight}>
                         <div>
-                            {format!("Showing {} out of {} characters", self.limit_characters, self.characters.len())}
+                            {l10n.msg("showing-characters", &args!(shown = self.limit_characters, total = self.characters.len()))}
                         </div>
 
                         <sockel::Cluster>
-                            <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</sockel::Button>
+                            <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{l10n.text("show-more")}</sockel::Button>
                         </sockel::Cluster>
                     </sockel::Stack>
                 }
             });
 
             let header = (!self.query.embed).then(|| {
-                html!(<h4>{"Kanji"}</h4>)
+                html!(<h4>{l10n.text("kanji")}</h4>)
             });
 
             html! {
@@ -560,26 +569,27 @@ impl Component for Prompt {
 
         let page = if self.query.embed {
             let tab = |value: &'static str, title: &str, len: usize| {
-                let mut item = sockel::TabItem::new(value, format!("{title} ({len})"));
+                let label = l10n.msg("tab-count", &args!(title = title, count = len));
+                let mut item = sockel::TabItem::new(value, label);
                 item.disabled = len == 0;
                 item
             };
 
             let mut tabs = vec![
-                tab(TAB_PHRASES, "Phrases", self.phrases.len()),
-                tab(TAB_NAMES, "Names", self.names.len()),
-                tab(TAB_KANJI, "Kanji", self.characters.len()),
+                tab(TAB_PHRASES, &l10n.text("phrases"), self.phrases.len()),
+                tab(TAB_NAMES, &l10n.text("names"), self.names.len()),
+                tab(TAB_KANJI, &l10n.text("kanji"), self.characters.len()),
             ];
 
             match &self.query.tab {
                 Tab::KanjiDetails(kanji) => {
                     tabs.push(sockel::TabItem::new(
                         TAB_OTHER,
-                        format!("Kanji details: {kanji}"),
+                        l10n.msg("tab-kanji-details", &args!(kanji = &**kanji)),
                     ));
                 }
                 Tab::Settings => {
-                    tabs.push(sockel::TabItem::new(TAB_OTHER, "Settings"));
+                    tabs.push(sockel::TabItem::new(TAB_OTHER, l10n.text("tab-settings")));
                 }
                 _ => {}
             }
@@ -627,7 +637,7 @@ impl Component for Prompt {
                 <>
                     {analyze}
                     {for translation}
-                    <sockel::Tabs {tabs} value={AttrValue::Static(value)} {on_change} label="Results" />
+                    <sockel::Tabs {tabs} value={AttrValue::Static(value)} {on_change} label={l10n.text("results")} />
                     {content}
                 </>
             }
@@ -661,9 +671,11 @@ impl Component for Prompt {
                     let onclick = ctx.link().callback(|_| Msg::OpenConfig);
 
                     let (title, description) = match self.query.mode {
-                        Mode::Unfiltered => ("default", "Do not process input at all"),
-                        Mode::Hiragana => ("ひらがな", "Process input as Hiragana"),
-                        Mode::Katakana => ("カタカナ", "Treat input as Katakana"),
+                        Mode::Unfiltered => {
+                            (l10n.text("mode-default"), l10n.text("mode-default-tip"))
+                        }
+                        Mode::Hiragana => ("ひらがな".into(), l10n.text("mode-hiragana-tip")),
+                        Mode::Katakana => ("カタカナ".into(), l10n.text("mode-katakana-tip")),
                     };
 
                     let mut group = sockel::group_classes(&[false, false, false]).into_iter();
@@ -672,14 +684,14 @@ impl Component for Prompt {
                         <>
                             <sockel::InputGroup>
                                 <sockel::TextInput value={self.query.text.clone()} on_input={ctx.link().callback(Msg::Change)}
-                                    label="Search" autofocus={true} class={group.next().unwrap_or_default()} />
+                                    label={l10n.text("search")} autofocus={true} class={group.next().unwrap_or_default()} />
                                 <sockel::Button tip={description} onclick={ontoggle} class={classes!(group.next(), class::PROMPT_MODE)}>{title}</sockel::Button>
-                                <sockel::Button tip="Capture clipboard" pressed={self.query.capture_clipboard}
+                                <sockel::Button tip={l10n.text("capture-clipboard")} pressed={self.query.capture_clipboard}
                                     onclick={oncaptureclipboard} class={group.next().unwrap_or_default()}>{"📋"}</sockel::Button>
                             </sockel::InputGroup>
 
                             <sockel::Cluster justify={sockel::Justify::End}>
-                                <sockel::Button variant={sockel::ButtonVariant::Quiet} {onclick}>{"⚙ Config"}</sockel::Button>
+                                <sockel::Button variant={sockel::ButtonVariant::Quiet} {onclick}>{l10n.text("open-config")}</sockel::Button>
                             </sockel::Cluster>
                         </>
                     };
@@ -761,11 +773,12 @@ impl Component for Prompt {
 
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
-            let action = html!(<sockel::Button {onclick}>{"⚙ Fix in Settings"}</sockel::Button>);
+            let action =
+                html!(<sockel::Button {onclick}>{l10n.text("fix-in-settings")}</sockel::Button>);
 
             html! {
                 <sockel::Notice tone={sockel::Tone::Danger} {action}>
-                    <span>{"Dictionaries missing:"}</span>
+                    <span>{l10n.text("missing-dictionaries")}</span>
                     {spacing()}
                     <span>{for missing}</span>
                 </sockel::Notice>
@@ -792,13 +805,13 @@ impl Component for Prompt {
             let action = html! {
                 <sockel::Cluster>
                     {for install_url}
-                    <sockel::Button {onclick}>{"⚙ Disable"}</sockel::Button>
+                    <sockel::Button {onclick}>{l10n.text("disable-ocr")}</sockel::Button>
                 </sockel::Cluster>
             };
 
             html! {
                 <sockel::Notice tone={sockel::Tone::Danger} {action}>
-                    {"OCR support is enabled but not installed"}
+                    {l10n.text("ocr-missing")}
                 </sockel::Notice>
             }
         });
@@ -807,19 +820,19 @@ impl Component for Prompt {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
 
             let search = html! {
-                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} tip="Search" {onclick}>{"🔍"}</sockel::Button>
+                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} tip={l10n.text("search")} {onclick}>{"🔍"}</sockel::Button>
             };
 
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
             let config = html! {
-                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} tip="Configure" {onclick}>{"⚙"}</sockel::Button>
+                <sockel::Button variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} tip={l10n.text("configure")} {onclick}>{"⚙"}</sockel::Button>
             };
 
             let maximize = if self.query.embed {
                 self.query.to_href(true).map(|href| {
                     html! {
-                        <c::ExternalButton variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} href={AttrValue::from(href)} target="_window" title="Open in big window">{"🗖"}</c::ExternalButton>
+                        <c::ExternalButton variant={sockel::ButtonVariant::Quiet} size={sockel::ButtonSize::Small} href={AttrValue::from(href)} target="_window" title={l10n.text("open-window")}>{"🗖"}</c::ExternalButton>
                     }
                 })
             } else {
@@ -828,15 +841,14 @@ impl Component for Prompt {
 
             html! {
                 <div class={class::WINDOW_TOP}>
-                    <sockel::Toolbar label="Window" class={class::CONTAINER}>
+                    <sockel::Toolbar label={l10n.text("window")} class={class::CONTAINER}>
                         {search}
                         {config}
                         <sockel::ToolbarSpacer />
                         <span>
-                            <a href="https://github.com/udoprog/jpv">{"Japanese Dictionary"}</a>
+                            <a href="https://github.com/udoprog/jpv">{l10n.text("title")}</a>
                             <span class={class::SUB_TITLE}>
-                                <span>{"by "}</span>
-                                <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
+                                {l10n::rich(l10n, "by-author", [("author", author())])}
                             </span>
                         </span>
                         <sockel::ToolbarSpacer />
@@ -860,7 +872,7 @@ impl Component for Prompt {
                     {missing_ocr}
                     {tasks}
                     {page}
-                    <sockel::Stack gap={Gap::Tight} class={class::COPYRIGHT}>{copyright()}</sockel::Stack>
+                    <sockel::Stack gap={Gap::Tight} class={class::COPYRIGHT}>{copyright(l10n)}</sockel::Stack>
                 </sockel::Stack>
             </>
         }
@@ -929,33 +941,79 @@ fn decode_query(location: Option<Location>) -> Query {
     query
 }
 
-fn copyright() -> Html {
+fn author() -> Html {
+    html!(<a href="https://udoprog.github.io">{"John-John Tedro"}</a>)
+}
+
+fn copyright(l10n: &Phrases) -> Html {
+    let link = |href: &'static str, text: Html| html!(<a {href}>{text}</a>);
+
+    let made = l10n::rich(
+        l10n,
+        "credits-made",
+        [
+            ("author", author()),
+            (
+                "mit",
+                link(
+                    "https://github.com/udoprog/jpv/blob/main/LICENSE-MIT",
+                    html!("MIT"),
+                ),
+            ),
+            (
+                "apache",
+                link(
+                    "https://github.com/udoprog/jpv/blob/main/LICENSE-APACHE",
+                    html!({ l10n.text("credits-apache") }),
+                ),
+            ),
+        ],
+    );
+
+    let data = l10n::rich(
+        l10n,
+        "credits-data",
+        [
+            (
+                "jmdict",
+                link(
+                    "https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project",
+                    html!("JMDICT"),
+                ),
+            ),
+            (
+                "kanjidic",
+                link(
+                    "https://www.edrdg.org/wiki/index.php/KANJIDIC_Project",
+                    html!("KANJIDIC2"),
+                ),
+            ),
+            (
+                "enamdict",
+                link(
+                    "http://edrdg.org/enamdict/enamdict_doc.html",
+                    html!("ENAMDICT"),
+                ),
+            ),
+            (
+                "kradfile",
+                link("http://nihongo.monash.edu/kradinf.html", html!("KRADFILE")),
+            ),
+            ("edrdg", link("https://www.edrdg.org", html!("EDRDG"))),
+            (
+                "licence",
+                link(
+                    "https://www.edrdg.org/edrdg/licence.html",
+                    html!({ l10n.text("credits-licence") }),
+                ),
+            ),
+        ],
+    );
+
     html! {
         <>
-            <div>
-                <span>{"Made with ❤️ by "}</span>
-                <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
-                <span>{", freely available forever under the "}</span>
-                <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-MIT">{"MIT"}</a>
-                <span>{" or "}</span>
-                <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-APACHE">{"Apache 2.0 license"}</a>
-            </div>
-
-            <div>
-                <span>{"This application uses "}</span>
-                <a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">{"JMDICT"}</a>
-                <span>{", "}</span>
-                <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">{"KANJIDIC2"}</a>
-                <span>{", "}</span>
-                <a href="http://edrdg.org/enamdict/enamdict_doc.html">{"ENAMDICT"}</a>
-                <span>{", and "}</span>
-                <a href="http://nihongo.monash.edu/kradinf.html">{"KRADFILE"}</a>
-                <span>{" which is the property of the "}</span>
-                <a href="https://www.edrdg.org">{"EDRDG"}</a>
-                <span>{" and is used in conformance with its "}</span>
-                <a href="https://www.edrdg.org/edrdg/licence.html">{"licence"}</a>
-                <span>{"."}</span>
-            </div>
+            <div>{made}</div>
+            <div>{data}</div>
         </>
     }
 }

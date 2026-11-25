@@ -2,6 +2,8 @@ use std::collections::HashSet;
 
 use lib::api;
 use lib::config::ConfigIndex;
+use phrasebook::yew023::PhrasesContext;
+use phrasebook::Phrases;
 use yew::prelude::*;
 
 use crate::c;
@@ -28,6 +30,7 @@ pub(crate) enum Msg {
     InstallingAll,
     InstallAll,
     Error(Error),
+    Phrases(Phrases),
 }
 
 #[derive(Properties, PartialEq)]
@@ -50,7 +53,7 @@ struct State {
 
 pub(crate) struct Config {
     pending: bool,
-    error: Option<String>,
+    error: Option<Error>,
     state: Option<State>,
     installed: HashSet<String>,
     missing_ocr: Option<api::MissingOcr>,
@@ -58,6 +61,7 @@ pub(crate) struct Config {
     update_indexes: HashSet<String>,
     index_add: bool,
     request: ws::Request,
+    l10n: PhrasesContext,
 }
 
 impl Component for Config {
@@ -83,6 +87,7 @@ impl Component for Config {
             update_indexes: HashSet::new(),
             index_add: false,
             request,
+            l10n: PhrasesContext::new(ctx.link(), ctx.link().callback(Msg::Phrases)),
         }
     }
 
@@ -204,8 +209,11 @@ impl Component for Config {
             }
             Msg::Error(error) => {
                 log::error!("{}", error);
-                self.error = Some(error.to_string());
+                self.error = Some(error);
                 self.pending = false;
+            }
+            Msg::Phrases(phrases) => {
+                return self.l10n.set(phrases);
             }
         }
 
@@ -213,6 +221,7 @@ impl Component for Config {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let phrases = self.l10n.phrases();
         let mut indexes = Vec::new();
         let mut ocr = None;
 
@@ -266,24 +275,24 @@ impl Component for Config {
                     });
 
                     let help_title = if index.help.is_some() {
-                        "Go to the help page for this dictionary"
+                        phrases.text("config-help-tip")
                     } else {
-                        "No help page specified"
+                        phrases.text("config-help-missing")
                     };
 
                     let help = html! {
-                        <c::ExternalButton href={index.help.clone().map(AttrValue::from)} target="_index" title={help_title}>{"About"}</c::ExternalButton>
+                        <c::ExternalButton href={index.help.clone().map(AttrValue::from)} target="_index" title={help_title}>{phrases.text("config-help")}</c::ExternalButton>
                     };
 
                     let not_installed = (!self.installed.contains(id)).then(|| {
                         html! {
-                            <sockel::Badge tone={sockel::Tone::Danger}>{"not installed"}</sockel::Badge>
+                            <sockel::Badge tone={sockel::Tone::Danger}>{phrases.text("config-not-installed")}</sockel::Badge>
                         }
                     });
 
                     let updated = is_updated.then(|| {
                         html! {
-                            <span data-tip="Has been updated and will be applied on Save">{"＊"}</span>
+                            <span data-tip={phrases.text("config-updated-tip")}>{"＊"}</span>
                         }
                     });
 
@@ -300,7 +309,7 @@ impl Component for Config {
                                     {not_installed}
                                 </sockel::Cluster>
                                 <sockel::Cluster>
-                                    <sockel::Button variant={sockel::ButtonVariant::Primary} {onclick} tip={"Change this dictionary"}>{"Edit"}</sockel::Button>
+                                    <sockel::Button variant={sockel::ButtonVariant::Primary} {onclick} tip={phrases.text("config-edit-tip")}>{phrases.text("config-edit")}</sockel::Button>
                                     {help}
                                 </sockel::Cluster>
                             </sockel::Cluster>
@@ -326,14 +335,14 @@ impl Component for Config {
 
                     html! {
                         <sockel::Notice tone={sockel::Tone::Danger} action={install_url}>
-                            {"OCR support is not installed"}
+                            {phrases.text("config-ocr-not-installed")}
                         </sockel::Notice>
                     }
                 });
 
                 html! {
                     <>
-                        <sockel::Checkbox {checked} disabled={self.pending} {on_change}>{"OCR Support"}</sockel::Checkbox>
+                        <sockel::Checkbox {checked} disabled={self.pending} {on_change}>{phrases.text("config-ocr-support")}</sockel::Checkbox>
                         {for missing_ocr}
                     </>
                 }
@@ -357,8 +366,8 @@ impl Component for Config {
 
             html! {
                 <sockel::Cluster justify={sockel::Justify::End}>
-                    <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} {onclick}>{"New dictionary"}</sockel::Button>
-                    <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} onclick={onrebuild} tip="Install all missing dictionaries">{"Install all"}</sockel::Button>
+                    <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} {onclick}>{phrases.text("config-new-dictionary")}</sockel::Button>
+                    <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} onclick={onrebuild} tip={phrases.text("config-install-all-tip")}>{phrases.text("config-install-all")}</sockel::Button>
                 </sockel::Cluster>
             }
         };
@@ -374,7 +383,7 @@ impl Component for Config {
 
         let back = (!ctx.props().embed).then(|| {
             html! {
-                <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</sockel::Button>
+                <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{phrases.text("back")}</sockel::Button>
             }
         });
 
@@ -393,7 +402,7 @@ impl Component for Config {
 
             html! {
                 <div class={class::LOG}>
-                    <sockel::LogView count={log.len()} label="Log">{for it}</sockel::LogView>
+                    <sockel::LogView count={log.len()} label={phrases.text("config-log")}>{for it}</sockel::LogView>
                 </div>
             }
         });
@@ -404,13 +413,13 @@ impl Component for Config {
 
         let pending = self.pending.then(|| {
             html! {
-                <div>{"Loading"}</div>
+                <div>{phrases.text("loading")}</div>
             }
         });
 
         let error = self.error.as_ref().map(|error| {
             html! {
-                <sockel::Notice tone={sockel::Tone::Danger}>{error}</sockel::Notice>
+                <sockel::Notice tone={sockel::Tone::Danger}>{error.describe(phrases)}</sockel::Notice>
             }
         });
 
@@ -418,7 +427,7 @@ impl Component for Config {
             <sockel::Stack gap={sockel::Gap::Loose}>
                 <sockel::Cluster justify={sockel::Justify::Between}>
                     {back.unwrap_or_else(|| html!(<span />))}
-                    <sockel::Button variant={sockel::ButtonVariant::Primary} {disabled} onclick={onsave}>{"Save"}</sockel::Button>
+                    <sockel::Button variant={sockel::ButtonVariant::Primary} {disabled} onclick={onsave}>{phrases.text("save")}</sockel::Button>
                 </sockel::Cluster>
 
                 {pending}
@@ -427,22 +436,22 @@ impl Component for Config {
                 <c::LanguagePicker />
 
                 <sockel::Stack gap={sockel::Gap::Tight}>
-                    <h5>{"Theme"}</h5>
+                    <h5>{phrases.text("theme")}</h5>
                     <c::ThemeSwitch />
                 </sockel::Stack>
 
                 <sockel::Stack gap={sockel::Gap::Tight}>
-                    <h5>{"Dictionaries"}</h5>
+                    <h5>{phrases.text("config-dictionaries")}</h5>
                     {dictionaries}
                 </sockel::Stack>
 
                 <sockel::Stack gap={sockel::Gap::Tight}>
-                    <h5>{"OCR"}</h5>
+                    <h5>{phrases.text("config-ocr")}</h5>
                     {for ocr}
                 </sockel::Stack>
 
                 <sockel::Stack gap={sockel::Gap::Tight}>
-                    <h5>{"Log"}</h5>
+                    <h5>{phrases.text("config-log")}</h5>
                     {log}
                 </sockel::Stack>
             </sockel::Stack>
