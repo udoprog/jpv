@@ -1,6 +1,5 @@
 import GObject from 'gi://GObject';
 import St from 'gi://St';
-import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
 import Gio from 'gi://Gio';
 
@@ -55,20 +54,21 @@ class ClipboardToggle extends PopupMenu.PopupSwitchMenuItem {
     _init(title, settings) {
         super._init(title, settings.get_boolean('capture-clipboard-enabled'));
 
-        this.connect('toggled', (item, state) => {
+        this.connect('toggled', (_item, state) => {
             if (settings.get_boolean('capture-clipboard-enabled') !== state) {
                 settings.set_boolean('capture-clipboard-enabled', state);
             }
         });
 
-        settings.connect('changed::capture-clipboard-enabled', (settings, key) => {
-            let state = settings.get_boolean(key);
+        // Disconnected automatically when this item is destroyed.
+        settings.connectObject('changed::capture-clipboard-enabled', (_settings, key) => {
+            const state = settings.get_boolean(key);
 
             if (this.state !== state) {
                 this.setToggleState(state);
                 this.emit('toggled', state);
             }
-        });
+        }, this);
     }
 });
 
@@ -88,65 +88,63 @@ class Indicator extends PanelMenu.Button {
 
         this.add_style_class_name('japanese-dictionary-icon');
 
-        let openDictionary = new PopupMenu.PopupMenuItem(_('Open dictionary'));
+        const openDictionary = new PopupMenu.PopupMenuItem(_('Open dictionary'));
 
         openDictionary.connect('activate', () => {
             extension.proxy.GetPortRemote((port, error) => {
                 if (error) {
-                    Main.notifyError(_(`Failed to open dictionary`), `${error}`);
+                    Main.notifyError(_('Failed to open dictionary'), `${error}`);
                 } else {
-                    let p = port[0];
-                    let url = `http://localhost:${p}`;
-                    Gio.app_info_launch_default_for_uri(url, null);
+                    const url = `http://localhost:${port[0]}`;
+                    Gio.AppInfo.launch_default_for_uri(url, null);
                 }
             });
         });
 
-        this._toggleClipboard = new ClipboardToggle(_('Capture clipboard 📋'), extension.getSettings());
+        this._toggleClipboard = new ClipboardToggle(_('Capture clipboard 📋'), extension.settings);
 
         this.menu.addMenuItem(openDictionary);
         this.menu.addMenuItem(this._toggleClipboard);
 
         this._selection = null;
+        this._ownerChangedId = 0;
 
-        if (this._toggleClipboard.state) {
-            this._setup();
-            this.add_style_pseudo_class('capture');
-        }
+        this._toggleClipboard.connect('toggled', (_item, state) => this._setCapture(state));
+        this._setCapture(this._toggleClipboard.state);
 
-        this._toggleClipboard.connect('toggled', (_item, state) => {
-            if (state) {
-                this._setup();
-                this.add_style_pseudo_class('capture');
-            } else {
-                this._destroy();
-                this.remove_style_pseudo_class('capture');
-            }
-        });
+        this.connect('destroy', () => this._unwatchSelection());
     }
 
-    _setup() {
+    _setCapture(enabled) {
+        if (enabled) {
+            this._watchSelection();
+            this.add_style_pseudo_class('capture');
+        } else {
+            this._unwatchSelection();
+            this.remove_style_pseudo_class('capture');
+        }
+    }
+
+    _watchSelection() {
         if (this._selection) {
             return;
         }
 
-        const metaDisplay = Shell.Global.get().get_display();
+        this._selection = global.display.get_selection();
 
-        this._selection = metaDisplay.get_selection();
-
-        this._currentSelection = this._selection.connect('owner-changed', (_selection, type, _source) => {
+        this._ownerChangedId = this._selection.connect('owner-changed', (_selection, type, _source) => {
             if (type === Meta.SelectionType.SELECTION_CLIPBOARD) {
                 this._sendClipboardData().catch(e => console.error(e));
             }
         });
     }
 
-    _destroy() {
-        if (this._currentSelection) {
-            this._selection.disconnect(this._currentSelection);
-            this._currentSelection = null;
+    _unwatchSelection() {
+        if (this._selection && this._ownerChangedId) {
+            this._selection.disconnect(this._ownerChangedId);
         }
 
+        this._ownerChangedId = 0;
         this._selection = null;
     }
 
@@ -197,16 +195,20 @@ class Indicator extends PanelMenu.Button {
     }
 });
 
-export default class IndicatorExampleExtension extends Extension {
+export default class JapaneseDictionaryExtension extends Extension {
     enable() {
-        this.clipboard = St.Clipboard.get_default(),
+        this.settings = this.getSettings();
+        this.clipboard = St.Clipboard.get_default();
         this.proxy = new JapaneseDictionaryProxy(Gio.DBus.session, 'se.tedro.JapaneseDictionary', '/se/tedro/JapaneseDictionary');
         this._indicator = new Indicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 
     disable() {
-        this._indicator.destroy();
+        this._indicator?.destroy();
         this._indicator = null;
+        this.proxy = null;
+        this.clipboard = null;
+        this.settings = null;
     }
 }

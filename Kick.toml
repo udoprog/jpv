@@ -14,12 +14,20 @@ source = "desktop/se.tedro.JapaneseDictionary.service"
 dest = "usr/share/dbus-1/services/"
 
 [[package.files]]
-source = "desktop/se.tedro.japanese-dictionary.plugins.gschema.xml"
-dest = "usr/share/glib-2.0/schemas/"
+source = "gnome/jpv@tedro.se/*.js"
+dest = "usr/share/gnome-shell/extensions/jpv@tedro.se/"
 
 [[package.files]]
-source = "gnome/jpv@tedro.se/*"
+source = "gnome/jpv@tedro.se/*.json"
 dest = "usr/share/gnome-shell/extensions/jpv@tedro.se/"
+
+[[package.files]]
+source = "gnome/jpv@tedro.se/*.css"
+dest = "usr/share/gnome-shell/extensions/jpv@tedro.se/"
+
+[[package.files]]
+source = "gnome/jpv@tedro.se/schemas/*"
+dest = "usr/share/gnome-shell/extensions/jpv@tedro.se/schemas/"
 
 [package.rpm]
 requires = [

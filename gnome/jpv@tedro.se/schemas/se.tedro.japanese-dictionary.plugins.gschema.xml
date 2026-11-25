@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema gettext-domain="gnome-settings-daemon" id="se.tedro.japanese-dictionary.plugins" path="/se/tedro/japanese-dictionary/plugins/">
+  <schema gettext-domain="jpv@tedro.se" id="se.tedro.japanese-dictionary.plugins" path="/se/tedro/japanese-dictionary/plugins/">
     <key name="capture-clipboard-enabled" type="b">
       <default>true</default>
       <summary>If clipboard capture is enabled</summary>

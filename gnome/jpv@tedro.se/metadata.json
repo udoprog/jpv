@@ -2,7 +2,8 @@
   "name": "Japanese Dictionary",
   "description": "Japanese Dictionary by John-John Tedro",
   "uuid": "jpv@tedro.se",
-  "shell-version": ["45", "46"],
+  "shell-version": ["49", "50", "51"],
   "url": "https://github.com/udoprog/jpv",
-  "settings-schema": "se.tedro.japanese-dictionary.plugins"
+  "settings-schema": "se.tedro.japanese-dictionary.plugins",
+  "gettext-domain": "jpv@tedro.se"
 }

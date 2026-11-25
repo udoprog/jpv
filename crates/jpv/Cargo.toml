@@ -74,8 +74,10 @@ assets = [
     { source = "desktop/se.tedro.JapaneseDictionary.desktop", dest = "/usr/share/applications/", mode = "644" },
     { source = "desktop/se.tedro.JapaneseDictionary.png", dest = "/usr/share/icons/hicolor/256x256/apps/", mode = "644" },
     { source = "desktop/se.tedro.JapaneseDictionary.service", dest = "/usr/share/dbus-1/services/", mode = "644" },
-    { source = "desktop/se.tedro.japanese-dictionary.plugins.gschema.xml", dest = "/usr/share/glib-2.0/schemas/", mode = "644" },
-    { source = "gnome/jpv@tedro.se/*", dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/", mode = "644" },
+    { source = "gnome/jpv@tedro.se/*.js", dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/", mode = "644" },
+    { source = "gnome/jpv@tedro.se/*.json", dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/", mode = "644" },
+    { source = "gnome/jpv@tedro.se/*.css", dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/", mode = "644" },
+    { source = "gnome/jpv@tedro.se/schemas/*", dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/schemas/", mode = "644" },
 ]
 
 [package.metadata.generate-rpm.requires]
