@@ -45,7 +45,7 @@ pub(super) enum ErrorKind {
         TryFromIntError,
     ),
     #[error("Failed to create the tesseract API")]
-    #[cfg(any(windows, all(unix, not(feature = "linked"))))]
+    #[cfg(any(unix, windows))]
     Create,
     #[error("Failed to initialize tesseract for language `{0}`, is its language data installed?")]
     #[cfg(any(unix, windows))]
@@ -54,7 +54,7 @@ pub(super) enum ErrorKind {
     #[cfg(any(unix, windows))]
     IllegalBytesPerPixel,
     #[error("Image data is smaller than its dimensions")]
-    #[cfg(any(windows, all(unix, not(feature = "linked"))))]
+    #[cfg(any(unix, windows))]
     ImageTooSmall,
     #[error("Failed to recognize text")]
     #[cfg(any(unix, windows))]
@@ -66,7 +66,7 @@ pub(super) enum ErrorKind {
     #[cfg(windows)]
     LoadLibrary(#[source] libloading::Error),
     #[error("Missing symbol `{symbol}` in dynamic library")]
-    #[cfg(any(windows, all(unix, not(feature = "linked"))))]
+    #[cfg(any(unix, windows))]
     MissingSymbol {
         error: libloading::Error,
         symbol: &'static str,
@@ -87,7 +87,7 @@ pub(super) enum ErrorKind {
     #[cfg(windows)]
     NotInstalled,
     #[error("Not installed, please install tesseract and its Japanese language data")]
-    #[cfg(all(unix, not(feature = "linked")))]
+    #[cfg(unix)]
     NotInstalled(#[source] Option<libloading::Error>),
     #[error("Missing language data ({0}), please install it through the installer")]
     #[cfg(windows)]

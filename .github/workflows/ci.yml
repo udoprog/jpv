@@ -22,8 +22,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@1.95
-    - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
-      if: matrix.os == 'ubuntu-latest'
     - run: cargo build --workspace --lib
 
   test:
@@ -35,8 +33,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
-    - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
-      if: matrix.os == 'ubuntu-latest'
     - run: cargo test --workspace --all-targets
     - run: cargo test --workspace --doc
 
@@ -47,7 +43,6 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
-    - run: sudo apt install --yes gcc libtesseract-dev libleptonica-dev
     - run: cargo clippy --workspace -- -D warnings
 
   web:

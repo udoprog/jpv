@@ -147,8 +147,8 @@ gsettings set se.tedro.japanese-dictionary.plugins capture-clipboard-enabled fal
   browser.
 * `cli` (Windows) builds `jpv` as a console application instead of a GUI one.
 
-OCR through tesseract is linked in by default on Unix. Without the default
-features, and on Windows, it is loaded at runtime when installed.
+OCR through tesseract is loaded at runtime when tesseract is installed, and
+turned off otherwise.
 
 <br>
 
@@ -161,19 +161,21 @@ cargo install trug
 rustup target add wasm32-unknown-unknown
 ```
 
-On Fedora, install the build and OCR dependencies:
+On Fedora, install the build dependencies, and for OCR tesseract with its
+Japanese language data:
 
 ```sh
-sudo dnf install openssl-devel git gcc tesseract-devel leptonica-devel clang-devel
+sudo dnf install openssl-devel git gcc
+sudo dnf install tesseract tesseract-langpack-jpn
 ```
 
 The `gnome` feature also needs `glib2-devel`.
 
-On macOS, install the OCR dependencies with Homebrew. If brew does not link
-their pkg-config files, add them to `PKG_CONFIG_PATH`:
+On macOS, install tesseract for OCR with Homebrew. Its Japanese language data
+is in `tesseract-lang`:
 
 ```sh
-brew install tesseract leptonica
+brew install tesseract tesseract-lang
 ```
 
 On Windows, install tesseract from [UB-Mannheim/tesseract], with "Japanese"

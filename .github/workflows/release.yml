@@ -55,7 +55,7 @@ jobs:
       with: {name: build-frontend, path: crates/web/dist}
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
-    - run: dnf install --assumeyes gcc rpm-build glib2-devel openssl-devel tesseract-devel leptonica-devel clang-devel git
+    - run: dnf install --assumeyes gcc rpm-build glib2-devel openssl-devel git
     - uses: udoprog/actions@kick
     - run: kick define --github-action
       id: release
@@ -70,11 +70,8 @@ jobs:
 
   # Portable archives for the install script, named jpv-<version>-<arch>-<os>.tar.gz.
   #
-  # These are built without the default `tesseract/linked` feature: linking
-  # tesseract and leptonica would tie the binary to one distro's sonames and
-  # stop it from starting anywhere else. Instead tesseract is loaded at runtime,
-  # so OCR works wherever tesseract and its Japanese language data are
-  # installed, and is turned off otherwise.
+  # Tesseract is loaded at runtime, so OCR works wherever tesseract and its
+  # Japanese language data are installed, and is turned off otherwise.
   archive:
     runs-on: ${{matrix.os}}
     needs: frontend

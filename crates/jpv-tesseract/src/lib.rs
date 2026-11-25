@@ -7,11 +7,9 @@
 //! The backend depends on the platform:
 //! * On Windows tesseract is loaded at runtime from the [UB-Mannheim/tesseract]
 //!   installation found in the registry.
-//! * On Linux and macOS with the `linked` feature tesseract is linked
-//!   when building.
-//! * On Linux and macOS without it tesseract is loaded at runtime by
-//!   its library name, so a binary built this way starts whether tesseract is
-//!   installed or not, and only has OCR when it is.
+//! * On Linux and macOS tesseract is loaded at runtime by its library name,
+//!   so the binary starts whether tesseract is installed or not, and only has
+//!   OCR when it is.
 //!
 //! Where tesseract cannot be loaded, `open` returns an error.
 //!
@@ -23,18 +21,11 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub use self::error::Error;
 mod error;
 
-#[cfg(any(windows, all(unix, not(feature = "linked"))))]
+#[cfg(any(unix, windows))]
 mod dynamic;
 
-// Cargo cannot leave out a dependency when a feature is enabled, so libloading
-// is still built with `linked` even though only the runtime-loaded backend uses
-// it.
-#[cfg(all(unix, feature = "linked"))]
-use libloading as _;
-
 #[cfg_attr(windows, path = "dll.rs")]
-#[cfg_attr(all(unix, feature = "linked"), path = "linked.rs")]
-#[cfg_attr(all(unix, not(feature = "linked")), path = "unix.rs")]
+#[cfg_attr(unix, path = "unix.rs")]
 #[cfg_attr(not(any(unix, windows)), path = "fake.rs")]
 mod r#impl;
 pub use self::r#impl::{open, Tesseract, TesseractString};

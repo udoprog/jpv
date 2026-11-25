@@ -16,7 +16,7 @@ categories = ["development-tools"]
 default-run = "jpv"
 
 [features]
-default = ["reqwest", "memmap", "tesseract/linked"]
+default = ["reqwest", "memmap"]
 bundle = ["rust-embed", "mime_guess"]
 gnome = ["gio", "dbus"]
 memmap = ["lib/memmap"]

@@ -10,11 +10,9 @@ Bindings to tesseract.
 The backend depends on the platform:
 * On Windows tesseract is loaded at runtime from the [UB-Mannheim/tesseract]
   installation found in the registry.
-* On Linux and macOS with the `linked` feature tesseract is linked
-  when building.
-* On Linux and macOS without it tesseract is loaded at runtime by
-  its library name, so a binary built this way starts whether tesseract is
-  installed or not, and only has OCR when it is.
+* On Linux and macOS tesseract is loaded at runtime by its library name,
+  so the binary starts whether tesseract is installed or not, and only has
+  OCR when it is.
 
 Where tesseract cannot be loaded, `open` returns an error.
 
