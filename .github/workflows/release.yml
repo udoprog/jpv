@@ -118,6 +118,7 @@ jobs:
         JPV_VERSION: ${{steps.release.outputs.version}}
         JPV_MSI_VERSION: ${{steps.release.outputs.msi_version}}
     - run: kick msi --output dist
+    - run: kick zip --output dist
     - uses: actions/upload-artifact@v7
       with:
         name: dist-windows
