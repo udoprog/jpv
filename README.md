@@ -65,6 +65,10 @@ This installs the latest prebuilt `jpv` into `~/.local/bin`. Set
 pin one. These portable builds use OCR when tesseract and its Japanese
 language data are installed.
 
+On Linux, `jpv install` then adds a desktop entry, D-Bus activation and the
+GNOME extension for your user, under `~/.local/share`. `jpv uninstall`
+removes them again.
+
 * **Fedora:** the RPM from the [releases] includes OCR, the desktop entry and
   GNOME integration.
 * **Windows:** use the MSI from the [releases].
@@ -104,8 +108,14 @@ the service is started when needed.
 ## GNOME extension
 
 GNOME and Wayland have no general way to capture the clipboard, so jpv ships
-a GNOME Shell extension for it. The Fedora RPM installs it; enable it in the
-extensions manager:
+a GNOME Shell extension for it. Install it with `jpv install` (the Fedora RPM
+already includes it), log out and back in, then enable it:
+
+```sh
+gnome-extensions enable jpv@tedro.se
+```
+
+Or enable it in the extensions manager:
 
 ![Gnome extension](https://github.com/udoprog/jpv/blob/main/gfx/gnome-extension.png?raw=true)
 
