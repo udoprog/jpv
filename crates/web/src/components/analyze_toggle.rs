@@ -13,6 +13,8 @@ pub(crate) struct Props {
     pub(crate) index: usize,
     #[prop_or_default]
     pub(crate) analyze_at: Option<usize>,
+    #[prop_or_default]
+    pub(crate) compact: bool,
     pub(crate) on_analyze: Callback<usize>,
     pub(crate) on_analyze_cycle: Callback<()>,
 }
@@ -81,7 +83,7 @@ impl Component for AnalyzeToggle {
 
         html! {
             <sockel::Stack gap={sockel::Gap::Snug}>
-                <sockel::Cluster gap={sockel::Gap::None} class={class::ANALYZE_TEXT}>{for query}</sockel::Cluster>
+                <sockel::Cluster gap={sockel::Gap::None} class={classes!(class::ANALYZE_TEXT, ctx.props().compact.then_some(class::COMPACT))}>{for query}</sockel::Cluster>
                 {analyze_hint}
             </sockel::Stack>
         }

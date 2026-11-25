@@ -425,11 +425,12 @@ impl Component for Prompt {
                 "Type something in the prompt"
             };
 
-            html!(<div class={classes!(class::ANALYZE_TEXT, class::EMPTY)}>{text}</div>)
+            let compact = self.query.embed.then_some(class::COMPACT);
+            html!(<div class={classes!(class::ANALYZE_TEXT, class::EMPTY, compact)}>{text}</div>)
         } else {
             let on_analyze = ctx.link().callback(Msg::Analyze);
             let on_analyze_cycle = ctx.link().callback(|_| Msg::AnalyzeCycle);
-            html!(<c::AnalyzeToggle query={self.query.text.clone()} analyzed={self.analysis.clone()} index={self.query.index} analyze_at={self.query.analyze_at} {on_analyze} {on_analyze_cycle} />)
+            html!(<c::AnalyzeToggle query={self.query.text.clone()} analyzed={self.analysis.clone()} index={self.query.index} analyze_at={self.query.analyze_at} compact={self.query.embed} {on_analyze} {on_analyze_cycle} />)
         };
 
         let translation = self.query.translation.as_ref().map(|text| {
@@ -848,7 +849,6 @@ impl Component for Prompt {
         let class = classes! {
             class::CONTAINER,
             class::CONTENT,
-            self.query.embed.then_some(class::EMBED),
         };
 
         html! {

@@ -28,3 +28,6 @@ mod edit_index;
 
 pub(crate) use self::external_button::ExternalButton;
 mod external_button;
+
+pub(crate) mod theme;
+pub(crate) use self::theme::ThemeSwitch;

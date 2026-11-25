@@ -126,6 +126,7 @@ fn Root() -> Html {
 fn main() -> anyhow::Result<()> {
     wasm_logger::init(wasm_logger::Config::default());
     log::trace!("Started up");
+    c::theme::init();
     yew::Renderer::<Root>::new().render();
     Ok(())
 }

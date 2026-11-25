@@ -1,25 +1,52 @@
 @use "sockel" as p;
 @import "_reset";
 
-// The colours sockel reads; everything else derives from them.
-:root {
+// The colours sockel reads (everything else derives from them) and jpv's
+// own: headings a step stronger than the text, the analyzed span, and the
+// rule between entries.
+@mixin light {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #1f1f23;
+    --muted: #66666d;
+    --border: #c4c4cc;
+    --accent: #1b6496;
+    --on-accent: #ffffff;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.1);
+    --heading-color: #000000;
+    --analyzed-color: #c62828;
+    --rule: #00000026;
+    color-scheme: light;
+}
+
+@mixin dark {
     --bg: #2a2a2a;
     --surface: #343434;
     --text: #d9d9d9;
-    --muted: #8f8f8f;
+    --muted: #a3a3a3;
     --border: #656565;
     --accent: #b3d9ec;
     --on-accent: #2a2a2a;
     --shadow-1: 0 1px 2px rgb(0 0 0 / 0.5);
+    --heading-color: #eeeeee;
+    --analyzed-color: #ff6b6b;
+    --rule: #ffffff46;
     color-scheme: dark;
 }
 
-// jpv's own: headings a step brighter than the text, the analyzed span,
-// and the rule between entries.
+// The system's scheme unless the theme switch set `data-theme`.
 :root {
-    --heading-color: #eee;
-    --analyzed-color: #e55555;
-    --rule: #ffffff46;
+    @include light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        @include dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    @include dark;
 }
 
 body {
@@ -64,12 +91,6 @@ a {
 .jpv-container {
     margin: 0 auto;
     max-width: 1200px;
-
-    &.jpv-embed {
-        .jpv-analyze-text {
-            font-size: 120% !important;
-        }
-    }
 }
 
 .jpv-content {
@@ -112,6 +133,11 @@ a {
 
     &.jpv-empty {
         font-style: italic;
+    }
+
+    // The embedded popup's smaller window.
+    &.jpv-compact {
+        font-size: 120%;
     }
 }
 

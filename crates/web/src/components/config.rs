@@ -425,6 +425,11 @@ impl Component for Config {
                 {error}
 
                 <sockel::Stack gap={sockel::Gap::Tight}>
+                    <h5>{"Theme"}</h5>
+                    <c::ThemeSwitch />
+                </sockel::Stack>
+
+                <sockel::Stack gap={sockel::Gap::Tight}>
                     <h5>{"Dictionaries"}</h5>
                     {dictionaries}
                 </sockel::Stack>
