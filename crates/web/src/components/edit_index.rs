@@ -1,7 +1,8 @@
-use crate::class;
 use lib::config::{ConfigIndex, IndexFormat};
 use url::Url;
 use yew::prelude::*;
+
+use crate::class;
 
 pub(crate) enum Msg {
     ChangeId(String),
@@ -122,161 +123,87 @@ impl Component for EditIndex {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let onchangeformat = ctx.link().batch_callback({
-            move |e: Event| {
-                let select = e.target_dyn_into::<web_sys::HtmlSelectElement>()?;
-                let format = select.value().parse().ok()?;
-                Some(Msg::ChangeFormat(format))
-            }
-        });
+        let pending = ctx.props().pending;
 
-        let onchangedescription = ctx.link().batch_callback({
-            move |e: Event| {
-                let input = e.target_dyn_into::<web_sys::HtmlInputElement>()?;
-                let description = input.value();
-                Some(Msg::ChangeDescription(description))
-            }
-        });
+        let format_options = IndexFormat::all()
+            .into_iter()
+            .map(|format| sockel::SelectOption::new(format, format.description()))
+            .collect::<Vec<_>>();
 
-        let onchangeurl = ctx.link().batch_callback({
-            move |e: Event| {
-                let input = e.target_dyn_into::<web_sys::HtmlInputElement>()?;
-                let url = input.value();
-                Some(Msg::ChangeUrl(url))
-            }
-        });
-
-        let onchangehelp = ctx.link().batch_callback({
-            move |e: Event| {
-                let input = e.target_dyn_into::<web_sys::HtmlInputElement>()?;
-                let url = input.value();
-                Some(Msg::ChangeHelp(url))
-            }
-        });
+        let on_format = ctx.link().callback(Msg::ChangeFormat);
+        let on_id = ctx.link().callback(Msg::ChangeId);
+        let on_url = ctx.link().callback(Msg::ChangeUrl);
+        let on_description = ctx.link().callback(Msg::ChangeDescription);
+        let on_help = ctx.link().callback(Msg::ChangeHelp);
 
         let oncancel = ctx.props().oncancel.reform(|_| ());
-
         let onsave = ctx.link().callback(move |_| Msg::Save);
 
-        let class = classes! {
-            class::BLOCK,
-            class::INDEX
-        };
-
         let id = ctx.props().onsavenew.is_some().then(|| {
-            let oninput = ctx.link().batch_callback({
-                move |e: InputEvent| {
-                    let input = e.target_dyn_into::<web_sys::HtmlInputElement>()?;
-                    let description = input.value();
-                    Some(Msg::ChangeId(description))
-                }
-            });
-
-            let error = self.errors.id.map(|error| {
-                html!(<p class={class::FORM_ERROR}>{error}</p>)
-            });
-
-            let class = classes! {
-                class::BLOCK,
-                class::FORM,
-                self.errors.id.is_some().then_some(class::HAS_ERRORS)
-            };
+            let error = self.errors.id.map(|error| html!({ error }));
+            let hint = html!({ "The unique identifier of the dictionary, must only contain [a-z], [A-Z], and [0-9]." });
+            let describedby = sockel::field_describedby("index-id", true, error.is_some());
 
             html! {
-                <div {class}>
-                    <h6>{"Id"}</h6>
-                    <p class={class::FORM_HELP}>{"The unique identifier of the dictionary, must only contain [a-z], [A-Z], and [0-9]."}</p>
-                    <input type="text" disabled={ctx.props().pending} value={self.id.clone()} {oninput} />
-                    <>{error}</>
-                </div>
+                <sockel::Field id="index-id" label={html!("Id")} {hint} {error}>
+                    <sockel::TextInput id="index-id" value={self.id.clone()} on_input={on_id}
+                        disabled={pending} invalid={self.errors.id.is_some()} {describedby} />
+                </sockel::Field>
             }
         });
 
         let delete = ctx.props().ondelete.as_ref().map(|ondelete| {
             html! {
-                <button class={classes!(class::BTN, class::BTN_DANGER)} disabled={ctx.props().pending} onclick={ondelete.reform(|_| ())}>{"Delete"}</button>
+                <sockel::Button variant={sockel::ButtonVariant::Danger} disabled={pending} onclick={ondelete.reform(|_| ())}>{"Delete"}</sockel::Button>
             }
         });
 
         let update = ctx.props().onupdate.as_ref().map(|onupdate| {
-            let class = classes! {
-                class::BTN,
-                (!ctx.props().isupdate).then_some(class::BTN_PRIMARY),
-            };
-
-            let label = if ctx.props().isupdate {
-                "Do not update"
+            let (variant, label) = if ctx.props().isupdate {
+                (sockel::ButtonVariant::Secondary, "Do not update")
             } else {
-                "Update"
+                (sockel::ButtonVariant::Primary, "Update")
             };
 
             html! {
-                <button {class} disabled={ctx.props().pending} onclick={onupdate.reform(|_| ())}>{label}</button>
+                <sockel::Button {variant} disabled={pending} onclick={onupdate.reform(|_| ())}>{label}</sockel::Button>
             }
         });
 
-        let url_class = classes! {
-            class::BLOCK,
-            class::FORM,
-            self.errors.url.is_some().then_some(class::HAS_ERRORS)
-        };
-
-        let url_error = self
-            .errors
-            .url
-            .as_ref()
-            .map(|error| html!(<p class={class::FORM_ERROR}>{error.clone()}</p>));
-
-        let help_class = classes! {
-            class::BLOCK,
-            class::FORM,
-            self.errors.help.is_some().then_some(class::HAS_ERRORS)
-        };
-
-        let help_error = self
-            .errors
-            .help
-            .as_ref()
-            .map(|error| html!(<p class={class::FORM_ERROR}>{error.clone()}</p>));
-
-        let options = IndexFormat::all().into_iter().map(|format| {
-            html! {
-                <option value={format.id()} selected={self.format == format}>{format.description()}</option>
-            }
-        });
+        let url_error = self.errors.url.clone().map(|error| html!({ error }));
+        let help_error = self.errors.help.clone().map(|error| html!({ error }));
+        let url_describedby = sockel::field_describedby("index-url", false, url_error.is_some());
+        let help_describedby = sockel::field_describedby("index-help", false, help_error.is_some());
 
         html! {
-            <div {class}>
-                <div class={classes!(class::BLOCK, class::FORM)}>
-                    <h6>{"Format"}</h6>
-                    <select onchange={onchangeformat}>
-                        {for options}
-                    </select>
-                </div>
-                {id}
-                <div class={url_class}>
-                    <h6>{"URL"}</h6>
-                    <input type="text" disabled={ctx.props().pending} value={self.url.clone()} onchange={onchangeurl} />
-                    <>{url_error}</>
-                </div>
-                <div class={classes!(class::BLOCK, class::FORM)}>
-                    <h6>{"Description"}</h6>
-                    <input type="text" disabled={ctx.props().pending} value={self.description.clone()} onchange={onchangedescription} />
-                </div>
-                <div class={help_class}>
-                    <h6>{"Help Page"}</h6>
-                    <input type="text" disabled={ctx.props().pending} value={self.help.clone()} onchange={onchangehelp} />
-                    <>{help_error}</>
-                </div>
-                <div class={classes!(class::BLOCK, class::ROW, class::ROW_SPACED)}>
-                    <button class={class::BTN} disabled={ctx.props().pending} onclick={oncancel}>{"Cancel"}</button>
-
-                    <div class={classes!(class::ROW, class::ROW_END, class::ROW_SPACED)}>
-                        {delete}
-                        {update}
-                        <button class={classes!(class::BTN, class::BTN_PRIMARY)} disabled={ctx.props().pending} onclick={onsave}>{"Save"}</button>
-                    </div>
-                </div>
+            <div class={class::BLOCK}>
+                <sockel::Stack class={class::INDEX}>
+                    <sockel::Field id="index-format" label={html!("Format")}>
+                        <sockel::Select<IndexFormat> id="index-format" options={format_options}
+                            value={Some(self.format)} on_change={on_format} disabled={pending} />
+                    </sockel::Field>
+                    {id}
+                    <sockel::Field id="index-url" label={html!("URL")} error={url_error.clone()}>
+                        <sockel::TextInput id="index-url" value={self.url.clone()} on_input={on_url}
+                            disabled={pending} invalid={url_error.is_some()} describedby={url_describedby} />
+                    </sockel::Field>
+                    <sockel::Field id="index-description" label={html!("Description")}>
+                        <sockel::TextInput id="index-description" value={self.description.clone()} on_input={on_description}
+                            disabled={pending} />
+                    </sockel::Field>
+                    <sockel::Field id="index-help" label={html!("Help Page")} error={help_error.clone()}>
+                        <sockel::TextInput id="index-help" value={self.help.clone()} on_input={on_help}
+                            disabled={pending} invalid={help_error.is_some()} describedby={help_describedby} />
+                    </sockel::Field>
+                    <sockel::Cluster>
+                        <sockel::Button disabled={pending} onclick={oncancel}>{"Cancel"}</sockel::Button>
+                        <sockel::Cluster class={class::ROW_END}>
+                            {delete}
+                            {update}
+                            <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={pending} onclick={onsave}>{"Save"}</sockel::Button>
+                        </sockel::Cluster>
+                    </sockel::Cluster>
+                </sockel::Stack>
             </div>
         }
     }

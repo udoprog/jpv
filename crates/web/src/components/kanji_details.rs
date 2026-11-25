@@ -1,10 +1,10 @@
-use crate::class;
 use std::rc::Rc;
 
 use lib::api;
 use yew::prelude::*;
 
 use crate::c;
+use crate::class;
 use crate::error::Error;
 use crate::ws;
 
@@ -101,7 +101,7 @@ impl Component for KanjiDetails {
 
             html! {
                 <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
-                    <button class={classes!(class::BTN, class::BTN_LG)} onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
+                    <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</sockel::Button>
                     {for pending}
                 </div>
             }

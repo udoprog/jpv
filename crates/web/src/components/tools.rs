@@ -1,8 +1,9 @@
-use crate::class;
 use std::array;
 use std::iter;
 
 use yew::prelude::*;
+
+use crate::class;
 
 macro_rules! bullets {
     ($ctx:expr, $base:ident . $name:ident $(, $extra:expr)?) => {{

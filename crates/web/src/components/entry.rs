@@ -1,4 +1,3 @@
-use crate::class;
 use std::collections::BTreeSet;
 
 use lib::database::Source;
@@ -10,6 +9,8 @@ use lib::{inflection, jmdict, Form, Furigana, Inflection, OwnedInflections, Prio
 use yew::prelude::*;
 
 use super::{colon, comma, iter, romaji, ruby, seq, spacing};
+
+use crate::class;
 
 pub(crate) enum Msg {
     ToggleForm(usize, Form),

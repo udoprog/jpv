@@ -1,8 +1,9 @@
-use crate::class;
 use lib::{jmnedict, kana};
 use yew::prelude::*;
 
 use super::{comma, romaji, ruby, seq};
+
+use crate::class;
 
 pub enum Msg {
     AddTag(&'static str),

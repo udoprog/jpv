@@ -21,43 +21,22 @@
     --link-hover: #eee;
     --analyzed-color: #e55555;
 
-    --tab-background: #3c3c3c;
-    --tab-active-color: #eee;
-    --tab-active-background: #3c3c3c;
-    --tab-disabled-color: #8f8f8f;
-
-    --btn-color: #2a2a2a;
-    --btn-bg: #e4e4e4;
-    --btn-bg-darker: #a4a4a4;
-    --btn-border: #656565;
-
     --primary-color: #2a2a2a;
     --primary-bg: #b3d9ec;
-    --primary-bg-darker: #92afbd;
-    --primary-border: #c2ebff;
 
-    --warn-color: #d9d9d9;
     --warn-bg: #995613;
-    --warn-bg-darker: #864b11;
-    --warn-border: #6e3e0f;
 
     --danger-color: #d9d9d9;
     --danger-bg: #861a1a;
-    --danger-bg-darker: #af2828;
-    --danger-border: #a02020;
 
     --bullet-bg: #8abc83;
-    --bullet-bg-disabled: #8393bc;
 
-    --bg: #2a2a2a;
     --bg-highlight: #343434;
 
     --inflection-color: #e8e8e8;
     --inflection-active-bg:  #408399 ;
     --inflection-disabled-bg: #5f5f5f;
-    --inflection-hover: #282828;
 
-    --notice-title-size: 0.8em;
     --notice-font-size: 0.8em;
 
     --bullet-color: #282828;
@@ -71,7 +50,6 @@
     --section-xl-margin: 2rem;
     
     --separator-color: #ffffff46;
-    --input-border-primary: #ffffff9e;
 }
 
 @mixin button-body {
@@ -79,11 +57,6 @@
     padding: 0.2rem 0.4rem;
     border: 1px solid var(--bullet-color);
     border-radius: 3px;
-
-    &-danger {
-        color: var(--danger-color);
-        background-color: var(--danger-bg);
-    }
 }
 
 body {
@@ -95,38 +68,8 @@ body {
     height: 100%;
 }
 
-#prompt {
-    display: flex;
-
-    input[type="text"] {
-        flex-grow: 1;
-        height: 2.4rem;
-        font-size: 1em;
-        box-sizing: border-box;
-        border: 1px solid var(--input-border-primary);
-        border-radius: 0px;
-
-        border-top-left-radius: 4px;
-        border-bottom-left-radius: 4px;
-    }
-
-    button {
-        display: flex;
-        align-items: center;
-        height: 2.4rem;
-        font-size: 1em;
-        border: 1px solid var(--input-border-primary);
-        border-radius: 0px;
-
-        span {
-            font-size: 0.8em;
-        }
-
-        &:last-child {
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-        }
-    }
+.jpv-prompt-mode {
+    min-width: 6em;
 }
 
 #translation {
@@ -228,31 +171,6 @@ body {
     }
 }
 
-.jpv-tabs {
-    display: flex;
-    flex-direction: row;
-    gap: 1rem;
-    border-bottom: 2px solid var(--tab-background);
-
-    .jpv-tab {
-        font-weight: bold;
-        font-size: 0.8em;
-        padding: 0.5rem;
-        background-color: var(--tab-background);
-
-        &.jpv-active {
-            cursor: default;
-            color: var(--tab-active-color);
-            background-color: var(--tab-active-background);
-        }
-
-        &.jpv-disabled {
-            cursor: default;
-            color: var(--tab-disabled-color);
-        }
-    }
-}
-
 h1, h2, h3, h4, h5, h6 {
     color: var(--heading-color);
     @include block-margin(var(--section-margin));
@@ -284,15 +202,6 @@ h5, h6 {
         font-size: var(--notice-font-size);
         background-color: var(--bg-highlight);
         padding: var(--section-margin);
-    }
-
-    &-danger {
-        color: var(--danger-color);
-        background-color: var(--danger-bg);
-        border-color: var(--danger-border);
-        font-size: var(--notice-font-size);
-        padding: 0.5rem;
-        border-radius: 5px;
     }
 
     &-sm {
@@ -373,53 +282,6 @@ h5, h6 {
 
 }
 
-.jpv-btn {
-    color: var(--btn-color);
-    background-color: var(--btn-bg);
-    border: 1px solid var(--btn-border);
-    border-radius: 5px;
-    padding: 0.25rem;
-    font-size: 0.8em;
-
-    cursor: pointer;
-
-    &:disabled {
-        cursor: not-allowed;
-    }
-
-    &:hover:not(:disabled) {
-        background-color: var(--btn-bg-darker);
-    }
-
-    &:disabled {
-        opacity: 0.5;
-    }
-
-    &-primary {
-        color: var(--primary-color);
-        background-color: var(--primary-bg);
-        border-color: var(--primary-border);
-
-        &:hover:not(:disabled) {
-            background-color: var(--primary-bg-darker);
-        }
-    }
-
-    &-danger {
-        color: var(--danger-color);
-        background-color: var(--danger-bg);
-        border-color: var(--danger-border);
-
-        &:hover:not(:disabled) {
-            background-color: var(--danger-bg-darker);
-        }
-    }
-
-    &-lg {
-        font-size: 1em;
-    }
-}
-
 .jpv-list-numerical {
     list-style: decimal;
     margin-left: 1.5em;
@@ -445,6 +307,12 @@ h5, h6 {
 
 .jpv-inflection {
     @include button-body;
+
+    &-danger {
+        color: var(--danger-color);
+        background-color: var(--danger-bg);
+    }
+
     font-size: var(--bullet-size);
     background-color: var(--inflection-disabled-bg);
 
@@ -479,7 +347,10 @@ a {
 .jpv-index {
     background-color: var(--bg-highlight);
     padding: var(--section-margin);
+}
 
+.jpv-index-id {
+    font-weight: bold;
 }
 
 .jpv-log {
@@ -599,55 +470,9 @@ a {
     }
 }
 
-.jpv-form {
-    & > * {
-        margin-bottom: 0.5rem;
-
-        &:last-child {
-            margin-bottom: 0;
-        }
-    }
-
-    h6 {
-        font-size: 0.8em;
-    }
-
-    &-help {
-        font-size: 0.8em;
-    }
-
-    &-error {
-        padding: 0.5rem;
-        font-size: 0.8em;
-        color: var(--danger-color);
-        background-color: var(--danger-bg);
-    }
-
-    &.jpv-has-errors {
-        input {
-            border: 1px solid var(--danger-bg);
-        }
-
-        select {
-            border: 1px solid var(--danger-bg);
-        }
-    }
-}
-
 @include until($mobile) {
     #tasks {
         font-size: 0.8em;
     }
 }
 
-@include from($mobile) {
-    .jpv-form {
-        input {
-            max-width: 30em;
-        }
-
-        select {
-            max-width: 30em;
-        }
-    }
-}

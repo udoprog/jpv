@@ -1,4 +1,3 @@
-use crate::class;
 use std::collections::HashSet;
 
 use lib::api;
@@ -6,8 +5,11 @@ use lib::config::ConfigIndex;
 use yew::prelude::*;
 
 use crate::c;
+use crate::class;
 use crate::error::Error;
 use crate::ws;
+
+use super::spacing;
 
 pub(crate) enum Msg {
     GetConfig(api::GetConfigResult),
@@ -253,35 +255,29 @@ impl Component for Config {
                     let isupdate = self.update_indexes.contains(id);
                     indexes.push(html!(<c::EditIndex index={index.clone()} pending={self.pending} {oncancel} {onsave} {ondelete} {onupdate} {isupdate} />));
                 } else {
-                    let onchange = ctx.link().callback({
+                    let on_change = ctx.link().callback({
                         let id = id.to_owned();
                         move |_| Msg::Toggle(id.clone())
                     });
-
-                    let class = classes! {
-                        class::BLOCK,
-                        class::ROW,
-                        class::ROW_SPACED,
-                        class::INDEX,
-                    };
 
                     let onclick = ctx.link().callback({
                         let id = id.to_owned();
                         move |_| Msg::IndexEdit(id.clone())
                     });
 
-                    let help = match &index.help {
-                        Some(help) => html! {
-                            <button class={class::BTN} title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"About"}</button>
-                        },
-                        None => {
-                            html!(<button disabled={true} class={class::BTN} title="No help page specified">{"About"}</button>)
-                        }
+                    let help_title = if index.help.is_some() {
+                        "Go to the help page for this dictionary"
+                    } else {
+                        "No help page specified"
+                    };
+
+                    let help = html! {
+                        <c::ExternalButton href={index.help.clone().map(AttrValue::from)} target="_index" title={help_title}>{"About"}</c::ExternalButton>
                     };
 
                     let not_installed = (!self.installed.contains(id)).then(|| {
                         html! {
-                            <span class={classes!(class::BULLET, class::BULLET_DANGER)}>{"not installed"}</span>
+                            <sockel::Badge tone={sockel::Tone::Danger}>{"not installed"}</sockel::Badge>
                         }
                     });
 
@@ -292,14 +288,18 @@ impl Component for Config {
                     });
 
                     indexes.push(html! {
-                        <div {class}>
-                            <input id={id.to_owned()} type="checkbox" {checked} disabled={self.pending || installing} {onchange} />
-                            <label for={id.to_owned()}>{id.to_owned()}</label>
-                            <label for={id.to_owned()}>{index.description.clone()}</label>
-                            {for updated}
-                            {not_installed}
-                            <button class={classes!(class::BTN, class::BTN_PRIMARY, class::ROW_END)} {onclick} title={"Change this dictionary"}>{"Edit"}</button>
-                            {help}
+                        <div class={class::BLOCK}>
+                            <sockel::Cluster class={class::INDEX}>
+                                <sockel::Checkbox {checked} disabled={self.pending || installing} {on_change}>
+                                    <span class={class::INDEX_ID}>{id.to_owned()}</span>
+                                    {spacing()}
+                                    <span>{index.description.clone()}</span>
+                                </sockel::Checkbox>
+                                {for updated}
+                                {not_installed}
+                                <sockel::Button variant={sockel::ButtonVariant::Primary} class={class::ROW_END} {onclick} title={"Change this dictionary"}>{"Edit"}</sockel::Button>
+                                {help}
+                            </sockel::Cluster>
                         </div>
                     });
                 }
@@ -308,39 +308,31 @@ impl Component for Config {
             ocr = Some({
                 let checked = state.local.ocr;
 
-                let onchange = ctx.link().callback(move |_| Msg::ToggleOcr);
+                let on_change = ctx.link().callback(move |_| Msg::ToggleOcr);
 
                 let missing_ocr = self.missing_ocr.as_ref().filter(|_| state.remote.ocr).map(|missing| {
                     let install_url = missing
                         .install_url
                         .as_ref()
                         .map(|install| {
-                            let href = install.url.clone();
-                            let title = install.title.clone();
-
                             html! {
-                                <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
-                                    <a {href} {title} class={classes!(class::BTN, class::BTN_LG)} target="_install_url">{format!("⇓ {}", install.text)}</a>
-                                </div>
+                                <c::ExternalButton href={install.url.clone()} target="_install_url" title={install.title.clone()}>{format!("⇓ {}", install.text)}</c::ExternalButton>
                             }
                         });
 
                     html! {
-                        <div class={classes!(class::BLOCK, class::BLOCK_LG, class::BLOCK_DANGER)}>
-                            <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
-                                <span>{"OCR support is not installed"}</span>
-                            </div>
-
-                            {for install_url}
+                        <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                            <sockel::Notice tone={sockel::Tone::Danger} action={install_url}>
+                                {"OCR support is not installed"}
+                            </sockel::Notice>
                         </div>
                     }
                 });
 
                 html! {
                     <>
-                        <div class={classes!(class::BLOCK, class::ROW, class::ROW_SPACED)}>
-                            <input id="ocr" type="checkbox" {checked} disabled={self.pending} {onchange} />
-                            <label for="ocr">{"OCR Support"}</label>
+                        <div class={class::BLOCK}>
+                            <sockel::Checkbox {checked} disabled={self.pending} {on_change}>{"OCR Support"}</sockel::Checkbox>
                         </div>
 
                         {for missing_ocr}
@@ -365,9 +357,11 @@ impl Component for Config {
             let onrebuild = ctx.link().callback(|_| Msg::InstallAll);
 
             html! {
-                <div class={classes!(class::BLOCK, class::ROW, class::ROW_SPACED)}>
-                    <button class={classes!(class::ROW_END, class::BTN, class::BTN_PRIMARY)} disabled={self.pending} {onclick}>{"New dictionary"}</button>
-                    <button class={classes!(class::BTN, class::BTN_PRIMARY)} disabled={self.pending} onclick={onrebuild} title="Install all missing dictionaries">{"Install all"}</button>
+                <div class={class::BLOCK}>
+                    <sockel::Cluster justify={sockel::Justify::End}>
+                        <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} {onclick}>{"New dictionary"}</sockel::Button>
+                        <sockel::Button variant={sockel::ButtonVariant::Primary} disabled={self.pending} onclick={onrebuild} title="Install all missing dictionaries">{"Install all"}</sockel::Button>
+                    </sockel::Cluster>
                 </div>
             }
         };
@@ -383,7 +377,7 @@ impl Component for Config {
 
         let back = (!ctx.props().embed).then(|| {
             html! {
-                <button class={classes!(class::BTN, class::BTN_LG)} onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
+                <sockel::Button onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</sockel::Button>
             }
         });
 
@@ -429,9 +423,11 @@ impl Component for Config {
 
         html! {
             <>
-                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
-                    {back}
-                    <button class={classes!(class::ROW_END, class::BTN, class::BTN_LG, class::BTN_PRIMARY)} {disabled} onclick={onsave}>{"Save"}</button>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                    <sockel::Cluster>
+                        {back}
+                        <sockel::Button variant={sockel::ButtonVariant::Primary} class={class::ROW_END} {disabled} onclick={onsave}>{"Save"}</sockel::Button>
+                    </sockel::Cluster>
                 </div>
 
                 {pending}

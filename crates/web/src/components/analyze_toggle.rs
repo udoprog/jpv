@@ -1,9 +1,10 @@
-use crate::class;
 use std::rc::Rc;
 
 use yew::prelude::*;
 
 use super::spacing;
+
+use crate::class;
 
 #[derive(Properties, PartialEq)]
 pub(crate) struct Props {

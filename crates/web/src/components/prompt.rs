@@ -1,4 +1,3 @@
-use crate::class;
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -17,11 +16,12 @@ use serde::Serialize;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::window;
-use web_sys::{HtmlInputElement, MessageEvent};
+use web_sys::MessageEvent;
 use yew::prelude::*;
 use yew_router::{prelude::*, AnyRoute};
 
 use crate::c;
+use crate::class;
 use crate::error::Error;
 use crate::query::{Mode, Query, Tab};
 use crate::ws;
@@ -416,12 +416,6 @@ impl Component for Prompt {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let oninput = ctx.link().batch_callback(|e: InputEvent| {
-            let input: HtmlInputElement = e.target_dyn_into()?;
-            let value = input.value();
-            Some(Msg::Change(value))
-        });
-
         let analyze = if self.query.text.is_empty() {
             let text = if self.query.embed {
                 "Nothing to analyze"
@@ -475,7 +469,7 @@ impl Component for Prompt {
                         </div>
 
                         <div class={classes!(class::BLOCK, class::ROW)}>
-                            <button class={class::BTN} onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</button>
+                            <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</sockel::Button>
                         </div>
                     </div>
                 }
@@ -544,7 +538,7 @@ impl Component for Prompt {
                         </div>
 
                         <div class={classes!(class::BLOCK, class::ROW)}>
-                            <button class={class::BTN} onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</button>
+                            <sockel::Button onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</sockel::Button>
                         </div>
                     </div>
                 }
@@ -564,37 +558,46 @@ impl Component for Prompt {
         });
 
         let page = if self.query.embed {
-            let tab = |title: &str, len: usize, tab: Tab| {
-                let is_tab = self.query.tab == tab;
-                let entries_classes = classes!(
-                    class::TAB,
-                    is_tab.then_some(class::ACTIVE),
-                    (len == 0).then_some(class::DISABLED)
-                );
-
-                let onclick =
-                    (!is_tab).then(|| ctx.link().callback(move |_| Msg::Tab(tab.clone())));
-
-                let text = format!("{title} ({len})");
-
-                html! {
-                    <a class={entries_classes} {onclick}>{text}</a>
-                }
+            let tab = |value: &'static str, title: &str, len: usize| {
+                let mut item = sockel::TabItem::new(value, format!("{title} ({len})"));
+                item.disabled = len == 0;
+                item
             };
 
-            let tabs = [
-                tab("Phrases", self.phrases.len(), Tab::Phrases),
-                tab("Names", self.names.len(), Tab::Names),
-                tab("Kanji", self.characters.len(), Tab::Kanji),
+            let mut tabs = vec![
+                tab(TAB_PHRASES, "Phrases", self.phrases.len()),
+                tab(TAB_NAMES, "Names", self.names.len()),
+                tab(TAB_KANJI, "Kanji", self.characters.len()),
             ];
 
-            let active_tab = match &self.query.tab {
+            match &self.query.tab {
                 Tab::KanjiDetails(kanji) => {
-                    Some(html!(<a class={classes!(class::TAB, class::ACTIVE)}>{format!("Kanji details: {kanji}")}</a>))
+                    tabs.push(sockel::TabItem::new(
+                        TAB_OTHER,
+                        format!("Kanji details: {kanji}"),
+                    ));
                 }
-                Tab::Settings => Some(html!(<a class={classes!(class::TAB, class::ACTIVE)}>{"Settings"}</a>)),
-                _ => None,
+                Tab::Settings => {
+                    tabs.push(sockel::TabItem::new(TAB_OTHER, "Settings"));
+                }
+                _ => {}
+            }
+
+            let value = match &self.query.tab {
+                Tab::Phrases => TAB_PHRASES,
+                Tab::Names => TAB_NAMES,
+                Tab::Kanji => TAB_KANJI,
+                Tab::KanjiDetails(..) | Tab::Settings => TAB_OTHER,
             };
+
+            let on_change = ctx
+                .link()
+                .batch_callback(|value: AttrValue| match value.as_str() {
+                    TAB_PHRASES => Some(Msg::Tab(Tab::Phrases)),
+                    TAB_NAMES => Some(Msg::Tab(Tab::Names)),
+                    TAB_KANJI => Some(Msg::Tab(Tab::Kanji)),
+                    _ => None,
+                });
 
             let content = match &self.query.tab {
                 Tab::KanjiDetails(kanji) => {
@@ -623,10 +626,7 @@ impl Component for Prompt {
                 <>
                     <div class={classes!(class::BLOCK, class::BLOCK_LG)}>{analyze}</div>
                     {for translation}
-                    <div class={class::TABS}>
-                        {for tabs}
-                        {for active_tab}
-                    </div>
+                    <sockel::Tabs {tabs} value={AttrValue::Static(value)} {on_change} label="Results" />
                     {content}
                 </>
             }
@@ -665,21 +665,24 @@ impl Component for Prompt {
                         Mode::Katakana => ("カタカナ", "Treat input as Katakana"),
                     };
 
+                    let mut group = sockel::group_classes(&[false, false, false]).into_iter();
+
                     let prompt = html! {
                         <>
-                        <div class={classes!(class::BLOCK, class::ROW)} id="prompt">
-                            <input value={self.query.text.clone()} type="text" oninput={oninput} />
-
-                            <button for="romanize" title={description} onclick={ontoggle}>{title}</button>
-
-                            <button title="Capture clipboard" onclick={oncaptureclipboard}>
-                                <span>{"📋"}</span>
-                                <input type="checkbox" checked={self.query.capture_clipboard} />
-                            </button>
+                        <div class={class::BLOCK}>
+                            <sockel::InputGroup>
+                                <sockel::TextInput value={self.query.text.clone()} on_input={ctx.link().callback(Msg::Change)}
+                                    label="Search" autofocus={true} class={group.next().unwrap_or_default()} />
+                                <sockel::Button title={description} onclick={ontoggle} class={classes!(group.next(), class::PROMPT_MODE)}>{title}</sockel::Button>
+                                <sockel::Button title="Capture clipboard" pressed={self.query.capture_clipboard}
+                                    onclick={oncaptureclipboard} class={group.next().unwrap_or_default()}>{"📋"}</sockel::Button>
+                            </sockel::InputGroup>
                         </div>
 
-                        <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
-                            <span class={classes!(class::ROW_END, class::CLICKABLE)} {onclick}>{"⚙ Config"}</span>
+                        <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                            <sockel::Cluster justify={sockel::Justify::End}>
+                                <sockel::Button variant={sockel::ButtonVariant::Quiet} {onclick}>{"⚙ Config"}</sockel::Button>
+                            </sockel::Cluster>
                         </div>
                         </>
                     };
@@ -769,13 +772,15 @@ impl Component for Prompt {
 
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
+            let action = html!(<sockel::Button {onclick}>{"⚙ Fix in Settings"}</sockel::Button>);
+
             html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::BLOCK_DANGER)}>
-                    <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                    <sockel::Notice tone={sockel::Tone::Danger} {action}>
                         <span>{"Dictionaries missing:"}</span>
+                        {spacing()}
                         <span>{for missing}</span>
-                        <button class={classes!(class::ROW_END, class::BTN, class::BTN_LG)} {onclick}>{"⚙ Fix in Settings"}</button>
-                    </div>
+                    </sockel::Notice>
                 </div>
             }
         });
@@ -792,24 +797,23 @@ impl Component for Prompt {
                 .install_url
                 .as_ref()
                 .map(|install| {
-                    let href = install.url.clone();
-                    let title = install.title.clone();
-
                     html! {
-                        <a {href} {title} class={classes!(class::BTN, class::BTN_LG)} target="_install_url">{format!("⇓ {}", install.text)}</a>
+                        <c::ExternalButton href={install.url.clone()} target="_install_url" title={install.title.clone()}>{format!("⇓ {}", install.text)}</c::ExternalButton>
                     }
                 });
 
-            html! {
-                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::BLOCK_DANGER)}>
-                    <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
-                        <span>{"OCR support is enabled but not installed"}</span>
-                    </div>
+            let action = html! {
+                <sockel::Cluster>
+                    {for install_url}
+                    <sockel::Button {onclick}>{"⚙ Disable"}</sockel::Button>
+                </sockel::Cluster>
+            };
 
-                    <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
-                        {for install_url}
-                        <button class={classes!(class::ROW_END, class::BTN, class::BTN_LG)} {onclick}>{"⚙ Disable"}</button>
-                    </div>
+            html! {
+                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                    <sockel::Notice tone={sockel::Tone::Danger} {action}>
+                        {"OCR support is enabled but not installed"}
+                    </sockel::Notice>
                 </div>
             }
         });
@@ -893,6 +897,11 @@ impl Prompt {
         post_parent_message(&message)
     }
 }
+
+const TAB_PHRASES: &str = "phrases";
+const TAB_NAMES: &str = "names";
+const TAB_KANJI: &str = "kanji";
+const TAB_OTHER: &str = "other";
 
 fn process_query<'a, F>(input: &'a str, segment: F) -> String
 where

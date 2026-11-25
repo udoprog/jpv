@@ -1,8 +1,9 @@
-use crate::class;
 use lib::kanjidic2::OwnedCharacter;
 use yew::prelude::*;
 
 use super::{colon, comma, romaji, ruby, seq};
+
+use crate::class;
 
 const ONYOMI: lib::Furigana<'static> = lib::Furigana::new("音読み", "おんよみ", "");
 const KUNYOMI: lib::Furigana<'static> = lib::Furigana::new("訓読み", "くんよみ", "");

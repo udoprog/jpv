@@ -25,3 +25,6 @@ pub(crate) use self::kanji_details::KanjiDetails;
 
 pub(crate) use self::edit_index::EditIndex;
 mod edit_index;
+
+pub(crate) use self::external_button::ExternalButton;
+mod external_button;
