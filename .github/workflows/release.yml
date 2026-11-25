@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fedora: ["40", "41"]
+        fedora: ["43", "44", "45"]
     container:
       image: fedora:${{matrix.fedora}}
     steps:
@@ -67,6 +67,41 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: dist-fedora-${{matrix.fedora}}
+        path: dist
+
+  # Portable archives for the install script, named jpv-<version>-<arch>-<os>.tar.gz.
+  #
+  # These are built without the default `tesseract/linked` feature, so OCR is
+  # left out: linking tesseract and leptonica would tie the binary to one
+  # distro's sonames and stop it from starting anywhere else. Use the RPM (or
+  # build from source) for OCR.
+  archive:
+    runs-on: ${{matrix.os}}
+    needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - {os: ubuntu-latest, features: "reqwest,memmap,gnome,bundle"}
+        - {os: macos-latest, features: "reqwest,memmap,bundle"}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v7
+      with: {name: build-frontend, path: crates/web/dist}
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+    - run: sudo apt-get install --yes libglib2.0-dev
+      if: runner.os == 'Linux'
+    - uses: udoprog/actions@kick
+    - run: kick define --github-action
+      id: release
+    - run: cargo build --release --no-default-features --features ${{matrix.features}} -p jpv
+      env:
+        JPV_VERSION: ${{steps.release.outputs.version}}
+    - run: kick gzip --output dist
+    - uses: actions/upload-artifact@v4
+      with:
+        name: dist-archive-${{matrix.os}}
         path: dist
 
   windows:
@@ -93,7 +128,7 @@ jobs:
 
   publish:
     permissions: write-all
-    needs: [fedora, windows]
+    needs: [fedora, archive, windows]
     runs-on: ubuntu-latest
     steps:
     - uses: udoprog/actions@kick

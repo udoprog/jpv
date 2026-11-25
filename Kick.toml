@@ -30,3 +30,6 @@ requires = [
 depends = [
     { package = "tesseract-ocr-jpn" }
 ]
+
+[package.binaries]
+exclude = ["web"]
