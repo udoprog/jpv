@@ -61,6 +61,7 @@ pub(crate) struct Config {
     update_indexes: HashSet<String>,
     index_add: bool,
     request: ws::Request,
+    lister: Callback<c::ListRequest>,
     l10n: PhrasesContext,
 }
 
@@ -87,6 +88,7 @@ impl Component for Config {
             update_indexes: HashSet::new(),
             index_add: false,
             request,
+            lister: c::lister(&ctx.props().ws),
             l10n: PhrasesContext::new(ctx.link(), ctx.link().callback(Msg::Phrases)),
         }
     }
@@ -262,7 +264,7 @@ impl Component for Config {
                     });
 
                     let isupdate = self.update_indexes.contains(id);
-                    indexes.push(html!(<c::EditIndex index={index.clone()} pending={self.pending} {oncancel} {onsave} {ondelete} {onupdate} {isupdate} />));
+                    indexes.push(html!(<c::EditIndex index={index.clone()} pending={self.pending} {oncancel} {onsave} {ondelete} {onupdate} {isupdate} list={self.lister.clone()} />));
                 } else {
                     let on_change = ctx.link().callback({
                         let id = id.to_owned();
@@ -357,7 +359,7 @@ impl Component for Config {
                 .callback(move |(id, index)| Msg::IndexAddSave(id, index));
 
             html! {
-                <c::EditIndex pending={self.pending} {oncancel} onsavenew={onsave} />
+                <c::EditIndex pending={self.pending} {oncancel} onsavenew={onsave} list={self.lister.clone()} />
             }
         } else {
             let onclick = ctx.link().callback(|_| Msg::IndexAdd);

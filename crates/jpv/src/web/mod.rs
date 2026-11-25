@@ -6,6 +6,7 @@ mod r#impl;
 #[path = "api.rs"]
 mod r#impl;
 
+mod files;
 mod ws;
 
 mod json;

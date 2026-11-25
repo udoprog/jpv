@@ -25,7 +25,7 @@ wasm-bindgen = { version = "0.2.87", features = ["std"] }
 borrowme = "0.1.0"
 serde_urlencoded = "0.7.1"
 slab = "0.4.9"
-sockel = { version = "0.3.2", default-features = false, features = ["layout", "shell", "split-view", "button", "overlay", "input", "tabs", "notice", "checkbox", "choice", "badge", "field", "select", "chip", "log-view"] }
+sockel = { version = "0.3.2", default-features = false, features = ["layout", "shell", "split-view", "button", "overlay", "input", "tabs", "notice", "checkbox", "choice", "badge", "field", "select", "chip", "log-view", "rows"] }
 phrasebook = { version = "0.2.0", features = ["yew023", "browser", "koine03"] }
 
 [dependencies.web-sys]

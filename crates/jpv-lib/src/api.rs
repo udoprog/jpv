@@ -98,6 +98,78 @@ impl Request for GetKanji {
     type Response = OwnedKanjiResponse;
 }
 
+/// List a directory on the service's machine.
+#[derive(Debug, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
+pub struct ListDirectory {
+    /// The directory to list, or a file to list the directory of. Empty for
+    /// the user's home directory.
+    pub path: String,
+    /// List the closest existing ancestor when `path` does not exist, rather
+    /// than failing: for opening at a remembered or proposed path.
+    #[musli(default)]
+    pub nearest: bool,
+}
+
+impl Request for ListDirectory {
+    const KIND: &'static str = "list-directory";
+    type Response = ListDirectoryResponse;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
+pub enum DirectoryEntryKind {
+    Directory,
+    File,
+    /// Neither, or a link that could not be followed.
+    Other,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
+pub struct DirectoryEntry {
+    pub name: String,
+    pub kind: DirectoryEntryKind,
+    /// Size in bytes, for files.
+    #[musli(default, skip_encoding_if = Option::is_none)]
+    pub size: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
+pub enum PlaceKind {
+    Home,
+    Documents,
+    Downloads,
+    Root,
+}
+
+/// A directory offered as a shortcut.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
+pub struct Place {
+    pub kind: PlaceKind,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[musli(mode = Text, name_all = "kebab-case")]
+pub struct ListDirectoryResponse {
+    /// The absolute path of the listed directory.
+    pub path: String,
+    #[musli(default, skip_encoding_if = Option::is_none)]
+    pub parent: Option<String>,
+    /// What joins a directory and a name on the service's machine.
+    pub separator: String,
+    /// Directories first, then by name.
+    pub entries: Vec<DirectoryEntry>,
+    /// The name in the listed directory the requested path named, when it
+    /// was not a directory itself.
+    #[musli(default, skip_encoding_if = Option::is_none)]
+    pub file: Option<String>,
+    pub places: Vec<Place>,
+}
+
 /// Missing OCR support.
 #[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub struct InstallUrl {

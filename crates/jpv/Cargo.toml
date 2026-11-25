@@ -55,6 +55,7 @@ twox-hash = { version = "2.1.2", default-features = false, features = ["xxhash64
 parking_lot = "0.13.0"
 num_cpus = "1.16.0"
 tokio-stream = "0.1.15"
+directories = "6.0.0"
 
 [target.'cfg(unix)'.dependencies]
 tokio-dbus = { version = "0.2.4", optional = true }

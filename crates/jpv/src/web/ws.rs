@@ -4,6 +4,7 @@ use std::net::SocketAddr;
 use anyhow::{bail, Result};
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::ConnectInfo;
+use axum::http::{header, HeaderMap};
 use axum::response::IntoResponse;
 use axum::Extension;
 use lib::api::{self, Request};
@@ -26,13 +27,17 @@ pub(super) async fn entry(
     Extension(bg): Extension<Background>,
     Extension(system_events): Extension<system::SystemEvents>,
     ConnectInfo(remote): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
 ) -> impl IntoResponse {
+    let same_origin = is_same_origin(&headers);
+
     ws.on_upgrade(move |socket| async move {
         let span = tracing::span!(Level::INFO, "websocket", ?remote);
 
         let mut server = Server {
             system_events,
             bg: bg.clone(),
+            same_origin,
             output: Vec::new(),
             body: Vec::new(),
             socket,
@@ -47,6 +52,9 @@ pub(super) async fn entry(
 struct Server {
     system_events: system::SystemEvents,
     bg: Background,
+    /// Whether the connection comes from the service's own pages, rather
+    /// than from some other site the browser has open.
+    same_origin: bool,
     output: Vec<u8>,
     body: Vec<u8>,
     socket: WebSocket,
@@ -329,6 +337,16 @@ impl Server {
 
                 self.write_body(&response)?;
             }
+            api::ListDirectory::KIND => {
+                let request: api::ListDirectory = musli::storage::decode(reader)?;
+
+                if !self.same_origin {
+                    bail!("Listing directories is only allowed from the service's own pages");
+                }
+
+                let response = super::files::list_directory(request).await?;
+                self.write_body(&response)?;
+            }
             kind => bail!("Unsupported request kind {kind}"),
         }
 
@@ -458,6 +476,25 @@ impl Server {
 
         Ok(())
     }
+}
+
+/// Whether the `Origin` of a request, if any, is the service it was sent to.
+fn is_same_origin(headers: &HeaderMap) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN) else {
+        return true;
+    };
+
+    let (Ok(origin), Some(Ok(host))) = (
+        origin.to_str(),
+        headers.get(header::HOST).map(|h| h.to_str()),
+    ) else {
+        return false;
+    };
+
+    origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"))
+        .is_some_and(|origin| origin.eq_ignore_ascii_case(host))
 }
 
 fn decode_escaped(data: &[u8]) -> Option<String> {
@@ -639,4 +676,31 @@ where
     }
 
     Cow::Owned(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::http::{header, HeaderMap, HeaderValue};
+
+    use super::is_same_origin;
+
+    fn headers(origin: Option<&'static str>) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_static("127.0.0.1:44714"));
+
+        if let Some(origin) = origin {
+            headers.insert(header::ORIGIN, HeaderValue::from_static(origin));
+        }
+
+        headers
+    }
+
+    #[test]
+    fn same_origin() {
+        assert!(is_same_origin(&headers(None)));
+        assert!(is_same_origin(&headers(Some("http://127.0.0.1:44714"))));
+        assert!(!is_same_origin(&headers(Some("https://example.com"))));
+        assert!(!is_same_origin(&headers(Some("http://127.0.0.1:8080"))));
+        assert!(!is_same_origin(&headers(Some("null"))));
+    }
 }

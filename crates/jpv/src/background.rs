@@ -435,7 +435,10 @@ pub fn config_to_download(
             continue;
         }
 
-        let path = overrides.get(id.as_str()).map(|p| p.into());
+        let path = overrides
+            .get(id.as_str())
+            .or_else(|| index.path().map(Path::new))
+            .map(|p| p.into());
 
         let glosses = index.gloss_url().map(|url| GlossSource {
             url: url.to_owned(),
@@ -822,5 +825,29 @@ mod tests {
     fn filter_includes_disabled() {
         let filter = ["kanjidic2".to_owned()];
         assert_eq!(names(&config(), Some(&filter)), ["kanjidic2"]);
+    }
+
+    #[test]
+    fn local_path_unless_overridden() {
+        let mut config = config();
+        let jmdict = config.indexes.get_mut("jmdict").expect("jmdict");
+        jmdict.path = Some("/local/JMdict_e.gz".to_owned());
+
+        let dirs = Dirs::open().expect("dirs");
+        let paths = |overrides| {
+            config_to_download(&config, &dirs, overrides, None)
+                .into_iter()
+                .map(|d| d.path.map(|p| p.display().to_string()))
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            paths(DownloadOverrides::default()),
+            [Some("/local/JMdict_e.gz".to_owned())]
+        );
+
+        let mut overrides = DownloadOverrides::default();
+        overrides.insert("jmdict", "/cli/JMdict_e.gz");
+        assert_eq!(paths(overrides), [Some("/cli/JMdict_e.gz".to_owned())]);
     }
 }

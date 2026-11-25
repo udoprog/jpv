@@ -1881,6 +1881,7 @@ dependencies = [
  "axum",
  "bytes",
  "clap",
+ "directories",
  "fixed-map",
  "flate2",
  "gio",

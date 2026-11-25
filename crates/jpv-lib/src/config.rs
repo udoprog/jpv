@@ -95,6 +95,7 @@ impl IndexFormat {
                 format: self,
                 url: JMDICT_URL.to_owned(),
                 gloss_url: Some(JMDICT_GLOSS_URL.to_owned()),
+                path: None,
                 enabled,
                 installing: false,
                 description: Some(JMDICT_DESCRIPTION.to_owned()),
@@ -104,6 +105,7 @@ impl IndexFormat {
                 format: self,
                 url: JMNEDICT_URL.to_owned(),
                 gloss_url: None,
+                path: None,
                 enabled,
                 installing: false,
                 description: Some(JMNEDICT_DESCRIPTION.to_owned()),
@@ -113,6 +115,7 @@ impl IndexFormat {
                 format: self,
                 url: KANJIDIC2_URL.to_owned(),
                 gloss_url: None,
+                path: None,
                 enabled,
                 installing: false,
                 description: Some(KANJIDIC2_DESCRIPTION.to_owned()),
@@ -122,6 +125,7 @@ impl IndexFormat {
                 format: self,
                 url: KRADFILE_URL.to_owned(),
                 gloss_url: None,
+                path: None,
                 enabled,
                 installing: false,
                 description: Some(KRADFILE_DESCRIPTION.to_owned()),
@@ -157,6 +161,11 @@ pub struct ConfigIndex {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[musli(default, skip_encoding_if = Option::is_none)]
     pub gloss_url: Option<String>,
+    /// A local source file on the service's machine, used instead of
+    /// downloading `url`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
+    pub path: Option<String>,
     pub enabled: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     #[musli(default, skip_encoding_if = is_false)]
@@ -177,6 +186,11 @@ impl ConfigIndex {
         }
 
         self.gloss_url.as_deref().filter(|url| !url.is_empty())
+    }
+
+    /// The local source file to use instead of downloading, if any.
+    pub fn path(&self) -> Option<&str> {
+        self.path.as_deref().filter(|path| !path.is_empty())
     }
 }
 
