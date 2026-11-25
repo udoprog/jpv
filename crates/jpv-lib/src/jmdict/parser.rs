@@ -171,6 +171,12 @@ impl<'a> Parser<'a> {
                     ([.., State::Gloss(builder)], "g_type") => {
                         set_option!(builder.ty, value);
                     }
+                    // `xml:lang`, only present in the multilingual JMdict.
+                    ([.., State::Gloss(builder)], "lang") => {
+                        set_option!(builder.lang, value);
+                    }
+                    // Gender of the gloss, which is not stored.
+                    ([.., State::Gloss(..)], "g_gend") => {}
                     ([.., State::ExampleSource(builder)], "exsrc_type") => {
                         set_option!(builder.ty, value);
                     }
@@ -299,11 +305,15 @@ impl<'a> Parser<'a> {
                             builder.stagr.push(text.context("Missing stagr")?);
                         }
                         ([.., State::Sense(sense)], State::Gloss(builder)) => {
-                            sense.gloss.push(Glossary {
-                                text: builder.text.context("Missing glossary text")?,
-                                ty: builder.ty,
-                                lang: builder.lang,
-                            });
+                            // The multilingual JMdict has a few empty
+                            // glosses, which carry nothing to show.
+                            if let Some(text) = builder.text {
+                                sense.gloss.push(Glossary {
+                                    text,
+                                    ty: builder.ty,
+                                    lang: builder.lang,
+                                });
+                            }
                         }
                         ([.., State::Sense(sense)], State::Example(example)) => {
                             sense.examples.push(Example {

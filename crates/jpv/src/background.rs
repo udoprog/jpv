@@ -276,7 +276,9 @@ impl Background {
 
                     installing.push(to_download.name.clone());
 
-                    self.start_task(&completion, 6);
+                    // Downloading and collecting glosses are two more steps.
+                    let steps = if to_download.glosses.is_some() { 8 } else { 6 };
+                    self.start_task(&completion, steps);
 
                     let mutable = self.mutable.clone();
                     let index = args.index.clone();
@@ -344,7 +346,19 @@ pub struct ToDownload {
     pub index_path: Box<Path>,
     pub path: Option<Box<Path>>,
     pub format: IndexFormat,
+    /// Multilingual JMdict to merge non-English glosses from.
+    pub glosses: Option<GlossSource>,
 }
+
+/// Path and url of a multilingual JMdict.
+pub struct GlossSource {
+    pub url: String,
+    pub path: Option<Box<Path>>,
+}
+
+/// Suffix of the download override id for an index's gloss source, as in
+/// `--path jmdict.glosses=JMdict.gz`.
+const GLOSSES_SUFFIX: &str = ".glosses";
 
 /// Download override paths.
 #[derive(Default)]
@@ -385,12 +399,20 @@ pub fn config_to_download(
 
         let path = overrides.get(id.as_str()).map(|p| p.into());
 
+        let glosses = index.gloss_url().map(|url| GlossSource {
+            url: url.to_owned(),
+            path: overrides
+                .get(&format!("{id}{GLOSSES_SUFFIX}"))
+                .map(|p| p.into()),
+        });
+
         downloads.push(ToDownload {
             name: id.into(),
             url: index.url.clone(),
             index_path: dirs.index_path(id).into(),
             path,
             format: index.format,
+            glosses,
         });
     }
 
@@ -453,6 +475,29 @@ pub(crate) async fn build(
 
     tracing::info!("Loading `{}` from {}", download.name, path.display());
 
+    let glosses = match &download.glosses {
+        Some(glosses) => {
+            let (path, data) = read_or_download(
+                &*reporter,
+                glosses.path.as_deref(),
+                dirs,
+                &glosses.url,
+                force,
+            )
+            .await
+            .context("Reading multilingual glosses")?;
+
+            tracing::info!(
+                "Merging glosses into `{}` from {}",
+                download.name,
+                path.display()
+            );
+
+            Some(data)
+        }
+        None => None,
+    };
+
     let start = Instant::now();
     let kind = download.format;
     let name = download.name.clone();
@@ -462,7 +507,10 @@ pub(crate) async fn build(
         let shutdown_token = shutdown_token.clone();
         move || {
             let input = match kind {
-                IndexFormat::Jmdict => Input::Jmdict(str::from_utf8(&data[..])?),
+                IndexFormat::Jmdict => Input::Jmdict {
+                    jmdict: str::from_utf8(&data[..])?,
+                    glosses: glosses.as_deref().map(str::from_utf8).transpose()?,
+                },
                 IndexFormat::Kanjidic2 => Input::Kanjidic2(str::from_utf8(&data[..])?),
                 IndexFormat::Jmnedict => Input::Jmnedict(str::from_utf8(&data[..])?),
                 IndexFormat::Kradfile => Input::Kradfile(&data[..]),

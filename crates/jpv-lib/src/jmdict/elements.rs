@@ -86,7 +86,14 @@ impl Entry<'_> {
         // Store the priority which performs the maximum boost.
         let mut priority = 1.0f32;
         // Perform boost by number of senses, maximum boost at 10 senses.
-        let sense_count = 1.0 + self.senses.len().min(10) as f32 / 10.0;
+        // Only English senses count, so that merged glosses in other
+        // languages don't change the ranking.
+        let senses = self
+            .senses
+            .iter()
+            .filter(|s| s.is_lang(DEFAULT_LANGUAGE))
+            .count();
+        let sense_count = 1.0 + senses.min(10) as f32 / 10.0;
         // Conjugation boost.
         let conjugation = if conjugation { 1.2 } else { 1.0 };
         // Calculate length boost.
@@ -118,7 +125,7 @@ impl Entry<'_> {
 
         for sense in &self.senses {
             for gloss in &sense.gloss {
-                if gloss.text == input {
+                if gloss.is_default_lang() && gloss.text == input {
                     query = query.max(1.5);
                 }
             }
@@ -320,6 +327,13 @@ pub struct Glossary<'a> {
 }
 
 const DEFAULT_LANGUAGE: &str = "eng";
+
+impl Glossary<'_> {
+    /// Test if the gloss is in the default language (English).
+    pub fn is_default_lang(&self) -> bool {
+        self.lang.unwrap_or(DEFAULT_LANGUAGE) == DEFAULT_LANGUAGE
+    }
+}
 
 #[borrowme::borrowme]
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Encode, Decode)]

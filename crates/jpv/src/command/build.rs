@@ -14,7 +14,9 @@ use crate::Args;
 #[derive(Parser)]
 pub(crate) struct BuildArgs {
     /// Override the path to the index with the specified id and path.
-    /// This takes the form `<id>=<path>`.
+    /// This takes the form `<id>=<path>`. The multilingual JMdict whose
+    /// glosses are merged into an index is overridden with
+    /// `<id>.glosses=<path>`, as in `jmdict.glosses=JMdict.gz`.
     #[arg(long, value_name = "path")]
     path: Vec<String>,
     /// Force a dictionary rebuild.

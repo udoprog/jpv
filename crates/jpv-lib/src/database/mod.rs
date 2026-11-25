@@ -286,7 +286,12 @@ impl Id {
 
 /// Input to build the database.
 pub enum Input<'a> {
-    Jmdict(&'a str),
+    /// A JMdict file, optionally with a multilingual JMdict whose non-English
+    /// glosses are merged into the matching entries (by sequence).
+    Jmdict {
+        jmdict: &'a str,
+        glosses: Option<&'a str>,
+    },
     Kanjidic2(&'a str),
     Jmnedict(&'a str),
     Kradfile(&'a [u8]),
@@ -295,12 +300,53 @@ pub enum Input<'a> {
 impl Input<'_> {
     fn name(&self) -> &'static str {
         match self {
-            Input::Jmdict(..) => "JMdict",
+            Input::Jmdict { .. } => "JMdict",
             Input::Kanjidic2(..) => "Kanjidic2",
             Input::Jmnedict(..) => "JMnedict",
             Input::Kradfile(..) => "Kradfile",
         }
     }
+}
+
+/// Collect the senses with non-English glosses from a multilingual JMdict,
+/// keyed by entry sequence. English glosses are skipped, since they duplicate
+/// the ones in the primary JMdict.
+///
+/// The multilingual file puts each language in its own senses, which don't
+/// line up with the English ones, so they are kept as separate glosses-only
+/// senses to append.
+fn collect_extra_senses<'a>(
+    shutdown: &Token,
+    input: &'a str,
+) -> Result<HashMap<u64, Vec<jmdict::Sense<'a>>>> {
+    let mut extra = HashMap::<_, Vec<_>>::new();
+    let mut parser = jmdict::Parser::new(input);
+
+    while let Some(entry) = parser.parse()? {
+        ensure!(!shutdown.is_set(), "Task shut down");
+
+        for sense in entry.senses {
+            let gloss = sense
+                .gloss
+                .into_iter()
+                .filter(|g| !g.is_default_lang())
+                .collect::<Vec<_>>();
+
+            if gloss.is_empty() {
+                continue;
+            }
+
+            extra
+                .entry(entry.sequence)
+                .or_default()
+                .push(jmdict::Sense {
+                    gloss,
+                    ..jmdict::Sense::default()
+                });
+        }
+    }
+
+    Ok(extra)
 }
 
 /// A search result.
@@ -335,6 +381,24 @@ pub fn build(
     let mut phrases = Vec::new();
     let mut kanji = Vec::new();
 
+    // Non-English senses to merge into JMdict entries, by sequence.
+    let mut extra_senses = HashMap::new();
+
+    if let Input::Jmdict {
+        glosses: Some(glosses),
+        ..
+    } = input
+    {
+        reporter.instrument_start(
+            module_path!(),
+            &"Collecting glosses from multilingual JMdict",
+            None,
+        );
+
+        extra_senses = collect_extra_senses(shutdown, glosses)?;
+        reporter.instrument_end(extra_senses.len());
+    }
+
     reporter.instrument_start(
         module_path!(),
         &format_args!("Processing dictionary `{}`", input.name()),
@@ -344,11 +408,18 @@ pub fn build(
     let mut count = 0;
 
     match input {
-        Input::Jmdict(input) => {
-            let mut jmdict = jmdict::Parser::new(input);
+        Input::Jmdict { jmdict, .. } => {
+            let mut jmdict = jmdict::Parser::new(jmdict);
 
-            while let Some(entry) = jmdict.parse()? {
+            while let Some(mut entry) = jmdict.parse()? {
                 ensure!(!shutdown.is_set(), "Task shut down");
+
+                // Entries only in the multilingual file are dropped, since
+                // the source with examples has every entry with an English
+                // gloss.
+                if let Some(senses) = extra_senses.remove(&entry.sequence) {
+                    entry.senses.extend(senses);
+                }
 
                 if count % 1000 == 0 {
                     reporter.instrument_progress(1000);
@@ -382,6 +453,11 @@ pub fn build(
 
                     for g in &sense.gloss {
                         if g.ty == Some("expl") {
+                            continue;
+                        }
+
+                        // Glossary analysis is for English text.
+                        if !g.is_default_lang() {
                             continue;
                         }
 

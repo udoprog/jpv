@@ -11,6 +11,9 @@ use crate::Dirs;
 const JMDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMdict_e_examp.gz";
 const JMDICT_HELP: &str = "https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project";
 const JMDICT_DESCRIPTION: &str = "JMDict (with examples)";
+/// The multilingual JMdict, whose non-English glosses are merged into the
+/// entries of [`JMDICT_URL`] (which has the examples but only English).
+const JMDICT_GLOSS_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMdict.gz";
 
 const JMNEDICT_URL: &str = "http://ftp.edrdg.org/pub/Nihongo/JMnedict.xml.gz";
 const JMNEDICT_HELP: &str =
@@ -91,6 +94,7 @@ impl IndexFormat {
             IndexFormat::Jmdict => ConfigIndex {
                 format: self,
                 url: JMDICT_URL.to_owned(),
+                gloss_url: Some(JMDICT_GLOSS_URL.to_owned()),
                 enabled,
                 installing: false,
                 description: Some(JMDICT_DESCRIPTION.to_owned()),
@@ -99,6 +103,7 @@ impl IndexFormat {
             IndexFormat::Jmnedict => ConfigIndex {
                 format: self,
                 url: JMNEDICT_URL.to_owned(),
+                gloss_url: None,
                 enabled,
                 installing: false,
                 description: Some(JMNEDICT_DESCRIPTION.to_owned()),
@@ -107,6 +112,7 @@ impl IndexFormat {
             IndexFormat::Kanjidic2 => ConfigIndex {
                 format: self,
                 url: KANJIDIC2_URL.to_owned(),
+                gloss_url: None,
                 enabled,
                 installing: false,
                 description: Some(KANJIDIC2_DESCRIPTION.to_owned()),
@@ -115,6 +121,7 @@ impl IndexFormat {
             IndexFormat::Kradfile => ConfigIndex {
                 format: self,
                 url: KRADFILE_URL.to_owned(),
+                gloss_url: None,
                 enabled,
                 installing: false,
                 description: Some(KRADFILE_DESCRIPTION.to_owned()),
@@ -144,6 +151,12 @@ impl FromStr for IndexFormat {
 pub struct ConfigIndex {
     pub format: IndexFormat,
     pub url: String,
+    /// For `jmdict` indexes: the url of a multilingual JMdict whose
+    /// non-English glosses are merged into the entries from `url`. An empty
+    /// string disables it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[musli(default, skip_encoding_if = Option::is_none)]
+    pub gloss_url: Option<String>,
     pub enabled: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     #[musli(default, skip_encoding_if = is_false)]
@@ -154,6 +167,17 @@ pub struct ConfigIndex {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[musli(default, skip_encoding_if = Option::is_none)]
     pub help: Option<String>,
+}
+
+impl ConfigIndex {
+    /// The multilingual gloss source to merge in, if any.
+    pub fn gloss_url(&self) -> Option<&str> {
+        if self.format != IndexFormat::Jmdict {
+            return None;
+        }
+
+        self.gloss_url.as_deref().filter(|url| !url.is_empty())
+    }
 }
 
 fn is_false(value: &bool) -> bool {
@@ -187,6 +211,17 @@ impl Config {
         } else {
             Self::default()
         };
+
+        // Configurations saved before gloss urls existed get the default
+        // one, as long as they still use the default JMdict source.
+        for index in config.indexes.values_mut() {
+            if index.format == IndexFormat::Jmdict
+                && index.url == JMDICT_URL
+                && index.gloss_url.is_none()
+            {
+                index.gloss_url = Some(JMDICT_GLOSS_URL.to_owned());
+            }
+        }
 
         for format in IndexFormat::all() {
             if !config.indexes.contains_key(format.id()) {

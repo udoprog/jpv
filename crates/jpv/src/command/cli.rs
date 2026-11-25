@@ -428,7 +428,10 @@ mod tests {
             &EmptyReporter,
             &Token::default(),
             "jmdict",
-            Input::Jmdict(JMDICT),
+            Input::Jmdict {
+                jmdict: JMDICT,
+                glosses: None,
+            },
         )?;
 
         let path =

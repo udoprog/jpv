@@ -160,13 +160,17 @@ impl Drop for TempIndex {
 }
 
 fn open_jmdict() -> Result<(TempIndex, Database)> {
+    open_jmdict_with(JMDICT, None)
+}
+
+fn open_jmdict_with(jmdict: &str, glosses: Option<&str>) -> Result<(TempIndex, Database)> {
     static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
     let buf = build(
         &EmptyReporter,
         &Token::default(),
         "jmdict",
-        Input::Jmdict(JMDICT),
+        Input::Jmdict { jmdict, glosses },
     )?;
 
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
@@ -349,5 +353,106 @@ fn analyze_matches_dictionary_and_inflected_prefixes() -> Result<()> {
     );
     assert!(na_texts.contains(&"静か"), "expected 静か in {na_texts:?}");
 
+    Ok(())
+}
+
+/// The English-only JMdict with examples, as in `JMdict_e_examp`.
+const JMDICT_EXAMP: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<JMdict>
+<entry>
+<ent_seq>1467640</ent_seq>
+<k_ele><keb>猫</keb></k_ele>
+<r_ele><reb>ねこ</reb></r_ele>
+<sense><pos>&n;</pos><gloss>cat</gloss>
+<example><ex_srce exsrc_type="tat">1</ex_srce><ex_text>猫</ex_text><ex_sent xml:lang="jpn">猫が好き。</ex_sent><ex_sent xml:lang="eng">I like cats.</ex_sent></example>
+</sense>
+<sense><pos>&n;</pos><gloss>shamisen</gloss></sense>
+</entry>
+<entry>
+<ent_seq>1358280</ent_seq>
+<k_ele><keb>食べる</keb></k_ele>
+<r_ele><reb>たべる</reb></r_ele>
+<sense><pos>&v1;</pos><gloss>to eat</gloss></sense>
+</entry>
+</JMdict>
+"#;
+
+/// The multilingual JMdict, as in `JMdict`: English senses repeated, other
+/// languages in their own senses, empty glosses, and an entry missing from the
+/// examp file.
+const JMDICT_MULTILINGUAL: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<JMdict>
+<entry>
+<ent_seq>1467640</ent_seq>
+<k_ele><keb>猫</keb></k_ele>
+<r_ele><reb>ねこ</reb></r_ele>
+<sense><pos>&n;</pos><gloss>cat</gloss></sense>
+<sense><pos>&n;</pos><gloss>shamisen</gloss></sense>
+<sense><gloss xml:lang="ger">Katze</gloss><gloss xml:lang="ger" g_gend="fem">Hauskatze</gloss></sense>
+<sense><gloss xml:lang="swe">katt</gloss><gloss xml:lang="swe"> </gloss></sense>
+<sense><gloss xml:lang="spa"></gloss></sense>
+</entry>
+<entry>
+<ent_seq>9999999</ent_seq>
+<r_ele><reb>だけ</reb></r_ele>
+<sense><gloss xml:lang="ger">nur</gloss></sense>
+</entry>
+</JMdict>
+"#;
+
+#[test]
+fn build_merges_multilingual_glosses() -> Result<()> {
+    let (_temp, db) = open_jmdict_with(JMDICT_EXAMP, Some(JMDICT_MULTILINGUAL))?;
+
+    let result = db.search("猫")?;
+    assert_eq!(result.phrases.len(), 1);
+    let (_, entry) = &result.phrases[0];
+    assert_eq!(entry.sequence, 1467640);
+
+    let glosses = entry
+        .senses
+        .iter()
+        .map(|s| {
+            s.gloss
+                .iter()
+                .map(|g| (g.lang.unwrap_or("eng"), g.text))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    // The English senses come first and aren't duplicated, the other
+    // languages follow as their own senses.
+    assert_eq!(
+        glosses,
+        [
+            vec![("eng", "cat")],
+            vec![("eng", "shamisen")],
+            vec![("ger", "Katze"), ("ger", "Hauskatze")],
+            vec![("swe", "katt")],
+        ]
+    );
+
+    // Examples and parts of speech are kept from the examp file, and the
+    // merged senses carry neither.
+    assert_eq!(entry.senses[0].examples.len(), 1);
+    assert!(!entry.senses[0].pos.is_empty());
+    assert!(entry.senses[2].pos.is_empty());
+    assert!(entry.senses[2].examples.is_empty());
+
+    // An entry only in the multilingual file is not added.
+    assert!(db.search("だけ")?.phrases.is_empty());
+
+    // Entries without other-language glosses are untouched.
+    let result = db.search("食べる")?;
+    assert_eq!(result.phrases.len(), 1);
+    assert_eq!(result.phrases[0].1.senses.len(), 1);
+
+    // English glosses are searchable, merged ones are not analyzed.
+    assert!(db
+        .search("cat")?
+        .phrases
+        .iter()
+        .any(|(_, e)| e.sequence == 1467640));
+    assert!(db.search("Katze")?.phrases.is_empty());
     Ok(())
 }

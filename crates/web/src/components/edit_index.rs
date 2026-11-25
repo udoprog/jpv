@@ -56,6 +56,8 @@ pub(crate) struct EditIndex {
     format: IndexFormat,
     description: String,
     url: String,
+    /// Kept as is, since the form doesn't edit it.
+    gloss_url: Option<String>,
     help: String,
     errors: Errors,
     l10n: PhrasesContext,
@@ -75,6 +77,7 @@ impl Component for EditIndex {
                 .and_then(|i| i.description.clone())
                 .unwrap_or_default(),
             url: index.map(|i| i.url.clone()).unwrap_or_default(),
+            gloss_url: index.and_then(|i| i.gloss_url.clone()),
             help: index.and_then(|i| i.help.clone()).unwrap_or_default(),
             errors: Errors::default(),
             l10n: PhrasesContext::new(ctx.link(), ctx.link().callback(Msg::Phrases)),
@@ -111,6 +114,7 @@ impl Component for EditIndex {
                         format: self.format,
                         description: Some(self.description.clone()),
                         url: self.url.clone(),
+                        gloss_url: self.gloss_url.clone(),
                         help: if self.help.is_empty() {
                             None
                         } else {
