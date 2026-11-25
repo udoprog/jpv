@@ -185,8 +185,11 @@ a {
     font-weight: bold;
 }
 
+// At most this tall: the log view inside shrinks to it and scrolls.
 .jpv-log {
-    height: 24em;
+    display: flex;
+    flex-direction: column;
+    max-height: 24em;
 }
 
 .jpv-log-entry {

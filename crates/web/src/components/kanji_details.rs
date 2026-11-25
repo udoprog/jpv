@@ -8,7 +8,7 @@ use crate::class;
 use crate::error::Error;
 use crate::ws;
 
-use super::{comma, row, seq, spacing};
+use super::{colon, comma, row, seq, spacing};
 
 pub(crate) enum Msg {
     GetKanji(Box<api::OwnedKanjiResponse>),
@@ -115,7 +115,8 @@ impl Component for KanjiDetails {
 
                 row(html! {
                     <>
-                        <span>{"Radicals:"}</span>
+                        <span>{"Radicals"}</span>
+                        {colon()}
                         {spacing()}
                         {for radicals}
                     </>
@@ -129,7 +130,8 @@ impl Component for KanjiDetails {
 
                 row(html! {
                     <>
-                        <span>{"Strokes:"}</span>
+                        <span>{"Strokes"}</span>
+                        {colon()}
                         {spacing()}
                         {for strokes}
                     </>
