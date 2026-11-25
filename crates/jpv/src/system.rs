@@ -32,6 +32,7 @@ pub(crate) struct SendClipboardData {
 
 #[derive(Clone)]
 pub(crate) struct TaskProgress {
+    pub(crate) id: Box<str>,
     pub(crate) name: Box<str>,
     pub(crate) value: usize,
     pub(crate) total: Option<usize>,
@@ -42,7 +43,9 @@ pub(crate) struct TaskProgress {
 
 #[derive(Clone)]
 pub(crate) struct TaskCompleted {
+    pub(crate) id: Box<str>,
     pub(crate) name: Box<str>,
+    pub(crate) cancelled: bool,
 }
 
 #[derive(Clone)]

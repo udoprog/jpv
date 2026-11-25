@@ -35,5 +35,8 @@ mod split_region;
 pub(crate) mod theme;
 pub(crate) use self::theme::ThemeSwitch;
 
+pub(crate) use self::tasks::Tasks;
+mod tasks;
+
 pub(crate) use self::language::{GlossLanguagePicker, LanguagePicker};
 mod language;

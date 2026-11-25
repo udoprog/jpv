@@ -116,3 +116,8 @@ sockel-select-no-match = 一致なし
 sockel-select-close = 閉じる
 sockel-log-view-to-latest = 最新へ移動
 sockel-log-view-new = 新着 { $count } 件
+
+# Background tasks.
+task-cancel = { $task }をキャンセル
+task-cancelling = キャンセル中 ...
+task-cancelled = { $task }はキャンセルされました

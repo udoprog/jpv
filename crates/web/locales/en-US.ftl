@@ -120,3 +120,8 @@ entry-reset = Reset
 # The inflection's name, such as "Past" (from jpv's inflection list).
 entry-tutorial = Tutorial for `{ $form }`
 entry-tutorial-tip = Tutorial for { $form }
+
+# Background tasks.
+task-cancel = Cancel { $task }
+task-cancelling = Cancelling ...
+task-cancelled = { $task } was cancelled

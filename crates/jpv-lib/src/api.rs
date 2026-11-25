@@ -55,6 +55,17 @@ impl Request for InstallAllRequest {
     type Response = Empty;
 }
 
+/// Stop a running task, as identified by the `id` of its progress.
+#[derive(Debug, Encode, Decode)]
+pub struct CancelTaskRequest {
+    pub id: String,
+}
+
+impl Request for CancelTaskRequest {
+    const KIND: &'static str = "cancel-task";
+    type Response = Empty;
+}
+
 #[derive(Debug, Encode, Decode)]
 pub struct GetState;
 
@@ -194,6 +205,8 @@ pub enum BroadcastKind<'a> {
     LogEntry(LogEntry<'a>),
     TaskProgress(TaskProgress<'a>),
     TaskCompleted(TaskCompleted<'a>),
+    /// Every running task, replacing what the client knows of them.
+    TaskList(TaskList<'a>),
     Refresh,
 }
 
@@ -309,6 +322,7 @@ pub struct LogEntry<'a> {
 #[borrowme::borrowme]
 #[derive(Debug, Clone, PartialEq, Encode, Decode)]
 pub struct TaskProgress<'a> {
+    pub id: &'a str,
     pub name: &'a str,
     pub value: usize,
     pub total: Option<usize>,
@@ -317,9 +331,19 @@ pub struct TaskProgress<'a> {
     pub text: &'a str,
 }
 
+/// Every running task.
+#[borrowme::borrowme]
+#[derive(Debug, Clone, PartialEq, Encode, Decode)]
+pub struct TaskList<'a> {
+    pub tasks: Vec<TaskProgress<'a>>,
+}
+
 /// Indicates that a task has been completed.
 #[borrowme::borrowme]
 #[derive(Debug, Clone, PartialEq, Encode, Decode)]
 pub struct TaskCompleted<'a> {
+    pub id: &'a str,
     pub name: &'a str,
+    /// The task stopped because it was cancelled.
+    pub cancelled: bool,
 }

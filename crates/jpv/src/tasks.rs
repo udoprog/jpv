@@ -11,6 +11,15 @@ pub(crate) enum TaskName {
     Build(String),
 }
 
+impl TaskName {
+    /// The stable id clients use to refer to the task.
+    pub(crate) fn id(&self) -> String {
+        match self {
+            TaskName::Build(name) => format!("build:{name}"),
+        }
+    }
+}
+
 impl fmt::Display for TaskName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -19,10 +28,12 @@ impl fmt::Display for TaskName {
     }
 }
 
+type Completed = (usize, Option<TaskName>, bool);
+
 pub(crate) struct Tasks {
-    tasks: Slab<oneshot::Sender<()>>,
-    completion: mpsc::UnboundedReceiver<(usize, Option<TaskName>)>,
-    sender: mpsc::UnboundedSender<(usize, Option<TaskName>)>,
+    tasks: Slab<Option<oneshot::Sender<()>>>,
+    completion: mpsc::UnboundedReceiver<Completed>,
+    sender: mpsc::UnboundedSender<Completed>,
     unique: HashMap<TaskName, usize>,
 }
 
@@ -58,32 +69,52 @@ impl Tasks {
     /// Spawn a new task and set up a oneshot receiver.
     fn task_inner(&mut self, name: Option<TaskName>) -> (oneshot::Receiver<()>, TaskCompletion) {
         let (sender, receiver) = oneshot::channel();
-        let index = self.tasks.insert(sender);
+        let index = self.tasks.insert(Some(sender));
 
         let completion = TaskCompletion {
             sender: self.sender.clone(),
             index,
             name,
+            cancelled: false,
         };
 
         (receiver, completion)
     }
 
+    /// Signal the unique task with the given id to stop, returning whether
+    /// one was signalled.
+    pub(crate) fn cancel(&mut self, id: &str) -> bool {
+        let Some(index) = self
+            .unique
+            .iter()
+            .find(|(name, _)| name.id() == id)
+            .map(|(_, index)| *index)
+        else {
+            return false;
+        };
+
+        let Some(sender) = self.tasks.get_mut(index).and_then(Option::take) else {
+            return false;
+        };
+
+        sender.send(()).is_ok()
+    }
+
     /// Drive task completion in general.
     pub(crate) async fn wait(&mut self) -> Result<CompletedTask> {
-        let (index, name) = self
+        let (index, name, cancelled) = self
             .completion
             .recv()
             .await
             .context("Unexpected task queue end")?;
 
-        self.tasks.remove(index);
+        self.tasks.try_remove(index);
 
         if let Some(name) = &name {
             self.unique.remove(name);
         }
 
-        Ok(CompletedTask { name })
+        Ok(CompletedTask { name, cancelled })
     }
 
     /// Wait for all background tasks to finish.
@@ -92,13 +123,16 @@ impl Tasks {
 
         for (index, sender) in self.tasks {
             expect.insert(index);
-            let _ = sender.send(());
+
+            if let Some(sender) = sender {
+                let _ = sender.send(());
+            }
         }
 
         while !expect.is_empty() {
             tracing::trace!("Waiting for {} tasks: {expect:?}", expect.len());
 
-            let Some((index, name)) = self.completion.recv().await else {
+            let Some((index, name, _)) = self.completion.recv().await else {
                 break;
             };
 
@@ -114,9 +148,10 @@ impl Tasks {
 }
 
 pub(crate) struct TaskCompletion {
-    sender: mpsc::UnboundedSender<(usize, Option<TaskName>)>,
+    sender: mpsc::UnboundedSender<Completed>,
     index: usize,
     name: Option<TaskName>,
+    cancelled: bool,
 }
 
 impl TaskCompletion {
@@ -124,21 +159,66 @@ impl TaskCompletion {
     pub(crate) fn name(&self) -> Option<&TaskName> {
         self.name.as_ref()
     }
+
+    /// Mark the task as having stopped because it was cancelled.
+    pub(crate) fn set_cancelled(&mut self) {
+        self.cancelled = true;
+    }
 }
 
 impl Drop for TaskCompletion {
     fn drop(&mut self) {
         tracing::trace!("Marking task {} as completed", self.index);
-        let _ = self.sender.send((self.index, self.name.clone()));
+        let _ = self
+            .sender
+            .send((self.index, self.name.clone(), self.cancelled));
     }
 }
 
 pub(crate) struct CompletedTask {
     name: Option<TaskName>,
+    cancelled: bool,
 }
 
 impl CompletedTask {
     pub(crate) fn name(&self) -> Option<&TaskName> {
         self.name.as_ref()
+    }
+
+    pub(crate) fn cancelled(&self) -> bool {
+        self.cancelled
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TaskName, Tasks};
+
+    #[tokio::test]
+    async fn cancel_signals_task_and_reports_cancelled() {
+        let mut tasks = Tasks::new();
+        let name = TaskName::Build("jmdict".into());
+        let (shutdown, mut completion) = tasks.unique_task(name.clone()).unwrap();
+
+        assert!(!tasks.cancel("build:kanjidic2"));
+        assert!(tasks.cancel(&name.id()));
+        assert!(!tasks.cancel(&name.id()));
+        shutdown.await.unwrap();
+
+        completion.set_cancelled();
+        drop(completion);
+
+        let completed = tasks.wait().await.unwrap();
+        assert_eq!(completed.name(), Some(&name));
+        assert!(completed.cancelled());
+        assert!(tasks.unique_task(name).is_some());
+    }
+
+    #[tokio::test]
+    async fn completed_task_is_not_cancelled() {
+        let mut tasks = Tasks::new();
+        let (_shutdown, completion) = tasks.unique_task(TaskName::Build("jmdict".into())).unwrap();
+        drop(completion);
+        assert!(!tasks.wait().await.unwrap().cancelled());
     }
 }

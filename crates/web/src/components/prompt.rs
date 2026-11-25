@@ -67,6 +67,8 @@ pub(crate) enum Msg {
     Error(Error),
     Phrases(Phrases),
     GlossLang(GlossLang),
+    CancelTask(String),
+    DismissCancelled(String),
 }
 
 impl From<api::OwnedBroadcastKind> for Msg {
@@ -102,6 +104,9 @@ pub(crate) struct Prompt {
     pending_search: ws::Request,
     log: Vec<api::OwnedLogEntry>,
     tasks: BTreeMap<String, api::OwnedTaskProgress>,
+    cancelling: BTreeSet<String>,
+    cancelled: Vec<api::OwnedTaskCompleted>,
+    cancel_requests: Vec<ws::Request>,
     analysis: Rc<[String]>,
     ocr: bool,
     missing: BTreeSet<String>,
@@ -166,6 +171,9 @@ impl Component for Prompt {
             pending_search: ws::Request::empty(),
             log: Vec::new(),
             tasks: BTreeMap::new(),
+            cancelling: BTreeSet::new(),
+            cancelled: Vec::new(),
+            cancel_requests: Vec::new(),
             analysis: Rc::from([]),
             ocr: false,
             missing: BTreeSet::new(),
@@ -409,10 +417,29 @@ impl Component for Prompt {
                         self.log.push(entry);
                     }
                     api::OwnedBroadcastKind::TaskProgress(task) => {
-                        self.tasks.insert(task.name.clone(), task);
+                        self.cancelled.retain(|c| c.id != task.id);
+                        self.tasks.insert(task.id.clone(), task);
+                    }
+                    api::OwnedBroadcastKind::TaskList(list) => {
+                        self.tasks = list
+                            .tasks
+                            .into_iter()
+                            .map(|task| (task.id.clone(), task))
+                            .collect();
+                        self.cancelling.retain(|id| self.tasks.contains_key(id));
                     }
                     api::OwnedBroadcastKind::TaskCompleted(task) => {
-                        self.tasks.remove(&task.name);
+                        self.tasks.remove(&task.id);
+                        self.cancelling.remove(&task.id);
+
+                        if task.cancelled {
+                            self.cancelled.retain(|c| c.id != task.id);
+                            self.cancelled.push(task);
+                        }
+
+                        if self.cancelling.is_empty() {
+                            self.cancel_requests.clear();
+                        }
                     }
                     api::OwnedBroadcastKind::Refresh => {
                         self.get_config(ctx);
@@ -436,6 +463,26 @@ impl Component for Prompt {
                 false
             }
             Msg::Phrases(phrases) => self.l10n.set(phrases),
+            Msg::CancelTask(id) => {
+                if !self.cancelling.insert(id.clone()) {
+                    return false;
+                }
+
+                let request = ctx.props().ws.request(
+                    api::CancelTaskRequest { id: id.clone() },
+                    ctx.link().batch_callback(move |result| match result {
+                        Ok(api::Empty) => None,
+                        Err(error) => Some(Msg::Error(error)),
+                    }),
+                );
+
+                self.cancel_requests.push(request);
+                true
+            }
+            Msg::DismissCancelled(id) => {
+                self.cancelled.retain(|c| c.id != id);
+                true
+            }
             Msg::GlossLang(gloss) => {
                 if gloss.code != self.gloss {
                     self.gloss = gloss.code;
@@ -591,48 +638,15 @@ impl Component for Prompt {
             }
         });
 
-        let tasks = (!self.tasks.is_empty()).then(|| {
-            let tasks = self.tasks.values().map(|task| {
-                let (progress, value) = match task.total {
-                    Some(total) => {
-                        let progress = html! {
-                            <progress max={total.to_string()} value={task.value.to_string()} />
-                        };
-
-                        (progress, None)
-                    }
-                    None => {
-                        let progress = html!(<progress />);
-                        let value = html!(<div>{task.value.to_string()}</div>);
-                        (progress, Some(value))
-                    }
-                };
-
-                let progress_text = format!("{} ...", task.text);
-
-                let text = (!self.query.embed).then(|| {
-                    html!(<div>{progress_text.clone()}</div>)
-                });
-
-                html! {
-                    <sockel::Cluster gap={Gap::Tight} nowrap={true} class={class::TASK}>
-                        <span data-tip={progress_text}>
-                            <sockel::Badge tone={sockel::Tone::Accent} solid={true}>{&task.name}</sockel::Badge>
-                        </span>
-                        <div>{format!("{}/{}", task.step, task.steps)}</div>
-                        {text}
-                        <div class={class::TASK_PROGRESS}>{progress}</div>
-                        {value}
-                    </sockel::Cluster>
-                }
-            });
-
-            html! {
-                <sockel::Stack gap={Gap::Snug}>
-                    {for tasks}
-                </sockel::Stack>
-            }
-        });
+        let tasks = html! {
+            <c::Tasks
+                tasks={self.tasks.values().cloned().collect::<Vec<_>>()}
+                cancelling={self.cancelling.clone()}
+                cancelled={self.cancelled.clone()}
+                embed={self.query.embed}
+                oncancel={ctx.link().callback(Msg::CancelTask)}
+                ondismiss={ctx.link().callback(Msg::DismissCancelled)} />
+        };
 
         let missing = (self.query.tab != Tab::Settings && !self.missing.is_empty()).then(|| {
             let missing = seq(self.missing.iter(), |id, not_last| {

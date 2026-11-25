@@ -12,6 +12,7 @@ use musli::reader::SliceReader;
 use musli::Encode;
 use rand::prelude::*;
 use rand::rngs::StdRng;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::Mutex;
 use tokio::time::Duration;
 use tokio_stream::StreamExt;
@@ -86,8 +87,20 @@ impl Server {
                     ping_interval.reset();
                 }
                 event = receiver.recv() => {
-                    let Ok(event) = event else {
-                        break Some((CLOSE_NORMAL, "system shutting down"));
+                    let event = match event {
+                        Ok(event) => event,
+                        Err(RecvError::Lagged(n)) => {
+                            tracing::debug!("Skipped {n} system events, resynchronizing");
+                            self.send_task_list().await?;
+                            self.send(api::ClientEvent::Broadcast(api::Broadcast {
+                                kind: api::BroadcastKind::Refresh,
+                            }))
+                            .await?;
+                            continue;
+                        }
+                        Err(RecvError::Closed) => {
+                            break Some((CLOSE_NORMAL, "system shutting down"));
+                        }
                     };
 
                     if let Err(error) = self.system_event(event).await {
@@ -212,7 +225,29 @@ impl Server {
         }))
         .await?;
 
-        Ok(())
+        self.send_task_list().await
+    }
+
+    async fn send_task_list(&mut self) -> Result<()> {
+        let running = self.bg.running_tasks();
+
+        let tasks = running
+            .iter()
+            .map(|task| api::TaskProgress {
+                id: &task.id,
+                name: &task.name,
+                value: task.value,
+                total: task.total,
+                step: task.step,
+                steps: task.steps,
+                text: &task.text,
+            })
+            .collect();
+
+        self.send(api::ClientEvent::Broadcast(api::Broadcast {
+            kind: api::BroadcastKind::TaskList(api::TaskList { tasks }),
+        }))
+        .await
     }
 
     async fn handle_request(
@@ -254,6 +289,12 @@ impl Server {
             api::InstallAllRequest::KIND => {
                 let api::InstallAllRequest = musli::storage::decode(reader)?;
                 self.bg.install(Install::default());
+                self.write_body(api::Empty)?;
+            }
+            api::CancelTaskRequest::KIND => {
+                let request: api::CancelTaskRequest = musli::storage::decode(reader)?;
+                self.bg.cancel_task(request.id);
+                self.write_body(api::Empty)?;
             }
             api::UpdateConfigRequest::KIND => {
                 let request: api::UpdateConfigRequest = musli::storage::decode(reader)?;
@@ -386,6 +427,7 @@ impl Server {
             system::Event::TaskProgress(task) => {
                 self.send(api::ClientEvent::Broadcast(api::Broadcast {
                     kind: api::BroadcastKind::TaskProgress(api::TaskProgress {
+                        id: &task.id,
                         name: &task.name,
                         value: task.value,
                         total: task.total,
@@ -399,7 +441,9 @@ impl Server {
             system::Event::TaskCompleted(task) => {
                 self.send(api::ClientEvent::Broadcast(api::Broadcast {
                     kind: api::BroadcastKind::TaskCompleted(api::TaskCompleted {
+                        id: &task.id,
                         name: &task.name,
+                        cancelled: task.cancelled,
                     }),
                 }))
                 .await?;

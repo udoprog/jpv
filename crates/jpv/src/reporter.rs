@@ -1,5 +1,5 @@
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use lib::reporter::Reporter;
 
@@ -22,14 +22,14 @@ impl Reporter for EventsReporter {
         };
 
         let progress = {
-            let mut inner = self.tasks.lock().unwrap();
+            let mut inner = self.tasks.lock().unwrap_or_else(PoisonError::into_inner);
 
             let Some(progress) = inner.progress.get_mut(name) else {
                 return;
             };
 
             progress.text.clear();
-            write!(progress.text, "{text}").unwrap();
+            let _ = write!(progress.text, "{text}");
             progress.value = 0;
             progress.total = total;
             progress.clone()
@@ -44,13 +44,13 @@ impl Reporter for EventsReporter {
         };
 
         let progress = {
-            let mut inner = self.tasks.lock().unwrap();
+            let mut inner = self.tasks.lock().unwrap_or_else(PoisonError::into_inner);
 
             let Some(progress) = inner.progress.get_mut(name) else {
                 return;
             };
 
-            progress.value = progress.value.wrapping_add(stride);
+            progress.value = progress.value.saturating_add(stride);
             progress.clone()
         };
 
@@ -63,7 +63,7 @@ impl Reporter for EventsReporter {
         };
 
         let progress = {
-            let mut tasks = self.tasks.lock().unwrap();
+            let mut tasks = self.tasks.lock().unwrap_or_else(PoisonError::into_inner);
 
             let Some(progress) = tasks.progress.get_mut(name) else {
                 return;

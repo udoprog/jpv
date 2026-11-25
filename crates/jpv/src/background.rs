@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::sync::Mutex as StdMutex;
+use std::sync::{Mutex as StdMutex, MutexGuard, PoisonError};
 use std::time::Instant;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -60,6 +60,8 @@ pub enum BackgroundEvent {
     SaveConfig(Config, oneshot::Sender<()>),
     /// Force a database rebuild.
     Install(Install),
+    /// Cancel the task with the given id.
+    Cancel(String),
 }
 
 struct Shared {
@@ -150,6 +152,20 @@ impl Background {
         let _ = self.channel.send(BackgroundEvent::Install(install_all));
     }
 
+    /// Cancel the running task with the given id.
+    pub(crate) fn cancel_task(&self, id: String) {
+        let _ = self.channel.send(BackgroundEvent::Cancel(id));
+    }
+
+    /// Progress of every running task.
+    pub(crate) fn running_tasks(&self) -> Vec<system::TaskProgress> {
+        self.lock_tasks().progress.values().cloned().collect()
+    }
+
+    fn lock_tasks(&self) -> MutexGuard<'_, BackgroundTasks> {
+        self.tasks.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// Access current configuration.
     pub(crate) async fn config(&self) -> Config {
         self.mutable.read().await.config.clone()
@@ -166,11 +182,12 @@ impl Background {
             return;
         };
 
-        let mut inner = self.tasks.lock().unwrap();
+        let mut inner = self.lock_tasks();
 
         inner.progress.insert(
             name.clone(),
             system::TaskProgress {
+                id: name.id().into(),
                 name: name.to_string().into(),
                 value: 0,
                 total: None,
@@ -187,15 +204,15 @@ impl Background {
             return;
         };
 
-        let mut inner = self.tasks.lock().unwrap();
-
-        let Some(task) = inner.progress.remove(name) else {
+        let Some(task) = self.lock_tasks().progress.remove(name) else {
             return;
         };
 
         self.system_events
             .send(system::Event::TaskCompleted(system::TaskCompleted {
+                id: task.id,
                 name: task.name,
+                cancelled: completed.cancelled(),
             }));
     }
 
@@ -253,6 +270,13 @@ impl Background {
                 report!(task1, task2);
                 let _ = callback.send(());
             }
+            BackgroundEvent::Cancel(id) => {
+                if tasks.cancel(&id) {
+                    tracing::info!("Cancelling task {id}");
+                } else {
+                    tracing::warn!("No running task {id} to cancel");
+                }
+            }
             BackgroundEvent::Install(install_all) => {
                 let config = self.config().await;
 
@@ -295,17 +319,23 @@ impl Background {
 
                         async move {
                             // Capture the completion handler so that it is dropped with the task.
-                            let _completion = completion;
+                            let mut completion = completion;
+                            let token = Token::default();
 
-                            let task1 = build(
-                                reporter.clone(),
+                            let task1 = cancellable(
+                                &token,
                                 shutdown,
-                                &shared.dirs,
-                                &to_download,
-                                force,
+                                build(reporter.clone(), &token, &shared.dirs, &to_download, force),
                             )
-                            .await
-                            .context("Re-building database");
+                            .await;
+
+                            let task1 = if token.is_set() {
+                                tracing::info!("Cancelled building `{}`", to_download.name);
+                                completion.set_cancelled();
+                                Ok(false)
+                            } else {
+                                task1.context("Re-building database")
+                            };
 
                             let mut mutable = mutable.write().await;
                             mutable.config.set_installing(&to_download.name, false);
@@ -431,12 +461,11 @@ pub fn config_to_download(
 #[must_use = "Must check that the build completed before proceeding"]
 pub(crate) async fn build(
     reporter: Arc<dyn Reporter>,
-    shutdown: oneshot::Receiver<()>,
+    shutdown: &Token,
     dirs: &Dirs,
     download: &ToDownload,
     force: bool,
 ) -> Result<bool> {
-    let shutdown_token = Token::default();
     ensure_parent_dir(&download.index_path).await?;
 
     // SAFETY: We are the only ones calling this function now.
@@ -473,6 +502,7 @@ pub(crate) async fn build(
 
     let (path, data) = read_or_download(
         &*reporter,
+        shutdown,
         download.path.as_deref(),
         dirs,
         &download.url,
@@ -487,6 +517,7 @@ pub(crate) async fn build(
         Some(glosses) => {
             let (path, data) = read_or_download(
                 &*reporter,
+                shutdown,
                 glosses.path.as_deref(),
                 dirs,
                 &glosses.url,
@@ -510,9 +541,11 @@ pub(crate) async fn build(
     let kind = download.format;
     let name = download.name.clone();
 
-    let mut task = tokio::task::spawn_blocking({
+    ensure_running(shutdown)?;
+
+    let buf = tokio::task::spawn_blocking({
         let reporter = reporter.clone();
-        let shutdown_token = shutdown_token.clone();
+        let shutdown = shutdown.clone();
         move || {
             let input = match kind {
                 IndexFormat::Jmdict => Input::Jmdict {
@@ -524,19 +557,10 @@ pub(crate) async fn build(
                 IndexFormat::Kradfile => Input::Kradfile(&data[..]),
             };
 
-            database::build(&*reporter, &shutdown_token, &name, input)
+            database::build(&*reporter, &shutdown, &name, input)
         }
-    });
-
-    let buf = tokio::select! {
-        result = &mut task => {
-            result??
-        }
-        _ = shutdown => {
-            shutdown_token.set();
-            task.await??
-        }
-    };
+    })
+    .await??;
 
     let duration = Instant::now().duration_since(start);
 
@@ -546,7 +570,11 @@ pub(crate) async fn build(
         None,
     );
 
-    fs::write(&download.index_path, buf.as_slice())
+    ensure_running(shutdown)?;
+
+    // Replaced in one step, so that an interrupted save leaves the previous
+    // index in place rather than a truncated one.
+    write_atomic(&download.index_path, buf.as_slice().to_vec())
         .await
         .with_context(|| anyhow!("{}", download.index_path.display()))?;
 
@@ -559,8 +587,50 @@ pub(crate) async fn build(
     Ok(true)
 }
 
+/// Drive `future`, setting `token` once `shutdown` is signalled so that the
+/// future can wind down.
+async fn cancellable<F>(token: &Token, shutdown: oneshot::Receiver<()>, future: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    tokio::pin!(future);
+
+    tokio::select! {
+        output = &mut future => output,
+        Ok(()) = shutdown => {
+            token.set();
+            future.await
+        }
+    }
+}
+
+fn ensure_running(shutdown: &Token) -> Result<()> {
+    if shutdown.is_set() {
+        bail!("Task cancelled");
+    }
+
+    Ok(())
+}
+
+async fn write_atomic<T>(path: &Path, data: T) -> Result<T>
+where
+    T: 'static + Send + AsRef<[u8]>,
+{
+    let parent = ensure_parent_dir(path).await?.to_owned();
+    let path = path.to_owned();
+
+    tokio::task::spawn_blocking(move || {
+        let mut file = NamedTempFile::new_in(parent)?;
+        std::io::Write::write_all(&mut file, data.as_ref())?;
+        file.persist(&path)?;
+        Ok(data)
+    })
+    .await?
+}
+
 async fn read_or_download(
     reporter: &dyn Reporter,
+    shutdown: &Token,
     path: Option<&Path>,
     dirs: &Dirs,
     url: &str,
@@ -577,7 +647,7 @@ async fn read_or_download(
             let path = dirs.cache_dir(format!("{hash:08x}-{name}"));
 
             let bytes = if !path.is_file() || force {
-                download(reporter, url, &path)
+                download(reporter, shutdown, url, &path)
                     .await
                     .with_context(|| anyhow!("Downloading {url} to {}", path.display()))?
             } else {
@@ -599,18 +669,20 @@ async fn read_or_download(
 }
 
 #[cfg(not(feature = "reqwest"))]
-async fn download(_: &dyn Reporter, _: &str, _: &Path) -> Result<Vec<u8>> {
+async fn download(_: &dyn Reporter, _: &Token, _: &str, _: &Path) -> Result<Vec<u8>> {
     bail!("Downloading is not supported")
 }
 
 #[cfg(feature = "reqwest")]
-async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec<u8>> {
+async fn download(
+    reporter: &dyn Reporter,
+    shutdown: &Token,
+    url: &str,
+    path: &Path,
+) -> Result<Vec<u8>> {
     use reqwest::Method;
-    use tokio::io::AsyncWriteExt;
 
     tracing::info!("Downloading {url} to {}", path.display());
-
-    ensure_parent_dir(path).await?;
 
     let client = reqwest::ClientBuilder::new().build()?;
 
@@ -625,18 +697,19 @@ async fn download(reporter: &dyn Reporter, url: &str, path: &Path) -> Result<Vec
         .content_length()
         .map(|n| usize::try_from(n).unwrap_or(usize::MAX));
 
-    let mut f = fs::File::create(path).await?;
     let mut data = Vec::new();
 
     reporter.instrument_start(module_path!(), &format!("Downloading {url}"), total);
 
     while let Some(chunk) = response.chunk().await? {
-        f.write_all(chunk.as_ref()).await?;
+        ensure_running(shutdown)?;
         data.extend_from_slice(chunk.as_ref());
         reporter.instrument_progress(chunk.as_ref().len());
     }
 
-    Ok(data)
+    // Only a complete download is cached, so a cancelled one is fetched
+    // again rather than read back truncated.
+    write_atomic(path, data).await
 }
 
 async fn ensure_parent_dir(path: &Path) -> Result<&Path> {
@@ -659,10 +732,65 @@ async fn ensure_parent_dir(path: &Path) -> Result<&Path> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+    use std::path::Path;
+    use std::sync::Arc;
+
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
     use lib::config::{Config, IndexFormat};
+    use lib::reporter::EmptyReporter;
+    use lib::token::Token;
     use lib::Dirs;
 
-    use super::{config_to_download, DownloadOverrides};
+    use super::{build, config_to_download, DownloadOverrides, ToDownload};
+
+    fn kradfile(dir: &Path) -> ToDownload {
+        let source = dir.join("kradfile.gz");
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+        encoder.write_all(b"# empty\n").unwrap();
+        std::fs::write(&source, encoder.finish().unwrap()).unwrap();
+
+        ToDownload {
+            name: "kradfile".into(),
+            url: String::new(),
+            index_path: dir.join("index").join("kradfile.bin").into(),
+            path: Some(source.into()),
+            format: IndexFormat::Kradfile,
+            glosses: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelled_build_keeps_existing_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let dirs = Dirs::open().unwrap();
+        let download = kradfile(dir.path());
+
+        assert!(build(
+            Arc::new(EmptyReporter),
+            &Token::default(),
+            &dirs,
+            &download,
+            false
+        )
+        .await
+        .unwrap());
+        let built = std::fs::read(&download.index_path).unwrap();
+
+        let token = Token::default();
+        token.set();
+
+        assert!(
+            build(Arc::new(EmptyReporter), &token, &dirs, &download, true)
+                .await
+                .is_err()
+        );
+        assert_eq!(std::fs::read(&download.index_path).unwrap(), built);
+
+        let parent = download.index_path.parent().unwrap();
+        assert_eq!(std::fs::read_dir(parent).unwrap().count(), 1);
+    }
 
     fn config() -> Config {
         let mut config = Config::default();
