@@ -224,6 +224,7 @@ impl Server {
 
         match request.kind {
             api::GetConfig::KIND => {
+                let api::GetConfig = musli::storage::decode(reader)?;
                 let database = self.bg.database().await;
 
                 let missing_ocr = if self.bg.tesseract().is_none() {
@@ -251,6 +252,7 @@ impl Server {
                 self.write_body(&response)?;
             }
             api::InstallAllRequest::KIND => {
+                let api::InstallAllRequest = musli::storage::decode(reader)?;
                 self.bg.install(Install::default());
             }
             api::UpdateConfigRequest::KIND => {

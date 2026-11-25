@@ -11,7 +11,7 @@ use slab::Slab;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::js_sys::{ArrayBuffer, Uint8Array};
-use web_sys::{window, BinaryType, CloseEvent, ErrorEvent, MessageEvent, WebSocket};
+use web_sys::{window, BinaryType, CloseEvent, Event, MessageEvent, WebSocket};
 use yew::{Callback, Component, Context};
 
 use crate::error::{Error, Result};
@@ -24,7 +24,7 @@ pub enum Msg {
     Open,
     Close(CloseEvent),
     Message(MessageEvent),
-    Error(ErrorEvent),
+    Error(Event),
     ClientRequest((api::OwnedClientRequestEnvelope, Vec<u8>)),
 }
 
@@ -44,7 +44,7 @@ pub struct Service<C> {
     on_open: Closure<dyn Fn()>,
     on_close: Closure<dyn Fn(CloseEvent)>,
     on_message: Closure<dyn Fn(MessageEvent)>,
-    on_error: Closure<dyn Fn(ErrorEvent)>,
+    on_error: Closure<dyn Fn(Event)>,
     _timeout: Option<Timeout>,
     _ping_timeout: Option<Timeout>,
     _marker: PhantomData<C>,
@@ -97,7 +97,7 @@ where
         let on_error = {
             let link = ctx.link().clone();
 
-            let cb: Box<dyn Fn(ErrorEvent)> = Box::new(move |e: ErrorEvent| {
+            let cb: Box<dyn Fn(Event)> = Box::new(move |e: Event| {
                 link.send_message(Msg::Error(e));
             });
 
@@ -284,7 +284,9 @@ where
                 }
             }
             Msg::Error(e) => {
-                log::error!("{}", e.message());
+                // The `error` event of a WebSocket is a plain `Event`
+                // without a message; the browser logs the details itself.
+                log::error!("WebSocket error ({})", e.type_());
                 self.set_closed(ctx);
             }
             Msg::ClientRequest((request, body)) => {
