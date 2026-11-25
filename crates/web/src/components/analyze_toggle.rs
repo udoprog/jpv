@@ -1,3 +1,4 @@
+use crate::class;
 use std::rc::Rc;
 
 use yew::prelude::*;
@@ -50,9 +51,9 @@ impl Component for AnalyzeToggle {
             };
 
             let class = classes! {
-                (rem > 0).then_some("active"),
-                (!(event.is_none() && ctx.props().analyzed.len() <= 1)).then_some("clickable"),
-                "analyze-span"
+                (rem > 0).then_some(class::ACTIVE),
+                (!(event.is_none() && ctx.props().analyzed.len() <= 1)).then_some(class::CLICKABLE),
+                class::ANALYZE_SPAN
             };
 
             rem = rem.saturating_sub(1);
@@ -61,13 +62,13 @@ impl Component for AnalyzeToggle {
 
         let analyze_hint = if ctx.props().analyzed.len() > 1 {
             Some(html! {
-                <div class="block row hint">
+                <div class={classes!(class::BLOCK, class::ROW, class::HINT)}>
                     {format!("{} / {} (click character to cycle)", ctx.props().index + 1, ctx.props().analyzed.len())}
                 </div>
             })
         } else if ctx.props().analyzed.is_empty() {
             Some(html! {
-                <div class="block row hint">
+                <div class={classes!(class::BLOCK, class::ROW, class::HINT)}>
                     <span>{"Hint:"}</span>
                     {spacing()}
                     <span>{"Click character for substring search"}</span>
@@ -79,7 +80,7 @@ impl Component for AnalyzeToggle {
 
         html! {
             <div id="analyze">
-                <div class="block row analyze-text">{for query}</div>
+                <div class={classes!(class::BLOCK, class::ROW, class::ANALYZE_TEXT)}>{for query}</div>
                 {analyze_hint}
             </div>
         }

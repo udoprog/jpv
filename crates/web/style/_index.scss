@@ -84,11 +84,6 @@
         color: var(--danger-color);
         background-color: var(--danger-bg);
     }
-
-    &-primary {
-        color: var(--primary-color);
-        background-color: var(--primary-bg);
-    }
 }
 
 body {
@@ -135,40 +130,40 @@ body {
 }
 
 #translation {
-    .translation-title {
+    .jpv-translation-title {
         font-weight: bold;
     }
 }
 
 #analyze {
-    .hint {
+    .jpv-hint {
         font-size: 80%;
     }
 
-    .analyze-text {
+    .jpv-analyze-text {
         font-size: 180%;
         white-space: pre;
         line-height: 1.2em;
 
-        &.empty {
+        &.jpv-empty {
             font-style: italic;
         }
     }
 }
 
-.analyze-span {
-    &.active {
+.jpv-analyze-span {
+    &.jpv-active {
         color: var(--analyzed-color);
     }
 }
 
-.container {
+.jpv-container {
     margin: 0 auto;
     height: 100%;
     max-width: 1200px;
 
-    &.embed {
-        .analyze-text {
+    &.jpv-embed {
+        .jpv-analyze-text {
             font-size: 120% !important;
         }
     }
@@ -210,48 +205,48 @@ body {
     }
 }
 
-.text {
-    &.kanji {
+.jpv-text {
+    &.jpv-kanji {
         font-size: 1.5em;
     }
 }
 
-.columns {
+.jpv-columns {
     width: 100%;
     display: flex;
     flex-direction: row;
     gap: 2rem;
 
-    .column {
+    .jpv-column {
         flex-grow: 1;
     }
 
-    .column.characters {
+    .jpv-column.jpv-characters {
         max-width: 320px;
         min-width: 200px;
         flex-grow: unset;
     }
 }
 
-.tabs {
+.jpv-tabs {
     display: flex;
     flex-direction: row;
     gap: 1rem;
     border-bottom: 2px solid var(--tab-background);
 
-    .tab {
+    .jpv-tab {
         font-weight: bold;
         font-size: 0.8em;
         padding: 0.5rem;
         background-color: var(--tab-background);
 
-        &.active {
+        &.jpv-active {
             cursor: default;
             color: var(--tab-active-color);
             background-color: var(--tab-active-background);
         }
 
-        &.disabled {
+        &.jpv-disabled {
             cursor: default;
             color: var(--tab-disabled-color);
         }
@@ -271,24 +266,14 @@ h5, h6 {
     font-size: 1.2em;
 }
 
-.block {
+.jpv-block {
     @include block-margin(var(--section-margin));
 
     display: flex;
     flex-direction: column;
 
-    &.indent {
-        padding-left: var(--section-lg-margin);
-        padding-right: var(--section-lg-margin);
-    }
-
-    &.inline {
+    &.jpv-inline {
         display: block;
-    }
-
-    .centered {
-        margin-left: auto;
-        margin-right: auto;
     }
 
     &-title {
@@ -327,14 +312,10 @@ h5, h6 {
     }
 }
 
-.row {
+.jpv-row {
     display: flex;
     flex-flow: row wrap;
     align-items: center;
-
-    &-align-bottom {
-        align-items: end;
-    }
 
     &-spaced {
         gap: 0.5rem;
@@ -345,34 +326,22 @@ h5, h6 {
     }
 }
 
-.tutorials {
+.jpv-tutorials {
     font-size: 80%;
     white-space: pre;
 }
 
-.section {
+.jpv-section {
     @include block-margin(var(--section-margin));
-
-    &-lg {
-        @include block-margin(1rem);
-    }
 }
 
-.col {
-    display: flex;
-}
-
-.sep {
+.jpv-sep {
     margin-right: var(--bullet-margin);
 }
 
-.entry {
+.jpv-entry {
     &-sequence {
         margin-left: auto;
-    }
-
-    &-key {
-        font-size: var(--bullet-size);
     }
 
     &-separator {
@@ -383,14 +352,14 @@ h5, h6 {
     }
 }
 
-.character {
+.jpv-character {
     margin: 1rem 0;
 
     & > div {
         margin: 0.5rem 0;
     }
 
-    .literal {
+    .jpv-literal {
         font-size: 200%;
         margin-bottom: 0.5rem;
     }
@@ -402,15 +371,9 @@ h5, h6 {
         background-color: var(--separator-color);
     }
 
-    .meanings {
-        li {
-            margin-left: 1rem;
-            list-style: circle;
-        }
-    }
 }
 
-.btn {
+.jpv-btn {
     color: var(--btn-color);
     background-color: var(--btn-bg);
     border: 1px solid var(--btn-border);
@@ -452,74 +415,50 @@ h5, h6 {
         }
     }
 
-    &-sm {
-        font-size: 0.6em;
-    }
-
     &-lg {
         font-size: 1em;
     }
 }
 
-.list-numerical {
+.jpv-list-numerical {
     list-style: decimal;
     margin-left: 1.5em;
 }
 
-.list-bulleted {
-    list-style: circle;
-    margin-left: 1.5em;
-}
-
-.inflections {
-    list-style: circle;
-    margin-left: 1.5em;
-
-    &-value {
-        margin-top: var(--section-margin);
-        font-size: 1.5em;
-    }
-}
-
-.bullets {
+.jpv-bullets {
     display: flex;
     flex-wrap: wrap;
     gap: var(--bullet-margin);
 }
 
-.bullet {
+.jpv-bullet {
     @include button-body;
     color: var(--bullet-color);
     font-size: var(--bullet-size);
     background-color: var(--bullet-bg);
 
-    &.sm {
+    &.jpv-sm {
         font-size: var(--bullet-sm-size);
     }
 
-    &.danger {
-        color: var(--danger-color);
-        background-color: var(--danger-bg);
-        border-color: var(--danger-border)
-    }
 }
 
-.inflection {
+.jpv-inflection {
     @include button-body;
     font-size: var(--bullet-size);
     background-color: var(--inflection-disabled-bg);
 
-    &.active {
+    &.jpv-active {
         color: var(--inflection-color);
         background-color: var(--inflection-active-bg);
     }
 
-    &.clickable {
+    &.jpv-clickable {
         color: inherit;
     }
 }
 
-.clickable {
+.jpv-clickable {
     cursor: pointer;
 
     &:hover {
@@ -537,21 +476,18 @@ a {
     }
 }
 
-.index {
+.jpv-index {
     background-color: var(--bg-highlight);
     padding: var(--section-margin);
 
-    &-id {
-        font-weight: bold;
-    }
 }
 
-.log {
+.jpv-log {
     max-height: 40em;
     overflow-y: scroll;
 }
 
-.log-entry {
+.jpv-log-entry {
     font-family: monospace;
     font-size: 0.8em;
     margin-bottom: 0.25rem;
@@ -561,31 +497,31 @@ a {
         margin-bottom: 0;
     }
 
-    &-info > .log-level {
+    &-info > .jpv-log-level {
         color: var(--primary-color);
         background-color: var(--primary-bg);
     }
 
-    &-warn > .log-level {
+    &-warn > .jpv-log-level {
         background-color: var(--warn-bg);
     }
 
-    &-error > .log-level {
+    &-error > .jpv-log-level {
         color: var(--danger-color);
         background-color: var(--danger-bg);
     }
 }
 
-.log-level {
+.jpv-log-level {
     text-align: center;
     width: 4em;
 }
 
-.log-target {
+.jpv-log-target {
     background-color: var(--bg-highlight);
 }
 
-.log-field {
+.jpv-log-field {
     display: inline-block;
     padding: 0.25rem;
     margin-right: 0.25rem;
@@ -596,7 +532,7 @@ a {
 }
 
 #tasks {
-    .task {
+    .jpv-task {
         font-family: monospace;
         font-size: 0.8em;
         margin-bottom: 0.25rem;
@@ -631,7 +567,7 @@ a {
     background-color: var(--bg-highlight);
     border-bottom: 1px solid var(--separator-color);
 
-    & > .container {
+    & > .jpv-container {
         display: grid;
         grid-template-columns: min-content auto min-content auto min-content;
         grid-gap: 0.5rem;
@@ -640,22 +576,22 @@ a {
             white-space: nowrap;
         }
 
-        .left {
+        .jpv-left {
             display: flex;
             gap: 0.5rem;
         }
 
-        .right {
+        .jpv-right {
             display: flex;
             gap: 0.5rem;
         }
 
-        .sub-title {
+        .jpv-sub-title {
             margin-left: 0.5rem;
             font-size: 0.6em;
         }
 
-        .maximize {
+        .jpv-maximize {
             font-size: 1.2em;
             align-self: stretch !important;
             margin-left: 0.5rem;
@@ -663,7 +599,7 @@ a {
     }
 }
 
-.form {
+.jpv-form {
     & > * {
         margin-bottom: 0.5rem;
 
@@ -687,7 +623,7 @@ a {
         background-color: var(--danger-bg);
     }
 
-    &.has-errors {
+    &.jpv-has-errors {
         input {
             border: 1px solid var(--danger-bg);
         }
@@ -705,7 +641,7 @@ a {
 }
 
 @include from($mobile) {
-    .form {
+    .jpv-form {
         input {
             max-width: 30em;
         }

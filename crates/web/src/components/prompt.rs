@@ -1,3 +1,4 @@
+use crate::class;
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -428,7 +429,7 @@ impl Component for Prompt {
                 "Type something in the prompt"
             };
 
-            html!(<div id="analyze" class="block row analyze-text empty">{text}</div>)
+            html!(<div id="analyze" class={classes!(class::BLOCK, class::ROW, class::ANALYZE_TEXT, class::EMPTY)}>{text}</div>)
         } else {
             let on_analyze = ctx.link().callback(Msg::Analyze);
             let on_analyze_cycle = ctx.link().callback(|_| Msg::AnalyzeCycle);
@@ -437,8 +438,8 @@ impl Component for Prompt {
 
         let translation = self.query.translation.as_ref().map(|text| {
             html! {
-                <div class="block row" id="translation">
-                    <span class="translation-title">{"Translation:"}</span>
+                <div class={classes!(class::BLOCK, class::ROW)} id="translation">
+                    <span class={class::TRANSLATION_TITLE}>{"Translation:"}</span>
                     {spacing()}
                     <span>{text}</span>
                 </div>
@@ -460,7 +461,7 @@ impl Component for Prompt {
 
             let phrases = seq(phrases, |entry, not_last| {
                 if not_last {
-                    html!(<>{entry}<div class="entry-separator" /></>)
+                    html!(<>{entry}<div class={class::ENTRY_SEPARATOR} /></>)
                 } else {
                     entry
                 }
@@ -468,13 +469,13 @@ impl Component for Prompt {
 
             let more = (self.phrases.len() > self.limit_entries).then(|| {
                 html! {
-                    <div class="block block-lg">
-                        <div class="block row">
+                    <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                        <div class={classes!(class::BLOCK, class::ROW)}>
                             {format!("Showing {} out of {} phrases", self.limit_entries, self.phrases.len())}
                         </div>
 
-                        <div class="block row">
-                            <button class="btn" onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</button>
+                        <div class={classes!(class::BLOCK, class::ROW)}>
+                            <button class={class::BTN} onclick={ctx.link().callback(|_| Msg::MoreEntries)}>{"Show more"}</button>
                         </div>
                     </div>
                 }
@@ -485,7 +486,7 @@ impl Component for Prompt {
             });
 
             html! {
-                <div class="block block-lg">
+                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
                     {header}
                     {for phrases}
                     {for more}
@@ -510,14 +511,14 @@ impl Component for Prompt {
             html! {
                 <>
                 {header}
-                <div class="block block-lg row row-spaced">{for names}</div>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>{for names}</div>
                 </>
             }
         });
 
         let kanjis = (!self.characters.is_empty()).then(|| {
             let iter = seq(self.characters.iter().take(self.limit_characters), |c, not_last| {
-                let separator = not_last.then(|| html!(<div class="character-separator" />));
+                let separator = not_last.then(|| html!(<div class={class::CHARACTER_SEPARATOR} />));
 
                 let onclick = ctx.link().callback({
                     let literal = Rc::<str>::from(c.literal.as_str());
@@ -526,7 +527,7 @@ impl Component for Prompt {
 
                 html! {
                     <>
-                        <div class="character">
+                        <div class={class::CHARACTER}>
                             <c::Character embed={self.query.embed} character={c.clone()} {onclick} />
                         </div>
 
@@ -537,13 +538,13 @@ impl Component for Prompt {
 
             let more = (self.characters.len() > self.limit_characters).then(|| {
                 html! {
-                    <div class="block block-lg">
-                        <div class="block row">
+                    <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
+                        <div class={classes!(class::BLOCK, class::ROW)}>
                             {format!("Showing {} out of {} characters", self.limit_characters, self.characters.len())}
                         </div>
 
-                        <div class="block row">
-                            <button class="btn" onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</button>
+                        <div class={classes!(class::BLOCK, class::ROW)}>
+                            <button class={class::BTN} onclick={ctx.link().callback(|_| Msg::MoreCharacters)}>{"Show more"}</button>
                         </div>
                     </div>
                 }
@@ -554,7 +555,7 @@ impl Component for Prompt {
             });
 
             html! {
-                <div class="block block-lg">
+                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
                     {header}
                     {for iter}
                     {for more}
@@ -566,9 +567,9 @@ impl Component for Prompt {
             let tab = |title: &str, len: usize, tab: Tab| {
                 let is_tab = self.query.tab == tab;
                 let entries_classes = classes!(
-                    "tab",
-                    is_tab.then_some("active"),
-                    (len == 0).then_some("disabled")
+                    class::TAB,
+                    is_tab.then_some(class::ACTIVE),
+                    (len == 0).then_some(class::DISABLED)
                 );
 
                 let onclick =
@@ -589,9 +590,9 @@ impl Component for Prompt {
 
             let active_tab = match &self.query.tab {
                 Tab::KanjiDetails(kanji) => {
-                    Some(html!(<a class="tab active">{format!("Kanji details: {kanji}")}</a>))
+                    Some(html!(<a class={classes!(class::TAB, class::ACTIVE)}>{format!("Kanji details: {kanji}")}</a>))
                 }
-                Tab::Settings => Some(html!(<a class="tab active">{"Settings"}</a>)),
+                Tab::Settings => Some(html!(<a class={classes!(class::TAB, class::ACTIVE)}>{"Settings"}</a>)),
                 _ => None,
             };
 
@@ -601,28 +602,28 @@ impl Component for Prompt {
                     let onclick = ctx
                         .link()
                         .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
-                    html!(<div class="block block-lg"><c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} /></div>)
+                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}><c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} /></div>)
                 }
                 Tab::Settings => {
                     let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
+                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
                 }
                 Tab::Phrases => {
-                    html!(<div class="block block-lg">{phrases}</div>)
+                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}>{phrases}</div>)
                 }
                 Tab::Names => {
-                    html!(<div class="block block-lg">{names}</div>)
+                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}>{names}</div>)
                 }
                 Tab::Kanji => {
-                    html!(<div class="block block-lg kanjis">{kanjis}</div>)
+                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}>{kanjis}</div>)
                 }
             };
 
             html! {
                 <>
-                    <div class="block block-lg">{analyze}</div>
+                    <div class={classes!(class::BLOCK, class::BLOCK_LG)}>{analyze}</div>
                     {for translation}
-                    <div class="tabs">
+                    <div class={class::TABS}>
                         {for tabs}
                         {for active_tab}
                     </div>
@@ -636,11 +637,11 @@ impl Component for Prompt {
                     let onclick = ctx
                         .link()
                         .callback(|kanji: String| Msg::Tab(Tab::KanjiDetails(kanji.into())));
-                    html!(<div class="block block-lg"><c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} /></div>)
+                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}><c::KanjiDetails embed={self.query.embed} ws={ctx.props().ws.clone()} {kanji} {onback} {onclick} /></div>)
                 }
                 Tab::Settings => {
                     let onback = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
-                    html!(<div class="block block-lg"><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
+                    html!(<div class={classes!(class::BLOCK, class::BLOCK_LG)}><c::Config embed={self.query.embed} log={self.log.clone()} ws={ctx.props().ws.clone()} {onback} /></div>)
                 }
                 _ => {
                     let next = match self.query.mode {
@@ -666,7 +667,7 @@ impl Component for Prompt {
 
                     let prompt = html! {
                         <>
-                        <div class="block block row" id="prompt">
+                        <div class={classes!(class::BLOCK, class::ROW)} id="prompt">
                             <input value={self.query.text.clone()} type="text" oninput={oninput} />
 
                             <button for="romanize" title={description} onclick={ontoggle}>{title}</button>
@@ -677,15 +678,15 @@ impl Component for Prompt {
                             </button>
                         </div>
 
-                        <div class="block block-lg row row-spaced">
-                            <span class="row-end clickable" {onclick}>{"⚙ Config"}</span>
+                        <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
+                            <span class={classes!(class::ROW_END, class::CLICKABLE)} {onclick}>{"⚙ Config"}</span>
                         </div>
                         </>
                     };
 
                     let kanjis = kanjis.map(|kanjis| {
                         html! {
-                            <div class="column characters">{kanjis}</div>
+                            <div class={classes!(class::COLUMN, class::CHARACTERS)}>{kanjis}</div>
                         }
                     });
 
@@ -694,11 +695,11 @@ impl Component for Prompt {
                             <>{prompt}</>
 
                             <>
-                                <div class="block block-xl">{analyze}</div>
+                                <div class={classes!(class::BLOCK, class::BLOCK_XL)}>{analyze}</div>
                                 {for translation}
 
-                                <div class="columns">
-                                    <div class="column">{phrases}{names}</div>
+                                <div class={class::COLUMNS}>
+                                    <div class={class::COLUMN}>{phrases}{names}</div>
                                     {for kanjis}
                                 </div>
                             </>
@@ -710,48 +711,47 @@ impl Component for Prompt {
 
         let tasks = (!self.tasks.is_empty()).then(|| {
             let tasks = self.tasks.values().map(|task| {
-                let (progress, done, value) = match task.total {
+                let (progress, value) = match task.total {
                     Some(total) => {
                         let progress = html! {
                             <progress max={total.to_string()} value={task.value.to_string()} />
                         };
 
-                        (progress, task.value == total, None)
+                        (progress, None)
                     }
                     None => {
                         let progress = html!(<progress />);
-                        let value = html!(<div class="task-field task-value">{task.value.to_string()}</div>);
-                        (progress, false, Some(value))
+                        let value = html!(<div class={class::TASK_FIELD}>{task.value.to_string()}</div>);
+                        (progress, Some(value))
                     }
                 };
 
                 let class = classes! {
-                    "block",
-                    "row",
-                    "row-spaced",
-                    "task",
-                    done.then_some("done"),
+                    class::BLOCK,
+                    class::ROW,
+                    class::ROW_SPACED,
+                    class::TASK,
                 };
 
                 let progress_text = format!("{} ...", task.text);
 
                 let text = (!self.query.embed).then(|| {
-                    html!(<div class="task-field task-text">{progress_text.clone()}</div>)
+                    html!(<div class={class::TASK_FIELD}>{progress_text.clone()}</div>)
                 });
 
                 html! {
                     <div {class} title={progress_text}>
-                        <div class="task-field task-name">{&task.name}</div>
-                        <div class="task-field task-step">{format!("{}/{}", task.step, task.steps)}</div>
+                        <div class={classes!(class::TASK_FIELD, class::TASK_NAME)}>{&task.name}</div>
+                        <div class={class::TASK_FIELD}>{format!("{}/{}", task.step, task.steps)}</div>
                         {text}
-                        <div class="task-field task-progress">{progress}</div>
+                        <div class={classes!(class::TASK_FIELD, class::TASK_PROGRESS)}>{progress}</div>
                         {value}
                     </div>
                 }
             });
 
             html! {
-                <div class="block block-lg" id="tasks">
+                <div class={classes!(class::BLOCK, class::BLOCK_LG)} id="tasks">
                     {for tasks}
                 </div>
             }
@@ -770,11 +770,11 @@ impl Component for Prompt {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
             html! {
-                <div class="block block-lg block-danger">
-                    <div class="block block-sm row row-spaced">
-                        <span class="title">{"Dictionaries missing:"}</span>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::BLOCK_DANGER)}>
+                    <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
+                        <span>{"Dictionaries missing:"}</span>
                         <span>{for missing}</span>
-                        <button class="row-end btn btn-lg" {onclick}>{"⚙ Fix in Settings"}</button>
+                        <button class={classes!(class::ROW_END, class::BTN, class::BTN_LG)} {onclick}>{"⚙ Fix in Settings"}</button>
                     </div>
                 </div>
             }
@@ -796,19 +796,19 @@ impl Component for Prompt {
                     let title = install.title.clone();
 
                     html! {
-                        <a {href} {title} class="btn btn-lg" target="_install_url">{format!("⇓ {}", install.text)}</a>
+                        <a {href} {title} class={classes!(class::BTN, class::BTN_LG)} target="_install_url">{format!("⇓ {}", install.text)}</a>
                     }
                 });
 
             html! {
-                <div class="block block-lg block-danger">
-                    <div class="block block-sm row row-spaced">
-                        <span class="title">{"OCR support is enabled but not installed"}</span>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::BLOCK_DANGER)}>
+                    <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
+                        <span>{"OCR support is enabled but not installed"}</span>
                     </div>
 
-                    <div class="block block-sm row row-spaced">
+                    <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
                         {for install_url}
-                        <button class="row-end btn btn-lg" {onclick}>{"⚙ Disable"}</button>
+                        <button class={classes!(class::ROW_END, class::BTN, class::BTN_LG)} {onclick}>{"⚙ Disable"}</button>
                     </div>
                 </div>
             }
@@ -818,19 +818,19 @@ impl Component for Prompt {
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Phrases));
 
             let search = html! {
-                <a class="search clickable" title="Search" {onclick}>{"🔍"}</a>
+                <a class={class::CLICKABLE} title="Search" {onclick}>{"🔍"}</a>
             };
 
             let onclick = ctx.link().callback(|_| Msg::Tab(Tab::Settings));
 
             let config = html! {
-                <a class="config clickable" {onclick} title="Configure">{"⚙"}</a>
+                <a class={class::CLICKABLE} {onclick} title="Configure">{"⚙"}</a>
             };
 
             let maximize = if self.query.embed {
                 self.query.to_href(true).map(|href| {
                     html! {
-                        <a class="maximize clickable" {href} target="_window" title="Open in big window">{"🗖"}</a>
+                        <a class={classes!(class::MAXIMIZE, class::CLICKABLE)} {href} target="_window" title="Open in big window">{"🗖"}</a>
                     }
                 })
             } else {
@@ -839,21 +839,21 @@ impl Component for Prompt {
 
             html! {
                 <div id="window-top">
-                    <div class="container">
-                        <span class="left">
+                    <div class={class::CONTAINER}>
+                        <span class={class::LEFT}>
                             {search}
                             {config}
                         </span>
                         <span></span>
-                        <span class="title">
+                        <span>
                             <a href="https://github.com/udoprog/jpv">{"Japanese Dictionary"}</a>
-                            <span class="sub-title">
+                            <span class={class::SUB_TITLE}>
                                 <span>{"by "}</span>
                                 <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
                             </span>
                         </span>
                         <span></span>
-                        <span class="right">
+                        <span class={class::RIGHT}>
                             {maximize}
                         </span>
                     </div>
@@ -862,8 +862,8 @@ impl Component for Prompt {
         };
 
         let class = classes! {
-            "container",
-            self.query.embed.then_some("embed"),
+            class::CONTAINER,
+            self.query.embed.then_some(class::EMBED),
         };
 
         html! {
@@ -875,7 +875,7 @@ impl Component for Prompt {
                     {missing_ocr}
                     {tasks}
                     {page}
-                    <div class="block block-xl" id="copyright">{copyright()}</div>
+                    <div class={classes!(class::BLOCK, class::BLOCK_XL)} id="copyright">{copyright()}</div>
                 </div>
             </>
         }
@@ -942,7 +942,7 @@ fn decode_query(location: Option<Location>) -> Query {
 fn copyright() -> Html {
     html! {
         <>
-            <div class="block inline">
+            <div class={classes!(class::BLOCK, class::INLINE)}>
                 <span>{"Made with ❤️ by "}</span>
                 <a href="https://udoprog.github.io">{"John-John Tedro"}</a>
                 <span>{", freely available forever under the "}</span>
@@ -951,7 +951,7 @@ fn copyright() -> Html {
                 <a href="https://github.com/udoprog/jpv/blob/main/LICENSE-APACHE">{"Apache 2.0 license"}</a>
             </div>
 
-            <div class="block inline">
+            <div class={classes!(class::BLOCK, class::INLINE)}>
                 <span>{"This application uses "}</span>
                 <a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">{"JMDICT"}</a>
                 <span>{", "}</span>

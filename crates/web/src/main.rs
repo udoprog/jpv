@@ -9,7 +9,6 @@ use yew_router::prelude::*;
 
 use self::components as c;
 
-#[allow(dead_code)]
 mod class {
     include!(concat!(env!("OUT_DIR"), "/classes.rs"));
 }
@@ -96,7 +95,7 @@ fn switch(routes: Route, ws: &ws::Handle) -> Html {
         },
         Route::NotFound => {
             html! {
-                <div id="content" class="container">{"There is nothing here"}</div>
+                <div id="content" class={class::CONTAINER}>{"There is nothing here"}</div>
             }
         }
     }

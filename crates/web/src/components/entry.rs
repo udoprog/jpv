@@ -1,3 +1,4 @@
+use crate::class;
 use std::collections::BTreeSet;
 
 use lib::database::Source;
@@ -183,7 +184,7 @@ impl Component for Entry {
                 self.readings.iter().filter(|r| !r.is_search_only()),
                 |e, not_last| render_reading(ctx, e, not_last),
             ),
-            |iter| html!(<div class="block row entry-readings">{for iter}</div>),
+            |iter| html!(<div class={classes!(class::BLOCK, class::ROW)}>{for iter}</div>),
         );
 
         let common = iter(
@@ -193,7 +194,7 @@ impl Component for Entry {
             ),
             |iter| {
                 html! {
-                    html!(<div class="block row">{for iter}</div>)
+                    html!(<div class={classes!(class::BLOCK, class::ROW)}>{for iter}</div>)
                 }
             },
         );
@@ -205,7 +206,7 @@ impl Component for Entry {
             ),
             |iter| {
                 html! {
-                    html!(<div class="block row"><span>{"Other kana"}</span>{colon()}{spacing()}{for iter}</div>)
+                    html!(<div class={classes!(class::BLOCK, class::ROW)}><span>{"Other kana"}</span>{colon()}{spacing()}{for iter}</div>)
                 }
             },
         );
@@ -217,22 +218,22 @@ impl Component for Entry {
             ),
             |iter| {
                 html! {
-                    html!(<div class="block row"><span>{"Other kanji"}</span>{colon()}{spacing()}{for iter}</div>)
+                    html!(<div class={classes!(class::BLOCK, class::ROW)}><span>{"Other kanji"}</span>{colon()}{spacing()}{for iter}</div>)
                 }
             },
         );
 
         let senses = iter(
             entry.senses.iter().map(|s| self.render_sense(ctx, s)),
-            |iter| html!(<ul class="block block-lg list-numerical">{for iter}</ul>),
+            |iter| html!(<ul class={classes!(class::BLOCK, class::BLOCK_LG, class::LIST_NUMERICAL)}>{for iter}</ul>),
         );
 
         let sequence = (!ctx.props().embed).then(|| html! {
-            <div class="block block row entry-sequence"><a href={format!("/api/entry/{}", entry.sequence)} target="_api">{format!("#{}", entry.sequence)}</a></div>
+            <div class={classes!(class::BLOCK, class::ROW, class::ENTRY_SEQUENCE)}><a href={format!("/api/entry/{}", entry.sequence)} target="_api">{format!("#{}", entry.sequence)}</a></div>
         });
 
         html! {
-            <div class="block block-lg entry">
+            <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
                 {sequence}
                 {for extras}
                 {for reading}
@@ -289,7 +290,7 @@ impl Entry {
         let info = s
             .info
             .as_ref()
-            .map(|info| html!(<div class="block row sense-info">{info}</div>));
+            .map(|info| html!(<div class={classes!(class::BLOCK, class::ROW)}>{info}</div>));
 
         let stags = seq(s.stagr.iter().chain(s.stagk.iter()), |text, not_last| {
             let stag = if let Some(c) = self.combined.iter().find(|c| c.is_kanji(text)) {
@@ -303,38 +304,38 @@ impl Entry {
                 move |_: MouseEvent| Msg::Change(text.clone(), None)
             });
 
-            html!(<><span class="sense-stag clickable" {onclick}>{stag}{for not_last.then(comma)}</span></>)
+            html!(<><span class={class::CLICKABLE} {onclick}>{stag}{for not_last.then(comma)}</span></>)
         });
 
         let stag = iter(stags, |stags| {
             html! {
-                <div class="block row sense-stags"><span>{"Applies to"}</span>{colon()}{for stags}</div>
+                <div class={classes!(class::BLOCK, class::ROW)}><span>{"Applies to"}</span>{colon()}{for stags}</div>
             }
         });
 
         let glossary = texts(s.gloss.iter().map(|gloss| &gloss.text), None);
-        let bullets = bullets!(ctx, s.pos, "sm")
-            .chain(bullets!(ctx, s.misc, "sm"))
-            .chain(bullets!(ctx, s.dialect, "sm"))
-            .chain(bullets!(ctx, s.field, "sm"));
+        let bullets = bullets!(ctx, s.pos, class::SM)
+            .chain(bullets!(ctx, s.misc, class::SM))
+            .chain(bullets!(ctx, s.dialect, class::SM))
+            .chain(bullets!(ctx, s.field, class::SM));
 
         let bullets = iter(
             bullets,
-            |iter| html!(<>{spacing()}<span class="bullets">{for iter}</span></>),
+            |iter| html!(<>{spacing()}<span class={class::BULLETS}>{for iter}</span></>),
         );
 
         let glossary = iter(
             glossary.chain(bullets),
-            |iter| html!(<div class="block row entry-glossary">{for iter}</div>),
+            |iter| html!(<div class={classes!(class::BLOCK, class::ROW)}>{for iter}</div>),
         );
 
         let examples = iter(
             s.examples.iter().map(|e| self.render_example(ctx, e)),
-            |iter| html!(<div class="block entry-examples">{for iter}</div>),
+            |iter| html!(<div class={class::BLOCK}>{for iter}</div>),
         );
 
         html! {
-            <li class="section entry-sense">
+            <li class={class::SECTION}>
                 {for glossary}
                 {for info}
                 {for stag}
@@ -378,7 +379,7 @@ impl Entry {
                 html!(<>{text}</>)
             };
 
-            html!(<><span class="text highlight clickable" {onclick}>{text}</span>{for not_last.then(comma)}</>)
+            html!(<><span class={classes!(class::TEXT, class::CLICKABLE)} {onclick}>{text}</span>{for not_last.then(comma)}</>)
         });
 
         let sent = languages(&example.sentences).map(|l: Languages<'_>| {
@@ -390,11 +391,11 @@ impl Entry {
 
             let eng = l.eng.map(|text| html!(<span>{text}</span>));
 
-            html!(<>{colon()}<span class="clickable" {onclick}>{l.jpn}</span>{for eng}</>)
+            html!(<>{colon()}<span class={class::CLICKABLE} {onclick}>{l.jpn}</span>{for eng}</>)
         });
 
         html! {
-            <div class="block row entry-example">{for texts}{for sent}</div>
+            <div class={classes!(class::BLOCK, class::ROW)}>{for texts}{for sent}</div>
         }
     }
 }
@@ -423,16 +424,16 @@ fn render_extra(
     let word = inflections.get(inflection ^ filter);
 
     let word = word.map(
-        |w| html!(<div class="block row"><span class="text kanji highlight" title={romaji(w.furigana())}>{ruby(w.furigana())}</span></div>),
+        |w| html!(<div class={classes!(class::BLOCK, class::ROW)}><span class={classes!(class::TEXT, class::KANJI)} title={romaji(w.furigana())}>{ruby(w.furigana())}</span></div>),
     );
 
     let inflection_html = render_inflection(ctx, index, inflection, filter, inflections);
     let tutorials = render_tutorials(inflection, filter);
 
     Some(html! {
-        <div class="block block-notice">
-            <div class="block block-sm block-title">{"Result based on inflection:"}</div>
-            <div class="block block-sm row bullets">{for inflection_html}</div>
+        <div class={classes!(class::BLOCK, class::BLOCK_NOTICE)}>
+            <div class={classes!(class::BLOCK, class::BLOCK_SM, class::BLOCK_TITLE)}>{"Result based on inflection:"}</div>
+            <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::BULLETS)}>{for inflection_html}</div>
             {tutorials}
             {for word}
         </div>
@@ -459,9 +460,9 @@ fn render_inflection<'a>(
         }
 
         let class = classes! {
-            "inflection",
-            "clickable",
-            this.contains(f).then_some("active"),
+            class::INFLECTION,
+            class::CLICKABLE,
+            this.contains(f).then_some(class::ACTIVE),
         };
 
         let onclick = ctx
@@ -476,7 +477,7 @@ fn render_inflection<'a>(
         .callback(move |_: MouseEvent| Msg::ResetForm(index));
 
     let reset = (!filter.is_empty()).then(
-        || html!(<span class="inflection inflection-danger clickable" {onclick}>{"Reset"}</span>),
+        || html!(<span class={classes!(class::INFLECTION, class::INFLECTION_DANGER, class::CLICKABLE)} {onclick}>{"Reset"}</span>),
     );
 
     form.chain(reset)
@@ -511,7 +512,7 @@ fn render_tutorials(inflection: Inflection, filter: Inflection) -> Html {
         },
     );
 
-    html!(<div class="block block-sm tutorials row">{for tutorials}</div>)
+    html!(<div class={classes!(class::BLOCK, class::BLOCK_SM, class::TUTORIALS, class::ROW)}>{for tutorials}</div>)
 }
 
 fn render_reading(ctx: &Context<Entry>, reading: &OwnedReadingElement, not_last: bool) -> Html {
@@ -519,7 +520,7 @@ fn render_reading(ctx: &Context<Entry>, reading: &OwnedReadingElement, not_last:
 
     let bullets = iter(
         priority.chain(bullets!(ctx, reading.info)),
-        |iter| html!(<span class="bullets">{for iter}</span>),
+        |iter| html!(<span class={class::BULLETS}>{for iter}</span>),
     );
 
     let onclick = ctx.link().callback({
@@ -529,7 +530,7 @@ fn render_reading(ctx: &Context<Entry>, reading: &OwnedReadingElement, not_last:
 
     html! {
         <>
-            <a class="text kanji highlight" {onclick}>{&reading.text}</a>
+            <a class={classes!(class::TEXT, class::KANJI)} {onclick}>{&reading.text}</a>
             {for bullets}
             {for not_last.then(comma)}
         </>
@@ -545,7 +546,7 @@ fn render_combined(
 
     let bullets = iter(
         priority.chain(bullets!(ctx, kanji.info)),
-        |iter| html!(<span class="bullets">{for iter}</span>),
+        |iter| html!(<span class={class::BULLETS}>{for iter}</span>),
     );
 
     let onclick = ctx.link().callback({
@@ -555,7 +556,7 @@ fn render_combined(
 
     html! {
         <>
-            <a class="text kanji highlight" {onclick} title={romaji(c.furigana())}>{ruby(c.furigana())}</a>
+            <a class={classes!(class::TEXT, class::KANJI)} {onclick} title={romaji(c.furigana())}>{ruby(c.furigana())}</a>
             {for bullets}
             {for not_last.then(comma)}
         </>
@@ -568,7 +569,7 @@ fn render_priority(ctx: &Context<Entry>, p: &Priority) -> Html {
         move |_: MouseEvent| Msg::AddPriority(p)
     });
 
-    html!(<a class={format!("bullet prio-{}", p.category())} title={p.title()} {onclick}>{p.category()}{p.level()}</a>)
+    html!(<a class={class::BULLET} title={p.title()} {onclick}>{p.category()}{p.level()}</a>)
 }
 
 /// A simple text sequence renderer.
@@ -580,7 +581,7 @@ where
     I::IntoIter: 'a + DoubleEndedIterator,
 {
     seq(iter, move |text, not_last| {
-        let class = classes!("text", extra);
+        let class = classes!(class::TEXT, extra);
 
         html! {
             <>

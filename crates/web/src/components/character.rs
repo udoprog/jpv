@@ -1,3 +1,4 @@
+use crate::class;
 use lib::kanjidic2::OwnedCharacter;
 use yew::prelude::*;
 
@@ -42,7 +43,7 @@ impl Component for Character {
         let onyomi = onyomi
             .peek()
             .is_some()
-            .then(move || html!(<div class="readings row row-bottom"><span class="highlight clickable" title={romaji(ONYOMI)}>{ruby(ONYOMI)}</span>{colon()}{for onyomi}</div>));
+            .then(move || html!(<div class={class::ROW}><span class={class::CLICKABLE} title={romaji(ONYOMI)}>{ruby(ONYOMI)}</span>{colon()}{for onyomi}</div>));
 
         let mut kunyomi = seq(
             c.readings.iter().filter(|r| r.ty == "ja_kun"),
@@ -56,7 +57,7 @@ impl Component for Character {
         let kunyomi = kunyomi
             .peek()
             .is_some()
-            .then(move || html!(<div class="readings row row-bottom"><span class="highlight clickable" title={romaji(ONYOMI)}>{ruby(KUNYOMI)}</span>{colon()}{for kunyomi}</div>));
+            .then(move || html!(<div class={class::ROW}><span class={class::CLICKABLE} title={romaji(ONYOMI)}>{ruby(KUNYOMI)}</span>{colon()}{for kunyomi}</div>));
 
         let mut meanings = seq(
             c.meanings.iter().filter(|r| r.lang.is_none()),
@@ -70,13 +71,13 @@ impl Component for Character {
         let meanings = meanings
             .peek()
             .is_some()
-            .then(move || html!(<div class="readings row">{for meanings}</div>));
+            .then(move || html!(<div class={class::ROW}>{for meanings}</div>));
 
         let onclick = ctx.props().onclick.reform(|_| ());
 
         html! {
             <>
-                <div class="literal text highlight"><a {onclick}>{c.literal.clone()}</a></div>
+                <div class={classes!(class::LITERAL, class::TEXT)}><a {onclick}>{c.literal.clone()}</a></div>
                 {for meanings}
                 {for onyomi}
                 {for kunyomi}

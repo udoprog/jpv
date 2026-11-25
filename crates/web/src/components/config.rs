@@ -1,3 +1,4 @@
+use crate::class;
 use std::collections::HashSet;
 
 use lib::api;
@@ -258,11 +259,10 @@ impl Component for Config {
                     });
 
                     let class = classes! {
-                        "block",
-                        "row",
-                        "row-spaced",
-                        "index",
-                        checked.then_some("enabled"),
+                        class::BLOCK,
+                        class::ROW,
+                        class::ROW_SPACED,
+                        class::INDEX,
                     };
 
                     let onclick = ctx.link().callback({
@@ -272,16 +272,16 @@ impl Component for Config {
 
                     let help = match &index.help {
                         Some(help) => html! {
-                            <button class="btn index-url" title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"About"}</button>
+                            <button class={class::BTN} title={"Go to the help page for this dictionary"} href={help.clone()} target="_index">{"About"}</button>
                         },
                         None => {
-                            html!(<button disabled={true} class="btn" title="No help page specified">{"About"}</button>)
+                            html!(<button disabled={true} class={class::BTN} title="No help page specified">{"About"}</button>)
                         }
                     };
 
                     let not_installed = (!self.installed.contains(id)).then(|| {
                         html! {
-                            <span class="bullet bullet-danger">{"not installed"}</span>
+                            <span class={classes!(class::BULLET, class::BULLET_DANGER)}>{"not installed"}</span>
                         }
                     });
 
@@ -298,7 +298,7 @@ impl Component for Config {
                             <label for={id.to_owned()}>{index.description.clone()}</label>
                             {for updated}
                             {not_installed}
-                            <button class="btn btn-primary row-end index-edit" {onclick} title={"Change this dictionary"}>{"Edit"}</button>
+                            <button class={classes!(class::BTN, class::BTN_PRIMARY, class::ROW_END)} {onclick} title={"Change this dictionary"}>{"Edit"}</button>
                             {help}
                         </div>
                     });
@@ -319,16 +319,16 @@ impl Component for Config {
                             let title = install.title.clone();
 
                             html! {
-                                <div class="block block-sm row row-spaced">
-                                    <a {href} {title} class="btn btn-lg" target="_install_url">{format!("⇓ {}", install.text)}</a>
+                                <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
+                                    <a {href} {title} class={classes!(class::BTN, class::BTN_LG)} target="_install_url">{format!("⇓ {}", install.text)}</a>
                                 </div>
                             }
                         });
 
                     html! {
-                        <div class="block block-lg block-danger">
-                            <div class="block block-sm row row-spaced">
-                                <span class="title">{"OCR support is not installed"}</span>
+                        <div class={classes!(class::BLOCK, class::BLOCK_LG, class::BLOCK_DANGER)}>
+                            <div class={classes!(class::BLOCK, class::BLOCK_SM, class::ROW, class::ROW_SPACED)}>
+                                <span>{"OCR support is not installed"}</span>
                             </div>
 
                             {for install_url}
@@ -338,7 +338,7 @@ impl Component for Config {
 
                 html! {
                     <>
-                        <div class="block row row-spaced">
+                        <div class={classes!(class::BLOCK, class::ROW, class::ROW_SPACED)}>
                             <input id="ocr" type="checkbox" {checked} disabled={self.pending} {onchange} />
                             <label for="ocr">{"OCR Support"}</label>
                         </div>
@@ -365,9 +365,9 @@ impl Component for Config {
             let onrebuild = ctx.link().callback(|_| Msg::InstallAll);
 
             html! {
-                <div class="block row row-spaced">
-                    <button class="row-end btn btn-primary" disabled={self.pending} {onclick}>{"New dictionary"}</button>
-                    <button class="btn btn-primary" disabled={self.pending} onclick={onrebuild} title="Install all missing dictionaries">{"Install all"}</button>
+                <div class={classes!(class::BLOCK, class::ROW, class::ROW_SPACED)}>
+                    <button class={classes!(class::ROW_END, class::BTN, class::BTN_PRIMARY)} disabled={self.pending} {onclick}>{"New dictionary"}</button>
+                    <button class={classes!(class::BTN, class::BTN_PRIMARY)} disabled={self.pending} onclick={onrebuild} title="Install all missing dictionaries">{"Install all"}</button>
                 </div>
             }
         };
@@ -383,29 +383,29 @@ impl Component for Config {
 
         let back = (!ctx.props().embed).then(|| {
             html! {
-                <button class="btn btn-lg" onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
+                <button class={classes!(class::BTN, class::BTN_LG)} onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
             }
         });
 
         let log = (!ctx.props().log.is_empty()).then(|| {
             let it = ctx.props().log.iter().rev().map(|entry| {
                 let class = classes! {
-                    "row",
-                    "log-entry",
-                    format!("log-entry-{}", entry.level),
+                    class::ROW,
+                    class::LOG_ENTRY,
+                    log_level_class(&entry.level),
                 };
 
                 html! {
                     <div {class}>
-                        <span class="log-field log-level">{&entry.level}</span>
-                        <span class="log-field log-target">{&entry.target}</span>
-                        <span class="log-field log-text">{&entry.text}</span>
+                        <span class={classes!(class::LOG_FIELD, class::LOG_LEVEL)}>{&entry.level}</span>
+                        <span class={classes!(class::LOG_FIELD, class::LOG_TARGET)}>{&entry.target}</span>
+                        <span class={class::LOG_FIELD}>{&entry.text}</span>
                     </div>
                 }
             });
 
             html! {
-                <div class="block block-lg log">{for it}</div>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::LOG)}>{for it}</div>
             }
         });
 
@@ -415,8 +415,8 @@ impl Component for Config {
 
         let pending = self.pending.then(|| {
             html! {
-                <div class="block block-lg row row-spaced">
-                    <div class="spinner">{"Loading"}</div>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
+                    <div>{"Loading"}</div>
                 </div>
             }
         });
@@ -429,20 +429,20 @@ impl Component for Config {
 
         html! {
             <>
-                <div class="block block-lg row row-spaced">
+                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
                     {back}
-                    <button class="row-end btn btn-lg btn-primary" {disabled} onclick={onsave}>{"Save"}</button>
+                    <button class={classes!(class::ROW_END, class::BTN, class::BTN_LG, class::BTN_PRIMARY)} {disabled} onclick={onsave}>{"Save"}</button>
                 </div>
 
                 {pending}
                 {error}
 
                 <h5>{"Dictionaries"}</h5>
-                <div class="block block-lg">{dictionaries}</div>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>{dictionaries}</div>
 
                 <h5>{"OCR"}</h5>
 
-                <div class="block block-lg">
+                <div class={classes!(class::BLOCK, class::BLOCK_LG)}>
                     {for ocr}
                 </div>
 
@@ -450,5 +450,14 @@ impl Component for Config {
                 {log}
             </>
         }
+    }
+}
+
+fn log_level_class(level: &str) -> Option<&'static str> {
+    match level {
+        "info" => Some(class::LOG_ENTRY_INFO),
+        "warn" => Some(class::LOG_ENTRY_WARN),
+        "error" => Some(class::LOG_ENTRY_ERROR),
+        _ => None,
     }
 }

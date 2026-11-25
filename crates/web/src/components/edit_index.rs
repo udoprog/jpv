@@ -1,3 +1,4 @@
+use crate::class;
 use lib::config::{ConfigIndex, IndexFormat};
 use url::Url;
 use yew::prelude::*;
@@ -158,8 +159,8 @@ impl Component for EditIndex {
         let onsave = ctx.link().callback(move |_| Msg::Save);
 
         let class = classes! {
-            "block",
-            "index"
+            class::BLOCK,
+            class::INDEX
         };
 
         let id = ctx.props().onsavenew.is_some().then(|| {
@@ -172,19 +173,19 @@ impl Component for EditIndex {
             });
 
             let error = self.errors.id.map(|error| {
-                html!(<p class="form-error">{error}</p>)
+                html!(<p class={class::FORM_ERROR}>{error}</p>)
             });
 
             let class = classes! {
-                "block",
-                "form",
-                self.errors.id.is_some().then_some("has-errors")
+                class::BLOCK,
+                class::FORM,
+                self.errors.id.is_some().then_some(class::HAS_ERRORS)
             };
 
             html! {
                 <div {class}>
                     <h6>{"Id"}</h6>
-                    <p class="form-help">{"The unique identifier of the dictionary, must only contain [a-z], [A-Z], and [0-9]."}</p>
+                    <p class={class::FORM_HELP}>{"The unique identifier of the dictionary, must only contain [a-z], [A-Z], and [0-9]."}</p>
                     <input type="text" disabled={ctx.props().pending} value={self.id.clone()} {oninput} />
                     <>{error}</>
                 </div>
@@ -193,14 +194,14 @@ impl Component for EditIndex {
 
         let delete = ctx.props().ondelete.as_ref().map(|ondelete| {
             html! {
-                <button class="btn btn-danger" disabled={ctx.props().pending} onclick={ondelete.reform(|_| ())}>{"Delete"}</button>
+                <button class={classes!(class::BTN, class::BTN_DANGER)} disabled={ctx.props().pending} onclick={ondelete.reform(|_| ())}>{"Delete"}</button>
             }
         });
 
         let update = ctx.props().onupdate.as_ref().map(|onupdate| {
             let class = classes! {
-                "btn",
-                (!ctx.props().isupdate).then_some("primary"),
+                class::BTN,
+                (!ctx.props().isupdate).then_some(class::BTN_PRIMARY),
             };
 
             let label = if ctx.props().isupdate {
@@ -215,28 +216,28 @@ impl Component for EditIndex {
         });
 
         let url_class = classes! {
-            "block",
-            "form",
-            self.errors.url.is_some().then_some("has-errors")
+            class::BLOCK,
+            class::FORM,
+            self.errors.url.is_some().then_some(class::HAS_ERRORS)
         };
 
         let url_error = self
             .errors
             .url
             .as_ref()
-            .map(|error| html!(<p class="form-error">{error.clone()}</p>));
+            .map(|error| html!(<p class={class::FORM_ERROR}>{error.clone()}</p>));
 
         let help_class = classes! {
-            "block",
-            "form",
-            self.errors.help.is_some().then_some("has-errors")
+            class::BLOCK,
+            class::FORM,
+            self.errors.help.is_some().then_some(class::HAS_ERRORS)
         };
 
         let help_error = self
             .errors
             .help
             .as_ref()
-            .map(|error| html!(<p class="form-error">{error.clone()}</p>));
+            .map(|error| html!(<p class={class::FORM_ERROR}>{error.clone()}</p>));
 
         let options = IndexFormat::all().into_iter().map(|format| {
             html! {
@@ -246,7 +247,7 @@ impl Component for EditIndex {
 
         html! {
             <div {class}>
-                <div class="block form">
+                <div class={classes!(class::BLOCK, class::FORM)}>
                     <h6>{"Format"}</h6>
                     <select onchange={onchangeformat}>
                         {for options}
@@ -258,7 +259,7 @@ impl Component for EditIndex {
                     <input type="text" disabled={ctx.props().pending} value={self.url.clone()} onchange={onchangeurl} />
                     <>{url_error}</>
                 </div>
-                <div class="block form">
+                <div class={classes!(class::BLOCK, class::FORM)}>
                     <h6>{"Description"}</h6>
                     <input type="text" disabled={ctx.props().pending} value={self.description.clone()} onchange={onchangedescription} />
                 </div>
@@ -267,13 +268,13 @@ impl Component for EditIndex {
                     <input type="text" disabled={ctx.props().pending} value={self.help.clone()} onchange={onchangehelp} />
                     <>{help_error}</>
                 </div>
-                <div class="block row row-spaced">
-                    <button class="btn" disabled={ctx.props().pending} onclick={oncancel}>{"Cancel"}</button>
+                <div class={classes!(class::BLOCK, class::ROW, class::ROW_SPACED)}>
+                    <button class={class::BTN} disabled={ctx.props().pending} onclick={oncancel}>{"Cancel"}</button>
 
-                    <div class="row row-end row-spaced">
+                    <div class={classes!(class::ROW, class::ROW_END, class::ROW_SPACED)}>
                         {delete}
                         {update}
-                        <button class="btn btn-primary" disabled={ctx.props().pending} onclick={onsave}>{"Save"}</button>
+                        <button class={classes!(class::BTN, class::BTN_PRIMARY)} disabled={ctx.props().pending} onclick={onsave}>{"Save"}</button>
                     </div>
                 </div>
             </div>

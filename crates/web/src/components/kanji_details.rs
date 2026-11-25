@@ -1,3 +1,4 @@
+use crate::class;
 use std::rc::Rc;
 
 use lib::api;
@@ -99,8 +100,8 @@ impl Component for KanjiDetails {
             });
 
             html! {
-                <div class="block block-lg row row-spaced">
-                    <button class="btn btn-lg" onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
+                <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW, class::ROW_SPACED)}>
+                    <button class={classes!(class::BTN, class::BTN_LG)} onclick={ctx.props().onback.reform(|_| ())}>{"Back"}</button>
                     {for pending}
                 </div>
             }
@@ -113,12 +114,12 @@ impl Component for KanjiDetails {
                         let literal = literal.clone();
                         move |_| literal.clone()
                     });
-                    html! {<><span class="text highlight"><a onclick={onclick.clone()}>{literal.clone()}</a></span>{not_last.then(comma)}</>}
+                    html! {<><span class={class::TEXT}><a onclick={onclick.clone()}>{literal.clone()}</a></span>{not_last.then(comma)}</>}
                 });
 
                 html! {
-                    <div class="block block-lg row">
-                        <span class="highlight clickable">{"Radicals:"}{spacing()}</span>
+                    <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW)}>
+                        <span class={class::CLICKABLE}>{"Radicals:"}{spacing()}</span>
 
                         {for radicals}
                     </div>
@@ -127,12 +128,12 @@ impl Component for KanjiDetails {
 
             let strokes = (!kanji.kanji.misc.stroke_counts.is_empty()).then(|| {
                 let strokes = seq(&kanji.kanji.misc.stroke_counts, |strokes, not_last| {
-                    html! {<><span class="text highlight">{strokes}</span>{not_last.then(comma)}</>}
+                    html! {<><span class={class::TEXT}>{strokes}</span>{not_last.then(comma)}</>}
                 });
 
                 html! {
-                    <div class="block block-lg row">
-                        <span class="highlight clickable">{"Strokes:"}{spacing()}</span>
+                    <div class={classes!(class::BLOCK, class::BLOCK_LG, class::ROW)}>
+                        <span class={class::CLICKABLE}>{"Strokes:"}{spacing()}</span>
 
                         {for strokes}
                     </div>
@@ -141,7 +142,7 @@ impl Component for KanjiDetails {
 
             html! {
                 <>
-                    <div class="block block-lg character">
+                    <div class={classes!(class::BLOCK, class::BLOCK_LG, class::CHARACTER)}>
                         <c::Character embed={false} character={kanji.kanji.clone()} />
                         {for strokes}
                         {for radicals}

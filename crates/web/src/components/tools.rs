@@ -1,19 +1,15 @@
+use crate::class;
 use std::array;
 use std::iter;
 
 use yew::prelude::*;
 
 macro_rules! bullets {
-    ($ctx:expr, $base:ident . $name:ident $(, $($tt:tt)*)?) => {{
+    ($ctx:expr, $base:ident . $name:ident $(, $extra:expr)?) => {{
         let onclick = $ctx.link().callback(Msg::AddTag);
 
         $base.$name.iter().map(move |d| {
-            let class = classes! {
-                "bullet",
-                stringify!($name),
-                format!("{}-{}", stringify!($name), d.ident()),
-                $($($tt)*)*
-            };
+            let class = classes!($crate::class::BULLET, $($extra)?);
 
             let ident = d.ident();
             let onclick = onclick.reform(move |_| ident);
@@ -40,16 +36,16 @@ where
 }
 
 pub(super) fn comma() -> Html {
-    html!(<><span class="sep">{","}</span>{spacing()}</>)
+    html!(<><span class={class::SEP}>{","}</span>{spacing()}</>)
 }
 
 pub(super) fn colon() -> Html {
-    html!(<span class="sep">{":"}</span>)
+    html!(<span class={class::SEP}>{":"}</span>)
 }
 
 /// A simple spacing to insert between elements.
 pub(super) fn spacing() -> Html {
-    html!(<span class="sep">{" "}</span>)
+    html!(<span class={class::SEP}>{" "}</span>)
 }
 
 /// Render the given iterator if it has at least one element. Else returns

@@ -1,3 +1,4 @@
+use crate::class;
 use lib::{jmnedict, kana};
 use yew::prelude::*;
 
@@ -41,8 +42,8 @@ impl Component for Name {
         let entries = if entry.kanji.is_empty() {
             let it = entry.reading.iter().map(|reading| {
                 html! {
-                    <div class="block">
-                        <span class="text kanji highlight">{&reading.text}</span>
+                    <div class={class::BLOCK}>
+                        <span class={classes!(class::TEXT, class::KANJI)}>{&reading.text}</span>
                     </div>
                 }
             });
@@ -59,7 +60,7 @@ impl Component for Name {
                     });
 
                     html! {
-                        <a class="text kanji highlight" title={romaji(furigana)} {onclick}>{ruby(furigana)}</a>
+                        <a class={classes!(class::TEXT, class::KANJI)} title={romaji(furigana)} {onclick}>{ruby(furigana)}</a>
                     }
                 })
             });
@@ -72,10 +73,10 @@ impl Component for Name {
             html!({for it})
         };
 
-        let bullets = bullets!(ctx, entry.name_types, "sm");
+        let bullets = bullets!(ctx, entry.name_types, class::SM);
 
         html! {
-            <span class="row">
+            <span class={class::ROW}>
                 {entries}
                 {for bullets}
             </span>
