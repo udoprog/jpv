@@ -29,6 +29,14 @@ dest = "usr/share/gnome-shell/extensions/jpv@tedro.se/"
 source = "gnome/jpv@tedro.se/schemas/*"
 dest = "usr/share/gnome-shell/extensions/jpv@tedro.se/schemas/"
 
+[[package.files]]
+source = "kde/se.tedro.JapaneseDictionary/metadata.json"
+dest = "usr/share/plasma/plasmoids/se.tedro.JapaneseDictionary/"
+
+[[package.files]]
+source = "kde/se.tedro.JapaneseDictionary/contents/ui/*.qml"
+dest = "usr/share/plasma/plasmoids/se.tedro.JapaneseDictionary/contents/ui/"
+
 [package.rpm]
 requires = [
     { package = "tesseract-langpack-jpn" }

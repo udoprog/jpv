@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "udoprog@tedro.se",
+                "Name": "John-John Tedro"
+            }
+        ],
+        "Category": "Utilities",
+        "Description": "Japanese Dictionary by John-John Tedro",
+        "Icon": "se.tedro.JapaneseDictionary",
+        "Id": "se.tedro.JapaneseDictionary",
+        "License": "MIT OR Apache-2.0",
+        "Name": "Japanese Dictionary",
+        "Version": "1.0",
+        "Website": "https://github.com/udoprog/jpv"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

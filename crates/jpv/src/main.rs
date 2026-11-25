@@ -14,8 +14,8 @@
 //! * Paste a conjugated word and jpv works out its dictionary form and how it was
 //!   inflected.
 //! * Kanji details: readings, meanings and stroke counts.
-//! * Clipboard capture, including OCR of screenshots through [tesseract], and a
-//!   GNOME extension to feed it.
+//! * Clipboard capture, including OCR of screenshots through [tesseract], with a
+//!   GNOME extension and a KDE Plasma widget to control it.
 //! * Fully offline once the dictionary is built, and quick to start: the database
 //!   is memory mapped.
 //! * Light and dark themes, and an interface in English or Japanese.
@@ -63,12 +63,12 @@
 //! language data are installed. `jpv update` later replaces the binary with the
 //! latest release.
 //!
-//! On Linux, `jpv install` then adds a desktop entry, D-Bus activation and the
-//! GNOME extension for your user, under `~/.local/share`. `jpv uninstall`
-//! removes them again.
+//! On Linux, `jpv install` then adds a desktop entry, D-Bus activation, the
+//! GNOME extension and the KDE Plasma widget for your user, under
+//! `~/.local/share`. `jpv uninstall` removes them again.
 //!
-//! * **Fedora:** the RPM from the [releases] includes OCR, the desktop entry and
-//!   GNOME integration.
+//! * **Fedora:** the RPM from the [releases] includes OCR, the desktop entry, and
+//!   GNOME and KDE Plasma integration.
 //! * **Windows:** use the MSI from the [releases].
 //!
 //! [releases]: https://github.com/udoprog/jpv/releases
@@ -145,6 +145,16 @@
 //!
 //! <br>
 //!
+//! ## KDE Plasma widget
+//!
+//! On KDE Plasma the service captures the clipboard itself (see below), and jpv
+//! ships a Plasma 6 widget to control it. Install it with `jpv install` (the
+//! Fedora RPM already includes it), then add "Japanese Dictionary" to a panel
+//! through "Add or Manage Widgets…". Its popup opens the dictionary and has a
+//! "Capture clipboard" switch, and its icon turns red while capture is on.
+//!
+//! <br>
+//!
 //! ## Clipboard capture on other Wayland desktops
 //!
 //! Built with the `wayland` feature, the service watches the clipboard itself on
@@ -175,8 +185,8 @@
 //! * `memmap` (default, Unix only) loads the database through memory maps.
 //! * `reqwest` (default) lets `jpv build` download the dictionary sources.
 //! * `bundle` embeds the web interface in the binary. Release builds use it.
-//! * `dbus` lets the service talk over D-Bus, for D-Bus activation and the GNOME
-//!   extension.
+//! * `dbus` lets the service talk over D-Bus, for D-Bus activation, the GNOME
+//!   extension and the KDE Plasma widget.
 //! * `gnome` enables GNOME desktop integration: `dbus`, plus `gio` to open the
 //!   browser.
 //! * `wayland` (Linux) lets the service capture the clipboard by itself on
@@ -220,25 +230,25 @@
 //! ![Additional language data](https://github.com/udoprog/jpv/blob/main/gfx/tesseract-ocr-japanese.png?raw=true)
 //!
 //! Then build the interface and run jpv from the project directory, adding
-//! `gnome` on Linux for desktop integration:
+//! `gnome` and `wayland` on Linux for desktop integration:
 //!
 //! ```sh
 //! trug build --release
-//! cargo run --features bundle,gnome
+//! cargo run --features bundle,gnome,wayland
 //! ```
 //!
 //! Or install it:
 //!
 //! ```sh
-//! cargo install --path crates/jpv --features bundle,gnome
+//! cargo install --path crates/jpv --features bundle,gnome,wayland
 //! ```
 //!
-//! To build and install an RPM for Fedora GNOME, run [tools/fedora-install], or
-//! by hand:
+//! To build and install an RPM for Fedora, run [tools/fedora-install], or by
+//! hand:
 //!
 //! ```sh
 //! trug build --release
-//! cargo build --release -p jpv --features bundle,gnome
+//! cargo build --release -p jpv --features bundle,gnome,wayland
 //! cargo generate-rpm -p crates/jpv
 //! sudo dnf install target/generate-rpm/jpv-*.rpm
 //! ```
@@ -292,7 +302,7 @@ enum Command {
     SendClipboard(command::send_clipboard::SendClipboardArgs),
     /// Build the dictionary database. This must be performed before the cli or service can be used.
     Build(command::build::BuildArgs),
-    /// Install the desktop entry, D-Bus service and GNOME extension for the current user (Linux).
+    /// Install the desktop entry, D-Bus service, GNOME extension and KDE Plasma widget for the current user (Linux).
     Install(command::install::InstallArgs),
     /// Remove what `jpv install` installed.
     Uninstall(command::install::UninstallArgs),

@@ -88,6 +88,8 @@ assets = [
     { source = "gnome/jpv@tedro.se/*.json", dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/", mode = "644" },
     { source = "gnome/jpv@tedro.se/*.css", dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/", mode = "644" },
     { source = "gnome/jpv@tedro.se/schemas/*", dest = "/usr/share/gnome-shell/extensions/jpv@tedro.se/schemas/", mode = "644" },
+    { source = "kde/se.tedro.JapaneseDictionary/metadata.json", dest = "/usr/share/plasma/plasmoids/se.tedro.JapaneseDictionary/", mode = "644" },
+    { source = "kde/se.tedro.JapaneseDictionary/contents/ui/*.qml", dest = "/usr/share/plasma/plasmoids/se.tedro.JapaneseDictionary/contents/ui/", mode = "644" },
 ]
 
 [package.metadata.generate-rpm.requires]

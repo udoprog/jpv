@@ -3,7 +3,7 @@
 set -e
 
 trug build --release
-cargo build --release --features gnome,bundle -p jpv
+cargo build --release --features gnome,bundle,wayland -p jpv
 rm -f target/generate-rpm/jpv-*.rpm
 cargo generate-rpm -p crates/jpv
 sudo dnf reinstall --assumeyes target/generate-rpm/jpv-*.rpm

@@ -59,7 +59,7 @@ jobs:
     - uses: udoprog/actions@kick
     - run: kick define --github-action
       id: release
-    - run: cargo build --release --features gnome,bundle -p jpv
+    - run: cargo build --release --features gnome,bundle,wayland -p jpv
       env:
         JPV_VERSION: ${{steps.release.outputs.version}}
     - run: kick rpm --append fc${{matrix.fedora}} --output dist
@@ -79,7 +79,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - {os: ubuntu-latest, features: "reqwest,memmap,gnome,bundle"}
+        - {os: ubuntu-latest, features: "reqwest,memmap,gnome,bundle,wayland"}
         - {os: macos-latest, features: "reqwest,memmap,bundle"}
     steps:
     - uses: actions/checkout@v7
