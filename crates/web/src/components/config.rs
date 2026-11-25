@@ -47,6 +47,7 @@ struct State {
 
 pub(crate) struct Config {
     pending: bool,
+    error: Option<String>,
     state: Option<State>,
     installed: HashSet<String>,
     missing_ocr: Option<api::MissingOcr>,
@@ -71,6 +72,7 @@ impl Component for Config {
 
         Self {
             pending: true,
+            error: None,
             state: None,
             installed: HashSet::new(),
             missing_ocr: None,
@@ -92,6 +94,7 @@ impl Component for Config {
                 self.installed = result.installed;
                 self.missing_ocr = result.missing_ocr;
                 self.pending = false;
+                self.error = None;
             }
             Msg::Toggle(id) => {
                 if let Some(state) = self.state.as_mut() {
@@ -155,6 +158,7 @@ impl Component for Config {
                     let update_indexes = self.update_indexes.iter().cloned().collect();
 
                     self.pending = true;
+                    self.error = None;
 
                     self.request = ctx.props().ws.request(
                         api::UpdateConfigRequest {
@@ -182,6 +186,7 @@ impl Component for Config {
             }
             Msg::InstallAll => {
                 self.pending = true;
+                self.error = None;
 
                 self.request = ctx.props().ws.request(
                     api::InstallAllRequest,
@@ -196,6 +201,7 @@ impl Component for Config {
             }
             Msg::Error(error) => {
                 log::error!("{}", error);
+                self.error = Some(error.to_string());
                 self.pending = false;
             }
         }
@@ -415,6 +421,12 @@ impl Component for Config {
             }
         });
 
+        let error = self.error.as_ref().map(|error| {
+            html! {
+                <div class="block block-lg block-danger">{error}</div>
+            }
+        });
+
         html! {
             <>
                 <div class="block block-lg row row-spaced">
@@ -423,6 +435,7 @@ impl Component for Config {
                 </div>
 
                 {pending}
+                {error}
 
                 <h5>{"Dictionaries"}</h5>
                 <div class="block block-lg">{dictionaries}</div>

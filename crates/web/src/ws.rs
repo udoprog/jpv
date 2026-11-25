@@ -39,6 +39,9 @@ pub struct Service<C> {
     opened: Option<Opened>,
     state: State,
     buffer: Vec<(api::OwnedClientRequestEnvelope, Vec<u8>)>,
+    /// Requests sent over the current socket which have not been answered,
+    /// as `(index, serial)`. They are failed if the socket closes.
+    in_flight: Vec<(usize, u32)>,
     output: Vec<u8>,
     timeout: u32,
     on_open: Closure<dyn Fn()>,
@@ -110,6 +113,7 @@ where
             opened: None,
             state: State::Closed,
             buffer: Vec::new(),
+            in_flight: Vec::new(),
             output: Vec::new(),
             timeout: INITIAL_TIMEOUT,
             on_open,
@@ -126,6 +130,21 @@ where
         (this, handle)
     }
 
+    /// Send a client request, failing it through its callback if it could
+    /// not be sent.
+    fn send_request(&mut self, message: api::OwnedClientRequestEnvelope, body: Vec<u8>) {
+        let (index, serial) = (message.index, message.serial);
+
+        match self.send_message(message, body) {
+            Ok(()) => {
+                self.in_flight.push((index, serial));
+            }
+            Err(error) => {
+                self.shared.fail(index, serial, error);
+            }
+        }
+    }
+
     /// Send a client message.
     fn send_message(
         &mut self,
@@ -136,11 +155,26 @@ where
             return Err(anyhow!("Socket is not connected").into());
         };
 
+        self.output.clear();
         musli::storage::to_writer(&mut self.output, &message)?;
         self.output.extend(body.as_slice());
         socket.send_with_u8_array(&self.output)?;
         self.output.clear();
         Ok(())
+    }
+
+    /// Fail every request which was sent over the socket but never answered.
+    ///
+    /// They are not re-sent on reconnect, since not every request is
+    /// idempotent (`update-config`, `install-all`).
+    fn fail_in_flight(&mut self) {
+        for (index, serial) in take(&mut self.in_flight) {
+            self.shared.fail(
+                index,
+                serial,
+                anyhow!("Connection to the service was lost before it answered").into(),
+            );
+        }
     }
 
     fn set_open(&mut self) {
@@ -184,6 +218,7 @@ where
         }
 
         self.opened = None;
+        self.fail_in_flight();
         self.reconnect(ctx);
         self.emit_state_change(State::Closed);
     }
@@ -214,9 +249,7 @@ where
                 let buffer = take(&mut self.buffer);
 
                 for (message, body) in buffer {
-                    if let Err(error) = self.send_message(message, body) {
-                        ctx.link().send_message(error);
-                    }
+                    self.send_request(message, body);
                 }
             }
             Msg::Close(e) => {
@@ -264,6 +297,10 @@ where
                             response.serial
                         );
 
+                        self.in_flight.retain(|&(index, serial)| {
+                            index != response.index || serial != response.serial
+                        });
+
                         let requests = self.shared.requests.borrow();
 
                         let Some(pending) = requests.get(response.index) else {
@@ -295,9 +332,7 @@ where
                     return;
                 }
 
-                if let Err(error) = self.send_message(request, body) {
-                    ctx.link().send_message(error);
-                }
+                self.send_request(request, body);
             }
         }
     }
@@ -307,6 +342,8 @@ where
         C::Message: From<Error>,
     {
         if let Some(old) = self.socket.take() {
+            detach(&old);
+
             if let Err(error) = old.close() {
                 ctx.link().send_message(Error::from(error));
             }
@@ -345,11 +382,21 @@ where
         ws.set_onerror(Some(self.on_error.as_ref().unchecked_ref()));
 
         if let Some(old) = self.socket.replace(ws) {
+            detach(&old);
             old.close()?;
         }
 
         Ok(())
     }
+}
+
+/// Remove our handlers from a socket we are discarding, so that its late
+/// `close` or `error` events are not taken for the current socket's.
+fn detach(ws: &WebSocket) {
+    ws.set_onopen(None);
+    ws.set_onclose(None);
+    ws.set_onmessage(None);
+    ws.set_onerror(None);
 }
 
 fn now() -> Option<f64> {
@@ -432,6 +479,23 @@ struct Shared {
 #[derive(Clone)]
 pub(crate) struct Handle {
     shared: Rc<Shared>,
+}
+
+impl Shared {
+    /// Fail the request at `index` with `error`, unless it has since been
+    /// dropped or its slot reused by another request.
+    fn fail(&self, index: usize, serial: u32, error: Error) {
+        let callback = {
+            let requests = self.requests.borrow();
+
+            match requests.get(index) {
+                Some(pending) if pending.serial == serial => pending.callback.clone(),
+                _ => return,
+            }
+        };
+
+        callback.emit(Err(error));
+    }
 }
 
 impl Handle {
