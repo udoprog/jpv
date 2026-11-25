@@ -9,6 +9,18 @@ cancel = キャンセル
 language = 言語
 language-option = { $native }（{ $english }）
 
+gloss-language = 語義の言語
+gloss-language-hint = この言語の語義がない見出しは英語の語義を表示します。
+gloss-language-eng = 英語
+gloss-language-dut = オランダ語
+gloss-language-fre = フランス語
+gloss-language-ger = ドイツ語
+gloss-language-hun = ハンガリー語
+gloss-language-rus = ロシア語
+gloss-language-slv = スロベニア語
+gloss-language-spa = スペイン語
+gloss-language-swe = スウェーデン語
+
 index-id = ID
 index-id-hint = 辞書の一意な識別子。[a-z]、[A-Z]、[0-9] のみ使用できます。
 index-id-invalid = [a-z]、[A-Z]、[0-9] からなる空でない文字列にしてください。

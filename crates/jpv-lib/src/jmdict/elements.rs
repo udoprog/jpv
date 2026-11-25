@@ -79,6 +79,21 @@ impl Entry<'_> {
         buf.clear();
     }
 
+    /// Keep only the senses whose glosses are in `lang`, a JMdict ISO 639-2
+    /// code such as `ger`. When the entry has none in it, the English senses
+    /// are kept instead, and when it has neither, every sense is.
+    pub fn retain_lang(&mut self, lang: &str) {
+        let lang = if self.senses.iter().any(|s| s.is_lang(lang)) {
+            lang
+        } else if self.senses.iter().any(|s| s.is_lang(DEFAULT_LANGUAGE)) {
+            DEFAULT_LANGUAGE
+        } else {
+            return;
+        };
+
+        self.senses.retain(|s| s.is_lang(lang));
+    }
+
     /// Entry weight.
     pub fn weight(&self, input: &str, conjugation: bool) -> Weight {
         // Boost based on exact query.

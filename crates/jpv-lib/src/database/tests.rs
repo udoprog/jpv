@@ -456,3 +456,36 @@ fn build_merges_multilingual_glosses() -> Result<()> {
     assert!(db.search("Katze")?.phrases.is_empty());
     Ok(())
 }
+
+#[test]
+fn retain_lang_falls_back_to_english() -> Result<()> {
+    let (_temp, db) = open_jmdict_with(JMDICT_EXAMP, Some(JMDICT_MULTILINGUAL))?;
+    let cat = db.search("猫")?;
+    let eat = db.search("食べる")?;
+
+    let glosses = |entry: &crate::jmdict::Entry<'_>, lang: &str| {
+        let mut entry = entry.clone();
+        entry.retain_lang(lang);
+        entry
+            .senses
+            .iter()
+            .map(|s| {
+                s.gloss
+                    .iter()
+                    .map(|g| g.text.to_owned())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let cat = &cat.phrases[0].1;
+    let eat = &eat.phrases[0].1;
+
+    assert_eq!(glosses(cat, "ger"), [vec!["Katze", "Hauskatze"]]);
+    assert_eq!(glosses(cat, "swe"), [vec!["katt"]]);
+    assert_eq!(glosses(cat, "eng"), [vec!["cat"], vec!["shamisen"]]);
+    // No French senses, so the English ones are kept.
+    assert_eq!(glosses(cat, "fre"), [vec!["cat"], vec!["shamisen"]]);
+    assert_eq!(glosses(eat, "ger"), [vec!["to eat"]]);
+    Ok(())
+}

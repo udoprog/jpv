@@ -34,6 +34,12 @@ impl Request for AnalyzeRequest {
 #[derive(Debug, Encode, Decode, Deserialize)]
 pub struct SearchRequest {
     pub q: String,
+    /// The gloss language as a JMdict ISO 639-2 code, such as `ger`. Phrases
+    /// keep only their senses in it, or their English ones when they have
+    /// none in it. English when left out.
+    #[serde(default)]
+    #[musli(default)]
+    pub lang: Option<String>,
 }
 
 impl Request for SearchRequest {

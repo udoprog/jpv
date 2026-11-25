@@ -10,6 +10,19 @@ cancel = Cancel
 language = Language
 language-option = { $native } ({ $english })
 
+# The gloss language picker.
+gloss-language = Gloss language
+gloss-language-hint = Entries without glosses in this language show their English ones.
+gloss-language-eng = English
+gloss-language-dut = Dutch
+gloss-language-fre = French
+gloss-language-ger = German
+gloss-language-hun = Hungarian
+gloss-language-rus = Russian
+gloss-language-slv = Slovenian
+gloss-language-spa = Spanish
+gloss-language-swe = Swedish
+
 # Editing a dictionary.
 index-id = Id
 index-id-hint = The unique identifier of the dictionary, must only contain [a-z], [A-Z], and [0-9].

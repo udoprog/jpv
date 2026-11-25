@@ -434,6 +434,7 @@ impl Component for Config {
                 {error}
 
                 <c::LanguagePicker />
+                <c::GlossLanguagePicker />
 
                 <sockel::Stack gap={sockel::Gap::Tight}>
                     <h5>{phrases.text("theme")}</h5>

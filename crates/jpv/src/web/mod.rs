@@ -174,7 +174,11 @@ async fn handle_search_request(
     let mut phrases = Vec::new();
     let mut names = Vec::new();
 
-    for (key, phrase) in search.phrases {
+    let lang = request.lang.as_deref().unwrap_or("eng");
+
+    for (key, mut phrase) in search.phrases {
+        phrase.retain_lang(lang);
+
         phrases.push(api::OwnedSearchPhrase {
             key,
             phrase: lib::to_owned(phrase),

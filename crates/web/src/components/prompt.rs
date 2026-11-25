@@ -25,7 +25,7 @@ use yew_router::{prelude::*, AnyRoute};
 use crate::c;
 use crate::class;
 use crate::error::Error;
-use crate::l10n;
+use crate::l10n::{self, GlossLang};
 use crate::query::{Mode, Query, Tab};
 use crate::ws;
 
@@ -65,6 +65,7 @@ pub(crate) enum Msg {
     StateChange(ws::State),
     Error(Error),
     Phrases(Phrases),
+    GlossLang(GlossLang),
 }
 
 impl From<api::OwnedBroadcastKind> for Msg {
@@ -105,6 +106,8 @@ pub(crate) struct Prompt {
     get_config: Option<ws::Request>,
     is_open: bool,
     l10n: PhrasesContext,
+    gloss: &'static str,
+    _gloss_handle: Option<ContextHandle<GlossLang>>,
     _callback: Closure<dyn FnMut(MessageEvent)>,
     _location_handle: Option<LocationHandle>,
     _listener: ws::Listener,
@@ -144,6 +147,11 @@ impl Component for Prompt {
         let listener = ctx.props().ws.listen(ctx);
         let state_changes = ctx.props().ws.state_changes(ctx);
 
+        let (gloss, gloss_handle) = match ctx.link().context(ctx.link().callback(Msg::GlossLang)) {
+            Some((gloss, handle)) => (gloss.code, Some(handle)),
+            None => (l10n::GLOSS_DEFAULT, None),
+        };
+
         let mut this = Self {
             query,
             phrases: Vec::default(),
@@ -161,6 +169,8 @@ impl Component for Prompt {
             get_config: None,
             is_open: false,
             l10n: PhrasesContext::new(ctx.link(), ctx.link().callback(Msg::Phrases)),
+            gloss,
+            _gloss_handle: gloss_handle,
             _callback: callback,
             _location_handle: location_handle,
             _listener: listener,
@@ -421,6 +431,14 @@ impl Component for Prompt {
                 false
             }
             Msg::Phrases(phrases) => self.l10n.set(phrases),
+            Msg::GlossLang(gloss) => {
+                if gloss.code != self.gloss {
+                    self.gloss = gloss.code;
+                    self.search(ctx);
+                }
+
+                false
+            }
         }
     }
 
@@ -1051,7 +1069,10 @@ impl Prompt {
         let text = text.to_lowercase();
 
         self.pending_search = ctx.props().ws.request(
-            api::SearchRequest { q: text },
+            api::SearchRequest {
+                q: text,
+                lang: Some(self.gloss.to_owned()),
+            },
             ctx.link().callback(|result| match result {
                 Ok(response) => Msg::SearchResponse(response),
                 Err(error) => Msg::Error(error),

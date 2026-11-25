@@ -129,14 +129,35 @@ fn Root() -> Html {
         }
     });
 
+    // The chosen gloss language, or none to follow the UI's language.
+    let chosen_gloss = use_state(l10n::stored_gloss);
+
+    let set_gloss = use_memo((), {
+        let chosen_gloss = chosen_gloss.clone();
+
+        move |_| {
+            Callback::from(move |code: &'static str| {
+                l10n::store_gloss(code);
+                chosen_gloss.set(Some(code));
+            })
+        }
+    });
+
+    let gloss = l10n::GlossLang {
+        code: chosen_gloss.unwrap_or_else(|| l10n::gloss_for(phrases.lang())),
+        set: (*set_gloss).clone(),
+    };
+
     html! {
         <ContextProvider<Phrases> context={(*phrases).clone()}>
             <ContextProvider<l10n::SetLang> context={(*set_lang).clone()}>
-                <sockel::OverlayHost>
-                    <sockel::Styles css={STYLESHEET} />
-                    <sockel::DataTips />
-                    <App />
-                </sockel::OverlayHost>
+                <ContextProvider<l10n::GlossLang> context={gloss}>
+                    <sockel::OverlayHost>
+                        <sockel::Styles css={STYLESHEET} />
+                        <sockel::DataTips />
+                        <App />
+                    </sockel::OverlayHost>
+                </ContextProvider<l10n::GlossLang>>
             </ContextProvider<l10n::SetLang>>
         </ContextProvider<Phrases>>
     }

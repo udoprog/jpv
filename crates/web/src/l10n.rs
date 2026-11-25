@@ -36,6 +36,65 @@ pub(crate) fn phrasebook() -> Phrasebook {
 #[derive(Clone, PartialEq)]
 pub(crate) struct SetLang(pub(crate) Callback<Lang>);
 
+/// The gloss languages JMdict has, as its ISO 639-2 codes, each with the
+/// primary subtag of the UI language that defaults to it, in picker order.
+pub(crate) const GLOSS_LANGUAGES: &[(&str, &str)] = &[
+    ("eng", "en"),
+    ("dut", "nl"),
+    ("fre", "fr"),
+    ("ger", "de"),
+    ("hun", "hu"),
+    ("rus", "ru"),
+    ("slv", "sl"),
+    ("spa", "es"),
+    ("swe", "sv"),
+];
+
+/// English, the gloss language every entry has.
+pub(crate) const GLOSS_DEFAULT: &str = "eng";
+
+const GLOSS_KEY: &str = "jpv-gloss-lang";
+
+/// The gloss language that goes with a UI language, English when JMdict has
+/// none in it.
+pub(crate) fn gloss_for(lang: Lang) -> &'static str {
+    GLOSS_LANGUAGES
+        .iter()
+        .find(|(_, ui)| *ui == lang.language())
+        .map_or(GLOSS_DEFAULT, |(code, _)| *code)
+}
+
+/// The gloss language chosen in this browser, if any.
+pub(crate) fn stored_gloss() -> Option<&'static str> {
+    let value = web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+        .and_then(|s| s.get_item(GLOSS_KEY).ok().flatten())?;
+
+    GLOSS_LANGUAGES
+        .iter()
+        .find(|(code, _)| *code == value)
+        .map(|(code, _)| *code)
+}
+
+/// Remembers the gloss language in this browser.
+pub(crate) fn store_gloss(code: &str) {
+    let Some(storage) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) else {
+        return;
+    };
+
+    if let Err(error) = storage.set_item(GLOSS_KEY, code) {
+        log::warn!("Failed to store gloss language: {error:?}");
+    }
+}
+
+/// The gloss language glosses are shown in, and what changes it, provided by
+/// the root next to [`Phrases`].
+#[derive(Clone, PartialEq)]
+pub(crate) struct GlossLang {
+    pub(crate) code: &'static str,
+    pub(crate) set: Callback<&'static str>,
+}
+
 /// A language as the picker shows it: its name in itself, and koine's
 /// English name of it when that differs.
 pub(crate) fn language_label(phrases: &Phrases, lang: Lang, native: &str) -> String {
@@ -185,5 +244,13 @@ mod tests {
             assert!(koine03::is_known(lang), "{lang} is not known to koine");
             assert!(koine03::name(lang).is_some());
         }
+    }
+
+    #[test]
+    fn gloss_defaults_from_ui_language() {
+        assert_eq!(gloss_for(Lang::EN_US), "eng");
+        assert_eq!(gloss_for(JA), "eng");
+        assert_eq!(gloss_for(Lang::new("de-AT")), "ger");
+        assert_eq!(gloss_for(Lang::new("sv")), "swe");
     }
 }
