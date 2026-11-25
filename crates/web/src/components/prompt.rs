@@ -56,7 +56,8 @@ pub(crate) enum Msg {
     AnalyzeCycle,
     HistoryChanged(Location),
     GetConfig(api::GetConfigResult),
-    SearchResponse(api::OwnedSearchResponse),
+    /// A search's results and the gloss language they were asked in.
+    SearchResponse(api::OwnedSearchResponse, &'static str),
     AnalyzeResponse(api::OwnedAnalyzeResponse),
     MoreEntries,
     MoreCharacters,
@@ -92,6 +93,8 @@ impl From<Error> for Msg {
 pub(crate) struct Prompt {
     query: Query,
     phrases: Vec<api::OwnedSearchPhrase>,
+    /// The gloss language `phrases` were searched in.
+    phrases_gloss: &'static str,
     names: Vec<api::OwnedSearchName>,
     limit_entries: usize,
     characters: Vec<kanjidic2::OwnedCharacter>,
@@ -155,6 +158,7 @@ impl Component for Prompt {
         let mut this = Self {
             query,
             phrases: Vec::default(),
+            phrases_gloss: gloss,
             names: Vec::default(),
             limit_entries: DEFAULT_LIMIT,
             characters: Vec::default(),
@@ -223,8 +227,9 @@ impl Component for Prompt {
 
                 any
             }
-            Msg::SearchResponse(response) => {
+            Msg::SearchResponse(response, gloss) => {
                 self.phrases = response.phrases;
+                self.phrases_gloss = gloss;
                 self.names = response.names;
                 self.phrases.sort_by_key(|a| a.key.weight);
                 self.names.sort_by_key(|a| a.key.weight);
@@ -480,7 +485,8 @@ impl Component for Prompt {
 
                 let ontag = ctx.link().callback(Msg::AddTag);
                 let onpriority = ctx.link().callback(Msg::AddPriority);
-                html!(<c::Entry embed={self.query.embed} sources={e.key.sources.clone()} {entry} {onchange} {ontag} {onpriority} />)
+                let gloss = self.phrases_gloss;
+                html!(<c::Entry embed={self.query.embed} sources={e.key.sources.clone()} {entry} {gloss} {onchange} {ontag} {onpriority} />)
             });
 
             let phrases = seq(phrases, |entry, not_last| {
@@ -1068,13 +1074,15 @@ impl Prompt {
 
         let text = text.to_lowercase();
 
+        let gloss = self.gloss;
+
         self.pending_search = ctx.props().ws.request(
             api::SearchRequest {
                 q: text,
-                lang: Some(self.gloss.to_owned()),
+                lang: Some(gloss.to_owned()),
             },
-            ctx.link().callback(|result| match result {
-                Ok(response) => Msg::SearchResponse(response),
+            ctx.link().callback(move |result| match result {
+                Ok(response) => Msg::SearchResponse(response, gloss),
                 Err(error) => Msg::Error(error),
             }),
         );

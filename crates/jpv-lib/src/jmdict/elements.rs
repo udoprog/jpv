@@ -79,19 +79,27 @@ impl Entry<'_> {
         buf.clear();
     }
 
-    /// Keep only the senses whose glosses are in `lang`, a JMdict ISO 639-2
-    /// code such as `ger`. When the entry has none in it, the English senses
-    /// are kept instead, and when it has neither, every sense is.
+    /// Keep the senses whose glosses are in `lang`, a JMdict ISO 639-2 code
+    /// such as `ger`, followed by every English sense, since only those carry
+    /// part of speech, tags and examples. When the entry has nothing in
+    /// `lang`, or `lang` is English, only the English senses are kept, and
+    /// when it has neither, every sense is.
     pub fn retain_lang(&mut self, lang: &str) {
-        let lang = if self.senses.iter().any(|s| s.is_lang(lang)) {
-            lang
-        } else if self.senses.iter().any(|s| s.is_lang(DEFAULT_LANGUAGE)) {
-            DEFAULT_LANGUAGE
-        } else {
-            return;
-        };
+        let has_lang = lang != DEFAULT_LANGUAGE && self.senses.iter().any(|s| s.is_lang(lang));
 
-        self.senses.retain(|s| s.is_lang(lang));
+        if !has_lang {
+            if self.senses.iter().any(|s| s.is_lang(DEFAULT_LANGUAGE)) {
+                self.senses.retain(|s| s.is_lang(DEFAULT_LANGUAGE));
+            }
+
+            return;
+        }
+
+        let senses = core::mem::take(&mut self.senses);
+        let (mut chosen, rest): (Vec<_>, Vec<_>) =
+            senses.into_iter().partition(|s| s.is_lang(lang));
+        chosen.extend(rest.into_iter().filter(|s| s.is_lang(DEFAULT_LANGUAGE)));
+        self.senses = chosen;
     }
 
     /// Entry weight.

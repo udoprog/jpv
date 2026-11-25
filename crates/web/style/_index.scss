@@ -188,6 +188,11 @@ a {
     & > li + li {
         margin-top: var(--space-2);
     }
+
+    // Senses shown after the ones in the chosen gloss language.
+    &.jpv-secondary {
+        color: var(--muted);
+    }
 }
 
 .jpv-inflection-notice {

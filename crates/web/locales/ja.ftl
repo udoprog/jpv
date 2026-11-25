@@ -102,6 +102,7 @@ disable-ocr = ⚙ 無効にする
 entry-other-kana = その他の仮名
 entry-other-kanji = その他の漢字
 entry-applies-to = 適用対象
+entry-english = 英語
 entry-inflection = 活用に基づく結果：
 entry-reset = リセット
 entry-tutorial = 「{ $form }」の解説

@@ -15,6 +15,7 @@ use sockel::Gap;
 use super::{colon, comma, iter, romaji, row, ruby, seq, spacing, tag, tags};
 
 use crate::class;
+use crate::l10n::GLOSS_DEFAULT;
 
 pub(crate) enum Msg {
     ToggleForm(usize, Form),
@@ -82,6 +83,9 @@ pub struct Props {
     pub embed: bool,
     pub sources: BTreeSet<Source>,
     pub entry: jmdict::OwnedEntry,
+    /// The gloss language the entry was searched in, a JMdict ISO 639-2
+    /// code such as `ger`.
+    pub gloss: &'static str,
     pub onchange: Callback<(String, Option<String>), ()>,
     pub ontag: Callback<&'static str>,
     pub onpriority: Callback<Priority>,
@@ -90,7 +94,9 @@ pub struct Props {
 impl PartialEq for Props {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.sources == other.sources && self.entry.sequence == other.entry.sequence
+        self.sources == other.sources
+            && self.entry.sequence == other.entry.sequence
+            && self.gloss == other.gloss
     }
 }
 
@@ -231,9 +237,32 @@ impl Component for Entry {
             },
         );
 
+        // Senses in the chosen gloss language come first, and the English
+        // ones, which carry the tags and examples, are set apart below them.
+        let gloss = ctx.props().gloss;
+        let chosen = gloss != GLOSS_DEFAULT && entry.senses.iter().any(|s| is_lang(s, gloss));
+
+        let (main, english): (Vec<_>, Vec<_>) = if chosen {
+            entry.senses.iter().partition(|s| is_lang(s, gloss))
+        } else {
+            (entry.senses.iter().collect(), Vec::new())
+        };
+
         let senses = iter(
-            entry.senses.iter().map(|s| self.render_sense(ctx, s)),
+            main.into_iter().map(|s| self.render_sense(ctx, s)),
             |iter| html!(<ol class={class::LIST_NUMERICAL}>{for iter}</ol>),
+        );
+
+        let english = iter(
+            english.into_iter().map(|s| self.render_sense(ctx, s)),
+            |iter| {
+                html! {
+                    <sockel::Stack gap={Gap::Snug}>
+                        <span class={class::HINT}>{phrases.text("entry-english")}</span>
+                        <ol class={classes!(class::LIST_NUMERICAL, class::SECONDARY)}>{for iter}</ol>
+                    </sockel::Stack>
+                }
+            },
         );
 
         let sequence = (!ctx.props().embed).then(|| html! {
@@ -247,6 +276,7 @@ impl Component for Entry {
                 {for reading}
                 {for common}
                 {for senses}
+                {for english}
                 {for other_kana}
                 {for other_kanji}
             </sockel::Stack>
@@ -585,4 +615,13 @@ where
             </>
         }
     })
+}
+
+/// Test if any of the sense's glosses are in `lang`, English when a gloss
+/// names none.
+fn is_lang(sense: &OwnedSense, lang: &str) -> bool {
+    sense
+        .gloss
+        .iter()
+        .any(|g| g.lang.as_deref().unwrap_or(GLOSS_DEFAULT) == lang)
 }

@@ -481,8 +481,15 @@ fn retain_lang_falls_back_to_english() -> Result<()> {
     let cat = &cat.phrases[0].1;
     let eat = &eat.phrases[0].1;
 
-    assert_eq!(glosses(cat, "ger"), [vec!["Katze", "Hauskatze"]]);
-    assert_eq!(glosses(cat, "swe"), [vec!["katt"]]);
+    // The chosen language comes first, then every English sense.
+    assert_eq!(
+        glosses(cat, "ger"),
+        [vec!["Katze", "Hauskatze"], vec!["cat"], vec!["shamisen"]]
+    );
+    assert_eq!(
+        glosses(cat, "swe"),
+        [vec!["katt"], vec!["cat"], vec!["shamisen"]]
+    );
     assert_eq!(glosses(cat, "eng"), [vec!["cat"], vec!["shamisen"]]);
     // No French senses, so the English ones are kept.
     assert_eq!(glosses(cat, "fre"), [vec!["cat"], vec!["shamisen"]]);

@@ -113,6 +113,7 @@ disable-ocr = ⚙ Disable
 entry-other-kana = Other kana
 entry-other-kanji = Other kanji
 entry-applies-to = Applies to
+entry-english = English
 entry-inflection = Result based on inflection:
 entry-reset = Reset
 # The inflection's name, such as "Past" (from jpv's inflection list).
