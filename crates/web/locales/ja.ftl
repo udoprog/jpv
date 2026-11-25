@@ -129,20 +129,18 @@ sockel-select-no-match = 一致なし
 sockel-select-close = 閉じる
 sockel-log-view-to-latest = 最新へ移動
 sockel-log-view-new = 新着 { $count } 件
+sockel-file-browser-loading = 読み込み中…
+sockel-file-browser-empty = 何もありません
+sockel-file-browser-location = 場所
+sockel-file-browser-up = 親フォルダー
+sockel-file-browser-hidden = 隠しファイルを表示
+sockel-file-browser-home = ホーム
+sockel-file-browser-documents = ドキュメント
+sockel-file-browser-downloads = ダウンロード
+sockel-file-browser-open = 開く
+sockel-file-browser-cancel = キャンセル
 
 # Background tasks.
 task-cancel = { $task }をキャンセル
 task-cancelling = キャンセル中 ...
 task-cancelled = { $task }はキャンセルされました
-
-# サービス側のマシンでのファイル選択。
-file-browser-location = 場所
-file-browser-up = 親フォルダー
-file-browser-hidden = 隠しファイルを表示
-file-browser-home = ホーム
-file-browser-documents = ドキュメント
-file-browser-downloads = ダウンロード
-file-browser-empty = 何もありません
-file-browser-open = 開く
-file-browser-name = ファイル名
-file-browser-replaces = この名前のファイルは既にあり、置き換えられます。

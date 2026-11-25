@@ -1,12 +1,12 @@
-//! Lists the service's directories for a [`FileBrowser`](super::FileBrowser).
+//! Lists the service's directories for a [`sockel::FileBrowser`].
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use lib::api;
+use sockel::{EntryKind, ListRequest, Listing, ListingEntry, Place, PlaceKind};
 use yew::prelude::*;
 
-use super::file_browser::{EntryKind, ListRequest, Listing, ListingEntry, Place, PlaceKind};
 use crate::ws;
 
 /// A `list` callback for a file browser that asks the service. Only the

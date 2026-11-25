@@ -261,17 +261,3 @@ a {
         width: 100%;
     }
 }
-
-.jpv-file-browser-note {
-    color: var(--muted);
-}
-
-// A file name in a pick row, whose button line height of 1 would cut its
-// descenders and underscores.
-.jpv-file-browser-name {
-    display: block;
-    overflow: hidden;
-    line-height: normal;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}

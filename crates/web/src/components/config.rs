@@ -62,7 +62,7 @@ pub(crate) struct Config {
     update_indexes: HashSet<String>,
     index_add: bool,
     request: ws::Request,
-    lister: Callback<c::ListRequest>,
+    lister: Callback<sockel::ListRequest>,
     l10n: PhrasesContext,
 }
 

@@ -1,10 +1,9 @@
 use lib::config::{ConfigIndex, IndexFormat};
 use phrasebook::yew023::PhrasesContext;
 use phrasebook::Phrases;
+use sockel::ListRequest;
 use url::Url;
 use yew::prelude::*;
-
-use super::file_browser::{FileBrowser, ListRequest};
 
 pub(crate) enum Msg {
     ChangeId(String),
@@ -299,9 +298,9 @@ impl Component for EditIndex {
             let on_dismiss = ctx.link().callback(|()| Msg::Browse(false));
 
             html! {
-                <FileBrowser open={self.browsing} title={phrases.text("index-path-choose")}
+                <sockel::FileBrowser open={self.browsing} title={phrases.text("index-path-choose")}
                     path={self.path.clone()} extensions={vec![AttrValue::from(".gz")]}
-                    list={ctx.props().list.clone()} {on_choose} {on_dismiss} />
+                    list={ctx.props().list.clone()} {on_choose} {on_dismiss} testid="file-browser" />
             }
         };
 

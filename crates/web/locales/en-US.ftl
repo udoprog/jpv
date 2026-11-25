@@ -138,15 +138,3 @@ entry-tutorial-tip = Tutorial for { $form }
 task-cancel = Cancel { $task }
 task-cancelling = Cancelling ...
 task-cancelled = { $task } was cancelled
-
-# Choosing a file on the service's machine.
-file-browser-location = Location
-file-browser-up = Parent directory
-file-browser-hidden = Show hidden files
-file-browser-home = Home
-file-browser-documents = Documents
-file-browser-downloads = Downloads
-file-browser-empty = Nothing here
-file-browser-open = Open
-file-browser-name = File name
-file-browser-replaces = A file with this name exists and will be replaced.
