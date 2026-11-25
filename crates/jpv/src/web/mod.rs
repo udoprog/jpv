@@ -66,8 +66,8 @@ fn common_routes(router: Router) -> Router {
         .route("/api/rebuild", post(rebuild))
         .route("/api/analyze", get(analyze))
         .route("/api/search", get(search))
-        .route("/api/entry/:sequence", get(entry))
-        .route("/api/kanji/:literal", get(kanji))
+        .route("/api/entry/{sequence}", get(entry))
+        .route("/api/kanji/{literal}", get(kanji))
         .route("/ws", get(ws::entry))
 }
 
