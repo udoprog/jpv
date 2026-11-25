@@ -127,6 +127,8 @@ sockel-notice-dismiss = 閉じる
 sockel-select-filter-label = 絞り込み
 sockel-select-no-match = 一致なし
 sockel-select-close = 閉じる
+sockel-dialog-close = 閉じる
+sockel-chip-remove-label = 削除
 sockel-log-view-to-latest = 最新へ移動
 sockel-log-view-new = 新着 { $count } 件
 sockel-file-browser-loading = 読み込み中…
@@ -139,6 +141,9 @@ sockel-file-browser-documents = ドキュメント
 sockel-file-browser-downloads = ダウンロード
 sockel-file-browser-open = 開く
 sockel-file-browser-cancel = キャンセル
+sockel-file-browser-save = 保存
+sockel-file-browser-name = ファイル名
+sockel-file-browser-replaces = 同じ名前のファイルがあり、置き換えられます。
 
 # Background tasks.
 task-cancel = { $task }をキャンセル
