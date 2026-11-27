@@ -58,15 +58,17 @@ fn listing(response: api::ListDirectoryResponse) -> Listing {
         places: response
             .places
             .into_iter()
-            .map(|p| Place {
-                kind: match p.kind {
+            .map(|p| {
+                let kind = match p.kind {
                     api::PlaceKind::Home => PlaceKind::Home,
                     api::PlaceKind::Documents => PlaceKind::Documents,
                     api::PlaceKind::Downloads => PlaceKind::Downloads,
                     api::PlaceKind::Root => PlaceKind::Root,
-                },
-                path: p.path,
+                };
+
+                Place::new(kind, p.path)
             })
             .collect(),
+        notice: None,
     }
 }
