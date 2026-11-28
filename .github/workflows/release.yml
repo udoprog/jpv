@@ -132,6 +132,6 @@ jobs:
     - uses: udoprog/actions@kick
     - uses: actions/download-artifact@v8
       with: {pattern: "dist-*", merge-multiple: true, path: dist}
-    - run: kick github-release --github-action --upload "dist/*"
+    - run: kick gh release --github-action --upload "dist/*"
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
